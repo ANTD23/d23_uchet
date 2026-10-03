@@ -1,0 +1,1812 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#143C30">
+<title>Club D23 — учёт</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23143C30'/><text x='16' y='21' font-size='13' font-family='Arial' font-weight='700' fill='white' text-anchor='middle'>D23</text></svg>">
+<style>
+:root{
+  --bg:#EDF0EC; --surface:#FFFFFF; --sunk:#F5F7F4; --ink:#15201B; --muted:#5A6760; --line:#D3DAD5;
+  --primary:#1D5845; --primary-ink:#FFFFFF; --nav:#143C30; --nav-ink:#D7E6DF;
+  --ok:#2A7A4A; --bad:#B42A20; --warn:#9C5B0C; --sick:#2A5DA6; --comp:#6E48A6; --cancel:#6B716D;
+  --ok-bg:#E3F1E7; --bad-bg:#FBE6E3; --warn-bg:#FBF0DD; --sick-bg:#E4ECF8; --comp-bg:#EEE7F7;
+  --r:10px; --font:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 var(--font);-webkit-text-size-adjust:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--primary)} a[href^="tel"]{white-space:nowrap}
+details.filt > summary{cursor:pointer;font-weight:600;margin:4px 0 8px}
+.num{font-variant-numeric:tabular-nums}
+h1{font-size:1.55rem;line-height:1.2;margin:0 0 .2rem;letter-spacing:-.01em}
+h2{font-size:1.1rem;margin:0 0 .6rem}
+h3{font-size:1rem;margin:0 0 .4rem}
+.muted{color:var(--muted)} .small{font-size:.86rem}
+.hidden{display:none!important}
+
+/* каркас */
+.shell{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100%}
+.side{background:var(--nav);color:var(--nav-ink);padding:18px 12px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:4px}
+.brand{display:flex;align-items:center;gap:10px;padding:4px 8px 16px}
+.brand b{font-size:1.15rem;color:#fff;letter-spacing:.01em}
+.brand span{font-size:.8rem;opacity:.75;display:block}
+.mark-logo{width:34px;height:34px;border-radius:8px;background:#fff;color:var(--nav);display:grid;place-items:center;font-weight:800;font-size:.95rem}
+.nav a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;color:var(--nav-ink);text-decoration:none}
+.nav a:hover{background:rgba(255,255,255,.07)}
+.nav a.on{background:rgba(255,255,255,.14);color:#fff;font-weight:600}
+.nav svg{width:18px;height:18px;flex:none}
+.side .sync{margin-top:auto;font-size:.82rem;padding:10px;border-radius:8px;background:rgba(255,255,255,.07)}
+.side .sync button{margin-top:8px;width:100%}
+main{padding:22px 28px 90px;max-width:1180px;width:100%;min-width:0}
+.topline{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.tabbar{display:none}
+
+/* элементы */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:14px}
+.card.flat{padding:0;overflow:hidden}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.spacer{flex:1}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 13px;cursor:pointer;white-space:nowrap;min-height:38px;text-decoration:none;color:var(--ink)}
+.btn:hover{border-color:#B9C3BC}
+.btn.primary{background:var(--primary);border-color:var(--primary);color:var(--primary-ink)}
+.btn.primary:hover{background:#174A3A}
+.btn.danger{color:var(--bad);border-color:#E7B7B2}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.sm{padding:4px 9px;min-height:30px;font-size:.88rem}
+.side .btn{background:#fff;color:var(--nav);border:0}
+:focus-visible{outline:3px solid #7FB6A2;outline-offset:2px}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:99px;font-size:.8rem;font-weight:600;background:var(--sunk);color:var(--muted);white-space:nowrap}
+.chip.ok{background:var(--ok-bg);color:var(--ok)} .chip.bad{background:var(--bad-bg);color:var(--bad)}
+.chip.warn{background:var(--warn-bg);color:var(--warn)} .chip.sick{background:var(--sick-bg);color:var(--sick)}
+.chip.muted{background:var(--sunk);color:var(--muted)}
+input[type=text],input[type=date],input[type=number],input[type=tel],input[type=search],select,textarea{border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:#fff;min-height:38px;width:100%}
+textarea{min-height:90px;resize:vertical}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:.86rem;color:var(--muted)}
+label.f > span{font-weight:500}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px 12px}
+.fgrid .wide{grid-column:1/-1}
+fieldset{border:1px solid var(--line);border-radius:var(--r);padding:12px;margin:0 0 12px}
+legend{padding:0 6px;font-weight:600;font-size:.9rem}
+.seg{display:inline-flex;max-width:100%;overflow-x:auto;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
+.seg button{flex:none;border:0;background:transparent;padding:7px 12px;cursor:pointer;min-height:36px}
+.seg button.on{background:var(--primary);color:#fff}
+.filters{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:12px}
+.empty{padding:28px 16px;text-align:center;color:var(--muted)}
+
+/* списки */
+.list{list-style:none;margin:0;padding:0}
+.list > li{display:flex;align-items:center;gap:12px;padding:10px 14px;border-top:1px solid var(--line)}
+.list > li:first-child{border-top:0}
+.list > li.click{cursor:pointer}
+.list > li.click:hover{background:var(--sunk)}
+.who{min-width:0;flex:1}
+.who b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.who .small{display:block;color:var(--muted)}
+table.t{width:100%;border-collapse:collapse;font-size:.92rem}
+table.t th{text-align:left;font-weight:600;color:var(--muted);font-size:.8rem;padding:8px 10px;border-bottom:1px solid var(--line);background:var(--sunk);position:sticky;top:0}
+table.t td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+table.t th.sortable{cursor:pointer;user-select:none;white-space:nowrap} table.t th.sortable:hover{color:var(--ink)} table.t th.sorted{color:var(--primary)}
+table.t tr.click{cursor:pointer} table.t tr.click:hover td{background:var(--sunk)}
+table.t td.r,table.t th.r{text-align:right}
+.scroll{overflow-x:auto}
+
+/* подсветка остатка в абонементах */
+table.t tr.rem1 td{background:#FBE3C4} table.t tr.rem1 td:first-child{box-shadow:inset 5px 0 0 #D2741C}
+table.t tr.rem1 .nm{color:#8A4106}
+table.t tr.rem2 td{background:#FFF6D2} table.t tr.rem2 td:first-child{box-shadow:inset 5px 0 0 #E2B92E}
+table.t tr.rem2 .nm{color:#6E5303}
+table.t tr.pend td{background:#FBE6E3} table.t tr.pend td:first-child{box-shadow:inset 5px 0 0 #B42A20} table.t tr.pend .nm{color:#8E1F17}
+table.t tr.pend:hover td{background:#F6D3CE} table.t tr.rem1:hover td{background:#F7D6AE} table.t tr.rem2:hover td{background:#FBEDB8}
+.legend i{display:inline-block;width:22px;height:14px;border-radius:3px;margin-right:6px;vertical-align:-2px}
+.lg-pend{background:#FBE6E3;box-shadow:inset 4px 0 0 #B42A20} .lg-rem1{background:#FBE3C4;box-shadow:inset 4px 0 0 #D2741C} .lg-rem2{background:#FFF6D2;box-shadow:inset 4px 0 0 #E2B92E}
+
+
+/* пояс — главный визуальный элемент */
+.belt{position:relative;display:inline-block;width:70px;height:14px;border-radius:2px;background:var(--bc,#ccc);box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);flex:none;vertical-align:middle}
+.belt.two::before{content:"";position:absolute;left:0;right:22px;top:5px;height:4px;background:var(--bc2)}
+.belt .tip{position:absolute;right:6px;top:0;bottom:0;width:22px;background:var(--tip,#111);display:flex;gap:2px;justify-content:center;padding:0 2px}
+.belt .tip i{width:2.5px;background:#fff;height:100%}
+.belt.none{background:repeating-linear-gradient(135deg,#e6e9e6 0 4px,#f4f6f4 4px 8px)}
+.belt.lg{width:180px;height:30px;border-radius:3px}
+.belt.lg.two::before{top:11px;height:8px;right:46px}
+.belt.lg .tip{width:46px;right:12px;gap:4px;padding:0 4px}
+.belt.lg .tip i{width:5px}
+.belt-txt{display:none}
+
+/* журнал посещений */
+.marks{display:inline-flex;gap:4px;flex:none}
+.mk{width:40px;height:38px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer;font-weight:700;font-size:1rem;color:var(--muted)}
+.mk[data-m="+"].on{background:var(--ok);border-color:var(--ok);color:#fff}
+.mk[data-m="н"].on{background:var(--bad);border-color:var(--bad);color:#fff}
+.mk[data-m="б"].on{background:var(--sick);border-color:var(--sick);color:#fff}
+.mk[data-m="о"].on{background:var(--cancel);border-color:var(--cancel);color:#fff}
+.mk[data-m="с"].on{background:var(--comp);border-color:var(--comp);color:#fff}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem;color:var(--muted)}
+.legend b{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:5px;color:#fff;font-size:.8rem;margin-right:4px}
+.cell-m{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:5px;font-weight:700;font-size:.85rem}
+.cell-m.m-plus{background:var(--ok-bg);color:var(--ok)} .cell-m.m-n{background:var(--bad-bg);color:var(--bad)}
+.cell-m.m-b{background:var(--sick-bg);color:var(--sick)} .cell-m.m-o{background:var(--sunk);color:var(--cancel)} .cell-m.m-s{background:var(--comp-bg);color:var(--comp)}
+.month{width:auto!important;min-width:60%} .month td.off{background:repeating-linear-gradient(135deg,#eef1ee 0 4px,#f7f8f6 4px 8px)} .month td,.month th{text-align:center;padding:5px 4px} .month td:first-child,.month th:first-child{text-align:left;white-space:nowrap}
+
+/* «сегодня» */
+.today-groups{display:flex;gap:10px;flex-wrap:wrap}
+.today-groups .btn{min-height:52px;padding:10px 16px;font-weight:600}
+.alert{display:flex;gap:12px;align-items:flex-start;padding:11px 14px;border-top:1px solid var(--line)}
+.alert:first-child{border-top:0}
+.alert .dot{width:9px;height:9px;border-radius:50%;margin-top:7px;flex:none;background:var(--muted)}
+.alert.bad .dot{background:var(--bad)} .alert.warn .dot{background:#D08A1C} .alert.sick .dot{background:var(--sick)}
+.alert .txt{flex:1;min-width:0}
+.banner{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--warn-bg);border:1px solid #EBCF9F;color:#5B3A06;border-radius:var(--r);padding:12px 14px;margin-bottom:14px}
+.stat{display:flex;flex-direction:column}
+.stat b{font-size:1.5rem;font-variant-numeric:tabular-nums;line-height:1.1}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
+
+/* карточка человека */
+.person-head{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.kv{display:grid;grid-template-columns:max-content 1fr;gap:4px 14px;font-size:.93rem}
+.kv dt{color:var(--muted)} .kv dd{margin:0}
+
+/* модальное окно */
+dialog{border:0;border-radius:14px;padding:0;width:min(640px,96vw);max-height:92vh;box-shadow:0 20px 60px rgba(10,30,20,.35)}
+dialog::backdrop{background:rgba(12,28,22,.45)}
+dialog form{display:flex;flex-direction:column;max-height:92vh}
+.dlg-h{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.dlg-h h2{margin:0;flex:1}
+.dlg-b{padding:16px 18px;overflow:auto}
+.dlg-f{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;border-top:1px solid var(--line);flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;z-index:100;font-size:.92rem;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.picklist{max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.picklist label{display:flex;gap:10px;align-items:center;padding:8px 10px;border-top:1px solid var(--line);cursor:pointer}
+.picklist label:first-child{border-top:0}
+.test-grid{display:grid;grid-template-columns:repeat(5,minmax(70px,1fr));gap:6px}
+.test-grid label{font-size:.78rem;color:var(--muted);display:flex;flex-direction:column;gap:2px}
+.test-grid input{min-height:34px;padding:4px 6px}
+.pass{color:var(--ok);font-weight:600} .fail{color:var(--bad);font-weight:600}
+
+/* телефон */
+@media (max-width:860px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .side{display:none}
+  main{padding:14px 12px 96px}
+  h1{font-size:1.3rem}
+  .tabbar{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;background:var(--nav);z-index:50;padding-bottom:env(safe-area-inset-bottom)}
+  .tabbar a{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px 7px;color:var(--nav-ink);text-decoration:none;font-size:.7rem}
+  .tabbar a.on{color:#fff;font-weight:600}
+  .tabbar svg{width:22px;height:22px}
+  .list > li{padding:10px 12px}
+  .mk{width:36px;height:40px}
+  .card{padding:13px}
+  .hide-m{display:none!important}
+  .test-grid{grid-template-columns:repeat(3,1fr)}
+  .alert{flex-wrap:wrap} .alert > .row{width:100%;padding-left:21px}
+}
+@media (min-width:861px){ .show-m{display:none!important} }
+
+/* печать */
+.print-only{display:none}
+@media print{
+  body{background:#fff;font-size:11pt}
+  .side,.tabbar,.no-print,.btn,.toast,dialog{display:none!important}
+  .shell{display:block} main{padding:0;max-width:none}
+  .card{border:0;padding:0}
+  .print-only{display:block}
+  th.hide-m,td.hide-m{display:table-cell!important}
+  .scroll{overflow:visible!important}
+  table.t{font-size:8.5pt}
+  .belt,.chip,.cell-m{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  a{color:#000;text-decoration:none}
+  .card.flat{overflow:visible}
+  main{padding:0!important}
+  table.t th{background:#fff;position:static}
+  table.t td,table.t th{padding:4px 6px;border:1px solid #999}
+  @page{margin:12mm}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* печать на монохромном принтере: без заливок, всё чёрным */
+@media print{
+  *{color:#000!important;-webkit-print-color-adjust:economy;print-color-adjust:economy}
+  body,main,.card{background:#fff!important}
+  .belt{display:none!important}
+  .belt-txt{display:inline;font-size:8.5pt;white-space:nowrap}
+  .chip{background:none!important;border:1px solid #000;border-radius:3px;padding:0 4px;font-weight:600}
+  .chip.bad{border-width:2px;font-weight:800}
+  .chip.muted{border-style:dashed;font-weight:400}
+  .cell-m{background:none!important;font-weight:800;width:auto;height:auto}
+  .cell-m.m-n{text-decoration:underline}
+  table.t th{background:#fff!important;border-bottom:2px solid #000!important;font-weight:700}
+  table.t td{border-color:#666!important}
+  table.t tr td{background:#fff!important;box-shadow:none!important}
+  table.t tr.rem1 .nm,table.t tr.rem2 .nm,table.t tr.pend .nm{font-weight:800}
+  table.t tr.rem1 .nm::after{content:" (1)"} table.t tr.rem2 .nm::after{content:" (2)"} table.t tr.pend .nm::after{content:" (ждём оплату)"}
+  .month td.off{background:none!important}
+  .muted,.small{color:#000!important}
+  .pass{font-weight:700} .fail{font-weight:800;text-decoration:underline}
+  .stat b{font-size:14pt}
+  h1{font-size:15pt}
+}
+
+</style></head>
+<body><div id="app"></div>
+<script>
+const DEFAULT_SETTINGS = {"club": "Клуб D23, г. Геленджик, ул. Островского, 164 В", "coachMain": "Тарасов А. Н.", "coachSecond": "Тарасова Ю. А.", "awardedBy": "Тарасов Антон Николаевич", "groups": [{"name": "Группа #1", "days": [false, false, false, false, false, false, false]}, {"name": "Группа #2", "days": [true, false, true, false, true, false, false]}, {"name": "Группа #3", "days": [false, true, false, true, false, true, false]}, {"name": "BJJ #1", "days": [false, true, false, true, false, true, false]}, {"name": "Фитнес 35+", "days": [false, false, false, false, false, false, false]}, {"name": "Разово", "days": [false, false, false, false, false, false, false]}, {"name": "Гость", "days": [false, false, false, false, false, false, false]}], "statuses": ["занимается", "приостановил", "ушёл"], "belts": ["белый", "серый-белый", "серый", "серый-чёрный", "жёлтый-белый", "жёлтый", "жёлтый-чёрный", "оранжевый-белый", "оранжевый", "оранжевый-чёрный", "зелёный-белый", "зелёный", "зелёный-чёрный", "синий", "фиолетовый", "коричневый", "чёрный"], "holidays": [{"date": "2026-11-04", "reason": "День народного единства"}, {"date": "2026-12-31", "reason": "Новогодние каникулы (перенос)"}, {"date": "2027-01-01", "reason": "Новогодние каникулы"}, {"date": "2027-01-02", "reason": "Новогодние каникулы"}, {"date": "2027-01-03", "reason": "нерабочий день"}, {"date": "2027-01-04", "reason": "Новогодние каникулы"}, {"date": "2027-01-05", "reason": "Новогодние каникулы"}, {"date": "2027-01-06", "reason": "Новогодние каникулы"}, {"date": "2027-01-07", "reason": "Рождество Христово"}, {"date": "2027-01-08", "reason": "Новогодние каникулы"}, {"date": "2027-01-09", "reason": "Выходной по производственному календарю"}, {"date": "2027-02-22", "reason": "Перенос с 20 февраля"}, {"date": "2027-02-23", "reason": "День защитника Отечества"}, {"date": "2027-03-08", "reason": "Международный женский день"}, {"date": "2027-05-01", "reason": "Праздник Весны и Труда"}, {"date": "2027-05-03", "reason": "Перенос с 1 мая"}, {"date": "2027-05-09", "reason": "нерабочий день"}, {"date": "2027-05-10", "reason": "Перенос с 9 мая"}, {"date": "2027-06-12", "reason": "День России"}, {"date": "2027-06-14", "reason": "Перенос с 12 июня"}, {"date": "2027-11-04", "reason": "День народного единства"}, {"date": "2027-11-05", "reason": "Перенос со 2 января"}, {"date": "2027-12-31", "reason": "Перенос с 3 января"}], "competition": {"name": "ADCC Краснодар", "date": "2026-10-25", "city": "Краснодар", "ageMode": "на дату соревнований"}, "attest": {"prev": "2026-02-28", "next": "2026-11-28", "threshold": 80, "sickMode": "не учитывать", "minTournaments": 2, "reliefCoef": 0.8}, "norms": [{"track": "Дети", "sex": "М", "from": 4, "to": 5, "pullKind": "вис, сек", "pullS": 10, "pullB": 15, "pushKind": "с колен", "pushS": 5, "pushB": 8, "crS": 10, "crB": 15, "jumpS": 60, "jumpB": 70, "monS": null, "monB": null, "note": "общие; прыжок — клубная норма"}, {"track": "Дети", "sex": "Ж", "from": 4, "to": 5, "pullKind": "вис, сек", "pullS": 10, "pullB": 15, "pushKind": "с колен", "pushS": 5, "pushB": 8, "crS": 10, "crB": 15, "jumpS": 60, "jumpB": 70, "monS": null, "monB": null, "note": "общие; прыжок — клубная норма"}, {"track": "Дети", "sex": "М", "from": 6, "to": 7, "pullKind": "низкая", "pullS": 4, "pullB": 7, "pushKind": "полные", "pushS": 4, "pushB": 7, "crS": 15, "crB": 20, "jumpS": 77, "jumpB": 87, "monS": 5, "monB": 8, "note": "общие; прыжок — ГТО девочки"}, {"track": "Дети", "sex": "Ж", "from": 6, "to": 7, "pullKind": "низкая", "pullS": 4, "pullB": 7, "pushKind": "полные", "pushS": 4, "pushB": 7, "crS": 15, "crB": 20, "jumpS": 77, "jumpB": 87, "monS": 5, "monB": 8, "note": "общие; прыжок — ГТО девочки"}, {"track": "Дети", "sex": "М", "from": 8, "to": 9, "pullKind": "высокая", "pullS": 6, "pullB": 8, "pushKind": "полные", "pushS": 5, "pushB": 11, "crS": 30, "crB": 40, "jumpS": 103, "jumpB": 117, "monS": 14, "monB": 22, "note": "прыжок общий — ГТО девочки"}, {"track": "Дети", "sex": "Ж", "from": 8, "to": 9, "pullKind": "низкая", "pullS": 6, "pullB": 10, "pushKind": "полные", "pushS": 5, "pushB": 11, "crS": 30, "crB": 40, "jumpS": 103, "jumpB": 117, "monS": 14, "monB": 22, "note": "прыжок общий — ГТО девочки"}, {"track": "Дети", "sex": "М", "from": 10, "to": 11, "pullKind": "высокая", "pullS": 7, "pullB": 10, "pushKind": "полные", "pushS": 10, "pushB": 13, "crS": 35, "crB": 45, "jumpS": 128, "jumpB": 142, "monS": 22, "monB": 35, "note": ""}, {"track": "Дети", "sex": "Ж", "from": 10, "to": 11, "pullKind": "низкая", "pullS": 7, "pullB": 11, "pushKind": "полные", "pushS": 5, "pushB": 8, "crS": 30, "crB": 40, "jumpS": 118, "jumpB": 132, "monS": 22, "monB": 35, "note": ""}, {"track": "Дети", "sex": "М", "from": 12, "to": 13, "pullKind": "высокая", "pullS": 8, "pullB": 12, "pushKind": "полные", "pushS": 12, "pushB": 18, "crS": 40, "crB": 50, "jumpS": 147, "jumpB": 162, "monS": 35, "monB": 35, "note": ""}, {"track": "Дети", "sex": "Ж", "from": 12, "to": 13, "pullKind": "низкая", "pullS": 8, "pullB": 12, "pushKind": "полные", "pushS": 6, "pushB": 9, "crS": 35, "crB": 45, "jumpS": 132, "jumpB": 147, "monS": 22, "monB": 35, "note": ""}, {"track": "Дети", "sex": "М", "from": 14, "to": 15, "pullKind": "высокая", "pullS": 10, "pullB": 14, "pushKind": "полные", "pushS": 19, "pushB": 25, "crS": 50, "crB": 60, "jumpS": 167, "jumpB": 193, "monS": 35, "monB": 35, "note": ""}, {"track": "Дети", "sex": "Ж", "from": 14, "to": 15, "pullKind": "низкая", "pullS": 9, "pullB": 13, "pushKind": "полные", "pushS": 7, "pushB": 11, "crS": 40, "crB": 50, "jumpS": 148, "jumpB": 162, "monS": 30, "monB": 35, "note": ""}, {"track": "Синий+", "sex": "М", "from": 16, "to": 20, "pullKind": "высокая", "pullS": 12, "pullB": 16, "pushKind": "полные", "pushS": 30, "pushB": 38, "crS": 50, "crB": 60, "jumpS": 213, "jumpB": 235, "monS": 35, "monB": 35, "note": "юниоры"}, {"track": "Синий+", "sex": "Ж", "from": 16, "to": 20, "pullKind": "низкая", "pullS": 9, "pullB": 13, "pushKind": "полные", "pushS": 11, "pushB": 15, "crS": 40, "crB": 50, "jumpS": 173, "jumpB": 188, "monS": 35, "monB": 35, "note": "юниоры"}, {"track": "Синий+", "sex": "М", "from": 21, "to": 29, "pullKind": "высокая", "pullS": 13, "pullB": 16, "pushKind": "полные", "pushS": 33, "pushB": 45, "crS": 50, "crB": 60, "jumpS": 228, "jumpB": 244, "monS": 35, "monB": 35, "note": ""}, {"track": "Синий+", "sex": "Ж", "from": 21, "to": 29, "pullKind": "низкая", "pullS": 13, "pullB": 19, "pushKind": "полные", "pushS": 13, "pushB": 18, "crS": 40, "crB": 50, "jumpS": 183, "jumpB": 198, "monS": 30, "monB": 35, "note": ""}, {"track": "Синий+", "sex": "М", "from": 30, "to": 39, "pullKind": "высокая", "pullS": 8, "pullB": 13, "pushKind": "полные", "pushS": 19, "pushB": 33, "crS": 45, "crB": 55, "jumpS": 213, "jumpB": 234, "monS": 30, "monB": 35, "note": ""}, {"track": "Синий+", "sex": "Ж", "from": 30, "to": 39, "pullKind": "низкая", "pullS": 12, "pullB": 17, "pushKind": "полные", "pushS": 11, "pushB": 16, "crS": 35, "crB": 45, "jumpS": 152, "jumpB": 173, "monS": 22, "monB": 35, "note": ""}, {"track": "Синий+", "sex": "М", "from": 40, "to": 49, "pullKind": "высокая", "pullS": 7, "pullB": 10, "pushKind": "полные", "pushS": 18, "pushB": 29, "crS": 40, "crB": 50, "jumpS": 200, "jumpB": 220, "monS": 22, "monB": 35, "note": "прыжок — клубная норма"}, {"track": "Синий+", "sex": "Ж", "from": 40, "to": 49, "pullKind": "низкая", "pullS": 10, "pullB": 15, "pushKind": "полные", "pushS": 10, "pushB": 14, "crS": 30, "crB": 40, "jumpS": 140, "jumpB": 160, "monS": 18, "monB": 30, "note": "прыжок — клубная норма"}, {"track": "Синий+", "sex": "М", "from": 50, "to": 120, "pullKind": "высокая", "pullS": 5, "pullB": 8, "pushKind": "полные", "pushS": 15, "pushB": 24, "crS": 35, "crB": 45, "jumpS": 185, "jumpB": 205, "monS": 18, "monB": 30, "note": "прыжок — клубная норма"}, {"track": "Синий+", "sex": "Ж", "from": 50, "to": 120, "pullKind": "низкая", "pullS": 8, "pullB": 12, "pushKind": "полные", "pushS": 8, "pushB": 12, "crS": 25, "crB": 35, "jumpS": 125, "jumpB": 145, "monS": 14, "monB": 22, "note": "прыжок — клубная норма"}, {"track": "Белый", "sex": "М", "from": 16, "to": 29, "pullKind": "высокая", "pullS": 10, "pullB": 14, "pushKind": "полные", "pushS": 27, "pushB": 33, "crS": 50, "crB": 60, "jumpS": 207, "jumpB": 228, "monS": 30, "monB": 35, "note": "включая юниоров 16–20 на белом"}, {"track": "Белый", "sex": "Ж", "from": 16, "to": 29, "pullKind": "низкая", "pullS": 9, "pullB": 13, "pushKind": "полные", "pushS": 9, "pushB": 13, "crS": 40, "crB": 50, "jumpS": 167, "jumpB": 183, "monS": 22, "monB": 35, "note": "включая юниоров 16–20 на белом"}, {"track": "Белый", "sex": "М", "from": 30, "to": 39, "pullKind": "высокая", "pullS": 4, "pullB": 8, "pushKind": "полные", "pushS": 15, "pushB": 19, "crS": 45, "crB": 55, "jumpS": 197, "jumpB": 213, "monS": 22, "monB": 35, "note": ""}, {"track": "Белый", "sex": "Ж", "from": 30, "to": 39, "pullKind": "низкая", "pullS": 8, "pullB": 12, "pushKind": "полные", "pushS": 8, "pushB": 11, "crS": 35, "crB": 45, "jumpS": 138, "jumpB": 152, "monS": 18, "monB": 30, "note": ""}, {"track": "Белый", "sex": "М", "from": 40, "to": 49, "pullKind": "высокая", "pullS": 3, "pullB": 7, "pushKind": "полные", "pushS": 12, "pushB": 18, "crS": 40, "crB": 50, "jumpS": 185, "jumpB": 200, "monS": 18, "monB": 30, "note": "прыжок — клубная норма"}, {"track": "Белый", "sex": "Ж", "from": 40, "to": 49, "pullKind": "низкая", "pullS": 7, "pullB": 10, "pushKind": "полные", "pushS": 6, "pushB": 10, "crS": 30, "crB": 40, "jumpS": 125, "jumpB": 140, "monS": 14, "monB": 22, "note": "прыжок — клубная норма"}, {"track": "Белый", "sex": "М", "from": 50, "to": 120, "pullKind": "высокая", "pullS": 2, "pullB": 5, "pushKind": "полные", "pushS": 10, "pushB": 15, "crS": 35, "crB": 45, "jumpS": 170, "jumpB": 185, "monS": 14, "monB": 22, "note": "прыжок — клубная норма"}, {"track": "Белый", "sex": "Ж", "from": 50, "to": 120, "pullKind": "низкая", "pullS": 5, "pullB": 8, "pushKind": "полные", "pushS": 5, "pushB": 8, "crS": 25, "crB": 35, "jumpS": 115, "jumpB": 130, "monS": 10, "monB": 18, "note": "прыжок — клубная норма"}], "sickCheckFrom": "2026-10-03", "templates": [{"title": "Осталось одно занятие", "text": "Привет! По абонементу осталось одно занятие. Дальше нужно продление — скажи, когда удобно оплатить."}, {"title": "Абонемент использован", "text": "Привет! Абонемент закончился, все {занятий} занятий проведены. Продлеваем?"}, {"title": "Оплата принята", "text": "Привет! Оплата получена, чек отправил. Абонемент на {занятий} занятий действует с {дата_начала}."}, {"title": "Пропуск без предупреждения", "text": "Привет! Сегодня тебя не было на тренировке. Занятие списано — по договору пропуск без оформленной заморозки списывается. Если заболел, предупреди сразу и принеси справку, тогда заморозим."}, {"title": "Заморозка оформлена", "text": "Привет! Заморозку оформил, занятия за период болезни не списываются. Не забудь справку — без неё продление не сохранится."}, {"title": "Занятие отменено", "text": "Сегодняшняя тренировка отменяется — [причина]. Занятие не списывается, срок абонемента сдвинется на одно занятие вперёд."}, {"title": "Долг по занятиям", "text": "Привет! По учёту получается на {долг} занятий больше, чем оплачено. Давай сверимся и закроем."}, {"title": "Осталось одно занятие (официально)", "text": "Здравствуйте.\n{фи}.\n❌ Действие текущего абонемента заканчивается {дата_окончания}.\n✔️ Срок оплаты следующего абонемента до {срок_оплаты}."}], "defaultCount": 12};
+/* ===== D23 CRM — логика расчётов (без DOM) ===== */
+const pad = n => String(n).padStart(2, '0');
+const D = {
+  parse(s) { const [y, m, d] = s.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d)); },
+  fmt(dt) { return dt.toISOString().slice(0, 10); },
+  add(s, n) { const d = D.parse(s); d.setUTCDate(d.getUTCDate() + n); return D.fmt(d); },
+  dow(s) { return (D.parse(s).getUTCDay() + 6) % 7; },              // 0 = Пн … 6 = Вс
+  today() { const t = new Date(); return t.getFullYear() + '-' + pad(t.getMonth() + 1) + '-' + pad(t.getDate()); },
+  diff(a, b) { return Math.round((D.parse(b) - D.parse(a)) / 864e5); }, // b − a, дней
+  ru(s) { if (!s) return ''; const [y, m, d] = s.split('-'); return d + '.' + m + '.' + y; },
+  short(s) { if (!s) return ''; const [, m, d] = s.split('-'); return d + '.' + m; },
+  age(birth, at) {                                                   // полных лет (DATEDIF "Y")
+    if (!birth || !at || birth > at) return null;
+    const [by, bm, bd] = birth.split('-').map(Number), [ay, am, ad] = at.split('-').map(Number);
+    let a = ay - by; if (am < bm || (am === bm && ad < bd)) a--; return a;
+  },
+  months(a, b) {                                                     // полных месяцев (DATEDIF "M")
+    if (!a || !b || a > b) return null;
+    const [ay, am, ad] = a.split('-').map(Number), [by, bm, bd] = b.split('-').map(Number);
+    let m = (by - ay) * 12 + (bm - am); if (bd < ad) m--; return m;
+  },
+  max(a, b) { return !a ? b : !b ? a : (a > b ? a : b); },
+  min(a, b) { return !a ? b : !b ? a : (a < b ? a : b); },
+};
+const DOW = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+const DOW_FULL = ['понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота', 'воскресенье'];
+const MONTHS = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
+const MARKS = {
+  '+': { label: 'был', charge: true },
+  'н': { label: 'не был', charge: true },
+  'б': { label: 'болел', charge: false },
+  'о': { label: 'отменено', charge: false },
+  'с': { label: 'соревнования', charge: false },
+};
+
+function fullName(a) { return [a.last, a.first, a.middle].filter(Boolean).join(' '); }
+function shortName(a) { return [a.last, a.first].filter(Boolean).join(' '); }
+function cleanPhone(p) {
+  let d = String(p || '').replace(/\D/g, '');
+  if (d.length === 11 && (d[0] === '8' || d[0] === '7')) d = d.slice(1);
+  return d.length === 10 ? d : '';
+}
+function fmtPhone(p) {
+  const d = cleanPhone(p); if (!d) return p || '';
+  return '+7 ' + d.slice(0, 3) + ' ' + d.slice(3, 6) + '-' + d.slice(6, 8) + '-' + d.slice(8);
+}
+function uid(prefix) { return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+/* ---------- индекс: всё, что считается один раз на отрисовку ---------- */
+function buildIndex(db, today) {
+  const S = db.settings;
+  const ix = {
+    today, db,
+    group: new Map(S.groups.map(g => [g.name, g])),
+    holiday: new Map(S.holidays.map(h => [h.date, h.reason])),
+    ath: new Map(db.athletes.map(a => [a.id, a])),
+    marks: new Map(),          // athleteId → [{date, group, mark, sid}] по дате
+    groupDates: new Map(),     // группа → [даты занятий] по дате
+    subsByAth: new Map(),
+    awardsByAth: new Map(),
+    freezesByAth: new Map(),
+    sessionsSorted: [...db.sessions].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0),
+  };
+  for (const s of ix.sessionsSorted) {
+    if (Object.values(s.marks || {}).some(Boolean)) {            // пустое (открытое по ошибке) занятие не сдвигает прогноз
+      if (!ix.groupDates.has(s.group)) ix.groupDates.set(s.group, []);
+      ix.groupDates.get(s.group).push(s.date);
+    }
+    for (const [aid, m] of Object.entries(s.marks || {})) {
+      if (!m) continue;
+      if (!ix.marks.has(aid)) ix.marks.set(aid, []);
+      ix.marks.get(aid).push({ date: s.date, group: s.group, mark: m, sid: s.id });
+    }
+  }
+  const push = (map, k, v) => { if (!map.has(k)) map.set(k, []); map.get(k).push(v); };
+  for (const p of db.subs) push(ix.subsByAth, p.athleteId, p);
+  for (const w of db.awards) push(ix.awardsByAth, w.athleteId, w);
+  for (const f of db.freezes) push(ix.freezesByAth, f.athleteId, f);
+  for (const l of ix.subsByAth.values()) l.sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+  for (const l of ix.awardsByAth.values()) l.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  ix.subCalc = new Map();
+  for (const p of db.subs) ix.subCalc.set(p.id, calcSub(ix, p));
+  ix.athCalc = new Map();
+  for (const a of db.athletes) ix.athCalc.set(a.id, calcAthlete(ix, a));
+  return ix;
+}
+
+/* ---------- расписание ---------- */
+function isTrainDay(ix, date, groups) {
+  if (ix.holiday.has(date)) return false;
+  const d = D.dow(date);
+  return groups.some(g => { const G = ix.group.get(g); return G && G.days[d]; });
+}
+function hasSchedule(ix, groups) { return groups.some(g => { const G = ix.group.get(g); return G && G.days.some(Boolean); }); }
+function nthTrainDay(ix, fromInclusive, n, groups) {          // n-е занятие начиная с даты
+  if (!fromInclusive || n < 1 || !hasSchedule(ix, groups)) return null;
+  let d = fromInclusive, c = 0;
+  for (let i = 0; i < 1000; i++) { if (isTrainDay(ix, d, groups)) { c++; if (c === n) return d; } d = D.add(d, 1); }
+  return null;
+}
+function countTrainDays(ix, from, to, groups) {
+  let c = 0; if (!from || !to || from > to) return 0;
+  for (let d = from; d <= to; d = D.add(d, 1)) if (isTrainDay(ix, d, groups)) c++;
+  return c;
+}
+function trainDaysBetween(ix, from, to, groups) {
+  const r = []; if (!from || !to || from > to) return r;
+  for (let d = from; d <= to; d = D.add(d, 1)) if (isTrainDay(ix, d, groups)) r.push(d);
+  return r;
+}
+
+/* ---------- абонемент ---------- */
+/* группа человека на дату с учётом переводов */
+function groupOn(a, date) {
+  const tr = [...(a.transfers || [])].filter(t => t.date).sort((x, y) => x.date.localeCompare(y.date));
+  const later = tr.find(t => t.date > date);
+  return later ? later.from : a.group;
+}
+function inGroupOn(a, group, date) { return !!group && (groupOn(a, date) === group || a.group2 === group); }
+function subGroups(ix, p) {
+  if (p.onlyGroup) return [p.onlyGroup];
+  const a = ix.ath.get(p.athleteId); if (!a) return [];
+  return [a.group, a.group2].filter(Boolean);
+}
+function nextSubStart(ix, p) {
+  let next = null;
+  for (const q of ix.subsByAth.get(p.athleteId) || []) {
+    if (q.id === p.id || (q.onlyGroup || '') !== (p.onlyGroup || '')) continue;
+    if (q.start && p.start && q.start > p.start && (!next || q.start < next)) next = q.start;
+  }
+  return next;
+}
+function calcSub(ix, p) {
+  const r = { was: 0, missed: 0, sick: 0, sickCharged: 0, comp: 0, cancel: 0, next: null, end: '', endKind: '', remaining: null, status: '', tone: '', lastCharged: '' };
+  if (!p.start) { r.status = 'нет даты начала'; r.tone = 'warn'; return r; }
+  r.next = nextSubStart(ix, p);
+  // абонементы с той же датой начала (например, два разовых в один день) делят занятия по очереди
+  const twins = (ix.subsByAth.get(p.athleteId) || []).filter(q => q.start === p.start && (q.onlyGroup || '') === (p.onlyGroup || ''))
+    .sort((x, y) => ix.db.subs.indexOf(x) - ix.db.subs.indexOf(y));
+  const pos = twins.indexOf(p), isLast = pos === twins.length - 1;
+  r.twins = twins.length;
+  const fr = (ix.freezesByAth.get(p.athleteId) || []).map(f => ({ f, c: calcFreeze(ix, f) }));
+  const list = (ix.marks.get(p.athleteId) || []).filter(m =>
+    m.date >= p.start && (!r.next || m.date < r.next) && (!p.onlyGroup || m.group === p.onlyGroup));
+  const events = [];                                           // списываемые отметки по порядку
+  const other = [];
+  for (const m of list) {
+    let charged = m.mark === '+' || m.mark === 'н';
+    if (m.mark === 'б' && fr.some(x => x.c.mode === 'lapsed' && x.f.from && x.f.to && m.date >= x.f.from && m.date <= x.f.to)) charged = true;
+    (charged ? events : other).push(m);
+  }
+  const carry = q => Math.max(0, +q.carryWas || 0) + Math.max(0, +q.carryMissed || 0);
+  let offset = 0;                                              // сколько событий забрали предыдущие близнецы
+  for (let i = 0; i < pos; i++) offset += Math.max(0, (+twins[i].count || 0) - carry(twins[i]));
+  const cap = Math.max(0, (+p.count || 0) - carry(p));
+  const mine = isLast ? events.slice(offset) : events.slice(offset, offset + cap);
+  for (const m of mine) {
+    if (m.mark === '+') r.was++; else if (m.mark === 'н') r.missed++; else if (m.mark === 'б') { r.sick++; r.sickCharged++; }
+    r.lastCharged = m.date;
+  }
+  if (isLast) for (const m of other) { if (m.mark === 'б') r.sick++; else if (m.mark === 'с') r.comp++; else if (m.mark === 'о') r.cancel++; }
+  const charged = mine.length + carry(p);
+  r.charged = charged;
+  r.remaining = (+p.count || 0) - charged;
+  // прогноз окончания: от последнего проведённого занятия групп человека по расписанию
+  const groups = subGroups(ix, p);
+  let maxGroupDate = '';
+  for (const g of groups) for (const d of ix.groupDates.get(g) || []) {
+    if (d >= p.start && (!r.next || d < r.next) && d > maxGroupDate) maxGroupDate = d;
+  }
+  let ahead = 0, off = 0;                                      // незанятые занятия у предыдущих близнецов
+  for (let i = 0; i < pos; i++) { const c = Math.max(0, (+twins[i].count || 0) - carry(twins[i])); ahead += c - Math.min(c, Math.max(0, events.length - off)); off += c; }
+  if (r.remaining <= 0) { r.end = r.lastCharged; r.endKind = 'fact'; }
+  else if (!hasSchedule(ix, groups)) { r.end = ''; r.endKind = 'nosched'; }
+  else {
+    const from = D.max(D.add(p.start, -1), maxGroupDate);
+    r.end = nthTrainDay(ix, D.add(from, 1), r.remaining + ahead, groups) || ''; r.endKind = 'forecast';
+  }
+  if (r.remaining < 0) { r.status = 'долг ' + (-r.remaining); r.tone = 'bad'; }
+  else if (r.remaining === 0) { r.status = 'использован'; r.tone = 'muted'; }
+  else if (r.remaining === 1) { r.status = 'осталось 1'; r.tone = 'warn'; }
+  else if (r.remaining === 2) { r.status = 'осталось 2'; r.tone = 'warn'; }
+  else { r.status = 'действует'; r.tone = 'ok'; }
+  if (!(+p.count > 0)) { r.status = 'не указано занятий'; r.tone = 'bad'; }
+  if (p.pending) { r.pending = true; r.status = 'ждём оплату'; r.tone = 'bad'; }
+  if (r.end && r.endKind === 'forecast' && r.end >= ix.today) r.notifyBy = D.max(ix.today, D.add(r.end, -7)); // п. 9.2.3
+  return r;
+}
+function currentSub(ix, aid) {               // последний начавшийся абонемент (без «только на группу» в приоритете)
+  const l = (ix.subsByAth.get(aid) || []).filter(p => p.start && p.start <= ix.today);
+  const main = l.filter(p => !p.onlyGroup);
+  const pick = (main.length ? main : l);
+  return pick.length ? pick[pick.length - 1] : null;
+}
+function upcomingSub(ix, aid) {               // следующий ОПЛАЧЕННЫЙ абонемент
+  return (ix.subsByAth.get(aid) || []).find(p => p.start && p.start > ix.today && !p.pending) || null;
+}
+function pendingSub(ix, aid) {                // абонемент «ждём оплату», если есть
+  const l = (ix.subsByAth.get(aid) || []).filter(p => p.pending); return l.length ? l[l.length - 1] : null;
+}
+
+/* ---------- заморозка по болезни (п. 9.5 оферты, ред. 5) ---------- */
+function calcFreeze(ix, f) {
+  const r = { mode: 'incomplete', ext: 0, text: '' };
+  const p = f.subId ? ix.db.subs.find(s => s.id === f.subId) : null;
+  if (!p || !f.from || !f.to || f.to < f.from) { r.text = 'Заполните абонемент и даты болезни'; return r; }
+  const groups = subGroups(ix, p);
+  const base = nthTrainDay(ix, p.start, +p.count || 0, groups);
+  r.base = base;
+  if (!base) { r.text = 'У группы не задано расписание'; return r; }
+  r.ext = countTrainDays(ix, f.from, D.min(f.to, base), groups);
+  if (r.ext === 0) { r.mode = 'none'; r.text = 'Болезнь не пришлась на занятия в сроке абонемента — продлевать нечего'; return r; }
+  r.returnBy = D.add(D.max(f.to, base), 15);                               // п. 9.5.4 «б»
+  const firstAfterBase = nthTrainDay(ix, D.add(base, 1), 1, groups);
+  const firstFromReturn = f.returned ? nthTrainDay(ix, f.returned, 1, groups) : null;
+  let mode;
+  if (f.returned) {
+    if (f.returned <= f.to) mode = 'err';
+    else if (f.returned > r.returnBy) mode = 'lapsed';
+    else mode = f.returned <= base ? 'a' : 'b';
+  } else mode = ix.today > r.returnBy ? 'lapsed' : 'wait';
+  if (mode === 'err') { r.mode = 'err'; r.text = 'Дата возвращения должна быть позже последнего дня болезни'; return r; }
+  let certBy = null;                                                        // п. 9.5.4 «а»
+  if (mode === 'a') certBy = D.min(D.add(f.to, 15), firstAfterBase);
+  else if (mode === 'b') certBy = D.min(D.add(f.to, 15), firstFromReturn);
+  else if (mode === 'wait') certBy = f.to < base ? D.min(D.add(f.to, 15), firstAfterBase) : D.add(f.to, 15);
+  r.certBy = certBy;
+  const checkBy = mode === 'wait' ? D.add(f.to, 15) : certBy;
+  const certIsSession = (mode === 'a' || mode === 'b') && certBy && certBy === (mode === 'a' ? firstAfterBase : firstFromReturn);
+  r.certIsSession = certIsSession;
+  let lapsedByCert = false;
+  if (mode === 'a' || mode === 'b' || mode === 'wait') {
+    lapsedByCert = f.certDate ? f.certDate > checkBy : (certIsSession ? ix.today >= checkBy : ix.today > checkBy);
+  }
+  r.mode = lapsedByCert ? 'lapsed' : mode;
+  r.lapsedByCert = lapsedByCert;
+  if (f.certDate) r.remindBy = mode === 'wait' ? D.add(r.returnBy, -5) : null;
+  else if (mode === 'wait') r.remindBy = D.add(D.min(certBy, r.returnBy), -5);
+  else if (mode === 'a' || mode === 'b') r.remindBy = D.add(certBy, -5);
+  if (r.mode === 'a') r.newEnd = nthTrainDay(ix, D.add(base, 1), r.ext, groups);
+  if (r.mode === 'b') r.newEnd = nthTrainDay(ix, f.returned, r.ext, groups);
+  if (r.mode === 'lapsed') {
+    r.text = lapsedByCert
+      ? (f.certDate ? 'Справка получена после срока ' + D.ru(checkBy) : 'Справка не получена до ' + D.ru(checkBy)) + ' — продление прекратилось (п. 9.5.5), занятия болезни списываются'
+      : 'Не вернулся до ' + D.ru(r.returnBy) + ' — продление прекратилось (п. 9.5.5)';
+  } else if (r.mode === 'wait') r.text = 'Ждём возвращения: +' + r.ext + ' зан. продления';
+  else r.text = 'Продление +' + r.ext + ' зан., окончание по сроку ' + D.ru(r.newEnd);
+  return r;
+}
+
+/* ---------- спортсмен ---------- */
+function calcAthlete(ix, a) {
+  const S = ix.db.settings, t = ix.today, comp = S.competition || {};
+  const r = {};
+  r.name = fullName(a);
+  r.age = D.age(a.birth, t);
+  r.ageComp = comp.date ? D.age(a.birth, comp.date) : null;
+  r.age3112 = comp.date ? D.age(a.birth, comp.date.slice(0, 4) + '-12-31') : null;
+  r.ageForEntry = comp.ageMode === 'по году рождения (на 31.12)' ? r.age3112 : r.ageComp;
+  const aw = (ix.awardsByAth.get(a.id) || []).filter(w => w.date && w.date <= t);
+  const last = aw[aw.length - 1];
+  r.belt = last ? last.belt : ''; r.stripes = last ? +last.stripes || 0 : 0; r.beltDate = last ? last.date : '';
+  r.monthsSince = r.beltDate ? D.months(r.beltDate, t) : null;
+  // контакт для связи — как в журнале спортсменов
+  const has = v => !!String(v || '').trim();
+  if (a.mainContact === 'мать' && has(a.motherPhone)) r.contact = a.motherPhone;
+  else if (a.mainContact === 'отец' && has(a.fatherPhone)) r.contact = a.fatherPhone;
+  else if (a.mainContact === 'спортсмен' && has(a.phone)) r.contact = a.phone;
+  else if (r.age != null && r.age >= 15) r.contact = a.phone || a.motherPhone || a.fatherPhone || '';
+  else r.contact = a.motherPhone || a.fatherPhone || a.phone || '';
+  r.contactWho = r.contact === a.motherPhone && has(a.motherPhone) ? 'мать' : r.contact === a.fatherPhone && has(a.fatherPhone) ? 'отец' : has(r.contact) ? 'сам' : '';
+  if (!a.medUntil) r.med = '';
+  else if (a.medUntil < t) r.med = 'просрочена';
+  else if (D.diff(t, a.medUntil) <= 30) r.med = 'истекает';
+  else r.med = 'действует';
+  r.noParentPhone = r.age != null && r.age < 15 && !has(a.motherPhone) && !has(a.fatherPhone);
+  const cs = currentSub(ix, a.id);
+  r.sub = cs; r.subCalc = cs ? ix.subCalc.get(cs.id) : null;
+  r.noSub = !!a.noSub;
+  r.nextSub = upcomingSub(ix, a.id);
+  r.pendingSub = pendingSub(ix, a.id);
+  r.pendingCalc = r.pendingSub ? ix.subCalc.get(r.pendingSub.id) : null;
+  return r;
+}
+
+/* ---------- допуск к аттестации ---------- */
+function calcAdmission(ix, a) {
+  const A = ix.db.settings.attest;
+  const r = { was: 0, missed: 0, sick: 0, tourn: 0 };
+  if (!A.prev || !A.next) return { ...r, status: 'нет дат', total: 0 };
+  for (const m of ix.marks.get(a.id) || []) {
+    if (m.date < A.prev || m.date > A.next) continue;
+    if (m.mark === '+') r.was++; else if (m.mark === 'н') r.missed++; else if (m.mark === 'б') r.sick++; else if (m.mark === 'с') r.tourn++;
+  }
+  r.total = r.was + r.missed + (A.sickMode === 'учитывать' ? r.sick : 0);
+  const thr = (+A.threshold || 0) / 100, minT = +A.minTournaments || 0;
+  r.pct = r.total ? r.was / r.total : null;
+  if (!r.total) r.status = 'нет данных';
+  else {
+    const okP = r.pct >= thr - 1e-9, okT = r.tourn >= minT;
+    r.status = okP && okT ? 'допущен' : !okP && !okT ? 'нет: посещаемость и турниры' : !okP ? 'нет: посещаемость' : 'нет: турниры';
+  }
+  r.needVisits = r.total ? Math.max(0, Math.ceil(r.total * thr - 1e-9) - r.was) : null;
+  r.needTourn = Math.max(0, minT - r.tourn);
+  return r;
+}
+
+/* ---------- аттестация, этап 1 (физподготовка) ---------- */
+const EX = [
+  { k: 'jump', label: 'Прыжок', unit: 'см', s: 'jumpS', b: 'jumpB' },
+  { k: 'pull', label: 'Подтягивания', unit: '', s: 'pullS', b: 'pullB' },
+  { k: 'push', label: 'Отжимания', unit: '', s: 'pushS', b: 'pushB' },
+  { k: 'crunch', label: 'Скручивания', unit: '', s: 'crS', b: 'crB' },
+  { k: 'mon', label: 'Рукоход', unit: 'пер.', s: 'monS', b: 'monB' },
+];
+function calcTest(ix, t) {
+  const S = ix.db.settings, a = ix.ath.get(t.athleteId);
+  const r = { errors: [], checks: [], per: {} };
+  if (!a) { r.result = 'НЕТ СПОРТСМЕНА'; return r; }
+  if (!t.date || !a.sex || !a.birth || !t.target) { r.result = 'ЗАПОЛНИТЕ ДАТУ, ПОЛ, ДАТУ РОЖДЕНИЯ, ЦЕЛЬ'; r.bad = true; return r; }
+  r.age = D.age(a.birth, t.date);
+  if (r.age == null) { r.result = 'ПРОВЕРЬТЕ ДАТУ РОЖДЕНИЯ И ДАТУ СДАЧИ'; r.bad = true; return r; }
+  const belt = t.belt || '';
+  r.track = t.trackManual || (r.age < 16 ? 'Дети' : (!belt || belt === 'белый') ? 'Белый' : 'Синий+');
+  const rows = S.norms.filter(n => n.track === r.track && n.sex === a.sex && +n.from <= r.age && +n.to >= r.age);
+  if (rows.length !== 1) { r.result = 'НЕТ НОРМЫ — проверьте возраст, пол, трек'; r.bad = true; return r; }
+  const N = rows[0]; r.norm = N;
+  r.pullKind = N.pullKind; r.pushKind = N.pushKind;
+  r.monMode = r.age < 6 ? 'нет' : 'замена';
+  const belt_ = t.target === 'пояс', coef = +S.attest.reliefCoef || 0.8;
+  const relief = t.relief || {}, res = t.res || {};
+  for (const e of EX) {
+    if (e.k === 'mon' && r.monMode === 'нет') { r.per[e.k] = { norm: '', credit: '', st: '' }; continue; }
+    const norm = N[belt_ ? e.b : e.s], stripe = N[e.s];
+    let credit = norm;
+    if (norm !== null && norm !== '' && norm !== undefined && relief[e.k]) credit = belt_ ? stripe : Math.ceil(stripe * coef - 1e-9);
+    const v = res[e.k];
+    let st = '';
+    if (v !== '' && v !== null && v !== undefined) {
+      if (isNaN(+v) || +v < 0) st = 'не число';
+      else if (credit === '' || credit === null || credit === undefined) st = '';
+      else st = +v >= +credit ? 'сдал' : 'не сдал';
+    }
+    r.per[e.k] = { norm, credit, st };
+  }
+  const allowed = t.place === '1 место' ? 2 : t.place === '2–3 место' ? 1 : 0;
+  const reliefCount = EX.filter(e => relief[e.k]).length;
+  const main = EX.slice(0, 4).map(e => r.per[e.k].st);
+  const failedWithRelief = EX.slice(0, 4).some(e => r.per[e.k].st === 'не сдал' && relief[e.k]);
+  const mon = r.per.mon.st;
+  if (reliefCount > allowed) { r.result = 'ЛИШНИЕ ПОСЛАБЛЕНИЯ'; r.bad = true; }
+  else if (EX.some(e => r.per[e.k].st === 'не число')) { r.result = 'РЕЗУЛЬТАТ НЕ ЧИСЛО'; r.bad = true; }
+  else if (main.some(s => s === '')) r.result = 'не завершено';
+  else if (main.every(s => s === 'сдал')) r.result = 'СДАН';
+  else if (r.monMode === 'нет' || main.filter(s => s === 'не сдал').length > 1 || failedWithRelief) r.result = 'НЕ СДАН';
+  else if (mon === '') r.result = 'нужен рукоход (замена)';
+  else r.result = mon === 'сдал' ? 'СДАН (замена)' : 'НЕ СДАН';
+  // проверки
+  const same = ix.db.tests.filter(x => x.id !== t.id && x.athleteId === t.athleteId);
+  if (same.some(x => x.date === t.date)) r.checks.push('дубль на эту дату');
+  const recentFail = same.some(x => x.date < t.date && D.diff(x.date, t.date) < 28 && calcTestResultOnly(ix, x) === 'НЕ СДАН');
+  if (recentFail) r.checks.push('пересдача раньше 4 недель (п. 5.5)');
+  if (r.monMode === 'замена' && main.filter(s => s === 'не сдал').length === 1 && failedWithRelief) r.checks.push('замена невозможна: на этом упражнении послабление');
+  return r;
+}
+function calcTestResultOnly(ix, t) { const x = { ...t }; const tests = ix.db.tests; ix.db.tests = []; const r = calcTest(ix, x).result; ix.db.tests = tests; return r; }
+
+/* ---------- подстановка в шаблоны сообщений ---------- */
+function firstSession(ix, p) { return nthTrainDay(ix, p.start, 1, subGroups(ix, p)) || p.start; }
+function payDeadline(ix, p, end) {      // день первого занятия нового абонемента
+  if (!p || !end) return '';
+  return nthTrainDay(ix, D.add(end, 1), 1, subGroups(ix, p)) || '';
+}
+function fillTemplate(text, ix, a, extra = {}, subId = null) {
+  const c = ix.athCalc.get(a.id) || {};
+  const p = (subId && ix.db.subs.find(x => x.id === subId)) || c.sub || null;
+  const sc = p ? ix.subCalc.get(p.id) || {} : {};
+  let end = sc.end || '', payBy = payDeadline(ix, p, end);
+  if (p && p.pending) {                        // ждём оплату: окончание — у прошлого абонемента, оплатить к первому занятию нового
+    const prev = (ix.subsByAth.get(a.id) || []).filter(q => q !== p && q.start && q.start < p.start).pop();
+    const pc = prev ? ix.subCalc.get(prev.id) : null;
+    end = pc && pc.end ? pc.end : ''; payBy = firstSession(ix, p);
+  }
+  const map = {
+    'имя': a.first || '', 'фи': shortName(a), 'фио': fullName(a),
+    'остаток': sc.remaining != null ? String(Math.max(0, sc.remaining)) : '',
+    'долг': sc.remaining < 0 ? String(-sc.remaining) : '',
+    'занятий': p && p.count ? String(p.count) : '',
+    'дата_начала': p ? D.ru(firstSession(ix, p)) : '',
+    'дата_окончания': D.ru(end),
+    'срок_оплаты': D.ru(payBy),
+    'группа': a.group || '',
+    ...extra,
+  };
+  return text.replace(/\{([а-яё_]+)\}/gi, (m, k) => (k.toLowerCase() in map && map[k.toLowerCase()] !== '' ? map[k.toLowerCase()] : m));
+}
+
+if (typeof module !== 'undefined') module.exports = { D, buildIndex, calcSub, calcFreeze, calcAdmission, calcTest, fillTemplate, groupOn, inGroupOn, nthTrainDay, payDeadline, firstSession, fullName, shortName, cleanPhone, fmtPhone, EX };
+
+/* ===== D23 CRM — интерфейс, часть 1 ===== */
+const OFFICIAL_TEMPLATES = [
+  { title: 'Абонемент заканчивается', text: 'Здравствуйте.\n{фи}.\n❌ Действие текущего абонемента заканчивается {дата_окончания}.\n✔️ Срок оплаты следующего абонемента до {срок_оплаты}.' },
+  { title: 'Новый абонемент оплачен', text: 'Здравствуйте.\n{фи}.\n✅ Срок действия нового абонемента.\nс {дата_начала} по {дата_окончания}\n✅ Абонемент оплачен.' },
+  { title: 'Абонемент продлён', text: 'Здравствуйте.\n{фи}.\nСрок действия текущего абонемента продлен, до {дата_окончания}\n✅ Срок оплаты следующего абонемента до {срок_оплаты}.' },
+  { title: 'Абонемент закончился', text: 'Здравствуйте.\n{фи}.\n❌ Срок действия текущего абонемента закончился {дата_окончания}\n✅ Срок оплаты следующего абонемента до {срок_оплаты}.' },
+];
+const LS_DB = 'd23crm.db', LS_META = 'd23crm.meta', LS_SNAP = 'd23crm.snaps';
+let db = null, ix = null, meta = { lastExport: null, exportedRev: 0, handle: false };
+const ui = {
+  people: { q: '', group: 'все', status: 'занимается', belt: 'все', sex: 'все', ageMode: 'сейчас', ageFrom: '', ageTo: '', yFrom: '', yTo: '', sort: 'name' },
+  subs: { filter: 'active', q: '', sort: 'start', dir: -1 },
+  journal: { date: null, group: '' , tab: 'session', month: null, mgroup: '' },
+  attest: { tab: 'admission', group: 'все', date: '' },
+  report: { from: null, to: null },
+};
+const h = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const $ = (s, el = document) => el.querySelector(s);
+const opt = (v, cur, label) => `<option value="${h(v)}"${String(v) === String(cur) ? ' selected' : ''}>${h(label ?? v)}</option>`;
+const plural = (n, a, b, c) => { const m = Math.abs(n) % 100, k = m % 10; return m > 10 && m < 20 ? c : k === 1 ? a : k > 1 && k < 5 ? b : c; };
+
+function emptyDb() {
+  return { app: 'D23CRM', version: 1, rev: 0, updatedAt: new Date().toISOString(),
+    settings: JSON.parse(JSON.stringify(DEFAULT_SETTINGS)), athletes: [], sessions: [], subs: [], freezes: [], awards: [], tests: [] };
+}
+function normalize(d) {
+  const e = emptyDb();
+  for (const k of ['athletes', 'sessions', 'subs', 'freezes', 'awards', 'tests']) if (!Array.isArray(d[k])) d[k] = [];
+  d.settings = Object.assign({}, e.settings, d.settings || {});
+  d.settings.attest = Object.assign({}, e.settings.attest, d.settings.attest || {});
+  d.settings.competition = Object.assign({}, e.settings.competition, d.settings.competition || {});
+  for (const p of d.subs) if (!(+p.count > 0) && !(+p.amount > 0) && !p.pending) { p.pending = true; p.count = d.settings.defaultCount || 12; }
+  if ((d.settings.tplVersion || 1) === 2) {           // имя в официальных шаблонах
+    for (const t of d.settings.templates) if (OFFICIAL_TEMPLATES.some(o => o.title === t.title) && !/\{фи/.test(t.text)) t.text = t.text.replace(/^Здравствуйте\.\n/, 'Здравствуйте.\n{фи}.\n');
+    d.settings.tplVersion = 3;
+  }
+  if ((d.settings.tplVersion || 1) < 2) {            // официальные шаблоны об абонементе
+    const keep = (d.settings.templates || []).filter(t => !/^Осталось одно занятие \(официально\)$/.test(t.title) && !OFFICIAL_TEMPLATES.some(o => o.title === t.title));
+    d.settings.templates = [...OFFICIAL_TEMPLATES.map(t => ({ ...t })), ...keep];
+    d.settings.tplVersion = 3;
+  }
+  return d;
+}
+function loadAll() {
+  setTimeout(purgeEmptySessions, 0);
+  try { const m = localStorage.getItem(LS_META); if (m) meta = Object.assign(meta, JSON.parse(m)); } catch (e) {}
+  try { const s = localStorage.getItem(LS_DB); db = s ? normalize(JSON.parse(s)) : null; } catch (e) { db = null; }
+}
+function writeMeta() { try { localStorage.setItem(LS_META, JSON.stringify(meta)); } catch (e) {} }
+function snapshot(reason) {
+  if (!db || !db.rev) return;
+  try {
+    const list = JSON.parse(localStorage.getItem(LS_SNAP) || '[]');
+    list.unshift({ at: new Date().toISOString(), rev: db.rev, reason, data: JSON.stringify(db) });
+    const size = list[0].data.length, maxN = Math.max(1, Math.min(5, Math.floor(2500000 / Math.max(1, size))));
+    while (list.length > maxN) list.pop();
+    localStorage.setItem(LS_SNAP, JSON.stringify(list));
+  } catch (e) { try { localStorage.removeItem(LS_SNAP); } catch (_) {} }
+}
+function persist(msg) {
+  const today = D.today();
+  if (meta.snapDay !== today) { snapshot('начало дня'); meta.snapDay = today; }
+  db.rev = (db.rev || 0) + 1; db.updatedAt = new Date().toISOString();
+  try { localStorage.setItem(LS_DB, JSON.stringify(db)); }
+  catch (e) { alert('Не удалось сохранить: в браузере закончилось место. Сохраните копию в файл и удалите старые версии в разделе «Данные».'); }
+  writeMeta();
+  render();
+  if (msg) toast(msg);
+}
+function toast(msg) {
+  document.querySelectorAll('.toast').forEach(x => x.remove()); const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2600);
+}
+const dirty = () => db && db.rev > (meta.exportedRev || 0);
+
+/* ---------- значки ---------- */
+const I = {
+  today: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>',
+  journal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l2 2 4-4"/><rect x="4" y="3" width="16" height="18" rx="2"/></svg>',
+  people: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><circle cx="17.5" cy="9" r="2.5"/><path d="M17 14.6c2.3.2 4 1.8 4.5 4.4"/></svg>',
+  subs: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19M6 15h4"/></svg>',
+  attest: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h20M16 12v5M20 12v4"/><rect x="2" y="9" width="20" height="6" rx="1"/></svg>',
+  report: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+  settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+  data: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v3h16v-3"/></svg>',
+  more: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>',
+};
+const NAV = [
+  ['today', 'Сегодня'], ['journal', 'Посещения'], ['people', 'Спортсмены'], ['subs', 'Абонементы'],
+  ['attest', 'Аттестация'], ['report', 'Сводка'], ['settings', 'Настройки'], ['data', 'Данные'],
+];
+
+/* ---------- пояс ---------- */
+const BELT_COLORS = { 'белый': '#F6F6F3', 'серый': '#8D9094', 'жёлтый': '#E6BF1F', 'оранжевый': '#E07A22', 'зелёный': '#2E8A4B',
+  'синий': '#1E4EA6', 'фиолетовый': '#6A3E9F', 'коричневый': '#6C4428', 'чёрный': '#1B1B1B' };
+function beltHTML(belt, stripes, lg) {
+  if (!belt) return `<span class="belt none${lg ? ' lg' : ''}" title="пояс не присвоен"></span><span class="belt-txt">—</span>`;
+  const [c1, c2] = belt.split('-');
+  const bc = BELT_COLORS[c1] || '#ccc', bc2 = c2 ? (BELT_COLORS[c2] || '#fff') : '';
+  const tip = c1 === 'чёрный' ? '#B3261E' : '#111';
+  const n = Math.max(0, Math.min(4, +stripes || 0));
+  return `<span class="belt${c2 ? ' two' : ''}${lg ? ' lg' : ''}" style="--bc:${bc};--bc2:${bc2};--tip:${tip}" title="${h(belt)}${n ? ', ' + n + ' ' + plural(n, 'страйп', 'страйпа', 'страйпов') : ''}"><span class="tip">${'<i></i>'.repeat(n)}</span></span><span class="belt-txt">${h(belt)}${n ? ' ' + '|'.repeat(n) : ''}</span>`;
+}
+function chipSub(c) {
+  if (c && c.noSub && !c.subCalc) return '<span class="chip muted">без абонемента</span>';
+  if (c && c.pendingSub) { const n = c.pendingCalc ? c.pendingCalc.charged : 0; return `<span class="chip bad">ждём оплату${n ? ' · в долг ' + n : ''}</span>`; }
+  if (!c || !c.subCalc) return '<span class="chip muted">нет абонемента</span>';
+  const s = c.subCalc;
+  if (!(+c.sub.count > 0)) return '<span class="chip bad">не указано занятий</span>';
+  if (s.remaining < 0) return `<span class="chip bad">долг ${-s.remaining}</span>`;
+  if (s.remaining === 0) return c.nextSub ? '<span class="chip ok">новый с ' + D.short(c.nextSub.start) + '</span>' : '<span class="chip muted">закончился</span>';
+  return `<span class="chip ${s.remaining === 1 ? 'warn' : 'ok'}">ост. ${s.remaining}</span>`;
+}
+function chipMed(m) {
+  if (m === 'просрочена') return '<span class="chip bad">справка просрочена</span>';
+  if (m === 'истекает') return '<span class="chip warn">справка истекает</span>';
+  return '';
+}
+function telLink(p) { const d = cleanPhone(p); return d ? `<a href="tel:+7${d}" class="num">${h(fmtPhone(p))}</a>` : h(p || ''); }
+
+/* ---------- каркас ---------- */
+function route() { const [v, arg] = (location.hash.slice(1) || 'today').split('/'); return { v, arg: arg ? decodeURIComponent(arg) : '' }; }
+function navHTML(cur) {
+  const side = `<aside class="side no-print"><div class="brand"><div class="mark-logo">D23</div><div><b>Club D23</b><span>учёт клуба</span></div></div>
+    <nav class="nav">${NAV.map(([k, l]) => `<a href="#${k}" class="${cur === k ? 'on' : ''}">${I[k]}${l}</a>`).join('')}</nav>
+    <div class="sync">${dirty() ? `Есть изменения, которых нет в копии. ${meta.lastExport ? 'Последняя копия: ' + D.ru(meta.lastExport.slice(0, 10)) : 'Копию ещё не сохраняли'}.<button class="btn sm" data-act="export">Сохранить копию</button>` : (meta.lastExport ? 'Копия сохранена ' + D.ru(meta.lastExport.slice(0, 10)) + '.' : 'Данные хранятся в этом браузере.')}</div></aside>`;
+  const tabs = [['today', 'Сегодня'], ['journal', 'Посещения'], ['people', 'Люди'], ['subs', 'Оплаты'], ['more', 'Ещё']];
+  const moreOn = ['attest', 'report', 'settings', 'data', 'more'].includes(cur);
+  const bar = `<nav class="tabbar no-print">${tabs.map(([k, l]) => `<a href="#${k}" class="${cur === k || (k === 'more' && moreOn) ? 'on' : ''}">${I[k]}${l}</a>`).join('')}</nav>`;
+  return side + bar;
+}
+function render() {
+  if (!db) { document.getElementById('app').innerHTML = welcomeHTML(); return; }
+  ix = buildIndex(db, D.today());
+  const { v, arg } = route();
+  const views = { today: vToday, journal: vJournal, session: vSession, people: vPeople, person: vPerson, subs: vSubs, attest: vAttest, report: vReport, settings: vSettings, data: vData, more: vMore };
+  const fn = views[v] || vToday;
+  const navKey = v === 'session' ? 'journal' : v === 'person' ? 'people' : v;
+  let body;
+  try { body = fn(arg); } catch (e) { console.error(e); body = `<div class="card"><h2>Ошибка отображения</h2><p class="muted">${h(e.message)}</p></div>`; }
+  const scroll = window.scrollY;
+  document.getElementById('app').innerHTML = `<div class="shell">${navHTML(navKey)}<main>${body}</main></div>`;
+  if (render.keepScroll) window.scrollTo(0, scroll); else window.scrollTo(0, 0);
+  render.keepScroll = false;
+}
+function rerender() { render.keepScroll = true; render(); }
+function purgeEmptySessions() {          // открытые по ошибке и не отмеченные занятия не храним
+  if (!db) return;
+  const cur = route().v === 'session' ? route().arg : '';
+  const before = db.sessions.length;
+  db.sessions = db.sessions.filter(s => s.id === cur || Object.values(s.marks || {}).some(Boolean));
+  if (db.sessions.length !== before) { db.rev = (db.rev || 0) + 1; db.updatedAt = new Date().toISOString(); try { localStorage.setItem(LS_DB, JSON.stringify(db)); } catch (e) {} }
+}
+window.addEventListener('hashchange', () => { const d = document.getElementById('dlg'); if (d && d.open) d.close(); purgeEmptySessions(); render(); });
+
+function welcomeHTML() {
+  return `<main style="max-width:640px;margin:8vh auto;padding:0 16px">
+    <div class="card"><div class="row" style="margin-bottom:10px"><div class="mark-logo" style="background:var(--nav);color:#fff">D23</div><h1 style="margin:0">Учёт Club D23</h1></div>
+    <p>Все данные хранятся в этом браузере на этом устройстве. Чтобы перенести их на другое устройство, сохраните копию в файл и откройте её там.</p>
+    <div class="row" style="margin-top:14px"><button class="btn primary" data-act="import">Загрузить данные из файла</button><button class="btn" data-act="start-empty">Начать с пустой базы</button></div>
+    <p class="small muted" style="margin-top:14px">Для первого запуска загрузите файл «D23_данные_импорт.json» — в нём ваши спортсмены, посещения, абонементы и пояса из прежних таблиц.</p></div></main>`;
+}
+function vMore() {
+  return `<h1>Ещё</h1><div class="card flat"><ul class="list">${NAV.slice(4).map(([k, l]) => `<li class="click" data-go="#${k}">${I[k].replace('<svg', '<svg width="22" height="22"')}<div class="who"><b>${l}</b></div></li>`).join('')}</ul></div>`;
+}
+
+/* ---------- «Требует внимания» ---------- */
+function attention() {
+  const out = [], t = ix.today;
+  for (const a of db.athletes) {
+    if (a.status !== 'занимается') continue;
+    const c = ix.athCalc.get(a.id), s = c.subCalc, nm = shortName(a);
+    if (c.pendingSub) {
+      const n = c.pendingCalc ? c.pendingCalc.charged : 0;
+      out.push({ tone: 'bad', a, text: `${nm}: ждём оплату с ${D.ru(c.pendingSub.start)}${n ? ', в долг ' + n + ' ' + plural(n, 'занятие', 'занятия', 'занятий') : ''}`, tpl: 'Абонемент закончился', sub: c.pendingSub.id, paid: c.pendingSub.id });
+    } else if (s) {
+      const single = (+c.sub.count || 0) <= 1;
+      if (s.remaining < 0) out.push({ tone: 'bad', a, text: `${nm}: долг ${-s.remaining} ${plural(-s.remaining, 'занятие', 'занятия', 'занятий')} сверх оплаты`, tpl: 'Долг по занятиям', extra: { 'N': String(-s.remaining) } });
+      else if (s.remaining === 0 && !c.nextSub && !single) out.push({ tone: 'warn', a, text: `${nm}: абонемент использован${s.end ? ' ' + D.ru(s.end) : ''}, нового нет`, tpl: 'Абонемент закончился', wait: true });
+      else if (s.remaining === 1 && !c.nextSub && !single) out.push({ tone: 'warn', a, text: `${nm}: осталось одно занятие${s.end ? ' (' + D.ru(s.end) + ')' : ''}`, tpl: 'Абонемент заканчивается' });
+      else if (s.remaining === 2 && !c.nextSub && !single) out.push({ tone: 'warn', a, text: `${nm}: осталось два занятия${s.end ? ' (последнее ' + D.ru(s.end) + ')' : ''}`, tpl: 'Абонемент заканчивается' });
+    } else if (!a.noSub) {
+      const recent = (ix.marks.get(a.id) || []).filter(m => m.mark === '+' && D.diff(m.date, t) <= 21).length;
+      if (recent) out.push({ tone: 'warn', a, text: `${nm}: ${recent} ${plural(recent, 'посещение', 'посещения', 'посещений')} за 3 недели, абонемента нет`, nosub: true });
+    }
+    if (c.med === 'просрочена') out.push({ tone: 'bad', a, text: `${nm}: медсправка просрочена (${D.ru(a.medUntil)}) — к занятиям не допускать` });
+    else if (c.med === 'истекает') out.push({ tone: 'warn', a, text: `${nm}: медсправка до ${D.ru(a.medUntil)}` });
+    if (c.noParentPhone) out.push({ tone: 'muted', a, text: `${nm}: нет телефона родителя` });
+    // «б» без заморозки за последние 60 дней
+    const fr = ix.freezesByAth.get(a.id) || [];
+    const loose = (ix.marks.get(a.id) || []).filter(m => m.mark === 'б' && D.diff(m.date, t) <= 60 && m.date >= (db.settings.sickCheckFrom || '') && !fr.some(f => f.from && f.to && m.date >= f.from && m.date <= f.to));
+    if (loose.length) out.push({ tone: 'sick', a, text: `${nm}: «б» без записи о заморозке (${loose.map(m => D.short(m.date)).join(', ')}) — занятия не списываются`, act: 'freeze-new' });
+  }
+  for (const f of db.freezes) {
+    const a = ix.ath.get(f.athleteId); if (!a) continue;
+    const c = calcFreeze(ix, f);
+    if (['a', 'b', 'wait'].includes(c.mode) && !f.certDate && c.certBy) out.push({ tone: 'sick', a, text: `${shortName(a)}: справка о болезни нужна ${c.certIsSession ? 'до начала занятия' : 'не позднее'} ${D.ru(c.certBy)}${c.remindBy ? ', напомнить до ' + D.ru(c.remindBy) : ''}`, freeze: f.id });
+    if (c.mode === 'wait' && f.certDate) out.push({ tone: 'sick', a, text: `${shortName(a)}: заморозка — вернуться не позднее ${D.ru(c.returnBy)}`, freeze: f.id });
+  }
+  const noGroup = db.sessions.filter(s => !s.group);
+  if (noGroup.length) out.push({ tone: 'warn', text: `${noGroup.length} ${plural(noGroup.length, 'занятие', 'занятия', 'занятий')} без группы (${noGroup.map(s => D.short(s.date)).join(', ')}) — выберите группу`, session: noGroup[0].id });
+  const comp = db.settings.competition;
+  if (comp.date && comp.date < t) out.push({ tone: 'muted', text: `Дата соревнований «${comp.name}» прошла — обновите в настройках`, go: '#settings' });
+  const order = { bad: 0, warn: 1, sick: 2, muted: 3 };
+  return out.sort((x, y) => order[x.tone] - order[y.tone]);
+}
+
+/* ---------- СЕГОДНЯ ---------- */
+function vToday() {
+  const t = ix.today, dw = D.dow(t);
+  const hol = ix.holiday.get(t);
+  const planned = db.settings.groups.filter(g => g.days[dw]);
+  const todaySessions = ix.sessionsSorted.filter(s => s.date === t);
+  const groupsBtns = [...new Set([...planned.map(g => g.name), ...todaySessions.map(s => s.group)])].map(g => {
+    const s = todaySessions.find(x => x.group === g);
+    const n = s ? Object.values(s.marks).filter(m => m === '+').length : 0;
+    return `<button class="btn ${s ? '' : 'primary'}" data-act="open-session" data-date="${t}" data-group="${h(g)}">${s ? h(g || 'без группы') + ' · отмечено ' + n : 'Отметить «' + h(g) + '»'}</button>`;
+  }).join('');
+  const al = attention();
+  const comp = db.settings.competition;
+  const days = comp.date && comp.date >= t ? D.diff(t, comp.date) : null;
+  const active = db.athletes.filter(a => a.status === 'занимается').length;
+  const banner = dirty() && (!meta.lastExport || D.diff(meta.lastExport.slice(0, 10), t) >= 3)
+    ? `<div class="banner no-print"><div class="spacer">${meta.lastExport ? 'Копию данных не сохраняли с ' + D.ru(meta.lastExport.slice(0, 10)) : 'Копия данных ещё ни разу не сохранялась'}. Если браузер очистится, изменения пропадут.</div><button class="btn primary" data-act="export">Сохранить копию</button></div>` : '';
+  return `${banner}
+  <div class="topline"><div><h1>${DOW_FULL[dw][0].toUpperCase() + DOW_FULL[dw].slice(1)}, ${D.ru(t)}</h1><div class="muted">Занимается: ${active}${days != null ? ' · до «' + h(comp.name) + '» ' + days + ' ' + plural(days, 'день', 'дня', 'дней') : ''}</div></div></div>
+  <div class="card"><h2>Тренировки сегодня</h2>
+    ${hol ? `<p class="muted">Нерабочий день: ${h(hol)}. Занятия не идут в срок абонементов.</p>` : ''}
+    <div class="today-groups">${groupsBtns || '<span class="muted">По расписанию занятий нет.</span>'}
+      <button class="btn" data-act="open-session-pick">Другая группа или дата</button></div></div>
+  <div class="card flat"><div style="padding:14px 16px 6px"><h2>Требует внимания <span class="muted small">${al.length || ''}</span></h2></div>
+    ${al.length ? al.map(x => `<div class="alert ${x.tone}"><span class="dot"></span><div class="txt">${h(x.text)}</div>
+      <div class="row">${x.tpl ? `<button class="btn sm" data-act="msg" data-id="${x.a.id}" data-tpl="${h(x.tpl)}"${x.sub ? ` data-sub="${x.sub}"` : ''} data-extra='${h(JSON.stringify(x.extra || {}))}'>Написать</button>` : ''}
+      ${x.paid ? `<button class="btn sm" data-act="sub-paid" data-id="${x.paid}">Оплачено</button>` : ''}${x.wait ? `<button class="btn sm" data-act="sub-wait" data-id="${x.a.id}">Ждём оплату</button>` : ''}${x.nosub ? `<button class="btn sm" data-act="no-sub" data-id="${x.a.id}" title="Ходит без абонемента (бесплатно) — больше не напоминать">Без абонемента</button><button class="btn sm" data-act="sub-wait" data-id="${x.a.id}">Ждём оплату</button>` : ''}
+      ${x.act === 'freeze-new' ? `<button class="btn sm" data-act="freeze-new" data-id="${x.a.id}">Заморозка</button>` : ''}
+      ${x.freeze ? `<button class="btn sm" data-act="freeze-edit" data-id="${x.freeze}">Открыть</button>` : ''}
+      ${x.session ? `<a class="btn sm" href="#session/${x.session}">Открыть</a>` : ''}
+      ${x.go ? `<a class="btn sm" href="${x.go}">Открыть</a>` : ''}
+      ${x.a && !x.freeze ? `<a class="btn sm ghost" href="#person/${x.a.id}">Карточка</a>` : ''}</div></div>`).join('')
+      : '<div class="empty">Всё в порядке: долгов, просроченных справок и заканчивающихся абонементов нет.</div>'}</div>`;
+}
+
+/* ---------- ПОСЕЩЕНИЯ ---------- */
+function findOrCreateSession(date, group) {
+  let s = db.sessions.find(x => x.date === date && x.group === group);
+  if (!s) { s = { id: uid('s'), date, group, marks: {} }; db.sessions.push(s); persist(); }
+  return s;
+}
+function vJournal() {
+  const J = ui.journal; if (!J.date) J.date = ix.today;
+  if (!J.month) J.month = ix.today.slice(0, 7);
+  const groups = db.settings.groups.map(g => g.name);
+  if (!J.mgroup) J.mgroup = groups[0] || '';
+  const tabs = `<div class="seg no-print"><button data-act="jtab" data-tab="session" class="${J.tab === 'session' ? 'on' : ''}">Занятия</button><button data-act="jtab" data-tab="month" class="${J.tab === 'month' ? 'on' : ''}">Месяц</button></div>`;
+  if (J.tab === 'month') return monthView(tabs, groups);
+  const recent = [...ix.sessionsSorted].reverse().slice(0, 40);
+  return `<div class="topline"><h1>Посещения</h1>${tabs}</div>
+  <div class="card"><h2>Открыть занятие</h2>
+    <div class="row"><label class="f" style="min-width:160px"><span>Дата</span><input type="date" id="j-date" value="${J.date}"></label>
+    <label class="f" style="min-width:180px;flex:1"><span>Группа</span><select id="j-group">${groups.map(g => opt(g, J.group || suggestGroup(J.date))).join('')}</select></label>
+    <button class="btn primary" data-act="open-session-form" style="align-self:flex-end">Открыть</button></div></div>
+  <div class="card flat"><div style="padding:14px 16px 4px"><h2>Последние занятия</h2></div>
+  ${recent.length ? `<ul class="list">${recent.map(s => {
+    const v = Object.values(s.marks), c = m => v.filter(x => x === m).length;
+    return `<li class="click" data-go="#session/${s.id}"><div class="who"><b>${D.ru(s.date)}, ${DOW[D.dow(s.date)]} — ${h(s.group || 'без группы')}</b><span class="small">был ${c('+')} · не был ${c('н')}${c('б') ? ' · болел ' + c('б') : ''}${c('о') ? ' · отменено' : ''}</span></div>${!s.group ? '<span class="chip warn">нет группы</span>' : offSchedule(s) ? '<span class="chip warn" title="В этот день недели у группы нет занятий по расписанию">не по расписанию</span>' : ''}</li>`;
+  }).join('')}</ul>` : '<div class="empty">Занятий пока нет. Откройте первое занятие выше.</div>'}</div>`;
+}
+function offSchedule(s) { const g = ix.group.get(s.group); return g && g.days.some(Boolean) && !g.days[D.dow(s.date)]; }
+function suggestGroup(date) {
+  const dw = D.dow(date); const g = db.settings.groups.find(g => g.days[dw]); return g ? g.name : (db.settings.groups[0] || {}).name;
+}
+function sessionMembers(s) {           // только состав выбранной группы
+  if (!s.group) return [];
+  return db.athletes.filter(a => inGroupOn(a, s.group, s.date) && (a.status === 'занимается' || s.marks[a.id]))
+    .sort((a, b) => fullName(a).localeCompare(fullName(b), 'ru'));
+}
+function sessionOthers(s) {            // отмечены на занятии, но из других групп
+  const mem = new Set(sessionMembers(s).map(a => a.id));
+  return Object.keys(s.marks).filter(id => !mem.has(id)).map(id => ix.ath.get(id)).filter(Boolean)
+    .sort((a, b) => fullName(a).localeCompare(fullName(b), 'ru'));
+}
+function markRow(s, a, showGroup) {
+  const m = s.marks[a.id] || '', ac = ix.athCalc.get(a.id);
+  return `<li><div class="who"><b>${h(shortName(a))}</b><span class="small row" style="gap:6px">${beltHTML(ac.belt, ac.stripes)} ${chipSub(ac)} ${chipMed(ac.med)}${showGroup ? ' <span class="chip muted">' + h(groupOn(a, s.date) || 'без группы') + '</span>' + (groupOn(a, s.date) && groupOn(a, s.date) !== s.group && m ? ` <button class="btn sm no-print" data-act="move-own" data-sid="${s.id}" data-aid="${a.id}">Перенести в «${h(groupOn(a, s.date))}»</button>` : '') : ''}</span></div>
+    <div class="marks">${['+', 'н', 'б', 'о', 'с'].map(k => `<button class="mk${m === k ? ' on' : ''}" data-act="mark" data-sid="${s.id}" data-aid="${a.id}" data-m="${k}" aria-label="${MARKS[k].label}">${k}</button>`).join('')}</div></li>`;
+}
+function vSession(sid) {
+  const s = db.sessions.find(x => x.id === sid);
+  if (!s) return '<div class="card"><p>Занятие не найдено.</p><a class="btn" href="#journal">К посещениям</a></div>';
+  const people = sessionMembers(s), extra = sessionOthers(s);
+  const v = people.map(a => s.marks[a.id]).filter(Boolean), c = m => v.filter(x => x === m).length;
+  const addable = db.athletes.filter(a => !people.includes(a) && !s.marks[a.id] && a.status !== 'ушёл').sort((a, b) => fullName(a).localeCompare(fullName(b), 'ru'));
+  const hol = ix.holiday.get(s.date);
+  const openExtra = !s.group || ui.openOthers === s.id;
+  return `<div class="topline"><div><a href="#journal" class="small no-print">← Посещения</a><h1>${D.ru(s.date)}, ${DOW_FULL[D.dow(s.date)]}</h1>
+    <div class="row"><select data-change="session-group" data-id="${s.id}" style="width:auto">${opt('', s.group, '— выберите группу —')}${db.settings.groups.map(g => opt(g.name, s.group)).join('')}</select>
+    <span class="muted num">был ${c('+')} · не был ${c('н')} · болел ${c('б')}</span></div></div>
+    <div class="row no-print"><button class="btn" data-act="mark-all" data-id="${s.id}" data-m="+">Все были</button><button class="btn" data-act="mark-rest" data-id="${s.id}">Остальным «н»</button><button class="btn" data-act="mark-all" data-id="${s.id}" data-m="о">Занятие отменено</button></div></div>
+  ${hol ? `<div class="banner">Этот день отмечен как нерабочий: ${h(hol)}.</div>` : ''}
+  ${offSchedule(s) ? `<div class="banner">По расписанию у «${h(s.group)}» нет занятий в ${DOW_FULL[D.dow(s.date)]}. Проверьте, та ли группа выбрана.</div>` : ''}
+  ${!s.group ? `<div class="banner">У занятия не выбрана группа. Выберите её в списке выше — тогда появится состав группы.</div>` : ''}
+  <div class="legend" style="margin-bottom:10px"><span><b style="background:var(--ok)">+</b>был</span><span><b style="background:var(--bad)">н</b>не был, списывается</span><span><b style="background:var(--sick)">б</b>болел, заморозка</span><span><b style="background:var(--cancel)">о</b>отменено клубом</span><span><b style="background:var(--comp)">с</b>соревнования</span></div>
+  ${s.group ? `<div class="card flat"><ul class="list">${people.map(a => markRow(s, a, false)).join('') || '<li class="muted">В группе нет занимающихся.</li>'}</ul></div>` : ''}
+  ${extra.length ? `<details class="card flat" ${openExtra ? 'open' : ''}><summary style="padding:12px 16px;cursor:pointer"><b>${s.group ? 'Из других групп на этом занятии' : 'Отмечены на занятии'}: ${extra.length}</b>${extra.length > 1 ? ` <button class="btn sm no-print" data-act="move-own" data-sid="${s.id}" style="margin-left:8px">Перенести всех в их группы</button>` : ''}</summary>
+  <p class="small muted" style="padding:0 16px">Если отметку поставили не в ту группу, «Перенести» переставит её на занятие группы человека за эту же дату. Если человек действительно приходил в эту группу — ничего не делайте.</p><ul class="list" style="border-top:1px solid var(--line)">${extra.map(a => markRow(s, a, true)).join('')}</ul></details>` : ''}
+  <div class="card no-print"><div class="row"><select id="add-to-session" style="flex:1;min-width:200px">${opt('', '', 'Гость или человек из другой группы…')}${addable.map(a => opt(a.id, '', fullName(a) + (a.group ? ' — ' + a.group : ''))).join('')}</select>
+  <button class="btn" data-act="session-add" data-id="${s.id}">Добавить</button><span class="spacer"></span><button class="btn danger" data-act="session-del" data-id="${s.id}">Удалить занятие</button></div></div>`;
+}
+function monthView(tabs, groups) {
+  const J = ui.journal, [y, m] = J.month.split('-').map(Number);
+  const sess = ix.sessionsSorted.filter(s => s.date.startsWith(J.month) && s.group === J.mgroup);
+  const byName = (a, b) => fullName(a).localeCompare(fullName(b), 'ru');
+  const marked = new Set(); sess.forEach(s => Object.keys(s.marks).forEach(id => marked.add(id)));
+  const mStart = J.month + '-01', mEnd = J.month + '-31';
+  const own = a => sess.some(s => inGroupOn(a, J.mgroup, s.date)) || (!sess.length && inGroupOn(a, J.mgroup, mEnd));
+  const people = db.athletes.filter(a => own(a) && (a.status === 'занимается' || marked.has(a.id) || (a.transfers || []).some(t => t.date >= mStart && t.date <= mEnd))).sort(byName);
+  const period = a => { const t = (a.transfers || []).filter(t => t.date >= mStart && t.date <= mEnd && (t.from === J.mgroup || t.to === J.mgroup));
+    return t.map(x => x.to === J.mgroup ? 'с ' + D.short(x.date) : 'до ' + D.short(D.add(x.date, -1))).join(', '); };
+  const guests = [...marked].map(id => ix.ath.get(id)).filter(a => a && sess.some(s => s.marks[a.id] && !inGroupOn(a, J.mgroup, s.date))).sort(byName);
+  const cls = { '+': 'm-plus', 'н': 'm-n', 'б': 'm-b', 'о': 'm-o', 'с': 'm-s' };
+  const prev = m === 1 ? (y - 1) + '-12' : y + '-' + pad(m - 1), next = m === 12 ? (y + 1) + '-01' : y + '-' + pad(m + 1);
+  const head = `<thead><tr><th>ФИО</th>${sess.map(s => `<th class="num"><a href="#session/${s.id}">${D.short(s.date).slice(0, 2)}</a><br><span class="small">${DOW[D.dow(s.date)]}</span></th>`).join('')}<th>+</th><th>н</th><th>б</th></tr></thead>`;
+  const rows = (list, showGroup) => list.map(a => { const ms = sess.map(s => s.marks[a.id] || ''); const cnt = k => ms.filter(x => x === k).length;
+    const off = sess.map(s => !showGroup && !inGroupOn(a, J.mgroup, s.date)); const per = showGroup ? '' : period(a);
+    return `<tr><td>${h(shortName(a))}${showGroup ? ' <span class="small muted">' + h(a.group || '') + '</span>' : ''}${per ? ' <span class="small muted">' + per + '</span>' : ''}</td>${ms.map((x, i) => `<td${off[i] ? ' class="off"' : ''}>${x ? `<span class="cell-m ${cls[x] || ''}">${h(x)}</span>` : ''}</td>`).join('')}<td class="num">${cnt('+')}</td><td class="num">${cnt('н')}</td><td class="num">${cnt('б')}</td></tr>`; }).join('');
+  return `<div class="topline"><h1>Посещения — ${MONTHS[m - 1]} ${y}</h1>${tabs}</div>
+  <div class="card no-print"><div class="row"><button class="btn" data-act="jmonth" data-m="${prev}">←</button><input type="month" id="j-month" value="${J.month}" style="width:auto" data-change="jmonth-input">
+  <button class="btn" data-act="jmonth" data-m="${next}">→</button><select data-change="jmgroup" style="width:auto">${groups.map(g => opt(g, J.mgroup)).join('')}</select><span class="spacer"></span><button class="btn primary" data-act="print-blank">Бланк для печати</button></div></div>
+  <div class="print-only"><b>${h(db.settings.club)}</b> — журнал посещаемости: ${h(J.mgroup)}, ${MONTHS[m - 1]} ${y}</div>
+  <div class="card flat scroll">${sess.length ? `<table class="t month">${head}<tbody>${rows(people, false) || `<tr><td colspan="${sess.length + 4}" class="muted">В группе нет занимающихся</td></tr>`}</tbody></table>`
+    : '<div class="empty">В этом месяце у группы занятий нет.</div>'}</div>
+  ${guests.length ? `<details class="card flat no-print"><summary style="padding:12px 16px;cursor:pointer"><b>Из других групп на занятиях этой группы: ${guests.length}</b> <span class="small muted">— если человек попал сюда по ошибке, откройте занятие по дате и проверьте группу</span></summary><div class="scroll"><table class="t month">${head}<tbody>${rows(guests, true)}</tbody></table></div></details>` : ''}`;
+}
+
+/* ===== D23 CRM — интерфейс, часть 2 ===== */
+
+/* ---------- СПОРТСМЕНЫ ---------- */
+function ageOf(c, mode) { return mode === 'на дату соревнований' ? c.ageComp : mode === 'на 31.12' ? c.age3112 : c.age; }
+function filteredPeople() {
+  const F = ui.people, q = F.q.trim().toLowerCase().replace(/ё/g, 'е');
+  let list = db.athletes.filter(a => {
+    const c = ix.athCalc.get(a.id);
+    if (F.status !== 'все' && a.status !== F.status) return false;
+    if (F.group !== 'все' && a.group !== F.group && a.group2 !== F.group) return false;
+    if (F.belt !== 'все' && c.belt !== F.belt) return false;
+    if (F.sex !== 'все' && a.sex !== F.sex) return false;
+    const ag = ageOf(c, F.ageMode);
+    if (F.ageFrom !== '' && (ag == null || ag < +F.ageFrom)) return false;
+    if (F.ageTo !== '' && (ag == null || ag > +F.ageTo)) return false;
+    const y = a.birth ? +a.birth.slice(0, 4) : null;
+    if (F.yFrom !== '' && (y == null || y < +F.yFrom)) return false;
+    if (F.yTo !== '' && (y == null || y > +F.yTo)) return false;
+    if (q) {
+      const hay = (fullName(a) + ' ' + a.motherName + ' ' + a.fatherName + ' ' + a.phone + ' ' + a.motherPhone + ' ' + a.fatherPhone).toLowerCase().replace(/ё/g, 'е');
+      if (!q.split(/\s+/).every(w => hay.includes(w))) return false;
+    }
+    return true;
+  });
+  const byName = (a, b) => fullName(a).localeCompare(fullName(b), 'ru');
+  if (F.sort === 'age') list.sort((a, b) => ((ageOf(ix.athCalc.get(a.id), F.ageMode) ?? 99) - (ageOf(ix.athCalc.get(b.id), F.ageMode) ?? 99)) || byName(a, b));
+  else if (F.sort === 'group') list.sort((a, b) => (a.group || '').localeCompare(b.group || '', 'ru') || byName(a, b));
+  else list.sort(byName);
+  return list;
+}
+function vPeople() {
+  const F = ui.people, S = db.settings, list = filteredPeople();
+  const sel = (k, items, label) => `<label class="f"><span>${label}</span><select data-change="pf" data-k="${k}">${items.map(x => opt(x, F[k])).join('')}</select></label>`;
+  const num = (k, label, ph) => `<label class="f"><span>${label}</span><input type="number" inputmode="numeric" data-change="pf" data-k="${k}" value="${h(F[k])}" placeholder="${ph}"></label>`;
+  return `<div class="topline"><div><h1>Спортсмены</h1><div class="muted">${list.length} из ${db.athletes.length}</div></div>
+    <div class="row no-print"><button class="btn primary" data-act="person-new">Добавить</button><button class="btn" data-act="people-print">Печать списка</button><button class="btn" data-act="people-entry">Список для заявки</button><button class="btn" data-act="people-csv">В Excel (CSV)</button></div></div>
+  <div class="card no-print"><input type="search" placeholder="Поиск: фамилия, имя, родитель, телефон" data-change="pf" data-k="q" value="${h(F.q)}" style="margin-bottom:10px">
+  <details class="filt" ${window.innerWidth > 860 || ui.peopleFiltOpen ? 'open' : ''} data-filt><summary>Фильтры${['group', 'belt', 'sex'].some(k => F[k] !== 'все') || F.status !== 'занимается' || F.ageFrom || F.ageTo || F.yFrom || F.yTo ? ' (включены)' : ''}</summary>
+  <div class="filters">${sel('status', ['все', ...S.statuses], 'Статус')}${sel('group', ['все', ...S.groups.map(g => g.name)], 'Группа')}${sel('belt', ['все', ...S.belts], 'Пояс')}${sel('sex', ['все', 'М', 'Ж'], 'Пол')}
+  ${sel('ageMode', ['сейчас', 'на дату соревнований', 'на 31.12'], 'Возраст считать')}${num('ageFrom', 'Возраст от', '0')}${num('ageTo', 'Возраст до', '99')}${num('yFrom', 'Год рожд. от', '2008')}${num('yTo', 'Год рожд. до', '2020')}
+  ${sel('sort', ['name', 'age', 'group'], 'Сортировка').replace('>name<', '>по фамилии<').replace('>age<', '>по возрасту<').replace('>group<', '>по группе<')}</div></details>
+  ${F.ageMode !== 'сейчас' && S.competition.date ? `<div class="small muted">Соревнования: ${h(S.competition.name)}, ${D.ru(S.competition.date)}</div>` : ''}</div>
+  <div class="print-only"><b>${h(S.club)}</b> — список спортсменов (${list.length}), ${D.ru(ix.today)}</div>
+  <div class="card flat scroll"><table class="t"><thead><tr><th>ФИО</th><th>Пояс</th><th class="r">Возраст</th><th class="hide-m">Дата рожд.</th><th>Группа</th><th class="hide-m">Контакт</th><th class="no-print">Абонемент</th><th class="hide-m">Справка</th></tr></thead><tbody>
+  ${list.map(a => { const c = ix.athCalc.get(a.id); const ag = ageOf(c, F.ageMode);
+    return `<tr class="click${c.noParentPhone ? ' nophone' : ''}" data-go="#person/${a.id}"><td><b>${h(fullName(a))}</b>${a.status !== 'занимается' ? ` <span class="chip muted">${h(a.status)}</span>` : ''}</td>
+    <td>${beltHTML(c.belt, c.stripes)}</td><td class="r num">${ag ?? ''}</td><td class="hide-m num">${D.ru(a.birth)}</td><td>${h(a.group)}${a.group2 ? ' / ' + h(a.group2) : ''}</td>
+    <td class="hide-m">${c.contact ? telLink(c.contact) + ' <span class="small muted">' + c.contactWho + '</span>' : (c.noParentPhone ? '<span class="chip bad">нет телефона</span>' : '')}</td>
+    <td class="no-print">${chipSub(c)}</td><td class="hide-m">${c.med === 'действует' ? '<span class="small muted">до ' + D.ru(a.medUntil) + '</span>' : chipMed(c.med)}</td></tr>`; }).join('') || '<tr><td colspan="8" class="empty">Никого не нашлось. Сбросьте фильтры.</td></tr>'}
+  </tbody></table></div>`;
+}
+
+/* ---------- КАРТОЧКА ---------- */
+function vPerson(id) {
+  const a = ix.ath.get(id);
+  if (!a) return '<div class="card"><p>Спортсмен не найден.</p><a class="btn" href="#people">К списку</a></div>';
+  const c = ix.athCalc.get(id), S = db.settings;
+  const subs = [...(ix.subsByAth.get(id) || [])].reverse();
+  const marks = [...(ix.marks.get(id) || [])].reverse();
+  const awards = [...(ix.awardsByAth.get(id) || [])].reverse();
+  const tests = db.tests.filter(t => t.athleteId === id).sort((x, y) => y.date.localeCompare(x.date));
+  const freezes = (ix.freezesByAth.get(id) || []);
+  const adm = calcAdmission(ix, a);
+  const cnt = k => marks.filter(m => m.mark === k && m.date >= D.add(ix.today, -90)).length;
+  const kv = (k, v) => v ? `<dt>${k}</dt><dd>${v}</dd>` : '';
+  return `<div class="topline"><div><a href="#people" class="small no-print">← Спортсмены</a></div></div>
+  <div class="card"><div class="person-head">${beltHTML(c.belt, c.stripes, true)}
+    <div style="flex:1;min-width:220px"><h1>${h(fullName(a))}</h1>
+    <div class="row" style="gap:6px">${c.age != null ? `<span class="muted">${c.age} ${plural(c.age, 'год', 'года', 'лет')}</span>` : ''}<span class="chip">${h(a.group || 'без группы')}${a.group2 ? ' / ' + h(a.group2) : ''}</span>
+    <span class="chip ${a.status === 'занимается' ? 'ok' : 'muted'}">${h(a.status)}</span>${chipSub(c)}${chipMed(c.med)}</div>
+    <div class="small muted" style="margin-top:4px">${c.belt ? h(c.belt) + (c.stripes ? ', ' + c.stripes + ' ' + plural(c.stripes, 'страйп', 'страйпа', 'страйпов') : '') + ' с ' + D.ru(c.beltDate) + (c.monthsSince != null ? ' (' + c.monthsSince + ' мес.)' : '') : 'Пояс не присвоен'}</div></div>
+    <div class="row no-print"><button class="btn primary" data-act="sub-new" data-id="${id}">Оплата</button><button class="btn" data-act="msg" data-id="${id}">Написать</button><button class="btn" data-act="transfer-new" data-id="${id}">Перевести</button><button class="btn" data-act="person-edit" data-id="${id}">Изменить</button></div></div></div>
+  <div class="grid2">
+  <div class="card"><h2>Данные</h2><dl class="kv">
+    ${kv('Дата рождения', D.ru(a.birth))}${kv('Пол', h(a.sex))}${kv('Вес', a.weight ? h(a.weight) + ' кг' : '')}
+    ${kv('Телефон', telLink(a.phone))}${kv('Мать', [h(a.motherName), telLink(a.motherPhone)].filter(Boolean).join(', '))}${kv('Отец', [h(a.fatherName), telLink(a.fatherPhone)].filter(Boolean).join(', '))}
+    ${kv('Связь', c.contact ? telLink(c.contact) + ' (' + c.contactWho + ')' : (c.noParentPhone ? '<span class="chip bad">нет телефона родителя</span>' : ''))}
+    ${kv('Медсправка', a.medUntil ? 'до ' + D.ru(a.medUntil) : '<span class="muted">не внесена</span>')}
+    ${kv('На турнире', c.ageForEntry != null && S.competition.date ? c.ageForEntry + ' ' + plural(c.ageForEntry, 'год', 'года', 'лет') + ' (' + h(S.competition.name) + ')' : '')}
+    ${kv('Оплата', a.noSub ? 'без абонемента' : '')}${kv('Внесён', D.ru(a.addedAt))}${kv('Примечание', h(a.note))}</dl>
+    ${(a.transfers || []).length ? `<h3 style="margin-top:14px">Переводы</h3><ul class="list">${[...a.transfers].sort((x, y) => y.date.localeCompare(x.date)).map(t => `<li style="padding:6px 0"><div class="who small">с ${D.ru(t.date)}: ${h(t.from || '—')} → <b style="display:inline">${h(t.to)}</b></div><button class="btn sm ghost no-print" data-act="transfer-del" data-id="${id}" data-tid="${t.id}" aria-label="Удалить перевод">✕</button></li>`).join('')}</ul>` : ''}</div>
+  <div class="card"><div class="row" style="justify-content:space-between"><h2>Посещения</h2><button class="btn sm no-print" data-act="athlete-report" data-id="${id}">Печать за период</button></div><div class="stats" style="margin-bottom:10px"><div class="stat"><b>${cnt('+')}</b><span class="small muted">был, 90 дней</span></div><div class="stat"><b>${cnt('н')}</b><span class="small muted">не был</span></div><div class="stat"><b>${cnt('б')}</b><span class="small muted">болел</span></div></div>
+    <div class="small">Допуск к аттестации ${D.ru(S.attest.next)}: <b>${h(adm.status)}</b>${adm.pct != null ? ` — ${Math.round(adm.pct * 100)}% посещений, турниров ${adm.tourn}` : ''}</div>
+    <div class="small muted" style="margin-top:10px">Последние отметки, новые слева</div><div class="row" style="gap:4px;margin-top:4px;flex-wrap:wrap">${marks.slice(0, 24).map(m => `<span title="${D.ru(m.date)} ${h(m.group)}" class="cell-m ${{ '+': 'm-plus', 'н': 'm-n', 'б': 'm-b', 'о': 'm-o', 'с': 'm-s' }[m.mark] || ''}">${h(m.mark)}</span>`).join('') || '<span class="muted">Отметок нет</span>'}</div></div>
+  </div>
+  <div class="card flat"><div class="row" style="padding:14px 16px 6px"><h2 style="margin:0">Абонементы</h2><span class="spacer"></span><button class="btn sm no-print" data-act="freeze-new" data-id="${id}">Заморозка</button><button class="btn sm no-print" data-act="sub-wait" data-id="${id}">Ждём оплату</button><button class="btn sm no-print" data-act="sub-new" data-id="${id}">Добавить</button></div>
+  ${subs.length ? `<div class="scroll"><table class="t"><thead><tr><th>Действует с</th><th class="r">Занятий</th><th class="r">Сумма</th><th class="r">Был</th><th class="r">Не был</th><th class="r">Болел</th><th class="r">Остаток</th><th>Окончание</th><th></th></tr></thead><tbody>
+  ${subs.map(p => { const r = ix.subCalc.get(p.id); return `<tr class="click" data-act="sub-edit" data-id="${p.id}"><td class="num">${D.ru(p.start)}${p.onlyGroup ? ' <span class="chip">' + h(p.onlyGroup) + '</span>' : ''}</td><td class="r num">${p.count}</td><td class="r num">${p.pending ? '<span class="small muted">не оплачен</span>' : (+p.amount || 0).toLocaleString('ru')}</td><td class="r num">${r.was}</td><td class="r num">${r.missed}</td><td class="r num">${r.sick}${r.sickCharged ? ' (спис. ' + r.sickCharged + ')' : ''}</td><td class="r num"><b>${r.remaining}</b></td><td class="num">${r.end ? D.ru(r.end) : (r.endKind === 'nosched' ? '<span class="small muted">нет расписания</span>' : '')}</td><td><span class="chip ${r.tone}">${h(r.status)}</span></td></tr>`; }).join('')}</tbody></table></div>` : '<div class="empty">Абонементов нет</div>'}
+  ${freezes.length ? `<div style="padding:8px 16px 14px"><h3>Заморозки по болезни</h3><ul class="list">${freezes.map(f => { const fc = calcFreeze(ix, f); return `<li class="click" data-act="freeze-edit" data-id="${f.id}"><div class="who"><b>${D.ru(f.from)} — ${D.ru(f.to)}</b><span class="small">${h(fc.text)}</span></div><span class="chip ${fc.mode === 'lapsed' ? 'bad' : fc.mode === 'wait' ? 'warn' : 'sick'}">${{ a: 'оформлена', b: 'оформлена', wait: 'ждём', lapsed: 'прекращена', none: 'без продления', incomplete: 'не заполнена', err: 'ошибка' }[fc.mode]}</span></li>`; }).join('')}</ul></div>` : ''}</div>
+  <div class="grid2"><div class="card flat"><div class="row" style="padding:14px 16px 6px"><h2 style="margin:0">Пояса</h2><span class="spacer"></span><button class="btn sm no-print" data-act="award-new" data-id="${id}">Присвоить</button></div>
+  ${awards.length ? `<ul class="list">${awards.map(w => `<li class="click" data-act="award-edit" data-id="${w.id}">${beltHTML(w.belt, w.stripes)}<div class="who"><b>${h(w.belt)}${w.stripes ? ', ' + w.stripes + ' стр.' : ''}</b><span class="small">${D.ru(w.date)} · ${h(w.by)}</span></div></li>`).join('')}</ul>` : '<div class="empty">Присвоений нет</div>'}</div>
+  <div class="card flat"><div style="padding:14px 16px 6px"><h2>Сдача нормативов</h2></div>
+  ${tests.length ? `<ul class="list">${tests.map(t => { const r = calcTest(ix, t); return `<li class="click" data-go="#attest/tests" data-act="set-test-date" data-date="${t.date}"><div class="who"><b>${D.ru(t.date)} — на ${h(t.target)}</b><span class="small">${h(r.track || '')}</span></div><span class="chip ${/^СДАН/.test(r.result) ? 'ok' : r.result === 'НЕ СДАН' || r.bad ? 'bad' : 'muted'}">${h(r.result)}</span></li>`; }).join('')}</ul>` : '<div class="empty">Не сдавал</div>'}</div></div>`;
+}
+
+/* ---------- модальные окна ---------- */
+let dlgSubmit = null;
+function modal(title, body, { submit = 'Сохранить', onSubmit, extraBtn = '', wide = false } = {}) {
+  let d = document.getElementById('dlg');
+  if (!d) { d = document.createElement('dialog'); d.id = 'dlg'; document.body.appendChild(d); }
+  d.style.width = wide ? 'min(900px,96vw)' : '';
+  d.innerHTML = `<form method="dialog" id="dlg-form"><div class="dlg-h"><h2>${h(title)}</h2><button type="button" class="btn ghost" data-act="close" aria-label="Закрыть">✕</button></div>
+  <div class="dlg-b">${body}</div><div class="dlg-f">${extraBtn}<span class="spacer"></span><button type="button" class="btn" data-act="close">Отмена</button>${onSubmit ? `<button type="submit" class="btn primary">${h(submit)}</button>` : ''}</div></form>`;
+  dlgSubmit = onSubmit || null;
+  d.showModal();
+  const first = d.querySelector('.dlg-b input:not([type=hidden]),.dlg-b select,.dlg-b textarea');
+  if (first && window.innerWidth > 860) first.focus();
+}
+function closeModal() { const d = document.getElementById('dlg'); if (d && d.open) d.close(); }
+document.addEventListener('submit', e => {
+  if (e.target.id !== 'dlg-form') return;
+  e.preventDefault();
+  const fd = Object.fromEntries(new FormData(e.target).entries());
+  e.target.querySelectorAll('input[type=checkbox]').forEach(cb => { if (cb.name && !cb.name.endsWith('[]')) fd[cb.name] = cb.checked; });
+  fd.__multi = {};
+  e.target.querySelectorAll('input[type=checkbox][name$="[]"]:checked').forEach(cb => { (fd.__multi[cb.name] = fd.__multi[cb.name] || []).push(cb.value); });
+  if (dlgSubmit && dlgSubmit(fd) !== false) closeModal();
+});
+const F = (name, label, val = '', type = 'text', extra = '') => `<label class="f"><span>${label}</span><input type="${type}" name="${name}" value="${h(val)}" ${extra}></label>`;
+const FS = (name, label, items, val, extra = '') => `<label class="f"><span>${label}</span><select name="${name}" ${extra}>${items.map(x => Array.isArray(x) ? opt(x[0], val, x[1]) : opt(x, val)).join('')}</select></label>`;
+function athleteOptions(cur, filter = a => a.status !== 'ушёл') {
+  return db.athletes.filter(a => filter(a) || a.id === cur).sort((a, b) => fullName(a).localeCompare(fullName(b), 'ru')).map(a => [a.id, fullName(a)]);
+}
+
+function personForm(a) {
+  const S = db.settings;
+  return `<div class="fgrid">${F('last', 'Фамилия', a.last, 'text', 'required')}${F('first', 'Имя', a.first)}${F('middle', 'Отчество', a.middle)}
+  ${FS('sex', 'Пол', [['', '—'], 'М', 'Ж'], a.sex)}${F('birth', 'Дата рождения', a.birth, 'date')}${F('weight', 'Вес, кг', a.weight, 'text', 'inputmode="decimal"')}
+  ${FS('group', 'Группа', [['', '—'], ...S.groups.map(g => g.name)], a.group)}${FS('group2', 'Вторая группа', [['', '—'], ...S.groups.map(g => g.name)], a.group2)}${FS('status', 'Статус', S.statuses, a.status || 'занимается')}
+  ${F('phone', 'Телефон спортсмена (с 15 лет)', a.phone, 'tel')}${F('motherName', 'ФИО матери', a.motherName)}${F('motherPhone', 'Телефон матери', a.motherPhone, 'tel')}
+  ${F('fatherName', 'ФИО отца', a.fatherName)}${F('fatherPhone', 'Телефон отца', a.fatherPhone, 'tel')}${FS('mainContact', 'Основной контакт', [['', 'автоматически'], 'мать', 'отец', 'спортсмен'], a.mainContact)}
+  <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="noSub" ${a.noSub ? 'checked' : ''} style="width:20px;height:20px"><span><b>Без абонемента</b> — занимается бесплатно или по особой договорённости. Программа не будет напоминать об оплате.</span></label>
+  ${F('medUntil', 'Медсправка действует до', a.medUntil, 'date')}${F('addedAt', 'Дата внесения', a.addedAt || ix.today, 'date')}
+  <label class="f wide"><span>Примечание</span><textarea name="note">${h(a.note)}</textarea></label></div>
+  <p class="small muted">Если человек перешёл в другую группу, используйте кнопку «Перевести» в карточке — тогда старые занятия останутся в прежней группе. Здесь группу меняйте только для исправления ошибки.</p>
+  <p class="small muted">Диагнозы и медицинские подробности сюда не пишите — только дату действия справки.</p>`;
+}
+const PERSON_FIELDS = ['last', 'first', 'middle', 'sex', 'birth', 'weight', 'group', 'group2', 'status', 'phone', 'motherName', 'motherPhone', 'fatherName', 'fatherPhone', 'mainContact', 'medUntil', 'addedAt', 'note'];
+function openPerson(id) {
+  const a = id ? ix.ath.get(id) : { status: 'занимается' };
+  modal(id ? 'Изменить данные' : 'Новый спортсмен', personForm(a), {
+    extraBtn: id ? `<button type="button" class="btn danger" data-act="person-del" data-id="${id}">Удалить</button>` : '',
+    onSubmit(fd) {
+      const t = id ? db.athletes.find(x => x.id === id) : { id: uid('a') };
+      for (const k of PERSON_FIELDS) t[k] = (fd[k] || '').trim();
+      t.noSub = !!fd.noSub;
+      if (!id) db.athletes.push(t);
+      persist(id ? 'Сохранено' : 'Спортсмен добавлен');
+      if (!id) location.hash = '#person/' + t.id;
+    },
+  });
+}
+
+/* ---------- АБОНЕМЕНТЫ ---------- */
+function vSubs() {
+  const U = ui.subs, q = U.q.trim().toLowerCase();
+  let rows = db.subs.map(p => ({ p, r: ix.subCalc.get(p.id), a: ix.ath.get(p.athleteId) })).filter(x => x.a);
+  const latestIds = new Set(db.athletes.map(a => { const c = ix.athCalc.get(a.id); return c.sub && c.sub.id; }).filter(Boolean));
+  if (U.filter === 'active') rows = rows.filter(x => latestIds.has(x.p.id) && x.r.remaining > 0 || (x.p.start > ix.today));
+  if (U.filter === 'ending') rows = rows.filter(x => latestIds.has(x.p.id) && (x.r.remaining === 1 || x.r.remaining === 2) && !ix.athCalc.get(x.a.id).nextSub && x.a.status === 'занимается');
+  if (U.filter === 'ended') rows = rows.filter(x => latestIds.has(x.p.id) && x.r.remaining === 0 && (+x.p.count || 0) > 1 && !ix.athCalc.get(x.a.id).nextSub && x.a.status === 'занимается');
+  if (U.filter === 'debt') rows = rows.filter(x => x.r.remaining < 0 && !x.p.pending);
+  if (U.filter === 'pending') rows = rows.filter(x => x.p.pending);
+  if (q) rows = rows.filter(x => fullName(x.a).toLowerCase().includes(q));
+  const byName = (x, y) => fullName(x.a).localeCompare(fullName(y.a), 'ru');
+  const key = { name: null, start: x => x.p.start || '', rem: x => x.r.remaining, end: x => x.r.end || '' }[U.sort];
+  rows.sort((x, y) => {
+    if (!key) return U.dir * byName(x, y);
+    const a = key(x), b = key(y);
+    const ea = a === '' || a == null, eb = b === '' || b == null;
+    if (ea !== eb) return ea ? 1 : -1;                       // пустые всегда внизу
+    const c = typeof a === 'number' ? a - b : String(a).localeCompare(String(b));
+    return U.dir * c || byName(x, y);
+  });
+  const th = (k, label, cls = '') => `<th class="${cls} sortable${U.sort === k ? ' sorted' : ''}" data-act="subs-sort" data-k="${k}" title="Сортировать">${label}<span class="arr">${U.sort === k ? (U.dir > 0 ? ' ▲' : ' ▼') : ''}</span></th>`;
+  const sum = rows.filter(x => !x.p.pending).reduce((s, x) => s + (+x.p.amount || 0), 0);
+  const seg = [['active', 'Действующие'], ['ending', 'Заканчиваются'], ['ended', 'Закончились'], ['pending', 'Ждём оплату'], ['debt', 'Долги'], ['all', 'Все']];
+  return `<div class="topline"><div><h1>Абонементы</h1><div class="muted">${rows.length} · ${sum.toLocaleString('ru')} ₽</div></div>
+  <div class="row no-print"><button class="btn primary" data-act="sub-new">Новая оплата</button><button class="btn" data-act="subs-csv">В Excel (CSV)</button></div></div>
+  <div class="card no-print"><div class="row"><div class="seg">${seg.map(([k, l]) => `<button data-act="subs-filter" data-f="${k}" class="${U.filter === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+  <input type="search" placeholder="Поиск по фамилии" data-change="subs-q" value="${h(U.q)}" style="flex:1;min-width:180px">
+  <select data-change="subs-sort" style="width:auto">${[['name', 'по фамилии'], ['rem', 'по остатку'], ['end', 'по окончанию'], ['start', 'по дате начала']].map(([k, l]) => opt(k, U.sort, 'Сортировка: ' + l)).join('')}</select>
+  <button class="btn" data-act="subs-dir" title="Обратный порядок">${U.dir > 0 ? '▲ по возрастанию' : '▼ по убыванию'}</button></div>
+  <div class="legend" style="margin-top:10px"><span><i class="lg-rem1"></i>осталось 1 занятие</span><span><i class="lg-rem2"></i>осталось 2 занятия</span><span class="small">(если следующий ещё не оплачен)</span><span><i class="lg-pend"></i>ждём оплату</span></div></div>
+  <div class="card flat scroll"><table class="t"><thead><tr>${th('name', 'ФИО')}<th class="hide-m">Оплата</th>${th('start', 'С')}<th class="r">Занятий</th><th class="r hide-m">Сумма</th><th class="r hide-m">Был</th><th class="r hide-m">Не был</th><th class="r hide-m">Болел</th>${th('rem', 'Остаток', 'r')}${th('end', 'Окончание')}<th>Статус</th></tr></thead><tbody>
+  ${rows.map(({ p, r, a }) => { const hl = p.pending ? ' pend' : latestIds.has(p.id) && !ix.athCalc.get(a.id).nextSub && !ix.athCalc.get(a.id).pendingSub && (r.remaining === 1 || r.remaining === 2) ? ' rem' + r.remaining : '';
+  return `<tr class="click${hl}" data-act="sub-edit" data-id="${p.id}"><td><b class="nm">${h(shortName(a))}</b><div class="small muted">${h(p.onlyGroup || a.group)}</div></td><td class="hide-m num">${D.ru(p.payDate)}</td><td class="num">${D.short(p.start)}</td>
+  <td class="r num">${p.count}</td><td class="r num hide-m">${p.pending ? '<span class="small muted">не оплачен</span>' : (+p.amount || 0).toLocaleString('ru')}</td><td class="r num hide-m">${r.was}</td><td class="r num hide-m">${r.missed}</td><td class="r num hide-m">${r.sick}</td>
+  <td class="r num"><b>${r.remaining}</b></td><td class="num">${r.end ? D.ru(r.end) : (r.endKind === 'nosched' ? '<span class="small muted">нет расписания</span>' : '')}</td><td><span class="chip ${r.tone}">${h(r.status)}</span></td></tr>`; }).join('') || '<tr><td colspan="11" class="empty">Нет абонементов в этом списке</td></tr>'}</tbody></table></div>
+  <p class="small muted">Списывается «был» и «не был» (п. 9.4). «Болел» не списывается, пока заморозка не прекращена (п. 9.5). Окончание — прогноз по расписанию группы и нерабочим дням (п. 9.3).</p>`;
+}
+function openSub(id, athleteId) {
+  const p = id ? db.subs.find(x => x.id === id) : null;
+  const aid = p ? p.athleteId : athleteId || '';
+  const last = aid ? [...(ix.subsByAth.get(aid) || [])].pop() : null;
+  const v = p || { athleteId: aid, payDate: ix.today, start: aid ? defaultStart(aid) : ix.today, count: db.settings.defaultCount || 12, amount: last ? last.amount : '', onlyGroup: '', carryWas: 0, carryMissed: 0, note: '' };
+  const r = p ? ix.subCalc.get(p.id) : null;
+  const body = `<div class="fgrid">${aid && p ? `<input type="hidden" name="athleteId" value="${aid}"><div class="wide"><b>${h(fullName(ix.ath.get(aid)))}</b></div>` : FS('athleteId', 'Спортсмен', [['', '— выберите —'], ...athleteOptions(aid)], aid, 'required class="wide"')}
+  ${F('payDate', 'Дата оплаты', v.payDate, 'date')}${F('start', 'Действует с (первое занятие)', v.start, 'date', 'required')}
+  ${F('count', 'Оплачено занятий', v.count, 'number', 'min="1" inputmode="numeric" required')}${F('amount', 'Сумма, ₽', v.amount, 'number', 'inputmode="numeric"')}
+  ${FS('onlyGroup', 'Абонемент только на группу', [['', 'все группы человека'], ...db.settings.groups.map(g => g.name)], v.onlyGroup)}
+  <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:${v.pending ? 'var(--bad-bg)' : 'var(--sunk)'}"><input type="checkbox" name="pending" ${v.pending ? 'checked' : ''} style="width:20px;height:20px"><span><b>Ждём оплату</b> — человек занимается, но абонемент ещё не оплачен. Посещения списываются с него как обычно.</span></label>
+  <label class="f wide"><span>Примечание</span><input type="text" name="note" value="${h(v.note)}"></label></div>
+  <details style="margin-top:10px"><summary class="small">Перенос из прежнего журнала</summary><div class="fgrid" style="margin-top:8px">${F('carryWas', 'Был (перенос)', v.carryWas || 0, 'number')}${F('carryMissed', 'Не был (перенос)', v.carryMissed || 0, 'number')}</div></details>
+  ${r ? `<div class="card" style="margin:12px 0 0;background:var(--sunk)"><div class="stats"><div class="stat"><b>${r.was}</b><span class="small muted">был</span></div><div class="stat"><b>${r.missed}</b><span class="small muted">не был</span></div><div class="stat"><b>${r.sick}</b><span class="small muted">болел</span></div><div class="stat"><b>${r.remaining}</b><span class="small muted">остаток</span></div></div>
+  <div class="small" style="margin-top:8px">${r.end ? (r.endKind === 'fact' ? 'Последнее списанное занятие: ' : 'Окончание по расписанию: ') + D.ru(r.end) : ''}${r.notifyBy ? ' · сообщить об окончании не позднее ' + D.ru(r.notifyBy) : ''}</div></div>` : ''}`;
+  modal(p ? 'Абонемент' : 'Новая оплата', body, {
+    extraBtn: p ? `<button type="button" class="btn danger" data-act="sub-del" data-id="${p.id}">Удалить</button>${p.pending ? `<button type="button" class="btn primary" data-act="sub-paid" data-id="${p.id}">Оплачено сегодня</button>` : ''}<button type="button" class="btn" data-act="msg" data-id="${aid}" data-sub="${p.id}" data-tpl="Новый абонемент оплачен">Сообщение</button>` : '',
+    onSubmit(fd) {
+      if (!fd.athleteId) { alert('Выберите спортсмена'); return false; }
+      if (!(+fd.count >= 1)) { alert('Количество занятий должно быть не меньше 1'); return false; }
+      const same = db.subs.find(q => q !== p && q.athleteId === fd.athleteId && q.start === fd.start && (q.onlyGroup || '') === (fd.onlyGroup || ''));
+      if (same && !confirm(`У этого человека уже есть абонемент с ${D.ru(fd.start)} (${same.count} зан., ${(+same.amount || 0).toLocaleString('ru')} ₽). Записать ещё один с той же даты?\n\nЕсли это повтор по ошибке — нажмите «Отмена».`)) return false;
+      const cur = ix.athCalc.get(fd.athleteId), cs = cur && cur.subCalc;
+      if (!p && cs && cs.remaining > 0 && fd.start > cur.sub.start && fd.start < defaultStart(fd.athleteId) && !confirm(`У текущего абонемента осталось ${cs.remaining} зан. Новый с ${D.ru(fd.start)} заберёт себе все посещения с этой даты, и остаток старого не будет использован.\n\nПродолжить? (Обычно новый начинают с ${D.ru(defaultStart(fd.athleteId))}.)`)) return false;
+      const t = p || { id: uid('p') };
+      Object.assign(t, { athleteId: fd.athleteId, payDate: fd.pending ? '' : fd.payDate, start: fd.start, count: +fd.count || 0, amount: +fd.amount || 0, onlyGroup: fd.onlyGroup, carryWas: +fd.carryWas || 0, carryMissed: +fd.carryMissed || 0, note: fd.note.trim(), pending: !!fd.pending });
+      if (!p) db.subs.push(t);
+      persist(p ? 'Абонемент сохранён' : t.pending ? 'Записан абонемент «ждём оплату»' : 'Оплата записана');
+      if (!p && !t.pending) setTimeout(() => openMsg(t.athleteId, 'Новый абонемент оплачен', {}, t.id), 50);
+    },
+  });
+  const sel = document.querySelector('#dlg select[name=athleteId]');
+  if (sel) sel.onchange = () => { const id = sel.value; if (!id) return;
+    document.querySelector('#dlg [name=start]').value = defaultStart(id);
+    const lp = [...(ix.subsByAth.get(id) || [])].pop(); if (lp && lp.amount) document.querySelector('#dlg [name=amount]').value = lp.amount; };
+}
+
+/* ---------- ЗАМОРОЗКА ---------- */
+function openFreeze(id, athleteId) {
+  const f = id ? db.freezes.find(x => x.id === id) : null;
+  const aid = f ? f.athleteId : athleteId;
+  const a = ix.ath.get(aid);
+  const subs = [...(ix.subsByAth.get(aid) || [])].reverse();
+  const cur = ix.athCalc.get(aid).sub;
+  const v = f || { subId: cur ? cur.id : (subs[0] || {}).id, from: '', to: '', returned: '', certDate: '', note: '' };
+  const fc = f ? calcFreeze(ix, f) : null;
+  const body = `<p><b>${h(fullName(a))}</b></p><div class="fgrid">
+  ${FS('subId', 'Абонемент', subs.map(p => [p.id, 'с ' + D.ru(p.start) + ', ' + p.count + ' зан.']), v.subId, 'class="wide"')}
+  ${F('from', 'Болел с (по справке)', v.from, 'date', 'required')}${F('to', 'по (включительно)', v.to, 'date', 'required')}
+  ${F('returned', 'Вернулся на занятия', v.returned, 'date')}${F('certDate', 'Справка получена', v.certDate, 'date')}
+  <label class="f wide"><span>Примечание (без диагноза)</span><input type="text" name="note" value="${h(v.note)}"></label></div>
+  <p class="small muted">Даты болезни — по справке, не раньше дня, когда клиент предупредил. Справка — не позднее 15 дней после болезни и до первого занятия продления (п. 9.5.4). Без неё продление прекращается (п. 9.5.5).</p>
+  ${fc ? `<div class="card" style="margin:8px 0 0;background:var(--sunk)"><b>${h(fc.text)}</b><dl class="kv small" style="margin-top:8px">
+    ${fc.base ? `<dt>Базовое окончание</dt><dd>${D.ru(fc.base)}</dd>` : ''}${fc.ext ? `<dt>Занятий продления</dt><dd>${fc.ext}</dd>` : ''}
+    ${fc.certBy ? `<dt>Справка (п. 9.5.4 «а»)</dt><dd>${f.certDate ? 'получена ' + D.ru(f.certDate) : (fc.certIsSession ? 'до начала занятия ' : 'не позднее ') + D.ru(fc.certBy)}</dd>` : ''}
+    ${fc.returnBy ? `<dt>Вернуться не позднее (п. 9.5.4 «б»)</dt><dd>${f.returned ? 'вернулся ' + D.ru(f.returned) : D.ru(fc.returnBy)}</dd>` : ''}
+    ${fc.remindBy ? `<dt>Напомнить клиенту (п. 9.5.6)</dt><dd>не позднее ${D.ru(fc.remindBy)}</dd>` : ''}</dl></div>` : ''}`;
+  modal('Заморозка по болезни', body, {
+    extraBtn: f ? `<button type="button" class="btn danger" data-act="freeze-del" data-id="${f.id}">Удалить</button><button type="button" class="btn" data-act="freeze-mark" data-id="${f.id}">Проставить «б» в журнале</button><button type="button" class="btn" data-act="msg" data-id="${aid}" data-sub="${f.subId}" data-tpl="Абонемент продлён">Сообщение</button>` : '',
+    onSubmit(fd) {
+      if (fd.to < fd.from) { alert('Дата окончания болезни раньше начала'); return false; }
+      const t = f || { id: uid('f'), athleteId: aid };
+      Object.assign(t, { subId: fd.subId, from: fd.from, to: fd.to, returned: fd.returned, certDate: fd.certDate, note: fd.note.trim() });
+      if (!f) db.freezes.push(t);
+      persist('Заморозка сохранена');
+      if (!f) setTimeout(() => { if (confirm('Проставить «б» на занятиях группы за период болезни?')) markFreeze(t.id); }, 50);
+    },
+  });
+}
+function markFreeze(fid) {
+  const f = db.freezes.find(x => x.id === fid), a = ix.ath.get(f.athleteId);
+  let n = 0;
+  for (const s of db.sessions) if (inGroupOn(a, s.group, s.date) && s.date >= f.from && s.date <= f.to && (!s.marks[a.id] || s.marks[a.id] === 'н')) { s.marks[a.id] = 'б'; n++; }
+  persist(n ? `Проставлено «б»: ${n}` : 'Нечего менять: за этот период нет занятий с пустой отметкой или «н»');
+}
+
+/* ---------- ПОЯСА ---------- */
+function openAward(id, athleteId) {
+  const w = id ? db.awards.find(x => x.id === id) : null;
+  const c = athleteId ? ix.athCalc.get(athleteId) : null;
+  const v = w || { athleteId, date: ix.today, belt: c && c.belt ? c.belt : db.settings.belts[0], stripes: c ? Math.min(4, (c.stripes || 0) + 1) : 0, by: db.settings.awardedBy, note: '' };
+  const body = `<div class="fgrid">${FS('athleteId', 'Спортсмен', [['', '— выберите —'], ...athleteOptions(v.athleteId)], v.athleteId, 'required class="wide"')}
+  ${F('date', 'Дата аттестации', v.date, 'date', 'required')}${FS('belt', 'Пояс', db.settings.belts, v.belt)}${FS('stripes', 'Страйпы', [0, 1, 2, 3, 4], v.stripes)}
+  ${F('by', 'Кем присвоено', v.by)}<label class="f wide"><span>Примечание</span><input type="text" name="note" value="${h(v.note)}"></label></div>
+  <p class="small muted">Сюда вносится итог — когда сданы все три этапа. Пояс и страйпы в карточке берутся из последней записи.</p>`;
+  modal(w ? 'Присвоение пояса' : 'Присвоить пояс', body, {
+    extraBtn: w ? `<button type="button" class="btn danger" data-act="award-del" data-id="${w.id}">Удалить</button>` : '',
+    onSubmit(fd) {
+      if (!fd.athleteId) { alert('Выберите спортсмена'); return false; }
+      const t = w || { id: uid('w') };
+      Object.assign(t, { athleteId: fd.athleteId, date: fd.date, belt: fd.belt, stripes: +fd.stripes || 0, by: fd.by.trim(), note: fd.note.trim() });
+      if (!w) db.awards.push(t);
+      persist('Присвоение сохранено');
+    },
+  });
+}
+
+/* ---------- СООБЩЕНИЯ ---------- */
+function openMsg(aid, tplTitle, extra = {}, subId = null) {
+  const a = ix.ath.get(aid), c = ix.athCalc.get(aid);
+  const T = db.settings.templates;
+  const idx = Math.max(0, T.findIndex(t => t.title === tplTitle));
+  const phone = cleanPhone(c.contact);
+  const fill = i => fillTemplate(T[i] ? T[i].text : '', ix, a, extra, subId);
+  const body = `<p><b>${h(fullName(a))}</b>${phone ? ' · ' + telLink(c.contact) + ' (' + c.contactWho + ')' : ' · <span class="chip bad">нет телефона</span>'}</p>
+  <label class="f"><span>Шаблон</span><select id="msg-tpl">${T.map((t, i) => opt(i, idx, t.title)).join('')}</select></label>
+  <label class="f" style="margin-top:10px"><span>Текст</span><textarea id="msg-text" style="min-height:150px">${h(fill(idx))}</textarea></label>
+  <p class="small muted">Переписку сохраняйте — она подтверждает, что клиент уведомлён. Шаблоны меняются в настройках.</p>`;
+  modal('Сообщение', body, { extraBtn: `<button type="button" class="btn primary" data-act="msg-copy">Скопировать</button>${navigator.share ? '<button type="button" class="btn" data-act="msg-share">Поделиться…</button>' : ''}${phone ? `<a class="btn" id="msg-sms">SMS</a>` : ''}` });
+  const upd = () => { const t = $('#msg-text').value; const sms = $('#msg-sms');
+    if (sms) sms.href = 'sms:+7' + phone + '?body=' + encodeURIComponent(t); };
+  $('#msg-tpl').onchange = e => { $('#msg-text').value = fill(+e.target.value); upd(); };
+  $('#msg-text').oninput = upd; upd();
+}
+
+/* ---------- ПЕРЕВОД В ДРУГУЮ ГРУППУ ---------- */
+function openTransfer(aid) {
+  const a = ix.ath.get(aid), G = db.settings.groups.map(g => g.name);
+  const body = `<p><b>${h(fullName(a))}</b> · сейчас: ${h(a.group || 'без группы')}</p><div class="fgrid">
+  ${FS('from', 'Из группы', [['', '—'], ...G], a.group)}${FS('to', 'В группу', [['', '— выберите —'], ...G], '', 'required')}
+  ${F('date', 'Переведён с даты (первое занятие в новой группе)', ix.today, 'date', 'required')}</div>
+  <p class="small muted">Занятия до этой даты останутся в прежней группе, с этой даты человек в новой. На абонементы перевод не влияет: посещения считаются по человеку. Если в карточке группа уже поменяна вручную, укажите в поле «Из группы» прежнюю.</p>`;
+  modal('Перевод в другую группу', body, { submit: 'Перевести', onSubmit(fd) {
+    if (!fd.to) { alert('Выберите новую группу'); return false; }
+    if (fd.from === fd.to) { alert('Группы «из» и «в» совпадают'); return false; }
+    const t = db.athletes.find(x => x.id === aid);
+    t.transfers = t.transfers || [];
+    t.transfers.push({ id: uid('g'), date: fd.date, from: fd.from, to: fd.to });
+    const last = [...t.transfers].sort((x, y) => x.date.localeCompare(y.date)).pop();
+    t.group = last.to;
+    persist('Переведён в «' + fd.to + '» с ' + D.ru(fd.date));
+  } });
+}
+
+function defaultStart(aid) {            // первое занятие после окончания текущего абонемента
+  const c = ix.athCalc.get(aid); if (!c || !c.sub || !c.subCalc) return ix.today;
+  const s = c.subCalc;
+  if (s.remaining > 0 && s.end) return payDeadline(ix, c.sub, s.end) || ix.today;
+  if (s.remaining <= 0 && s.end) { const nx = payDeadline(ix, c.sub, s.end); return nx && nx > ix.today ? nx : ix.today; }
+  return ix.today;
+}
+
+/* ===== D23 CRM — интерфейс, часть 3 ===== */
+
+/* ---------- АТТЕСТАЦИЯ ---------- */
+function vAttest(tab) {
+  const U = ui.attest; if (tab) U.tab = tab;
+  const tabs = [['admission', 'Допуск'], ['tests', 'Нормативы'], ['belts', 'Пояса'], ['norms', 'Таблица норм']];
+  const head = `<div class="topline"><h1>Аттестация</h1><div class="seg no-print">${tabs.map(([k, l]) => `<button data-go="#attest/${k}" class="${U.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>`;
+  if (U.tab === 'tests') return head + vTests();
+  if (U.tab === 'belts') return head + vBelts();
+  if (U.tab === 'norms') return head + vNorms();
+  const A = db.settings.attest;
+  const groups = ['все', ...db.settings.groups.map(g => g.name)];
+  const list = db.athletes.filter(a => a.status === 'занимается' && (U.group === 'все' || a.group === U.group || a.group2 === U.group))
+    .sort((a, b) => fullName(a).localeCompare(fullName(b), 'ru')).map(a => ({ a, r: calcAdmission(ix, a) }));
+  const ok = list.filter(x => x.r.status === 'допущен').length;
+  return head + `<div class="card no-print"><div class="row"><div class="spacer">Период: <b>${D.ru(A.prev)} — ${D.ru(A.next)}</b>, порог ${A.threshold}% посещений, турниров не меньше ${A.minTournaments}, болезнь ${A.sickMode === 'учитывать' ? 'снижает процент' : 'исключается из расчёта'}. <a href="#settings">Изменить</a></div>
+  <select data-change="attest-group" style="width:auto">${groups.map(g => opt(g, U.group)).join('')}</select><button class="btn" data-act="print">Печать</button></div></div>
+  <div class="print-only"><b>${h(db.settings.club)}</b> — допуск к аттестации ${D.ru(A.next)}</div>
+  <div class="card flat scroll"><table class="t"><thead><tr><th>ФИО</th><th class="hide-m">Группа</th><th class="r">Был</th><th class="r">Не был</th><th class="r hide-m">Болел</th><th class="r">Турниров</th><th class="r">Посещ.</th><th>Допуск</th><th class="hide-m">Не хватает</th></tr></thead><tbody>
+  ${list.map(({ a, r }) => `<tr class="click" data-go="#person/${a.id}"><td>${h(shortName(a))}</td><td class="hide-m">${h(a.group)}</td><td class="r num">${r.was}</td><td class="r num">${r.missed}</td><td class="r num hide-m">${r.sick}</td><td class="r num">${r.tourn}</td><td class="r num">${r.pct != null ? Math.round(r.pct * 100) + '%' : ''}</td>
+  <td><span class="chip ${r.status === 'допущен' ? 'ok' : r.status === 'нет данных' ? 'muted' : 'bad'}">${h(r.status)}</span></td><td class="hide-m small">${[r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).join(', ')}</td></tr>`).join('')}</tbody></table></div>
+  <p class="small muted">Допущено ${ok} из ${list.length}. Турнир — отметка «с» в журнале.</p>`;
+}
+function vTests() {
+  const U = ui.attest;
+  const dates = [...new Set(db.tests.map(t => t.date))].sort().reverse();
+  if (!U.date || !dates.includes(U.date)) U.date = dates[0] || '';
+  const groups = ['все', ...db.settings.groups.map(g => g.name)];
+  const rows = db.tests.filter(t => t.date === U.date).map(t => ({ t, a: ix.ath.get(t.athleteId) })).filter(x => x.a && (U.group === 'все' || x.t.group === U.group))
+    .sort((x, y) => fullName(x.a).localeCompare(fullName(y.a), 'ru'));
+  const places = ['нет', '2–3 место', '1 место'];
+  return `<div class="card no-print"><div class="row"><label class="f" style="width:auto"><span>Дата сдачи</span><select data-change="test-date">${dates.map(d => opt(d, U.date, D.ru(d))).join('') || opt('', '', 'нет сдач')}</select></label>
+  <label class="f" style="width:auto"><span>Группа</span><select data-change="attest-group">${groups.map(g => opt(g, U.group)).join('')}</select></label><span class="spacer"></span>
+  <button class="btn primary" data-act="test-add" style="align-self:flex-end">Добавить участников</button><button class="btn" data-act="test-protocol" style="align-self:flex-end" ${rows.length ? '' : 'disabled'}>Протокол для печати</button></div></div>
+  ${rows.length ? rows.map(({ t, a }) => { const r = calcTest(ix, t); const tone = /^СДАН/.test(r.result) ? 'ok' : r.result === 'НЕ СДАН' || r.bad ? 'bad' : r.result.startsWith('нужен') ? 'warn' : 'muted';
+    return `<div class="card"><div class="row"><div class="who"><b>${h(fullName(a))}</b><span class="small">${r.age != null ? r.age + ' лет · ' : ''}${h(r.track || '')} · ${h(a.sex)} · на ${h(t.target)}${t.belt ? ' · сейчас ' + h(t.belt) : ''}${r.pullKind ? ' · подтяг.: ' + h(r.pullKind) : ''}${r.pushKind && r.pushKind !== 'полные' ? ' · отжим.: ' + h(r.pushKind) : ''}</span></div>
+    <span class="chip ${tone}">${h(r.result)}</span><button class="btn sm ghost" data-act="test-del" data-id="${t.id}" aria-label="Удалить">✕</button></div>
+    <div class="test-grid" style="margin-top:10px">${EX.map(e => { const p = r.per && r.per[e.k] || {}; const off = e.k === 'mon' && r.monMode === 'нет';
+      return `<label>${e.label}${e.k === 'pull' && r.pullKind === 'вис, сек' ? ' (вис, с)' : e.unit ? ', ' + e.unit : ''}<input type="number" inputmode="numeric" min="0" ${off ? 'disabled placeholder="не сдают"' : ''} data-change="test-res" data-id="${t.id}" data-k="${e.k}" value="${h((t.res || {})[e.k] ?? '')}">
+      <span class="${p.st === 'сдал' ? 'pass' : p.st === 'не сдал' ? 'fail' : ''}">${p.credit !== '' && p.credit != null ? 'норма ' + p.credit + (p.credit !== p.norm ? ' (посл.)' : '') : ''}</span></label>`; }).join('')}</div>
+    <details style="margin-top:8px"><summary class="small">Призёр турнира и послабления${t.place && t.place !== 'нет' ? ': ' + h(t.place) : ''}</summary><div class="row" style="margin-top:8px">
+      <select data-change="test-place" data-id="${t.id}" style="width:auto">${places.map(p => opt(p, t.place || 'нет')).join('')}</select>
+      ${EX.map(e => `<label class="row small" style="gap:4px"><input type="checkbox" data-change="test-relief" data-id="${t.id}" data-k="${e.k}" ${(t.relief || {})[e.k] ? 'checked' : ''}>${e.label}</label>`).join('')}
+      <select data-change="test-track" data-id="${t.id}" style="width:auto">${opt('', t.trackManual || '', 'трек: авто')}${['Дети', 'Белый', 'Синий+'].map(x => opt(x, t.trackManual || '')).join('')}</select></div>
+      <p class="small muted">2–3 место — одно упражнение, 1 место — два. На пояс — по норме страйпа, на страйп — ${Math.round(db.settings.attest.reliefCoef * 100)}% нормы страйпа. Место засчитывается, если в категории было не меньше 5 участников.</p></details>
+    ${r.checks && r.checks.length ? `<div class="small fail" style="margin-top:6px">${r.checks.map(h).join('; ')}</div>` : ''}</div>`; }).join('')
+    : '<div class="card empty">Сдач нормативов пока нет. Нажмите «Добавить участников», выберите дату и людей.</div>'}
+  <p class="small muted">Прыжок — лучшая из трёх попыток, в сантиметрах. Рукоход сдаётся только вместо одного не сданного основного упражнения (с 6 лет). Пересдача — не раньше чем через 4 недели (п. 5.5).</p>`;
+}
+function openTestAdd() {
+  const U = ui.attest;
+  const people = db.athletes.filter(a => a.status === 'занимается' && (U.group === 'все' || a.group === U.group || a.group2 === U.group)).sort((a, b) => fullName(a).localeCompare(fullName(b), 'ru'));
+  const body = `<div class="fgrid">${F('date', 'Дата сдачи', db.settings.attest.next || ix.today, 'date', 'required')}${FS('target', 'Цель', ['страйп', 'пояс'], 'страйп')}</div>
+  <div class="row" style="margin:12px 0 6px"><b>Участники</b><span class="spacer"></span><button type="button" class="btn sm" data-act="check-all">Выбрать всех</button></div>
+  <div class="picklist">${people.map(a => { const c = ix.athCalc.get(a.id), adm = calcAdmission(ix, a);
+    return `<label><input type="checkbox" name="ids[]" value="${a.id}">${beltHTML(c.belt, c.stripes)}<span class="who"><b>${h(fullName(a))}</b><span class="small">${h(a.group)} · ${c.age ?? '?'} лет · допуск: ${h(adm.status)}</span></span></label>`; }).join('') || '<div class="empty">Нет занимающихся в выбранной группе</div>'}</div>`;
+  modal('Добавить участников', body, { submit: 'Добавить', onSubmit(fd) {
+    const ids = fd.__multi['ids[]'] || []; if (!ids.length) { alert('Отметьте хотя бы одного человека'); return false; }
+    for (const id of ids) { const a = ix.ath.get(id), c = ix.athCalc.get(id);
+      db.tests.push({ id: uid('t'), date: fd.date, athleteId: id, group: a.group, belt: c.belt, target: fd.target, trackManual: '', res: {}, relief: {}, place: 'нет', note: '' }); }
+    ui.attest.date = fd.date; persist(`Добавлено: ${ids.length}`);
+  } });
+}
+function printProtocol() {
+  const U = ui.attest;
+  const rows = db.tests.filter(t => t.date === U.date && (U.group === 'все' || t.group === U.group)).map(t => ({ t, a: ix.ath.get(t.athleteId), r: calcTest(ix, t) })).filter(x => x.a).sort((x, y) => fullName(x.a).localeCompare(fullName(y.a), 'ru'));
+  const w = window.open('', '_blank');
+  const nrm = (x, k) => { const p = x.r.per && x.r.per[k]; return p && p.norm !== '' && p.norm != null ? p.norm : '—'; };
+  w.document.write(`<html><head><meta charset="utf-8"><title>Протокол ${D.ru(U.date)}</title><style>body{font:11pt Arial,sans-serif;margin:12mm}table{border-collapse:collapse;width:100%}*{color:#000}td,th{border:1px solid #000;padding:5px 6px;text-align:center}td:nth-child(2){text-align:left}th{font-size:9pt;border-bottom:2px solid #000}.n{font-size:8pt;font-style:italic}tr{page-break-inside:avoid}</style></head><body>
+  <h2 style="margin:0">Протокол сдачи нормативов (этап 1)</h2><p>${h(db.settings.club)}<br>Дата: ${D.ru(U.date)}${U.group !== 'все' ? ' · группа: ' + h(U.group) : ''}</p>
+  <table><tr><th>№</th><th>ФИО</th><th>Возр.</th><th>Цель</th><th>Прыжок, см<br>1 / 2 / 3</th><th>Подтяг.</th><th>Отжим.</th><th>Скруч.</th><th>Рукоход</th><th>Итог</th></tr>
+  ${rows.map((x, i) => `<tr><td>${i + 1}</td><td>${h(fullName(x.a))}</td><td>${x.r.age ?? ''}</td><td>${h(x.t.target)}</td><td><span class="n">норма ${nrm(x, 'jump')}</span><br>&nbsp;</td><td><span class="n">${nrm(x, 'pull')}${x.r.pullKind === 'вис, сек' ? ' с вис' : ''}</span><br>&nbsp;</td><td><span class="n">${nrm(x, 'push')}${x.r.pushKind === 'с колен' ? ' с колен' : ''}</span><br>&nbsp;</td><td><span class="n">${nrm(x, 'crunch')}</span><br>&nbsp;</td><td><span class="n">${x.r.monMode === 'нет' ? 'не сдают' : nrm(x, 'mon')}</span><br>&nbsp;</td><td></td></tr>`).join('')}</table>
+  <p class="n">Нормы указаны без учёта послаблений. Рукоход — только вместо одного не сданного упражнения.</p>
+  <p style="margin-top:28px">Тренер: ____________________ ${h(db.settings.coachMain)}</p><script>window.print()<\/script></body></html>`);
+  w.document.close();
+}
+function vBelts() {
+  const rows = [...db.awards].sort((x, y) => y.date.localeCompare(x.date)).map(w => ({ w, a: ix.ath.get(w.athleteId) })).filter(x => x.a);
+  return `<div class="card no-print"><div class="row"><span class="spacer muted">Журнал присвоений: одна строка — одно присвоение. Текущий пояс берётся из последней записи.</span><button class="btn primary" data-act="award-new">Присвоить пояс</button></div></div>
+  <div class="card flat scroll"><table class="t"><thead><tr><th>Дата</th><th>ФИО</th><th>Пояс</th><th class="r">Страйпы</th><th class="hide-m">Кем присвоено</th></tr></thead><tbody>
+  ${rows.map(({ w, a }) => `<tr class="click" data-act="award-edit" data-id="${w.id}"><td class="num">${D.ru(w.date)}</td><td>${h(fullName(a))}</td><td>${beltHTML(w.belt, w.stripes)} <span class="small">${h(w.belt)}</span></td><td class="r num">${w.stripes}</td><td class="hide-m small">${h(w.by)}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">Присвоений нет</td></tr>'}</tbody></table></div>`;
+}
+const NORM_COLS = [['track', 'Трек'], ['sex', 'Пол'], ['from', 'От'], ['to', 'До'], ['pullKind', 'Подтяг.: вид'], ['pullS', 'Подт. стр.'], ['pullB', 'Подт. пояс'], ['pushKind', 'Отжим.: вид'], ['pushS', 'Отж. стр.'], ['pushB', 'Отж. пояс'], ['crS', 'Скр. стр.'], ['crB', 'Скр. пояс'], ['jumpS', 'Прыж. стр.'], ['jumpB', 'Прыж. пояс'], ['monS', 'Рук. стр.'], ['monB', 'Рук. пояс']];
+function vNorms() {
+  const N = db.settings.norms;
+  const check = n => { const same = N.filter(m => m !== n && m.track === n.track && m.sex === n.sex && +m.from <= +n.to && +m.to >= +n.from); return +n.from > +n.to ? 'от больше до' : same.length ? 'перекрытие возрастов' : ''; };
+  return `<div class="card no-print"><p class="small muted" style="margin:0">Нормативы этапа 1 из Регламента аттестации. Каждое сочетание «трек + пол + возраст» должно попадать ровно в одну строку. «До 120» — значит «и старше». Изменения сохраняются сразу.</p></div>
+  <div class="card flat scroll"><table class="t"><thead><tr>${NORM_COLS.map(([, l]) => `<th>${l}</th>`).join('')}<th></th></tr></thead><tbody>
+  ${N.map((n, i) => `<tr>${NORM_COLS.map(([k]) => `<td style="padding:3px"><input type="text" data-change="norm" data-i="${i}" data-k="${k}" value="${h(n[k] ?? '')}" style="min-width:${['track', 'pullKind', 'pushKind'].includes(k) ? 84 : 48}px;min-height:30px;padding:3px 5px"></td>`).join('')}<td class="small fail">${check(n)}</td></tr>`).join('')}</tbody></table></div>
+  <div class="row no-print"><button class="btn" data-act="norm-add">Добавить строку</button><button class="btn" data-act="norm-del-last">Удалить последнюю</button></div>`;
+}
+
+/* ---------- СВОДКА ---------- */
+function vReport() {
+  const R = ui.report;
+  if (!R.from) { R.from = ix.today.slice(0, 8) + '01'; const d = D.parse(R.from); d.setUTCMonth(d.getUTCMonth() + 1); d.setUTCDate(0); R.to = D.fmt(d); }
+  const sess = ix.sessionsSorted.filter(s => s.date >= R.from && s.date <= R.to);
+  const cnt = (list, m) => list.reduce((n, s) => n + Object.values(s.marks).filter(x => x === m).length, 0);
+  const pays = db.subs.filter(p => !p.pending && p.payDate >= R.from && p.payDate <= R.to);
+  const groups = db.settings.groups.map(g => g.name);
+  const active = db.athletes.filter(a => a.status === 'занимается');
+  const ages = [['до 4', 0, 4], ['5–6', 5, 6], ['7–8', 7, 8], ['9–11', 9, 11], ['12–15', 12, 15], ['16–17', 16, 17], ['18+', 18, 200]];
+  const debtors = db.athletes.map(a => ({ a, c: ix.athCalc.get(a.id) })).filter(x => x.c.subCalc && x.c.subCalc.remaining < 0);
+  const beltCount = {}; active.forEach(a => { const b = ix.athCalc.get(a.id).belt || 'не присвоен'; beltCount[b] = (beltCount[b] || 0) + 1; });
+  return `<div class="topline"><h1>Сводка</h1><div class="row no-print"><input type="date" data-change="rep" data-k="from" value="${R.from}" style="width:auto"> — <input type="date" data-change="rep" data-k="to" value="${R.to}" style="width:auto"><button class="btn" data-act="print">Печать</button></div></div>
+  <div class="print-only">${h(db.settings.club)} — сводка за ${D.ru(R.from)} — ${D.ru(R.to)}</div>
+  <div class="card"><div class="stats"><div class="stat"><b>${sess.length}</b><span class="small muted">занятий проведено</span></div><div class="stat"><b>${cnt(sess, '+')}</b><span class="small muted">посещений</span></div>
+  <div class="stat"><b>${cnt(sess, 'н')}</b><span class="small muted">пропусков без заморозки</span></div><div class="stat"><b>${cnt(sess, 'б')}</b><span class="small muted">по болезни</span></div>
+  <div class="stat"><b>${pays.length}</b><span class="small muted">оплат</span></div><div class="stat"><b>${pays.reduce((s, p) => s + (+p.amount || 0), 0).toLocaleString('ru')} ₽</b><span class="small muted">получено</span></div></div></div>
+  <div class="grid2"><div class="card flat"><table class="t"><thead><tr><th>Группа</th><th class="r">Занятий</th><th class="r">Посещений</th><th class="r">В среднем</th><th class="r">Оплат, ₽</th></tr></thead><tbody>
+  ${groups.map(g => { const gs = sess.filter(s => s.group === g), v = cnt(gs, '+'); const money = pays.filter(p => (p.onlyGroup || (ix.ath.get(p.athleteId) || {}).group) === g).reduce((s, p) => s + (+p.amount || 0), 0);
+    return gs.length || money ? `<tr><td>${h(g)}</td><td class="r num">${gs.length}</td><td class="r num">${v}</td><td class="r num">${gs.length ? (v / gs.length).toFixed(1) : ''}</td><td class="r num">${money.toLocaleString('ru')}</td></tr>` : ''; }).join('')}</tbody></table></div>
+  <div class="card flat"><table class="t"><thead><tr><th>Состав сейчас</th><th class="r">Человек</th></tr></thead><tbody>
+  ${groups.map(g => { const n = active.filter(a => a.group === g).length; return n ? `<tr><td>${h(g)}</td><td class="r num">${n}</td></tr>` : ''; }).join('')}<tr><td><b>Всего занимаются</b></td><td class="r num"><b>${active.length}</b></td></tr>
+  ${ages.map(([l, f, t]) => { const n = active.filter(a => { const x = ix.athCalc.get(a.id).age; return x != null && x >= f && x <= t; }).length; return n ? `<tr><td class="muted">${l} лет</td><td class="r num">${n}</td></tr>` : ''; }).join('')}
+  ${Object.entries(beltCount).map(([b, n]) => `<tr><td class="muted">${h(b)}</td><td class="r num">${n}</td></tr>`).join('')}</tbody></table></div></div>
+  <div class="card flat"><div style="padding:14px 16px 6px"><h2>Должники</h2></div>${debtors.length ? `<ul class="list">${debtors.map(({ a, c }) => `<li class="click" data-go="#person/${a.id}"><div class="who"><b>${h(fullName(a))}</b><span class="small">${h(a.group)}</span></div><span class="chip bad">долг ${-c.subCalc.remaining}</span></li>`).join('')}</ul>` : '<div class="empty">Должников нет</div>'}</div>`;
+}
+
+/* ---------- НАСТРОЙКИ ---------- */
+function vSettings() {
+  const S = db.settings, A = S.attest, C = S.competition;
+  const inp = (path, val, type = 'text', extra = '') => `<input type="${type}" data-change="set" data-path="${path}" value="${h(val ?? '')}" ${extra}>`;
+  const L = (label, html) => `<label class="f"><span>${label}</span>${html}</label>`;
+  return `<h1>Настройки</h1>
+  <div class="card"><h2>Группы и расписание</h2><p class="small muted">Отметьте дни занятий — по ним считается окончание абонементов. При переименовании группа поменяется везде: у спортсменов, в журнале и абонементах.</p>
+  <div class="scroll"><table class="t"><thead><tr><th>Группа</th>${DOW.map(d => `<th style="text-align:center">${d}</th>`).join('')}<th></th></tr></thead><tbody>
+  ${S.groups.map((g, i) => `<tr><td><input type="text" data-change="group-name" data-i="${i}" value="${h(g.name)}" style="min-width:140px"></td>${g.days.map((on, d) => `<td style="text-align:center"><input type="checkbox" data-change="group-day" data-i="${i}" data-d="${d}" ${on ? 'checked' : ''} style="width:20px;height:20px"></td>`).join('')}
+  <td><button class="btn sm ghost" data-act="group-del" data-i="${i}" aria-label="Удалить группу">✕</button></td></tr>`).join('')}</tbody></table></div>
+  <button class="btn" data-act="group-add" style="margin-top:8px">Добавить группу</button></div>
+  <div class="grid2"><div class="card"><h2>Нерабочие дни</h2><p class="small muted">Праздники, выезды на соревнования, ремонт — дни, когда занятий нет у всего клуба. В срок абонемента не засчитываются.</p>
+  <ul class="list" style="max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:8px">${[...S.holidays].sort((a, b) => a.date.localeCompare(b.date)).map(x => `<li><span class="num" style="width:90px">${D.ru(x.date)}</span><span class="who small">${h(x.reason)}</span><button class="btn sm ghost" data-act="hol-del" data-date="${x.date}" aria-label="Удалить">✕</button></li>`).join('') || '<li class="muted">Нет</li>'}</ul>
+  <div class="row" style="margin-top:8px"><input type="date" id="hol-date" style="width:auto"><input type="text" id="hol-reason" placeholder="Причина" style="flex:1;min-width:120px"><button class="btn" data-act="hol-add">Добавить</button></div></div>
+  <div class="card"><h2>Соревнования</h2><div class="fgrid">${L('Название', inp('competition.name', C.name))}${L('Дата', inp('competition.date', C.date, 'date'))}${L('Город', inp('competition.city', C.city))}
+  ${L('Возраст на турнире', `<select data-change="set" data-path="competition.ageMode">${['на дату соревнований', 'по году рождения (на 31.12)'].map(x => opt(x, C.ageMode)).join('')}</select>`)}</div>
+  <h2 style="margin-top:16px">Аттестация</h2><div class="fgrid">${L('Предыдущая аттестация', inp('attest.prev', A.prev, 'date'))}${L('Предстоящая аттестация', inp('attest.next', A.next, 'date'))}
+  ${L('Порог допуска, %', inp('attest.threshold', A.threshold, 'number'))}${L('Минимум турниров', inp('attest.minTournaments', A.minTournaments, 'number'))}
+  ${L('Пропуски по болезни', `<select data-change="set" data-path="attest.sickMode">${['не учитывать', 'учитывать'].map(x => opt(x, A.sickMode)).join('')}</select>`)}${L('Послабление на страйп', inp('attest.reliefCoef', A.reliefCoef, 'number', 'step="0.05"'))}</div></div></div>
+  <div class="card"><h2>Клуб</h2><div class="fgrid">${L('Клуб и адрес', inp('club', S.club))}${L('Главный тренер', inp('coachMain', S.coachMain))}${L('Второй тренер', inp('coachSecond', S.coachSecond))}${L('Кем присваивается пояс', inp('awardedBy', S.awardedBy))}${L('Занятий в абонементе по умолчанию', inp('defaultCount', S.defaultCount, 'number'))}
+  <label class="f wide"><span>Пояса (по одному в строке, по порядку)</span><textarea data-change="belts" style="min-height:120px">${h(S.belts.join('\n'))}</textarea></label></div></div>
+  <div class="card"><h2>Шаблоны сообщений</h2><p class="small muted">Подстановки: {имя}, {фи}, {фио}, {остаток}, {долг}, {занятий}, {дата_начала}, {дата_окончания}, {срок_оплаты}, {группа}.</p>
+  ${S.templates.map((t, i) => `<fieldset><legend>${h(t.title)}</legend><input type="text" data-change="tpl" data-i="${i}" data-k="title" value="${h(t.title)}" style="margin-bottom:6px"><textarea data-change="tpl" data-i="${i}" data-k="text">${h(t.text)}</textarea><button class="btn sm danger" data-act="tpl-del" data-i="${i}" style="margin-top:6px">Удалить шаблон</button></fieldset>`).join('')}
+  <button class="btn" data-act="tpl-add">Добавить шаблон</button></div>`;
+}
+
+/* ---------- ДАННЫЕ ---------- */
+function vData() {
+  let snaps = []; try { snaps = JSON.parse(localStorage.getItem(LS_SNAP) || '[]'); } catch (e) {}
+  const size = Math.round(JSON.stringify(db).length / 1024);
+  return `<h1>Данные</h1>
+  <div class="card"><h2>Копия в файл</h2>
+  <p>База хранится в этом браузере на этом устройстве. Копия в файле нужна, чтобы ничего не потерять и чтобы работать с компьютера и телефона.</p>
+  <div class="stats" style="margin:12px 0"><div class="stat"><b>${db.athletes.length}</b><span class="small muted">спортсменов</span></div><div class="stat"><b>${db.sessions.length}</b><span class="small muted">занятий</span></div><div class="stat"><b>${db.subs.length}</b><span class="small muted">абонементов</span></div><div class="stat"><b>${size} КБ</b><span class="small muted">объём</span></div></div>
+  <p class="small">Последнее изменение: ${new Date(db.updatedAt).toLocaleString('ru')}. ${meta.lastExport ? 'Копия сохранена: ' + new Date(meta.lastExport).toLocaleString('ru') + (dirty() ? ' — после неё были изменения.' : ' — актуальна.') : 'Копию ещё не сохраняли.'}</p>
+  <div class="row"><button class="btn primary" data-act="export">Сохранить копию</button>${window.showSaveFilePicker ? '<button class="btn" data-act="export-new">Сохранить в другой файл</button>' : ''}<button class="btn" data-act="import">Загрузить копию из файла</button></div></div>
+  <div class="card"><h2>Как работать с компьютера и телефона через Яндекс Диск</h2>
+  <ol style="padding-left:20px;margin:0">
+  <li>На компьютере нажмите «Сохранить копию» и сохраните файл в папку Яндекс Диска${window.showSaveFilePicker ? '. Браузер запомнит файл, дальше копия будет перезаписываться одной кнопкой' : ''}.</li>
+  <li>Перед работой на телефоне откройте эту программу там, нажмите «Загрузить копию из файла» и выберите файл на Яндекс Диске.</li>
+  <li>Закончили на телефоне — «Сохранить копию» и загрузите файл на Яндекс Диск. На компьютере перед работой снова «Загрузить копию».</li></ol>
+  <p class="small muted">Правило одно: работаете там, куда последним загрузили свежую копию. Если загрузить файл старше текущих данных, программа предупредит.</p></div>
+  <div class="card"><h2>Прежние версии</h2><p class="small muted">Программа сама хранит последние 5 версий в этом браузере: на начало каждого дня работы и перед загрузкой копии.</p>
+  ${snaps.length ? `<ul class="list">${snaps.map((s, i) => `<li><div class="who"><b>${new Date(s.at).toLocaleString('ru')}</b><span class="small">${h(s.reason)}</span></div><button class="btn sm" data-act="snap-restore" data-i="${i}">Вернуть эту версию</button></li>`).join('')}</ul>` : '<p class="muted">Пока нет.</p>'}</div>
+  <div class="card"><h2>Выгрузка таблиц</h2><div class="row"><button class="btn" data-act="people-csv">Спортсмены (CSV)</button><button class="btn" data-act="subs-csv">Абонементы (CSV)</button><button class="btn" data-act="visits-csv">Посещения (CSV)</button></div>
+  <p class="small muted">CSV открывается в Excel. Файлы содержат персональные данные: храните на устройстве с паролем, организаторам соревнований передавайте только объём заявки.</p></div>
+  <div class="card"><h2>Удаление</h2><button class="btn danger" data-act="wipe">Удалить все данные из этого браузера</button></div>`;
+}
+
+/* ---------- копия в файл / из файла ---------- */
+function idb() { return new Promise((res, rej) => { const r = indexedDB.open('d23crm', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+async function kvGet(k) { try { const d = await idb(); return await new Promise(r => { const q = d.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => r(q.result); q.onerror = () => r(null); }); } catch (e) { return null; } }
+async function kvSet(k, v) { try { const d = await idb(); d.transaction('kv', 'readwrite').objectStore('kv').put(v, k); } catch (e) {} }
+function markExported() { meta.lastExport = new Date().toISOString(); meta.exportedRev = db.rev; writeMeta(); rerender(); toast('Копия сохранена'); }
+async function exportData(forceNew) {
+  const json = JSON.stringify(db, null, 1);
+  if (window.showSaveFilePicker) {
+    try {
+      let hnd = forceNew ? null : await kvGet('handle');
+      if (hnd) { const p = await hnd.requestPermission({ mode: 'readwrite' }); if (p !== 'granted') hnd = null; }
+      if (!hnd) { hnd = await showSaveFilePicker({ suggestedName: 'D23_данные.json', types: [{ description: 'Данные D23', accept: { 'application/json': ['.json'] } }] }); await kvSet('handle', hnd); }
+      const w = await hnd.createWritable(); await w.write(json); await w.close();
+      markExported(); return;
+    } catch (e) { if (e.name === 'AbortError') return; console.warn(e); }
+  }
+  const t = new Date(), stamp = D.today() + '_' + pad(t.getHours()) + pad(t.getMinutes());
+  download('D23_данные_' + stamp + '.json', json, 'application/json');
+  markExported();
+}
+function download(name, text, type) {
+  const blob = new Blob([text], { type: type + ';charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+function importData() {
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json';
+  inp.onchange = () => {
+    const f = inp.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      let d; try { d = JSON.parse(r.result); } catch (e) { alert('Файл не читается: это не копия данных D23.'); return; }
+      if (d.app !== 'D23CRM') { alert('Это не копия данных D23. Выберите файл, сохранённый этой программой.'); return; }
+      if (db && db.rev) {
+        const older = d.updatedAt && db.updatedAt && d.updatedAt < db.updatedAt;
+        const msg = older
+          ? `Файл старее данных на этом устройстве.\n\nВ файле: ${new Date(d.updatedAt).toLocaleString('ru')}\nЗдесь: ${new Date(db.updatedAt).toLocaleString('ru')}\n\nЗаменить данные здесь более старыми? Текущая версия сохранится в «Прежних версиях».`
+          : `Заменить данные на этом устройстве копией из файла от ${new Date(d.updatedAt).toLocaleString('ru')}?\n\nТекущая версия сохранится в «Прежних версиях».`;
+        if (!confirm(msg)) return;
+        snapshot('перед загрузкой копии');
+      }
+      db = normalize(d);
+      try { localStorage.setItem(LS_DB, JSON.stringify(db)); } catch (e) { alert('Не хватает места в браузере'); }
+      meta.exportedRev = db.rev; meta.lastExport = meta.lastExport || new Date().toISOString(); writeMeta();
+      location.hash = '#today'; render(); toast('Данные загружены');
+    };
+    r.readAsText(f);
+  };
+  inp.click();
+}
+function csv(rows) { return '\ufeff' + rows.map(r => r.map(v => { v = String(v ?? ''); return /[;"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(';')).join('\r\n'); }
+
+/* ---------- печатные списки ---------- */
+function openPrint(title, html, css = '') {
+  const w = window.open('', '_blank');
+  if (!w) { alert('Браузер заблокировал окно печати. Разрешите всплывающие окна для этой страницы.'); return; }
+  w.document.write(`<html><head><meta charset="utf-8"><title>${h(title)}</title><style>*{color:#000}body{font:10.5pt Arial,sans-serif;margin:12mm}table{border-collapse:collapse;width:100%}td,th{border:1px solid #000;padding:4px 6px;text-align:left}th{background:#fff;font-weight:700;border-bottom:2px solid #000}h3{margin:14px 0 4px}tr{page-break-inside:avoid}${css}</style></head><body>${html}<script>window.print()<\/script></body></html>`);
+  w.document.close();
+}
+/* ---------- бланк для печати (как в книге учёта посещений) ---------- */
+function blankPeople(g, first, last) {
+  return db.athletes.filter(a => a.status === 'занимается' && (inGroupOn(a, g, first) || inGroupOn(a, g, last)))
+    .sort((a, b) => fullName(a).localeCompare(fullName(b), 'ru'));
+}
+function monthBounds(ym) { const [y, m] = ym.split('-').map(Number); return [ym + '-01', D.add(m === 12 ? (y + 1) + '-01-01' : y + '-' + pad(m + 1) + '-01', -1)]; }
+function openBlank() {
+  const J = ui.journal, [y, m] = J.month.split('-').map(Number);
+  const G = db.settings.groups.map(g => g.name);
+  const body = `<div class="fgrid">${FS('group', 'Группа', G, J.mgroup)}${FS('month', 'Месяц', MONTHS.map((n, i) => [i + 1, n]), m)}${F('year', 'Год', y, 'number', 'min="2020" max="2100"')}
+  ${F('from', 'Печатать с №', 1, 'number', 'min="1"')}${F('perPage', 'Строк на листе', 22, 'number', 'min="5" max="30"')}${F('rightPad', 'Запас справа, мм', db.settings.blankRightPad ?? 4, 'number', 'min="0" max="30" step="1"')}</div>
+  <p class="small muted" style="margin-top:6px">Запас справа сужает таблицу, если принтер обрезает правую рамку. Значение запоминается.</p>
+  <label class="row" style="gap:8px;margin-top:10px"><input type="checkbox" name="filled" style="width:20px;height:20px"> Заполнить уже поставленные отметки (для прошедшего месяца)</label>
+  <p class="small muted" id="blank-info" style="margin-top:10px"></p>`;
+  modal('Бланк для печати', body, { submit: 'Печать', onSubmit(fd) {
+    const rp = Math.min(30, Math.max(0, Math.round(+fd.rightPad) || 0));
+    if (db.settings.blankRightPad !== rp) { db.settings.blankRightPad = rp; persist(); }
+    printBlank(fd.group, fd.year + '-' + pad(+fd.month), Math.max(1, +fd.from || 1), Math.min(30, Math.max(5, +fd.perPage || 22)), !!fd.filled, rp);
+  } });
+  const info = () => { const f = $('#dlg-form'); const g = f.group.value, ym = f.year.value + '-' + pad(+f.month.value); const [a, b] = monthBounds(ym);
+    const n = blankPeople(g, a, b).length, pp = Math.max(5, +f.perPage.value || 22), from = Math.max(1, +f.from.value || 1);
+    const left = Math.max(0, n - from + 1);
+    $('#blank-info').textContent = `В группе ${n} чел. С № ${from} печатается ${left} ${plural(left, 'человек', 'человека', 'человек')}: ${Math.max(1, Math.ceil(left / pp))} ${plural(Math.max(1, Math.ceil(left / pp)), 'лист', 'листа', 'листов')} по ${pp} строк. На каждом листе — шапка с группой, месяцем и годом.`; };
+  $('#dlg-form').addEventListener('input', info); $('#dlg-form').addEventListener('change', info); info();
+}
+function printBlank(g, ym, fromNo, perPage, filled, rightPad = 4) {
+  const [y, m] = ym.split('-').map(Number), [first, last] = monthBounds(ym);
+  const dates = new Set();
+  for (let d = first; d <= last; d = D.add(d, 1)) if (isTrainDay(ix, d, [g])) dates.add(d);
+  const sess = db.sessions.filter(s => s.group === g && s.date >= first && s.date <= last);
+  sess.forEach(s => dates.add(s.date));
+  const cols = [...dates].sort();
+  if (!cols.length) { alert(`У группы «${g}» в ${MONTHS[m - 1]} нет дней занятий: задайте расписание группы в Настройках.`); return; }
+  const people = blankPeople(g, first, last).map((a, i) => ({ a, no: i + 1 })).filter(x => x.no >= fromNo);
+  const markOf = (a, d) => { if (!filled) return ''; const s = sess.filter(x => x.date === d).find(x => x.marks[a.id]); return s ? s.marks[a.id] : ''; };
+  // ширины, мм: страница А4 альбом 297, поля 25 слева и 7 справа
+  const W = 297 - 25 - 7 - rightPad, fixed = { no: 8, fio: 54, tot: 11, extra: [17, 17, 7, 17, 7, 17, 7] };
+  const extraSum = fixed.extra.reduce((s, x) => s + x, 0);
+  let fio = fixed.fio, dw = (W - fixed.no - fio - fixed.tot - extraSum) / cols.length;
+  if (dw < 6) { fio = Math.max(40, fio - (6 - dw) * cols.length); dw = (W - fixed.no - fio - fixed.tot - extraSum) / cols.length; }
+  dw = Math.min(dw, 12);
+  const PAGE_H = 210 - 9 - 9 - 1.5, TITLE_H = 12, HEAD_H = 16, FOOT_H = 6;
+  const rowH = ((PAGE_H - TITLE_H - HEAD_H - FOOT_H) / perPage).toFixed(2);
+  const extraNames = ['Текущий', 'Продление', 'Количество', 'Следующий месяц', 'О.пр', 'Дата', 'Н.Бн'];
+  const head = `<div class="ttl"><div><div class="h1">ЖУРНАЛ ПОСЕЩАЕМОСТИ</div><div>${h(db.settings.club)}</div></div>
+    <div class="meta"><span>Группа: <b>${h(g)}</b></span><span>Месяц: <b>${MONTHS[m - 1]}</b></span><span>Год: <b>${y}</b></span></div></div>`;
+  const thead = `<colgroup><col style="width:${fixed.no}mm"><col style="width:${fio}mm"><col style="width:${fixed.tot}mm">${cols.map(() => `<col style="width:${dw.toFixed(2)}mm">`).join('')}${fixed.extra.map(x => `<col style="width:${x}mm">`).join('')}</colgroup>
+    <thead><tr class="hd"><th class="b">№</th><th class="fio">Фамилия Имя</th><th>Итого</th>${cols.map(d => `<th class="dt">${+d.slice(8)}<br><span>${DOW[D.dow(d)].toLowerCase()}</span></th>`).join('')}${extraNames.map((n, i) => `<th class="ex${i === 0 ? ' b' : ''}${[2, 4, 6].includes(i) ? ' rot' : ''}"><div>${n}</div></th>`).join('')}</tr></thead>`;
+  const pages = [];
+  for (let i = 0; i < Math.max(1, people.length); i += perPage) {
+    const chunk = people.slice(i, i + perPage);
+    const rows = [];
+    for (let k = 0; k < perPage; k++) {
+      const x = chunk[k];
+      const ms = x ? cols.map(d => markOf(x.a, d)) : cols.map(() => '');
+      const tot = ms.filter(v => v === '+').length;
+      rows.push(`<tr><td class="b c">${x ? x.no : ''}</td><td class="fio">${x ? h(shortName(x.a)) : ''}</td><td class="c">${tot || ''}</td>${ms.map(v => `<td class="c">${h(v)}</td>`).join('')}${fixed.extra.map((_, j) => `<td${j === 0 ? ' class="b"' : ''}></td>`).join('')}</tr>`);
+    }
+    pages.push(`<section class="page">${head}<table>${thead}<tbody>${rows.join('')}</tbody></table>
+      <div class="foot"><span>+ был · н не был · б болел · о отменено · с соревнования</span><span>Тренер: ____________________</span></div></section>`);
+  }
+  openPrint(`Журнал ${g} ${MONTHS[m - 1]} ${y}`, pages.join(''), `
+    @page{size:A4 landscape;margin:9mm 7mm 9mm 25mm}
+    body{margin:0;font-size:9pt}
+    .page{height:${PAGE_H}mm;overflow:hidden;padding-right:1mm;box-sizing:border-box;page-break-after:always;break-after:page}.page:last-child{page-break-after:auto;break-after:auto}
+    .ttl{display:flex;justify-content:space-between;align-items:flex-end;height:${TITLE_H - 1.5}mm;margin-bottom:1.5mm}
+    .h1{font-size:14pt;font-weight:700;letter-spacing:.02em}
+    .meta{display:flex;gap:16px;font-size:11pt}
+    table{table-layout:fixed;width:${W}mm}
+    th,td{border:1px solid #000;padding:0;overflow:hidden}
+    th{font-weight:700;font-size:8pt;background:#fff;text-align:center;vertical-align:middle}
+    tr.hd th{height:16mm}
+    th.dt{font-size:9pt}th.dt span{font-weight:400;font-size:7pt}
+    th.ex div{font-size:6.3pt;line-height:1.15;padding:1px;overflow-wrap:normal;word-break:keep-all}
+    th.rot div{writing-mode:vertical-rl;transform:rotate(180deg);margin:0 auto;white-space:nowrap}
+    td{height:${rowH}mm;font-size:9pt}
+    td.c{text-align:center}
+    td.fio,th.fio{text-align:left;padding:0 4px;white-space:nowrap;font-size:10pt}
+    th.b,td.b{border-left:2px solid #000}
+    .foot{display:flex;justify-content:space-between;align-items:flex-end;font-size:8pt;height:${FOOT_H}mm}
+    tr{page-break-inside:avoid}`);
+}
+
+/* ---------- посещаемость спортсмена за период ---------- */
+function openAthleteReport(aid) {
+  const first = ix.today.slice(0, 8) + '01';
+  let body = `<p><b>${h(fullName(ix.ath.get(aid)))}</b></p><div class="fgrid">${F('from', 'С', first, 'date', 'required')}${F('to', 'По', ix.today, 'date', 'required')}</div>
+  <div class="row" style="margin-top:8px;gap:6px">${[['этот месяц', first, ix.today], ['прошлый месяц', D.add(first, -1).slice(0, 8) + '01', D.add(first, -1)], ['с начала года', ix.today.slice(0, 4) + '-01-01', ix.today], ['с 1 сентября', (ix.today.slice(5) >= '09-01' ? ix.today.slice(0, 4) : +ix.today.slice(0, 4) - 1) + '-09-01', ix.today], ['с прошлой аттестации', db.settings.attest.prev, ix.today]]
+    .filter(x => x[1]).map(([l, f, t]) => `<button type="button" class="btn sm" data-act="rep-range" data-f="${f}" data-t="${t}">${l}</button>`).join('')}</div>`;
+  const fr = ix.sessionsSorted.length ? ix.sessionsSorted[0].date : '';
+  if (fr) body += `<p class="small muted" style="margin-top:10px">Отметки в программе есть с ${D.ru(fr)}.</p>`;
+  modal('Посещаемость за период', body, { submit: 'Распечатать', onSubmit(fd) {
+    if (fd.from > fd.to) { alert('Дата «с» позже даты «по»'); return false; }
+    printAthleteReport(aid, fd.from, fd.to);
+  } });
+}
+function printAthleteReport(aid, from, to) {
+  const a = ix.ath.get(aid), c = ix.athCalc.get(aid);
+  const ms = (ix.marks.get(aid) || []).filter(m => m.date >= from && m.date <= to);
+  const cnt = k => ms.filter(m => m.mark === k).length;
+  const total = cnt('+') + cnt('н');
+  const subs = (ix.subsByAth.get(aid) || []).filter(p => p.start && p.start <= to && (!ix.subCalc.get(p.id).next || ix.subCalc.get(p.id).next > from));
+  const label = { '+': 'был', 'н': 'не был', 'б': 'болел (заморозка)', 'о': 'отменено клубом', 'с': 'соревнования' };
+  const firstRec = ix.sessionsSorted.length ? ix.sessionsSorted[0].date : '';
+  const html = `<h2 style="margin:0 0 4px">Посещаемость: ${h(fullName(a))}</h2>
+  <p style="margin:0 0 10px">${h(db.settings.club)}<br>Группа: ${h(a.group || '—')}${c.belt ? ' · пояс: ' + h(c.belt) + (c.stripes ? ', ' + c.stripes + ' стр.' : '') : ''}<br>Период: ${D.ru(from)} — ${D.ru(to)}</p>
+  <table style="width:auto;margin-bottom:12px"><tr><th>Был</th><th>Не был</th><th>Болел</th><th>Отменено</th><th>Соревнования</th><th>Посещаемость</th></tr>
+  <tr><td>${cnt('+')}</td><td>${cnt('н')}</td><td>${cnt('б')}</td><td>${cnt('о')}</td><td>${cnt('с')}</td><td>${total ? Math.round(cnt('+') / total * 100) + '%' : '—'}</td></tr></table>
+  ${firstRec && from < firstRec ? `<p style="font-size:9pt;margin:0 0 8px">Записи посещений в программе ведутся с ${D.ru(firstRec)}: более ранних отметок в базе нет.</p>` : ''}
+  ${ms.length ? `<table><tr><th style="width:12%">Дата</th><th style="width:16%">День</th><th>Группа</th><th>Отметка</th></tr>${ms.map(m => `<tr><td>${D.ru(m.date)}</td><td>${DOW_FULL[D.dow(m.date)]}</td><td>${h(m.group)}</td><td>${m.mark} — ${label[m.mark] || ''}</td></tr>`).join('')}</table>` : '<p>За этот период отметок нет.</p>'}
+  ${subs.length ? `<h3>Абонементы</h3><table><tr><th>Действует с</th><th>Оплата</th><th>Занятий</th><th>Списано</th><th>Остаток</th><th>Окончание</th></tr>${subs.map(p => { const r = ix.subCalc.get(p.id); return `<tr><td>${D.ru(p.start)}</td><td>${p.pending ? 'ждём оплату' : D.ru(p.payDate)}</td><td>${p.count}</td><td>${r.charged}</td><td>${r.remaining}</td><td>${D.ru(r.end)}</td></tr>`; }).join('')}</table>` : ''}
+  <p style="font-size:9pt;margin-top:10px">Списываются «был» и «не был» (п. 9.4 договора). «Болел» при оформленной заморозке не списывается (п. 9.5). Посещаемость = был / (был + не был).</p>
+  <p style="margin-top:22px">Тренер: ____________________ ${h(db.settings.coachMain)} &nbsp;&nbsp; Дата: ${D.ru(ix.today)}</p>`;
+  openPrint('Посещаемость ' + shortName(a), html);
+}
+
+function printEntry() {
+  const S = db.settings, list = filteredPeople();
+  const rows = list.map((a, i) => { const c = ix.athCalc.get(a.id); return `<tr><td>${i + 1}</td><td>${h(fullName(a))}</td><td>${D.ru(a.birth)}</td><td>${c.ageForEntry ?? ''}</td><td>${h(a.sex)}</td><td>${h(a.weight)}</td><td>${h(c.belt)}${c.stripes ? ', ' + c.stripes + ' стр.' : ''}</td><td>${c.med === 'действует' || c.med === 'истекает' ? 'есть, до ' + D.ru(a.medUntil) : c.med === 'просрочена' ? 'ПРОСРОЧЕНА' : 'нет'}</td></tr>`; }).join('');
+  openPrint('Заявка', `<h2>Заявка: ${h(S.competition.name)}${S.competition.date ? ', ' + D.ru(S.competition.date) : ''}${S.competition.city ? ', ' + h(S.competition.city) : ''}</h2><p>${h(S.club)} · возраст ${h(S.competition.ageMode)}</p>
+  <table><tr><th>№</th><th>ФИО</th><th>Дата рожд.</th><th>Возраст</th><th>Пол</th><th>Вес</th><th>Квалификация</th><th>Допуск (справка)</th></tr>${rows}</table>
+  <p style="font-size:9pt">Только объём заявки (п. 7.3 Политики обработки персональных данных).</p>`);
+}
+
+/* ---------- обработчики ---------- */
+function setPath(obj, path, val) { const ks = path.split('.'); let o = obj; while (ks.length > 1) o = o[ks.shift()]; o[ks[0]] = val; }
+function renameGroup(oldN, newN) {
+  if (!oldN || oldN === newN) return;
+  db.athletes.forEach(a => { if (a.group === oldN) a.group = newN; if (a.group2 === oldN) a.group2 = newN; });
+  db.sessions.forEach(s => { if (s.group === oldN) s.group = newN; });
+  db.subs.forEach(p => { if (p.onlyGroup === oldN) p.onlyGroup = newN; });
+  db.tests.forEach(t => { if (t.group === oldN) t.group = newN; });
+  db.athletes.forEach(a => (a.transfers || []).forEach(t => { if (t.from === oldN) t.from = newN; if (t.to === oldN) t.to = newN; }));
+}
+const ACT = {
+  'close': () => closeModal(),
+  'start-empty': () => { db = emptyDb(); persist('Пустая база создана'); },
+  'export': () => exportData(false), 'export-new': () => exportData(true), 'import': () => importData(),
+  'print': () => window.print(),
+  'open-session': el => { const s = findOrCreateSession(el.dataset.date, el.dataset.group); location.hash = '#session/' + s.id; },
+  'open-session-pick': () => { ui.journal.tab = 'session'; location.hash = '#journal'; },
+  'open-session-form': () => { const d = $('#j-date').value, g = $('#j-group').value; if (!d) return; ui.journal.date = d; ui.journal.group = g; const s = findOrCreateSession(d, g); location.hash = '#session/' + s.id; },
+  'jtab': el => { ui.journal.tab = el.dataset.tab; rerender(); },
+  'jmonth': el => { ui.journal.month = el.dataset.m; rerender(); },
+  'mark': el => { const s = db.sessions.find(x => x.id === el.dataset.sid); const cur = s.marks[el.dataset.aid];
+    if (cur === el.dataset.m) delete s.marks[el.dataset.aid]; else s.marks[el.dataset.aid] = el.dataset.m; render.keepScroll = true; persist(); },
+  'mark-all': el => { const s = db.sessions.find(x => x.id === el.dataset.id); const m = el.dataset.m;
+    if (m === 'о' && !confirm('Отметить занятие отменённым для всех? Оно не спишется ни у кого.')) return;
+    sessionMembers(s).forEach(a => { if (m === 'о' || !s.marks[a.id]) s.marks[a.id] = m; }); render.keepScroll = true; persist(); },
+  'mark-rest': el => { const s = db.sessions.find(x => x.id === el.dataset.id); sessionMembers(s).forEach(a => { if (!s.marks[a.id]) s.marks[a.id] = 'н'; }); render.keepScroll = true; persist(); },
+  'session-add': el => { const id = $('#add-to-session').value; if (!id) return; const s = db.sessions.find(x => x.id === el.dataset.id); s.marks[id] = '+'; ui.openOthers = s.id; render.keepScroll = true; persist('Добавлен на занятие'); },
+  'session-del': el => { const s = db.sessions.find(x => x.id === el.dataset.id); const n = Object.keys(s.marks).length;
+    if (!confirm(`Удалить занятие ${D.ru(s.date)}${n ? ' и ' + n + ' отметок' : ''}?`)) return; db.sessions = db.sessions.filter(x => x !== s); location.hash = '#journal'; persist('Занятие удалено'); },
+  'move-own': el => { const s = db.sessions.find(x => x.id === el.dataset.sid);
+    const list = (el.dataset.aid ? [ix.ath.get(el.dataset.aid)] : sessionOthers(s)).filter(a => a && groupOn(a, s.date) && groupOn(a, s.date) !== s.group && s.marks[a.id]);
+    if (!list.length) return;
+    if (list.length > 1 && !confirm(`Перенести отметки ${list.length} чел. с занятия «${s.group || 'без группы'}» ${D.ru(s.date)} на занятия их групп за ту же дату?`)) return;
+    let n = 0;
+    for (const a of list) { const g = groupOn(a, s.date); let t = db.sessions.find(x => x.date === s.date && x.group === g);
+      if (!t) { t = { id: uid('s'), date: s.date, group: g, marks: {} }; db.sessions.push(t); }
+      if (!t.marks[a.id]) t.marks[a.id] = s.marks[a.id]; delete s.marks[a.id]; n++; }
+    render.keepScroll = true; persist(`Перенесено отметок: ${n}`); },
+  'transfer-new': el => openTransfer(el.dataset.id),
+  'transfer-del': el => { const a = db.athletes.find(x => x.id === el.dataset.id); const t = (a.transfers || []).find(x => x.id === el.dataset.tid);
+    if (!t || !confirm(`Удалить запись о переводе с ${D.ru(t.date)} (${t.from} → ${t.to})? Текущая группа в карточке не изменится.`)) return;
+    a.transfers = a.transfers.filter(x => x !== t); render.keepScroll = true; persist('Перевод удалён'); },
+  'person-new': () => openPerson(null), 'person-edit': el => openPerson(el.dataset.id),
+  'person-del': el => { const id = el.dataset.id, a = ix.ath.get(id);
+    const used = (ix.marks.get(id) || []).length + (ix.subsByAth.get(id) || []).length;
+    if (!confirm(used ? `У ${fullName(a)} есть посещения и оплаты (${used}). Лучше поставить статус «ушёл» — история сохранится.\n\nВсё равно удалить вместе с историей?` : `Удалить ${fullName(a)}?`)) return;
+    db.athletes = db.athletes.filter(x => x.id !== id); db.subs = db.subs.filter(p => p.athleteId !== id); db.awards = db.awards.filter(w => w.athleteId !== id);
+    db.freezes = db.freezes.filter(f => f.athleteId !== id); db.tests = db.tests.filter(t => t.athleteId !== id); db.sessions.forEach(s => delete s.marks[id]);
+    closeModal(); location.hash = '#people'; persist('Удалено'); },
+  'sub-new': el => openSub(null, el.dataset.id), 'sub-edit': el => openSub(el.dataset.id),
+  'sub-del': el => { const nf = db.freezes.filter(f => f.subId === el.dataset.id).length; if (!confirm('Удалить абонемент?' + (nf ? `\n\nК нему привязана заморозка (${nf}) — её нужно будет привязать к другому абонементу.` : ''))) return; db.subs = db.subs.filter(p => p.id !== el.dataset.id); closeModal(); persist('Абонемент удалён'); },
+  'no-sub': el => { const a = db.athletes.find(x => x.id === el.dataset.id); a.noSub = true; render.keepScroll = true; persist('Статус «без абонемента»: ' + shortName(a)); },
+  'sub-wait': el => { const aid = el.dataset.id; const ex = pendingSub(ix, aid);
+    if (ex) { openSub(ex.id); return; }
+    const last = [...(ix.subsByAth.get(aid) || [])].pop();
+    const t = { id: uid('p'), athleteId: aid, payDate: '', start: defaultStart(aid), count: db.settings.defaultCount || 12, amount: last ? last.amount : 0, onlyGroup: '', carryWas: 0, carryMissed: 0, note: '', pending: true };
+    db.subs.push(t); persist('Ждём оплату с ' + D.ru(t.start)); },
+  'sub-paid': el => { const p = db.subs.find(x => x.id === el.dataset.id); if (!p) return;
+    closeModal(); p.pending = false; p.payDate = ix.today;
+    persist('Оплата отмечена'); setTimeout(() => openSub(p.id), 50); },
+  'print-blank': () => openBlank(),
+  'athlete-report': el => openAthleteReport(el.dataset.id),
+  'rep-range': el => { $('#dlg [name=from]').value = el.dataset.f; $('#dlg [name=to]').value = el.dataset.t; },
+  'subs-sort': el => { const k = el.dataset.k; if (ui.subs.sort === k) ui.subs.dir = -ui.subs.dir; else { ui.subs.sort = k; ui.subs.dir = k === 'start' ? -1 : 1; } rerender(); },
+  'subs-dir': () => { ui.subs.dir = -ui.subs.dir; rerender(); },
+  'subs-filter': el => { ui.subs.filter = el.dataset.f; rerender(); },
+  'freeze-new': el => openFreeze(null, el.dataset.id), 'freeze-edit': el => openFreeze(el.dataset.id),
+  'freeze-del': el => { if (!confirm('Удалить заморозку?')) return; db.freezes = db.freezes.filter(f => f.id !== el.dataset.id); closeModal(); persist('Заморозка удалена'); },
+  'freeze-mark': el => { closeModal(); markFreeze(el.dataset.id); },
+  'award-new': el => openAward(null, el.dataset.id), 'award-edit': el => openAward(el.dataset.id),
+  'award-del': el => { if (!confirm('Удалить запись о присвоении?')) return; db.awards = db.awards.filter(w => w.id !== el.dataset.id); closeModal(); persist('Удалено'); },
+  'msg': el => openMsg(el.dataset.id, el.dataset.tpl, el.dataset.extra ? JSON.parse(el.dataset.extra) : {}, el.dataset.sub || null),
+  'msg-share': () => { navigator.share({ text: $('#msg-text').value }).catch(() => {}); },
+  'msg-copy': () => { const t = $('#msg-text'); t.select(); (navigator.clipboard ? navigator.clipboard.writeText(t.value) : Promise.reject()).then(() => toast('Скопировано')).catch(() => { document.execCommand('copy'); toast('Скопировано'); }); },
+  'test-add': () => openTestAdd(), 'test-protocol': () => printProtocol(),
+  'test-del': el => { if (!confirm('Удалить строку сдачи?')) return; db.tests = db.tests.filter(t => t.id !== el.dataset.id); render.keepScroll = true; persist(); },
+  'set-test-date': el => { ui.attest.date = el.dataset.date; ui.attest.group = 'все'; },
+  'check-all': () => document.querySelectorAll('#dlg .picklist input[type=checkbox]').forEach(c => c.checked = true),
+  'norm-add': () => { db.settings.norms.push({ track: '', sex: '', from: '', to: '' }); rerender(); persist(); },
+  'norm-del-last': () => { if (confirm('Удалить последнюю строку норм?')) { db.settings.norms.pop(); render.keepScroll = true; persist(); } },
+  'group-add': () => { db.settings.groups.push({ name: 'Новая группа', days: [false, false, false, false, false, false, false] }); render.keepScroll = true; persist(); },
+  'group-del': el => { const g = db.settings.groups[+el.dataset.i]; const used = db.athletes.filter(a => a.group === g.name || a.group2 === g.name).length + db.sessions.filter(s => s.group === g.name).length;
+    if (used && !confirm(`Группа «${g.name}» используется (${used}). Удалить её из списка? Записи в журнале и у спортсменов останутся с этим названием.`)) return; db.settings.groups.splice(+el.dataset.i, 1); render.keepScroll = true; persist(); },
+  'hol-add': () => { const d = $('#hol-date').value; if (!d) return; db.settings.holidays = db.settings.holidays.filter(x => x.date !== d); db.settings.holidays.push({ date: d, reason: $('#hol-reason').value.trim() || 'нерабочий день' }); render.keepScroll = true; persist('Добавлено'); },
+  'hol-del': el => { db.settings.holidays = db.settings.holidays.filter(x => x.date !== el.dataset.date); render.keepScroll = true; persist(); },
+  'tpl-add': () => { db.settings.templates.push({ title: 'Новый шаблон', text: 'Здравствуйте! ' }); render.keepScroll = true; persist(); },
+  'tpl-del': el => { if (confirm('Удалить шаблон?')) { db.settings.templates.splice(+el.dataset.i, 1); render.keepScroll = true; persist(); } },
+  'people-print': () => window.print(), 'people-entry': () => printEntry(),
+  'people-csv': () => { const rows = [['ФИО', 'Пол', 'Дата рождения', 'Возраст', 'Группа', 'Вторая группа', 'Статус', 'Пояс', 'Страйпы', 'Вес', 'Телефон', 'Мать', 'Тел. матери', 'Отец', 'Тел. отца', 'Медсправка до', 'Примечание']];
+    (location.hash.startsWith('#people') ? filteredPeople() : db.athletes).forEach(a => { const c = ix.athCalc.get(a.id); rows.push([fullName(a), a.sex, D.ru(a.birth), c.age ?? '', a.group, a.group2, a.status, c.belt, c.stripes || '', a.weight, a.phone, a.motherName, a.motherPhone, a.fatherName, a.fatherPhone, D.ru(a.medUntil), a.note]); });
+    download('D23_спортсмены_' + ix.today + '.csv', csv(rows), 'text/csv'); },
+  'subs-csv': () => { const rows = [['ФИО', 'Группа', 'Только на группу', 'Дата оплаты', 'Действует с', 'Занятий', 'Сумма', 'Был', 'Не был', 'Болел', 'Остаток', 'Окончание', 'Статус', 'Примечание']];
+    db.subs.forEach(p => { const a = ix.ath.get(p.athleteId), r = ix.subCalc.get(p.id); if (a) rows.push([fullName(a), a.group, p.onlyGroup, p.pending ? 'ждём оплату' : D.ru(p.payDate), D.ru(p.start), p.count, p.pending ? '' : p.amount, r.was, r.missed, r.sick, r.remaining, D.ru(r.end), r.status, p.note]); });
+    download('D23_абонементы_' + ix.today + '.csv', csv(rows), 'text/csv'); },
+  'visits-csv': () => { const rows = [['Дата', 'День', 'Группа', 'ФИО', 'Отметка']];
+    ix.sessionsSorted.forEach(s => Object.entries(s.marks).forEach(([id, m]) => { const a = ix.ath.get(id); if (a) rows.push([D.ru(s.date), DOW[D.dow(s.date)], s.group, fullName(a), m]); }));
+    download('D23_посещения_' + ix.today + '.csv', csv(rows), 'text/csv'); },
+  'snap-restore': el => { const snaps = JSON.parse(localStorage.getItem(LS_SNAP) || '[]'); const s = snaps[+el.dataset.i];
+    if (!s || !confirm('Вернуть версию от ' + new Date(s.at).toLocaleString('ru') + '? Текущие данные сохранятся как прежняя версия.')) return;
+    snapshot('перед возвратом версии'); db = normalize(JSON.parse(s.data)); persist('Версия восстановлена'); },
+  'wipe': () => { if (!confirm('Удалить все данные из этого браузера? Сначала сохраните копию в файл.')) return; if (prompt('Для подтверждения напишите: УДАЛИТЬ') !== 'УДАЛИТЬ') return;
+    localStorage.removeItem(LS_DB); localStorage.removeItem(LS_SNAP); localStorage.removeItem(LS_META); db = null; meta = { lastExport: null, exportedRev: 0 }; render(); },
+};
+document.addEventListener('click', e => {
+  const act = e.target.closest('[data-act]');
+  if (act && !(act.tagName === 'INPUT' || act.tagName === 'SELECT')) {
+    const fn = ACT[act.dataset.act];
+    if (fn) { e.preventDefault(); fn(act, e); }
+    if (act.dataset.go) location.hash = act.dataset.go;
+    return;
+  }
+  const go = e.target.closest('[data-go]');
+  if (go && !e.target.closest('a,button:not([data-go]),input,select,label')) location.hash = go.dataset.go;
+  else if (go && go.tagName === 'BUTTON') location.hash = go.dataset.go;
+});
+let typingTimer = null;
+function onChange(e) {
+  const el = e.target, k = el.dataset.change; if (!k) return;
+  const v = el.type === 'checkbox' ? el.checked : el.value;
+  const live = e.type === 'input';
+  if (k === 'pf') { ui.people[el.dataset.k] = v; if (live && el.type !== 'number' && el.type !== 'search') return; clearTimeout(typingTimer); typingTimer = setTimeout(() => { const pos = el.selectionStart; rerender(); const n = document.querySelector(`[data-change="pf"][data-k="${el.dataset.k}"]`); if (n && live) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {} } }, live ? 250 : 0); return; }
+  if (k === 'subs-q') { ui.subs.q = v; clearTimeout(typingTimer); typingTimer = setTimeout(() => { rerender(); const n = document.querySelector('[data-change="subs-q"]'); if (n) { n.focus(); n.setSelectionRange(v.length, v.length); } }, 250); return; }
+  if (live) return;
+  if (k === 'session-group') { const s = db.sessions.find(x => x.id === el.dataset.id); const n = Object.keys(s.marks).length;
+    if (s.group && n && !confirm(`Перенести занятие ${D.ru(s.date)} из «${s.group}» в «${v || 'без группы'}»? Все ${n} отметок перейдут вместе с ним.`)) { rerender(); return; }
+    s.group = v; render.keepScroll = true; persist('Группа занятия изменена'); }
+  else if (k === 'subs-sort') { ui.subs.sort = v; ui.subs.dir = v === 'start' ? -1 : 1; rerender(); }
+  else if (k === 'jmgroup') { ui.journal.mgroup = v; rerender(); }
+  else if (k === 'jmonth-input') { if (v) { ui.journal.month = v; rerender(); } }
+  else if (k === 'attest-group') { ui.attest.group = v; rerender(); }
+  else if (k === 'test-date') { ui.attest.date = v; rerender(); }
+  else if (k === 'rep') { ui.report[el.dataset.k] = v; rerender(); }
+  else if (k === 'test-res' || k === 'test-relief' || k === 'test-place' || k === 'test-track') {
+    const t = db.tests.find(x => x.id === el.dataset.id);
+    if (k === 'test-res') { t.res = t.res || {}; if (v === '') delete t.res[el.dataset.k]; else t.res[el.dataset.k] = Math.round(+v); }
+    if (k === 'test-relief') { t.relief = t.relief || {}; t.relief[el.dataset.k] = v; }
+    if (k === 'test-place') t.place = v;
+    if (k === 'test-track') t.trackManual = v;
+    render.keepScroll = true; persist();
+  }
+  else if (k === 'norm') { const n = db.settings.norms[+el.dataset.i]; const num = !['track', 'sex', 'pullKind', 'pushKind'].includes(el.dataset.k); n[el.dataset.k] = num ? (v === '' ? null : +v) : v.trim(); render.keepScroll = true; persist(); }
+  else if (k === 'set') { const numPaths = ['attest.threshold', 'attest.minTournaments', 'attest.reliefCoef', 'defaultCount']; setPath(db.settings, el.dataset.path, numPaths.includes(el.dataset.path) ? +v : v); render.keepScroll = true; persist('Сохранено'); }
+  else if (k === 'belts') { db.settings.belts = v.split('\n').map(x => x.trim()).filter(Boolean); render.keepScroll = true; persist('Сохранено'); }
+  else if (k === 'tpl') { db.settings.templates[+el.dataset.i][el.dataset.k] = v; render.keepScroll = true; persist('Шаблон сохранён'); }
+  else if (k === 'group-name') { const g = db.settings.groups[+el.dataset.i]; const nn = v.trim(); if (!nn) { rerender(); return; }
+    if (db.settings.groups.some((x, i) => i !== +el.dataset.i && x.name === nn)) { alert('Группа с таким названием уже есть'); rerender(); return; }
+    renameGroup(g.name, nn); g.name = nn; render.keepScroll = true; persist('Группа переименована'); }
+  else if (k === 'group-day') { db.settings.groups[+el.dataset.i].days[+el.dataset.d] = v; render.keepScroll = true; persist(); }
+}
+document.addEventListener('change', onChange);
+document.addEventListener('toggle', e => { if (e.target.matches && e.target.matches('details[data-filt]')) ui.peopleFiltOpen = e.target.open; }, true);
+document.addEventListener('input', onChange);
+
+/* установка как приложение и работа без интернета — только когда программа открыта как сайт (https) */
+if (location.protocol === 'https:' || location.hostname === 'localhost') {
+  const l = document.createElement('link'); l.rel = 'manifest'; l.href = 'manifest.webmanifest'; document.head.appendChild(l);
+  if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+loadAll(); render();
+
+</script></body></html>
