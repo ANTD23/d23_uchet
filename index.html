@@ -103,6 +103,16 @@ table.t tr.pend:hover td{background:#F6D3CE} table.t tr.rem1:hover td{background
 .lg-pend{background:#FBE6E3;box-shadow:inset 4px 0 0 #B42A20} .lg-rem1{background:#FBE3C4;box-shadow:inset 4px 0 0 #D2741C} .lg-rem2{background:#FFF6D2;box-shadow:inset 4px 0 0 #E2B92E}
 
 
+/* абонементы списком на телефоне */
+.sublist .subside{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none}
+.sublist .subside b{font-size:1.35rem;line-height:1}
+.sublist li.rem1{background:#FBE3C4;box-shadow:inset 5px 0 0 #D2741C} .sublist li.rem1 .nm{color:#8A4106}
+.sublist li.rem2{background:#FFF6D2;box-shadow:inset 5px 0 0 #E2B92E} .sublist li.rem2 .nm{color:#6E5303}
+.sublist li.pend{background:#FBE6E3;box-shadow:inset 5px 0 0 #B42A20} .sublist li.pend .nm{color:#8E1F17}
+.sublist .who .small{white-space:normal}
+.sublist li > .belt{align-self:center}
+.grid2{grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr))}
+
 /* пояс — главный визуальный элемент */
 .belt{position:relative;display:inline-block;width:70px;height:14px;border-radius:2px;background:var(--bc,#ccc);box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);flex:none;vertical-align:middle}
 .belt.two::before{content:"";position:absolute;left:0;right:22px;top:5px;height:4px;background:var(--bc2)}
@@ -180,6 +190,13 @@ dialog form{display:flex;flex-direction:column;max-height:92vh}
   .card{padding:13px}
   .hide-m{display:none!important}
   .test-grid{grid-template-columns:repeat(3,1fr)}
+  .seg{flex-wrap:wrap;overflow:visible} .seg button{flex:1 1 auto}
+  .legend .opt-m{display:none}
+  .sublist .who b{white-space:normal}
+  .sublist li > .belt{width:40px;height:10px}
+  .sublist li > .belt .tip{width:14px;right:3px}
+  .grow-m{flex-basis:100%}
+  table.t{font-size:.85rem} table.t td,table.t th{padding:7px 6px}
   .alert{flex-wrap:wrap} .alert > .row{width:100%;padding-left:21px}
 }
 @media (min-width:861px){ .show-m{display:none!important} }
@@ -193,6 +210,7 @@ dialog form{display:flex;flex-direction:column;max-height:92vh}
   .card{border:0;padding:0}
   .print-only{display:block}
   th.hide-m,td.hide-m{display:table-cell!important}
+  .card.hide-m{display:block!important} .card.show-m{display:none!important}
   .scroll{overflow:visible!important}
   table.t{font-size:8.5pt}
   .belt,.chip,.cell-m{-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -1053,7 +1071,10 @@ function vPeople() {
   ${sel('sort', ['name', 'age', 'group'], 'Сортировка').replace('>name<', '>по фамилии<').replace('>age<', '>по возрасту<').replace('>group<', '>по группе<')}</div></details>
   ${F.ageMode !== 'сейчас' && S.competition.date ? `<div class="small muted">Соревнования: ${h(S.competition.name)}, ${D.ru(S.competition.date)}</div>` : ''}</div>
   <div class="print-only"><b>${h(S.club)}</b> — список спортсменов (${list.length}), ${D.ru(ix.today)}</div>
-  <div class="card flat scroll"><table class="t"><thead><tr><th>ФИО</th><th>Пояс</th><th class="r">Возраст</th><th class="hide-m">Дата рожд.</th><th>Группа</th><th class="hide-m">Контакт</th><th class="no-print">Абонемент</th><th class="hide-m">Справка</th></tr></thead><tbody>
+  <div class="card flat show-m"><ul class="list sublist">${list.map(a => { const c = ix.athCalc.get(a.id); const ag = ageOf(c, F.ageMode);
+    return `<li class="click" data-go="#person/${a.id}">${beltHTML(c.belt, c.stripes)}<div class="who"><b>${h(shortName(a))}</b><span class="small">${h(a.group || 'без группы')}${ag != null ? ' · ' + ag + ' ' + plural(ag, 'год', 'года', 'лет') : ''}${a.status !== 'занимается' ? ' · ' + h(a.status) : ''}</span>${c.contact ? `<span class="small">${telLink(c.contact)} ${c.contactWho}</span>` : (c.noParentPhone ? '<span class="small"><span class="chip bad">нет телефона</span></span>' : '')}</div>
+    <div class="subside">${chipSub(c)}${chipMed(c.med)}</div></li>`; }).join('') || '<li class="empty">Никого не нашлось. Сбросьте фильтры.</li>'}</ul></div>
+  <div class="card flat scroll hide-m"><table class="t"><thead><tr><th>ФИО</th><th>Пояс</th><th class="r">Возраст</th><th class="hide-m">Дата рожд.</th><th>Группа</th><th class="hide-m">Контакт</th><th class="no-print">Абонемент</th><th class="hide-m">Справка</th></tr></thead><tbody>
   ${list.map(a => { const c = ix.athCalc.get(a.id); const ag = ageOf(c, F.ageMode);
     return `<tr class="click${c.noParentPhone ? ' nophone' : ''}" data-go="#person/${a.id}"><td><b>${h(fullName(a))}</b>${a.status !== 'занимается' ? ` <span class="chip muted">${h(a.status)}</span>` : ''}</td>
     <td>${beltHTML(c.belt, c.stripes)}</td><td class="r num">${ag ?? ''}</td><td class="hide-m num">${D.ru(a.birth)}</td><td>${h(a.group)}${a.group2 ? ' / ' + h(a.group2) : ''}</td>
@@ -1193,8 +1214,13 @@ function vSubs() {
   <input type="search" placeholder="Поиск по фамилии" data-change="subs-q" value="${h(U.q)}" style="flex:1;min-width:180px">
   <select data-change="subs-sort" style="width:auto">${[['name', 'по фамилии'], ['rem', 'по остатку'], ['end', 'по окончанию'], ['start', 'по дате начала']].map(([k, l]) => opt(k, U.sort, 'Сортировка: ' + l)).join('')}</select>
   <button class="btn" data-act="subs-dir" title="Обратный порядок">${U.dir > 0 ? '▲ по возрастанию' : '▼ по убыванию'}</button></div>
-  <div class="legend" style="margin-top:10px"><span><i class="lg-rem1"></i>осталось 1 занятие</span><span><i class="lg-rem2"></i>осталось 2 занятия</span><span class="small">(если следующий ещё не оплачен)</span><span><i class="lg-pend"></i>ждём оплату</span></div></div>
-  <div class="card flat scroll"><table class="t"><thead><tr>${th('name', 'ФИО')}<th class="hide-m">Оплата</th>${th('start', 'С')}<th class="r">Занятий</th><th class="r hide-m">Сумма</th><th class="r hide-m">Был</th><th class="r hide-m">Не был</th><th class="r hide-m">Болел</th>${th('rem', 'Остаток', 'r')}${th('end', 'Окончание')}<th>Статус</th></tr></thead><tbody>
+  <div class="legend" style="margin-top:10px"><span><i class="lg-rem1"></i>осталось 1 занятие</span><span><i class="lg-rem2"></i>осталось 2 занятия</span><span class="small opt-m">(если следующий ещё не оплачен)</span><span><i class="lg-pend"></i>ждём оплату</span></div></div>
+  <div class="card flat show-m"><ul class="list sublist">${rows.map(({ p, r, a }) => { const hl = p.pending ? ' pend' : latestIds.has(p.id) && !ix.athCalc.get(a.id).nextSub && !ix.athCalc.get(a.id).pendingSub && (r.remaining === 1 || r.remaining === 2) ? ' rem' + r.remaining : '';
+    return `<li class="click${hl}" data-act="sub-edit" data-id="${p.id}"><div class="who"><b class="nm">${h(shortName(a))}</b>
+      <span class="small">${h(p.onlyGroup || a.group || '')} · ${p.count} зан. · ${r.first ? 'с ' + D.short(r.first) : (p.pending ? 'с 1-го посещения' : 'не активирован' + (r.autoDate ? ', до ' + D.short(r.autoDate) : ''))}</span>
+      <span class="small">${r.end ? (r.endKind === 'fact' ? 'последнее ' : 'окончание ') + D.ru(r.end) : (r.endKind === 'nosched' ? 'нет расписания' : '')}</span></div>
+      <div class="subside"><b class="num">${r.remaining}</b><span class="chip ${r.tone}">${h(r.status)}</span></div></li>`; }).join('') || '<li class="empty">Нет абонементов в этом списке</li>'}</ul></div>
+  <div class="card flat scroll hide-m"><table class="t"><thead><tr>${th('name', 'ФИО')}<th class="hide-m">Оплата</th>${th('start', 'С')}<th class="r">Занятий</th><th class="r hide-m">Сумма</th><th class="r hide-m">Был</th><th class="r hide-m">Не был</th><th class="r hide-m">Болел</th>${th('rem', 'Остаток', 'r')}${th('end', 'Окончание')}<th>Статус</th></tr></thead><tbody>
   ${rows.map(({ p, r, a }) => { const hl = p.pending ? ' pend' : latestIds.has(p.id) && !ix.athCalc.get(a.id).nextSub && !ix.athCalc.get(a.id).pendingSub && (r.remaining === 1 || r.remaining === 2) ? ' rem' + r.remaining : '';
   return `<tr class="click${hl}" data-act="sub-edit" data-id="${p.id}"><td><b class="nm">${h(shortName(a))}</b><div class="small muted">${h(p.onlyGroup || a.group)}</div></td><td class="hide-m num">${D.ru(p.payDate)}</td><td class="num">${startLabel(p, r, true)}</td>
   <td class="r num">${p.count}</td><td class="r num hide-m">${p.pending ? '<span class="small muted">не оплачен</span>' : (+p.amount || 0).toLocaleString('ru')}</td><td class="r num hide-m">${r.was}</td><td class="r num hide-m">${r.missed}</td><td class="r num hide-m">${r.sick}</td>
@@ -1369,10 +1395,12 @@ function vAttest(tab) {
   const list = db.athletes.filter(a => a.status === 'занимается' && (U.group === 'все' || a.group === U.group || a.group2 === U.group))
     .sort((a, b) => fullName(a).localeCompare(fullName(b), 'ru')).map(a => ({ a, r: calcAdmission(ix, a) }));
   const ok = list.filter(x => x.r.status === 'допущен').length;
-  return head + `<div class="card no-print"><div class="row"><div class="spacer">Период: <b>${D.ru(A.prev)} — ${D.ru(A.next)}</b>, порог ${A.threshold}% посещений, турниров не меньше ${A.minTournaments}, болезнь ${A.sickMode === 'учитывать' ? 'снижает процент' : 'исключается из расчёта'}. <a href="#settings">Изменить</a></div>
+  return head + `<div class="card no-print"><div class="row"><div class="spacer grow-m">Период: <b>${D.ru(A.prev)} — ${D.ru(A.next)}</b>, порог ${A.threshold}% посещений, турниров не меньше ${A.minTournaments}, болезнь ${A.sickMode === 'учитывать' ? 'снижает процент' : 'исключается из расчёта'}. <a href="#settings">Изменить</a></div>
   <select data-change="attest-group" style="width:auto">${groups.map(g => opt(g, U.group)).join('')}</select><button class="btn" data-act="print">Печать</button></div></div>
   <div class="print-only"><b>${h(db.settings.club)}</b> — допуск к аттестации ${D.ru(A.next)}</div>
-  <div class="card flat scroll"><table class="t"><thead><tr><th>ФИО</th><th class="hide-m">Группа</th><th class="r">Был</th><th class="r">Не был</th><th class="r hide-m">Болел</th><th class="r">Турниров</th><th class="r">Посещ.</th><th>Допуск</th><th class="hide-m">Не хватает</th></tr></thead><tbody>
+  <div class="card flat show-m"><ul class="list sublist">${list.map(({ a, r }) => `<li class="click" data-go="#person/${a.id}"><div class="who"><b>${h(shortName(a))}</b><span class="small">${h(a.group)} · был ${r.was} · не был ${r.missed}${r.sick ? ' · болел ' + r.sick : ''} · турниров ${r.tourn}</span>${[r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).length ? `<span class="small">не хватает: ${[r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).join(', ')}</span>` : ''}</div>
+    <div class="subside"><b class="num">${r.pct != null ? Math.round(r.pct * 100) + '%' : '—'}</b><span class="chip ${r.status === 'допущен' ? 'ok' : r.status === 'нет данных' ? 'muted' : 'bad'}">${h(r.status.replace('нет: посещаемость и турниры', 'нет: посещ. и турниры'))}</span></div></li>`).join('')}</ul></div>
+  <div class="card flat scroll hide-m"><table class="t"><thead><tr><th>ФИО</th><th class="hide-m">Группа</th><th class="r">Был</th><th class="r">Не был</th><th class="r hide-m">Болел</th><th class="r">Турниров</th><th class="r">Посещ.</th><th>Допуск</th><th class="hide-m">Не хватает</th></tr></thead><tbody>
   ${list.map(({ a, r }) => `<tr class="click" data-go="#person/${a.id}"><td>${h(shortName(a))}</td><td class="hide-m">${h(a.group)}</td><td class="r num">${r.was}</td><td class="r num">${r.missed}</td><td class="r num hide-m">${r.sick}</td><td class="r num">${r.tourn}</td><td class="r num">${r.pct != null ? Math.round(r.pct * 100) + '%' : ''}</td>
   <td><span class="chip ${r.status === 'допущен' ? 'ok' : r.status === 'нет данных' ? 'muted' : 'bad'}">${h(r.status)}</span></td><td class="hide-m small">${[r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).join(', ')}</td></tr>`).join('')}</tbody></table></div>
   <p class="small muted">Допущено ${ok} из ${list.length}. Турнир — отметка «с» в журнале.</p>`;
@@ -1434,7 +1462,7 @@ function vBelts() {
   const rows = [...db.awards].sort((x, y) => y.date.localeCompare(x.date)).map(w => ({ w, a: ix.ath.get(w.athleteId) })).filter(x => x.a);
   return `<div class="card no-print"><div class="row"><span class="spacer muted">Журнал присвоений: одна строка — одно присвоение. Текущий пояс берётся из последней записи.</span><button class="btn primary" data-act="award-new">Присвоить пояс</button></div></div>
   <div class="card flat scroll"><table class="t"><thead><tr><th>Дата</th><th>ФИО</th><th>Пояс</th><th class="r">Страйпы</th><th class="hide-m">Кем присвоено</th></tr></thead><tbody>
-  ${rows.map(({ w, a }) => `<tr class="click" data-act="award-edit" data-id="${w.id}"><td class="num">${D.ru(w.date)}</td><td>${h(fullName(a))}</td><td>${beltHTML(w.belt, w.stripes)} <span class="small">${h(w.belt)}</span></td><td class="r num">${w.stripes}</td><td class="hide-m small">${h(w.by)}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">Присвоений нет</td></tr>'}</tbody></table></div>`;
+  ${rows.map(({ w, a }) => `<tr class="click" data-act="award-edit" data-id="${w.id}"><td class="num">${D.ru(w.date)}</td><td>${h(fullName(a))}</td><td>${beltHTML(w.belt, w.stripes)} <span class="small hide-m">${h(w.belt)}</span></td><td class="r num">${w.stripes}</td><td class="hide-m small">${h(w.by)}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">Присвоений нет</td></tr>'}</tbody></table></div>`;
 }
 const NORM_COLS = [['track', 'Трек'], ['sex', 'Пол'], ['from', 'От'], ['to', 'До'], ['pullKind', 'Подтяг.: вид'], ['pullS', 'Подт. стр.'], ['pullB', 'Подт. пояс'], ['pushKind', 'Отжим.: вид'], ['pushS', 'Отж. стр.'], ['pushB', 'Отж. пояс'], ['crS', 'Скр. стр.'], ['crB', 'Скр. пояс'], ['jumpS', 'Прыж. стр.'], ['jumpB', 'Прыж. пояс'], ['monS', 'Рук. стр.'], ['monB', 'Рук. пояс']];
 function vNorms() {
