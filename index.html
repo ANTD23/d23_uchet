@@ -310,10 +310,9 @@ function buildIndex(db, today) {
   for (const p of db.subs) push(ix.subsByAth, p.athleteId, p);
   for (const w of db.awards) push(ix.awardsByAth, w.athleteId, w);
   for (const f of db.freezes) push(ix.freezesByAth, f.athleteId, f);
-  for (const l of ix.subsByAth.values()) l.sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+  for (const l of ix.subsByAth.values()) l.sort((a, b) => subKey(a).localeCompare(subKey(b)) || db.subs.indexOf(a) - db.subs.indexOf(b));
   for (const l of ix.awardsByAth.values()) l.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-  ix.subCalc = new Map();
-  for (const p of db.subs) ix.subCalc.set(p.id, calcSub(ix, p));
+  computeSubs(ix);
   ix.athCalc = new Map();
   for (const a of db.athletes) ix.athCalc.set(a.id, calcAthlete(ix, a));
   return ix;
@@ -356,60 +355,24 @@ function subGroups(ix, p) {
   const a = ix.ath.get(p.athleteId); if (!a) return [];
   return [a.group, a.group2].filter(Boolean);
 }
-function nextSubStart(ix, p) {
-  let next = null;
-  for (const q of ix.subsByAth.get(p.athleteId) || []) {
-    if (q.id === p.id || (q.onlyGroup || '') !== (p.onlyGroup || '')) continue;
-    if (q.start && p.start && q.start > p.start && (!next || q.start < next)) next = q.start;
+function subKey(p) { return p.start || p.payDate || ''; }
+function subFirst(ix, p) { return ix.subFirst ? ix.subFirst.get(p.id) || null : p.start || null; }
+
+/* ---------- абонементы: активация и списание (п. 9.2–9.4 оферты) ----------
+   Абонемент без ручной даты активируется в день первого посещения после оплаты (9.2.1),
+   а если посещения не было — автоматически на 30-й календарный день с даты оплаты (9.2.2).
+   Абонементы одного человека расходуются по очереди: следующий может активироваться
+   только после окончания предыдущего. */
+function computeSubs(ix) {
+  ix.subCalc = new Map(); ix.subFirst = new Map();
+  for (const [aid, all] of ix.subsByAth) {
+    const chains = new Map();
+    for (const p of all) { const k = p.onlyGroup || ''; if (!chains.has(k)) chains.set(k, []); chains.get(k).push(p); }
+    for (const [og, list] of chains) calcChain(ix, aid, og, list);
   }
-  return next;
 }
-function calcSub(ix, p) {
-  const r = { was: 0, missed: 0, sick: 0, sickCharged: 0, comp: 0, cancel: 0, next: null, end: '', endKind: '', remaining: null, status: '', tone: '', lastCharged: '' };
-  if (!p.start) { r.status = 'нет даты начала'; r.tone = 'warn'; return r; }
-  r.next = nextSubStart(ix, p);
-  // абонементы с той же датой начала (например, два разовых в один день) делят занятия по очереди
-  const twins = (ix.subsByAth.get(p.athleteId) || []).filter(q => q.start === p.start && (q.onlyGroup || '') === (p.onlyGroup || ''))
-    .sort((x, y) => ix.db.subs.indexOf(x) - ix.db.subs.indexOf(y));
-  const pos = twins.indexOf(p), isLast = pos === twins.length - 1;
-  r.twins = twins.length;
-  const fr = (ix.freezesByAth.get(p.athleteId) || []).map(f => ({ f, c: calcFreeze(ix, f) }));
-  const list = (ix.marks.get(p.athleteId) || []).filter(m =>
-    m.date >= p.start && (!r.next || m.date < r.next) && (!p.onlyGroup || m.group === p.onlyGroup));
-  const events = [];                                           // списываемые отметки по порядку
-  const other = [];
-  for (const m of list) {
-    let charged = m.mark === '+' || m.mark === 'н';
-    if (m.mark === 'б' && fr.some(x => x.c.mode === 'lapsed' && x.f.from && x.f.to && m.date >= x.f.from && m.date <= x.f.to)) charged = true;
-    (charged ? events : other).push(m);
-  }
-  const carry = q => Math.max(0, +q.carryWas || 0) + Math.max(0, +q.carryMissed || 0);
-  let offset = 0;                                              // сколько событий забрали предыдущие близнецы
-  for (let i = 0; i < pos; i++) offset += Math.max(0, (+twins[i].count || 0) - carry(twins[i]));
-  const cap = Math.max(0, (+p.count || 0) - carry(p));
-  const mine = isLast ? events.slice(offset) : events.slice(offset, offset + cap);
-  for (const m of mine) {
-    if (m.mark === '+') r.was++; else if (m.mark === 'н') r.missed++; else if (m.mark === 'б') { r.sick++; r.sickCharged++; }
-    r.lastCharged = m.date;
-  }
-  if (isLast) for (const m of other) { if (m.mark === 'б') r.sick++; else if (m.mark === 'с') r.comp++; else if (m.mark === 'о') r.cancel++; }
-  const charged = mine.length + carry(p);
-  r.charged = charged;
-  r.remaining = (+p.count || 0) - charged;
-  // прогноз окончания: от последнего проведённого занятия групп человека по расписанию
-  const groups = subGroups(ix, p);
-  let maxGroupDate = '';
-  for (const g of groups) for (const d of ix.groupDates.get(g) || []) {
-    if (d >= p.start && (!r.next || d < r.next) && d > maxGroupDate) maxGroupDate = d;
-  }
-  let ahead = 0, off = 0;                                      // незанятые занятия у предыдущих близнецов
-  for (let i = 0; i < pos; i++) { const c = Math.max(0, (+twins[i].count || 0) - carry(twins[i])); ahead += c - Math.min(c, Math.max(0, events.length - off)); off += c; }
-  if (r.remaining <= 0) { r.end = r.lastCharged; r.endKind = 'fact'; }
-  else if (!hasSchedule(ix, groups)) { r.end = ''; r.endKind = 'nosched'; }
-  else {
-    const from = D.max(D.add(p.start, -1), maxGroupDate);
-    r.end = nthTrainDay(ix, D.add(from, 1), r.remaining + ahead, groups) || ''; r.endKind = 'forecast';
-  }
+function setSubStatus(ix, p, r) {
+  if (r.notActive) { r.status = p.pending ? 'ждём оплату' : 'не активирован'; r.tone = p.pending ? 'bad' : 'ok'; return; }
   if (r.remaining < 0) { r.status = 'долг ' + (-r.remaining); r.tone = 'bad'; }
   else if (r.remaining === 0) { r.status = 'использован'; r.tone = 'muted'; }
   else if (r.remaining === 1) { r.status = 'осталось 1'; r.tone = 'warn'; }
@@ -417,29 +380,91 @@ function calcSub(ix, p) {
   else { r.status = 'действует'; r.tone = 'ok'; }
   if (!(+p.count > 0)) { r.status = 'не указано занятий'; r.tone = 'bad'; }
   if (p.pending) { r.pending = true; r.status = 'ждём оплату'; r.tone = 'bad'; }
-  if (r.end && r.endKind === 'forecast' && r.end >= ix.today) r.notifyBy = D.max(ix.today, D.add(r.end, -7)); // п. 9.2.3
-  return r;
 }
-function currentSub(ix, aid) {               // последний начавшийся абонемент (без «только на группу» в приоритете)
-  const l = (ix.subsByAth.get(aid) || []).filter(p => p.start && p.start <= ix.today);
+function calcChain(ix, aid, og, list) {
+  const marks = (ix.marks.get(aid) || []).filter(m => !og || m.group === og).map(m => ({ ...m, used: false }));
+  let cursor = '', blocked = false;
+  const done = [];
+  for (let i = 0; i < list.length; i++) {
+    const p = list[i];
+    const r = { was: 0, missed: 0, sick: 0, sickCharged: 0, comp: 0, cancel: 0, next: null, end: '', endKind: '', remaining: null, status: '', tone: '', lastCharged: '', charged: 0 };
+    const groups = subGroups(ix, p);
+    if (p.start) { r.act = p.start; r.first = p.start; r.actKind = 'manual'; }
+    else if (!blocked) {
+      r.from = D.max(p.payDate || p.waitFrom || '', cursor);
+      const visit = marks.find(m => !m.used && m.mark === '+' && m.date >= r.from);
+      r.autoDate = p.pending || !p.payDate ? null : D.max(D.add(p.payDate, 30), r.from);
+      if (visit && (!r.autoDate || visit.date <= r.autoDate)) { r.act = visit.date; r.first = visit.date; r.actKind = 'visit'; }
+      else if (r.autoDate && ix.today >= r.autoDate) { r.act = r.autoDate; r.first = nthTrainDay(ix, r.autoDate, 1, groups) || r.autoDate; r.actKind = 'auto'; }
+    }
+    if (!r.act) {
+      blocked = true; r.notActive = true; r.actKind = 'none'; r.remaining = +p.count || 0;
+      if (r.autoDate) r.autoNotifyBy = D.add(r.autoDate, -3);                      // п. 9.2.3
+      setSubStatus(ix, p, r); ix.subFirst.set(p.id, null); ix.subCalc.set(p.id, r); done.push([p, r]); continue;
+    }
+    ix.subFirst.set(p.id, r.first);
+    const nm = list.slice(i + 1).find(q => q.start && q.start > r.first);
+    r.next = nm ? nm.start : null;
+    const fr = (ix.freezesByAth.get(aid) || []).map(f => ({ f, c: calcFreeze(ix, f) }));
+    const carry = Math.max(0, +p.carryWas || 0) + Math.max(0, +p.carryMissed || 0);
+    const cap = Math.max(0, (+p.count || 0) - carry);
+    let used = 0;
+    for (const m of marks) {
+      if (m.used || m.date < r.first || (r.next && m.date >= r.next)) continue;
+      let charged = m.mark === '+' || m.mark === 'н';
+      if (m.mark === 'б' && fr.some(x => x.c.mode === 'lapsed' && x.f.from && x.f.to && m.date >= x.f.from && m.date <= x.f.to)) charged = true;
+      if (!charged) { if (used < cap) { if (m.mark === 'б') r.sick++; else if (m.mark === 'с') r.comp++; else if (m.mark === 'о') r.cancel++; } continue; }
+      if (used >= cap) break;
+      m.used = true; used++;
+      if (m.mark === '+') r.was++; else if (m.mark === 'н') r.missed++; else { r.sick++; r.sickCharged++; }
+      r.lastCharged = m.date;
+    }
+    r.charged = used + carry;
+    r.remaining = (+p.count || 0) - r.charged;
+    if (r.remaining <= 0) { r.end = r.lastCharged || r.first; r.endKind = 'fact'; cursor = D.add(r.end, 1); }
+    else if (!hasSchedule(ix, groups)) { r.endKind = 'nosched'; cursor = '9999-12-31'; }
+    else {
+      let maxGroupDate = '';
+      for (const g of groups) for (const d of ix.groupDates.get(g) || []) if (d >= r.first && (!r.next || d < r.next) && d > maxGroupDate) maxGroupDate = d;
+      const from = D.max(D.add(r.first, -1), maxGroupDate);
+      r.end = nthTrainDay(ix, D.add(from, 1), r.remaining, groups) || ''; r.endKind = 'forecast';
+      cursor = r.end ? D.add(r.end, 1) : '9999-12-31';
+    }
+    ix.subCalc.set(p.id, r); done.push([p, r]);
+  }
+  // посещения без действующего абонемента — долг того абонемента, после которого они были
+  for (const m of marks) {
+    if (m.used || m.mark !== '+') continue;
+    let t = null;
+    for (const [p, r] of done) if (r.first && r.first <= m.date && !(r.next && m.date >= r.next)) t = r;
+    if (t) { t.was++; t.charged++; t.remaining--; t.debtVisits = (t.debtVisits || 0) + 1; if (m.date > t.lastCharged) t.lastCharged = m.date; if (t.remaining <= 0) { t.end = t.lastCharged; t.endKind = 'fact'; } }
+  }
+  for (const [p, r] of done) {
+    setSubStatus(ix, p, r);
+    if (!r.notActive && r.end && r.endKind === 'forecast' && r.end >= ix.today) r.notifyBy = D.max(ix.today, D.add(r.end, -7)); // п. 9.2.3
+  }
+}
+function currentSub(ix, aid) {               // последний активированный абонемент (без «только на группу» в приоритете)
+  const l = (ix.subsByAth.get(aid) || []).filter(p => { const f = subFirst(ix, p); return f && f <= ix.today; });
   const main = l.filter(p => !p.onlyGroup);
   const pick = (main.length ? main : l);
   return pick.length ? pick[pick.length - 1] : null;
 }
-function upcomingSub(ix, aid) {               // следующий ОПЛАЧЕННЫЙ абонемент
-  return (ix.subsByAth.get(aid) || []).find(p => p.start && p.start > ix.today && !p.pending) || null;
+function upcomingSub(ix, aid) {               // оплаченный, но ещё не начавшийся абонемент
+  return (ix.subsByAth.get(aid) || []).find(p => !p.pending && (() => { const f = subFirst(ix, p); return !f || f > ix.today; })()) || null;
 }
 function pendingSub(ix, aid) {                // абонемент «ждём оплату», если есть
   const l = (ix.subsByAth.get(aid) || []).filter(p => p.pending); return l.length ? l[l.length - 1] : null;
 }
 
-/* ---------- заморозка по болезни (п. 9.5 оферты, ред. 5) ---------- */
 function calcFreeze(ix, f) {
   const r = { mode: 'incomplete', ext: 0, text: '' };
   const p = f.subId ? ix.db.subs.find(s => s.id === f.subId) : null;
   if (!p || !f.from || !f.to || f.to < f.from) { r.text = 'Заполните абонемент и даты болезни'; return r; }
   const groups = subGroups(ix, p);
-  const base = nthTrainDay(ix, p.start, +p.count || 0, groups);
+  const first = subFirst(ix, p);
+  if (!first) { r.text = 'Абонемент ещё не активирован'; return r; }
+  const base = nthTrainDay(ix, first, +p.count || 0, groups);
   r.base = base;
   if (!base) { r.text = 'У группы не задано расписание'; return r; }
   r.ext = countTrainDays(ix, f.from, D.min(f.to, base), groups);
@@ -600,7 +625,7 @@ function calcTest(ix, t) {
 function calcTestResultOnly(ix, t) { const x = { ...t }; const tests = ix.db.tests; ix.db.tests = []; const r = calcTest(ix, x).result; ix.db.tests = tests; return r; }
 
 /* ---------- подстановка в шаблоны сообщений ---------- */
-function firstSession(ix, p) { return nthTrainDay(ix, p.start, 1, subGroups(ix, p)) || p.start; }
+function firstSession(ix, p) { return subFirst(ix, p) || ''; }
 function payDeadline(ix, p, end) {      // день первого занятия нового абонемента
   if (!p || !end) return '';
   return nthTrainDay(ix, D.add(end, 1), 1, subGroups(ix, p)) || '';
@@ -611,16 +636,17 @@ function fillTemplate(text, ix, a, extra = {}, subId = null) {
   const sc = p ? ix.subCalc.get(p.id) || {} : {};
   let end = sc.end || '', payBy = payDeadline(ix, p, end);
   if (p && p.pending) {                        // ждём оплату: окончание — у прошлого абонемента, оплатить к первому занятию нового
-    const prev = (ix.subsByAth.get(a.id) || []).filter(q => q !== p && q.start && q.start < p.start).pop();
+    const prev = (ix.subsByAth.get(a.id) || []).filter(q => q !== p && subKey(q) && subKey(q) < subKey(p)).pop();
     const pc = prev ? ix.subCalc.get(prev.id) : null;
-    end = pc && pc.end ? pc.end : ''; payBy = firstSession(ix, p);
+    end = pc && pc.end ? pc.end : ''; payBy = subFirst(ix, p) || (pc && pc.end ? payDeadline(ix, prev, pc.end) : '');
   }
   const map = {
     'имя': a.first || '', 'фи': shortName(a), 'фио': fullName(a),
     'остаток': sc.remaining != null ? String(Math.max(0, sc.remaining)) : '',
     'долг': sc.remaining < 0 ? String(-sc.remaining) : '',
     'занятий': p && p.count ? String(p.count) : '',
-    'дата_начала': p ? D.ru(firstSession(ix, p)) : '',
+    'дата_начала': p && subFirst(ix, p) ? D.ru(subFirst(ix, p)) : '',
+    'дата_автоактивации': sc.autoDate ? D.ru(sc.autoDate) : '',
     'дата_окончания': D.ru(end),
     'срок_оплаты': D.ru(payBy),
     'группа': a.group || '',
@@ -629,12 +655,14 @@ function fillTemplate(text, ix, a, extra = {}, subId = null) {
   return text.replace(/\{([а-яё_]+)\}/gi, (m, k) => (k.toLowerCase() in map && map[k.toLowerCase()] !== '' ? map[k.toLowerCase()] : m));
 }
 
-if (typeof module !== 'undefined') module.exports = { D, buildIndex, calcSub, calcFreeze, calcAdmission, calcTest, fillTemplate, groupOn, inGroupOn, nthTrainDay, payDeadline, firstSession, fullName, shortName, cleanPhone, fmtPhone, EX };
+if (typeof module !== 'undefined') module.exports = { D, buildIndex, calcFreeze, calcAdmission, calcTest, fillTemplate, groupOn, inGroupOn, nthTrainDay, payDeadline, firstSession, fullName, shortName, cleanPhone, fmtPhone, EX };
 
 /* ===== D23 CRM — интерфейс, часть 1 ===== */
 const OFFICIAL_TEMPLATES = [
   { title: 'Абонемент заканчивается', text: 'Здравствуйте.\n{фи}.\n❌ Действие текущего абонемента заканчивается {дата_окончания}.\n✔️ Срок оплаты следующего абонемента до {срок_оплаты}.' },
   { title: 'Новый абонемент оплачен', text: 'Здравствуйте.\n{фи}.\n✅ Срок действия нового абонемента.\nс {дата_начала} по {дата_окончания}\n✅ Абонемент оплачен.' },
+  { title: 'Абонемент оплачен', text: 'Здравствуйте.\n{фи}.\n✅ Абонемент оплачен.\nОн активируется в день первого посещения, но не позднее {дата_автоактивации} (п. 9.2 договора). Даты начала и окончания сообщу после активации.' },
+  { title: 'Автоактивация абонемента', text: 'Здравствуйте.\n{фи}.\nНапоминаю: оплаченный абонемент активируется автоматически {дата_автоактивации} (п. 9.2.2 договора). С этой даты начнётся период его действия.' },
   { title: 'Абонемент продлён', text: 'Здравствуйте.\n{фи}.\nСрок действия текущего абонемента продлен, до {дата_окончания}\n✅ Срок оплаты следующего абонемента до {срок_оплаты}.' },
   { title: 'Абонемент закончился', text: 'Здравствуйте.\n{фи}.\n❌ Срок действия текущего абонемента закончился {дата_окончания}\n✅ Срок оплаты следующего абонемента до {срок_оплаты}.' },
 ];
@@ -663,6 +691,12 @@ function normalize(d) {
   d.settings.attest = Object.assign({}, e.settings.attest, d.settings.attest || {});
   d.settings.competition = Object.assign({}, e.settings.competition, d.settings.competition || {});
   for (const p of d.subs) if (!(+p.count > 0) && !(+p.amount > 0) && !p.pending) { p.pending = true; p.count = d.settings.defaultCount || 12; }
+  if ((d.settings.tplVersion || 1) === 3) {           // шаблоны активации абонемента
+    const have = new Set((d.settings.templates || []).map(t => t.title));
+    const add = OFFICIAL_TEMPLATES.filter(o => !have.has(o.title)).map(o => ({ ...o }));
+    d.settings.templates = [...add, ...(d.settings.templates || [])];
+    d.settings.tplVersion = 4;
+  }
   if ((d.settings.tplVersion || 1) === 2) {           // имя в официальных шаблонах
     for (const t of d.settings.templates) if (OFFICIAL_TEMPLATES.some(o => o.title === t.title) && !/\{фи/.test(t.text)) t.text = t.text.replace(/^Здравствуйте\.\n/, 'Здравствуйте.\n{фи}.\n');
     d.settings.tplVersion = 3;
@@ -671,6 +705,11 @@ function normalize(d) {
     const keep = (d.settings.templates || []).filter(t => !/^Осталось одно занятие \(официально\)$/.test(t.title) && !OFFICIAL_TEMPLATES.some(o => o.title === t.title));
     d.settings.templates = [...OFFICIAL_TEMPLATES.map(t => ({ ...t })), ...keep];
     d.settings.tplVersion = 3;
+  }
+  if ((d.settings.tplVersion || 1) === 3) {
+    const have = new Set((d.settings.templates || []).map(t => t.title));
+    d.settings.templates = [...OFFICIAL_TEMPLATES.filter(o => !have.has(o.title)).map(o => ({ ...o })), ...(d.settings.templates || [])];
+    d.settings.tplVersion = 4;
   }
   return d;
 }
@@ -737,11 +776,12 @@ function beltHTML(belt, stripes, lg) {
 function chipSub(c) {
   if (c && c.noSub && !c.subCalc) return '<span class="chip muted">без абонемента</span>';
   if (c && c.pendingSub) { const n = c.pendingCalc ? c.pendingCalc.charged : 0; return `<span class="chip bad">ждём оплату${n ? ' · в долг ' + n : ''}</span>`; }
+  if (c && !c.subCalc && c.nextSub) { const nr = ix.subCalc.get(c.nextSub.id); return `<span class="chip ok">оплачен${nr && nr.notActive ? ' · не активирован' : nr && nr.first ? ' · с ' + D.short(nr.first) : ''}</span>`; }
   if (!c || !c.subCalc) return '<span class="chip muted">нет абонемента</span>';
   const s = c.subCalc;
   if (!(+c.sub.count > 0)) return '<span class="chip bad">не указано занятий</span>';
   if (s.remaining < 0) return `<span class="chip bad">долг ${-s.remaining}</span>`;
-  if (s.remaining === 0) return c.nextSub ? '<span class="chip ok">новый с ' + D.short(c.nextSub.start) + '</span>' : '<span class="chip muted">закончился</span>';
+  if (s.remaining === 0) return c.nextSub ? '<span class="chip ok">новый оплачен</span>' : '<span class="chip muted">закончился</span>';
   return `<span class="chip ${s.remaining === 1 ? 'warn' : 'ok'}">ост. ${s.remaining}</span>`;
 }
 function chipMed(m) {
@@ -805,7 +845,7 @@ function attention() {
     const c = ix.athCalc.get(a.id), s = c.subCalc, nm = shortName(a);
     if (c.pendingSub) {
       const n = c.pendingCalc ? c.pendingCalc.charged : 0;
-      out.push({ tone: 'bad', a, text: `${nm}: ждём оплату с ${D.ru(c.pendingSub.start)}${n ? ', в долг ' + n + ' ' + plural(n, 'занятие', 'занятия', 'занятий') : ''}`, tpl: 'Абонемент закончился', sub: c.pendingSub.id, paid: c.pendingSub.id });
+      out.push({ tone: 'bad', a, text: `${nm}: ждём оплату${c.pendingCalc && c.pendingCalc.first ? ' с ' + D.ru(c.pendingCalc.first) : ''}${n ? ', в долг ' + n + ' ' + plural(n, 'занятие', 'занятия', 'занятий') : ''}`, tpl: 'Абонемент закончился', sub: c.pendingSub.id, paid: c.pendingSub.id });
     } else if (s) {
       const single = (+c.sub.count || 0) <= 1;
       if (s.remaining < 0) out.push({ tone: 'bad', a, text: `${nm}: долг ${-s.remaining} ${plural(-s.remaining, 'занятие', 'занятия', 'занятий')} сверх оплаты`, tpl: 'Долг по занятиям', extra: { 'N': String(-s.remaining) } });
@@ -823,6 +863,11 @@ function attention() {
     const fr = ix.freezesByAth.get(a.id) || [];
     const loose = (ix.marks.get(a.id) || []).filter(m => m.mark === 'б' && D.diff(m.date, t) <= 60 && m.date >= (db.settings.sickCheckFrom || '') && !fr.some(f => f.from && f.to && m.date >= f.from && m.date <= f.to));
     if (loose.length) out.push({ tone: 'sick', a, text: `${nm}: «б» без записи о заморозке (${loose.map(m => D.short(m.date)).join(', ')}) — занятия не списываются`, act: 'freeze-new' });
+  }
+  for (const p of db.subs) {                       // активация абонементов (п. 9.2.3, 9.3.7)
+    const a = ix.ath.get(p.athleteId), r = ix.subCalc.get(p.id); if (!a || !r || p.pending || a.status === 'ушёл') continue;
+    if (r.notActive && r.autoDate && r.autoNotifyBy && r.autoNotifyBy <= t) out.push({ tone: 'warn', a, text: `${shortName(a)}: абонемент не активирован — автоактивация ${D.ru(r.autoDate)}, сообщить до ${D.ru(r.autoNotifyBy)} (п. 9.2.3)`, tpl: 'Автоактивация абонемента', sub: p.id });
+    if (!r.notActive && (r.actKind === 'visit' || r.actKind === 'auto') && r.act <= t && D.diff(r.act, t) <= 3) out.push({ tone: 'muted', a, text: `${shortName(a)}: абонемент активирован ${D.ru(r.first)}${r.actKind === 'auto' ? ' (автоматически)' : ''} — сообщите период ${D.ru(r.first)} — ${D.ru(r.end)} (п. 9.3.7)`, tpl: 'Новый абонемент оплачен', sub: p.id });
   }
   for (const f of db.freezes) {
     const a = ix.ath.get(f.athleteId); if (!a) continue;
@@ -1052,7 +1097,7 @@ function vPerson(id) {
   </div>
   <div class="card flat"><div class="row" style="padding:14px 16px 6px"><h2 style="margin:0">Абонементы</h2><span class="spacer"></span><button class="btn sm no-print" data-act="freeze-new" data-id="${id}">Заморозка</button><button class="btn sm no-print" data-act="sub-wait" data-id="${id}">Ждём оплату</button><button class="btn sm no-print" data-act="sub-new" data-id="${id}">Добавить</button></div>
   ${subs.length ? `<div class="scroll"><table class="t"><thead><tr><th>Действует с</th><th class="r">Занятий</th><th class="r">Сумма</th><th class="r">Был</th><th class="r">Не был</th><th class="r">Болел</th><th class="r">Остаток</th><th>Окончание</th><th></th></tr></thead><tbody>
-  ${subs.map(p => { const r = ix.subCalc.get(p.id); return `<tr class="click" data-act="sub-edit" data-id="${p.id}"><td class="num">${D.ru(p.start)}${p.onlyGroup ? ' <span class="chip">' + h(p.onlyGroup) + '</span>' : ''}</td><td class="r num">${p.count}</td><td class="r num">${p.pending ? '<span class="small muted">не оплачен</span>' : (+p.amount || 0).toLocaleString('ru')}</td><td class="r num">${r.was}</td><td class="r num">${r.missed}</td><td class="r num">${r.sick}${r.sickCharged ? ' (спис. ' + r.sickCharged + ')' : ''}</td><td class="r num"><b>${r.remaining}</b></td><td class="num">${r.end ? D.ru(r.end) : (r.endKind === 'nosched' ? '<span class="small muted">нет расписания</span>' : '')}</td><td><span class="chip ${r.tone}">${h(r.status)}</span></td></tr>`; }).join('')}</tbody></table></div>` : '<div class="empty">Абонементов нет</div>'}
+  ${subs.map(p => { const r = ix.subCalc.get(p.id); return `<tr class="click" data-act="sub-edit" data-id="${p.id}"><td class="num">${startLabel(p, r)}${p.onlyGroup ? ' <span class="chip">' + h(p.onlyGroup) + '</span>' : ''}</td><td class="r num">${p.count}</td><td class="r num">${p.pending ? '<span class="small muted">не оплачен</span>' : (+p.amount || 0).toLocaleString('ru')}</td><td class="r num">${r.was}</td><td class="r num">${r.missed}</td><td class="r num">${r.sick}${r.sickCharged ? ' (спис. ' + r.sickCharged + ')' : ''}</td><td class="r num"><b>${r.remaining}</b></td><td class="num">${r.end ? D.ru(r.end) : (r.endKind === 'nosched' ? '<span class="small muted">нет расписания</span>' : '')}</td><td><span class="chip ${r.tone}">${h(r.status)}</span></td></tr>`; }).join('')}</tbody></table></div>` : '<div class="empty">Абонементов нет</div>'}
   ${freezes.length ? `<div style="padding:8px 16px 14px"><h3>Заморозки по болезни</h3><ul class="list">${freezes.map(f => { const fc = calcFreeze(ix, f); return `<li class="click" data-act="freeze-edit" data-id="${f.id}"><div class="who"><b>${D.ru(f.from)} — ${D.ru(f.to)}</b><span class="small">${h(fc.text)}</span></div><span class="chip ${fc.mode === 'lapsed' ? 'bad' : fc.mode === 'wait' ? 'warn' : 'sick'}">${{ a: 'оформлена', b: 'оформлена', wait: 'ждём', lapsed: 'прекращена', none: 'без продления', incomplete: 'не заполнена', err: 'ошибка' }[fc.mode]}</span></li>`; }).join('')}</ul></div>` : ''}</div>
   <div class="grid2"><div class="card flat"><div class="row" style="padding:14px 16px 6px"><h2 style="margin:0">Пояса</h2><span class="spacer"></span><button class="btn sm no-print" data-act="award-new" data-id="${id}">Присвоить</button></div>
   ${awards.length ? `<ul class="list">${awards.map(w => `<li class="click" data-act="award-edit" data-id="${w.id}">${beltHTML(w.belt, w.stripes)}<div class="who"><b>${h(w.belt)}${w.stripes ? ', ' + w.stripes + ' стр.' : ''}</b><span class="small">${D.ru(w.date)} · ${h(w.by)}</span></div></li>`).join('')}</ul>` : '<div class="empty">Присвоений нет</div>'}</div>
@@ -1123,14 +1168,14 @@ function vSubs() {
   const U = ui.subs, q = U.q.trim().toLowerCase();
   let rows = db.subs.map(p => ({ p, r: ix.subCalc.get(p.id), a: ix.ath.get(p.athleteId) })).filter(x => x.a);
   const latestIds = new Set(db.athletes.map(a => { const c = ix.athCalc.get(a.id); return c.sub && c.sub.id; }).filter(Boolean));
-  if (U.filter === 'active') rows = rows.filter(x => latestIds.has(x.p.id) && x.r.remaining > 0 || (x.p.start > ix.today));
+  if (U.filter === 'active') rows = rows.filter(x => latestIds.has(x.p.id) && x.r.remaining > 0 || x.r.notActive || (x.r.first && x.r.first > ix.today));
   if (U.filter === 'ending') rows = rows.filter(x => latestIds.has(x.p.id) && (x.r.remaining === 1 || x.r.remaining === 2) && !ix.athCalc.get(x.a.id).nextSub && x.a.status === 'занимается');
   if (U.filter === 'ended') rows = rows.filter(x => latestIds.has(x.p.id) && x.r.remaining === 0 && (+x.p.count || 0) > 1 && !ix.athCalc.get(x.a.id).nextSub && x.a.status === 'занимается');
   if (U.filter === 'debt') rows = rows.filter(x => x.r.remaining < 0 && !x.p.pending);
   if (U.filter === 'pending') rows = rows.filter(x => x.p.pending);
   if (q) rows = rows.filter(x => fullName(x.a).toLowerCase().includes(q));
   const byName = (x, y) => fullName(x.a).localeCompare(fullName(y.a), 'ru');
-  const key = { name: null, start: x => x.p.start || '', rem: x => x.r.remaining, end: x => x.r.end || '' }[U.sort];
+  const key = { name: null, start: x => x.r.first || x.p.payDate || '', rem: x => x.r.remaining, end: x => x.r.end || '' }[U.sort];
   rows.sort((x, y) => {
     if (!key) return U.dir * byName(x, y);
     const a = key(x), b = key(y);
@@ -1151,7 +1196,7 @@ function vSubs() {
   <div class="legend" style="margin-top:10px"><span><i class="lg-rem1"></i>осталось 1 занятие</span><span><i class="lg-rem2"></i>осталось 2 занятия</span><span class="small">(если следующий ещё не оплачен)</span><span><i class="lg-pend"></i>ждём оплату</span></div></div>
   <div class="card flat scroll"><table class="t"><thead><tr>${th('name', 'ФИО')}<th class="hide-m">Оплата</th>${th('start', 'С')}<th class="r">Занятий</th><th class="r hide-m">Сумма</th><th class="r hide-m">Был</th><th class="r hide-m">Не был</th><th class="r hide-m">Болел</th>${th('rem', 'Остаток', 'r')}${th('end', 'Окончание')}<th>Статус</th></tr></thead><tbody>
   ${rows.map(({ p, r, a }) => { const hl = p.pending ? ' pend' : latestIds.has(p.id) && !ix.athCalc.get(a.id).nextSub && !ix.athCalc.get(a.id).pendingSub && (r.remaining === 1 || r.remaining === 2) ? ' rem' + r.remaining : '';
-  return `<tr class="click${hl}" data-act="sub-edit" data-id="${p.id}"><td><b class="nm">${h(shortName(a))}</b><div class="small muted">${h(p.onlyGroup || a.group)}</div></td><td class="hide-m num">${D.ru(p.payDate)}</td><td class="num">${D.short(p.start)}</td>
+  return `<tr class="click${hl}" data-act="sub-edit" data-id="${p.id}"><td><b class="nm">${h(shortName(a))}</b><div class="small muted">${h(p.onlyGroup || a.group)}</div></td><td class="hide-m num">${D.ru(p.payDate)}</td><td class="num">${startLabel(p, r, true)}</td>
   <td class="r num">${p.count}</td><td class="r num hide-m">${p.pending ? '<span class="small muted">не оплачен</span>' : (+p.amount || 0).toLocaleString('ru')}</td><td class="r num hide-m">${r.was}</td><td class="r num hide-m">${r.missed}</td><td class="r num hide-m">${r.sick}</td>
   <td class="r num"><b>${r.remaining}</b></td><td class="num">${r.end ? D.ru(r.end) : (r.endKind === 'nosched' ? '<span class="small muted">нет расписания</span>' : '')}</td><td><span class="chip ${r.tone}">${h(r.status)}</span></td></tr>`; }).join('') || '<tr><td colspan="11" class="empty">Нет абонементов в этом списке</td></tr>'}</tbody></table></div>
   <p class="small muted">Списывается «был» и «не был» (п. 9.4). «Болел» не списывается, пока заморозка не прекращена (п. 9.5). Окончание — прогноз по расписанию группы и нерабочим дням (п. 9.3).</p>`;
@@ -1160,36 +1205,35 @@ function openSub(id, athleteId) {
   const p = id ? db.subs.find(x => x.id === id) : null;
   const aid = p ? p.athleteId : athleteId || '';
   const last = aid ? [...(ix.subsByAth.get(aid) || [])].pop() : null;
-  const v = p || { athleteId: aid, payDate: ix.today, start: aid ? defaultStart(aid) : ix.today, count: db.settings.defaultCount || 12, amount: last ? last.amount : '', onlyGroup: '', carryWas: 0, carryMissed: 0, note: '' };
+  const v = p || { athleteId: aid, payDate: ix.today, start: '', count: db.settings.defaultCount || 12, amount: last ? last.amount : '', onlyGroup: '', carryWas: 0, carryMissed: 0, note: '' };
   const r = p ? ix.subCalc.get(p.id) : null;
   const body = `<div class="fgrid">${aid && p ? `<input type="hidden" name="athleteId" value="${aid}"><div class="wide"><b>${h(fullName(ix.ath.get(aid)))}</b></div>` : FS('athleteId', 'Спортсмен', [['', '— выберите —'], ...athleteOptions(aid)], aid, 'required class="wide"')}
-  ${F('payDate', 'Дата оплаты', v.payDate, 'date')}${F('start', 'Действует с (первое занятие)', v.start, 'date', 'required')}
+  ${F('payDate', 'Дата оплаты', v.payDate, 'date')}${F('start', 'Дата активации (пусто — автоматически)', v.start, 'date')}
+  <p class="small muted wide" style="margin:-4px 0 0">Пусто: абонемент активируется сам в день первого посещения после оплаты, а если посещений не будет — на 30-й день после оплаты (п. 9.2). Дату ставьте вручную, только если нужно иначе.</p>
   ${F('count', 'Оплачено занятий', v.count, 'number', 'min="1" inputmode="numeric" required')}${F('amount', 'Сумма, ₽', v.amount, 'number', 'inputmode="numeric"')}
   ${FS('onlyGroup', 'Абонемент только на группу', [['', 'все группы человека'], ...db.settings.groups.map(g => g.name)], v.onlyGroup)}
   <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:${v.pending ? 'var(--bad-bg)' : 'var(--sunk)'}"><input type="checkbox" name="pending" ${v.pending ? 'checked' : ''} style="width:20px;height:20px"><span><b>Ждём оплату</b> — человек занимается, но абонемент ещё не оплачен. Посещения списываются с него как обычно.</span></label>
   <label class="f wide"><span>Примечание</span><input type="text" name="note" value="${h(v.note)}"></label></div>
   <details style="margin-top:10px"><summary class="small">Перенос из прежнего журнала</summary><div class="fgrid" style="margin-top:8px">${F('carryWas', 'Был (перенос)', v.carryWas || 0, 'number')}${F('carryMissed', 'Не был (перенос)', v.carryMissed || 0, 'number')}</div></details>
   ${r ? `<div class="card" style="margin:12px 0 0;background:var(--sunk)"><div class="stats"><div class="stat"><b>${r.was}</b><span class="small muted">был</span></div><div class="stat"><b>${r.missed}</b><span class="small muted">не был</span></div><div class="stat"><b>${r.sick}</b><span class="small muted">болел</span></div><div class="stat"><b>${r.remaining}</b><span class="small muted">остаток</span></div></div>
-  <div class="small" style="margin-top:8px">${r.end ? (r.endKind === 'fact' ? 'Последнее списанное занятие: ' : 'Окончание по расписанию: ') + D.ru(r.end) : ''}${r.notifyBy ? ' · сообщить об окончании не позднее ' + D.ru(r.notifyBy) : ''}</div></div>` : ''}`;
+  <div class="small" style="margin-top:8px">${activationText(p, r)}</div>
+  <div class="small" style="margin-top:4px">${r.end ? (r.endKind === 'fact' ? 'Последнее списанное занятие: ' : 'Окончание по расписанию: ') + D.ru(r.end) : ''}${r.notifyBy ? ' · сообщить об окончании не позднее ' + D.ru(r.notifyBy) : ''}</div></div>` : ''}`;
   modal(p ? 'Абонемент' : 'Новая оплата', body, {
     extraBtn: p ? `<button type="button" class="btn danger" data-act="sub-del" data-id="${p.id}">Удалить</button>${p.pending ? `<button type="button" class="btn primary" data-act="sub-paid" data-id="${p.id}">Оплачено сегодня</button>` : ''}<button type="button" class="btn" data-act="msg" data-id="${aid}" data-sub="${p.id}" data-tpl="Новый абонемент оплачен">Сообщение</button>` : '',
     onSubmit(fd) {
       if (!fd.athleteId) { alert('Выберите спортсмена'); return false; }
       if (!(+fd.count >= 1)) { alert('Количество занятий должно быть не меньше 1'); return false; }
-      const same = db.subs.find(q => q !== p && q.athleteId === fd.athleteId && q.start === fd.start && (q.onlyGroup || '') === (fd.onlyGroup || ''));
-      if (same && !confirm(`У этого человека уже есть абонемент с ${D.ru(fd.start)} (${same.count} зан., ${(+same.amount || 0).toLocaleString('ru')} ₽). Записать ещё один с той же даты?\n\nЕсли это повтор по ошибке — нажмите «Отмена».`)) return false;
-      const cur = ix.athCalc.get(fd.athleteId), cs = cur && cur.subCalc;
-      if (!p && cs && cs.remaining > 0 && fd.start > cur.sub.start && fd.start < defaultStart(fd.athleteId) && !confirm(`У текущего абонемента осталось ${cs.remaining} зан. Новый с ${D.ru(fd.start)} заберёт себе все посещения с этой даты, и остаток старого не будет использован.\n\nПродолжить? (Обычно новый начинают с ${D.ru(defaultStart(fd.athleteId))}.)`)) return false;
+      const same = !p && db.subs.find(q => q.athleteId === fd.athleteId && q.payDate && q.payDate === fd.payDate && +q.count === +fd.count && (q.onlyGroup || '') === (fd.onlyGroup || ''));
+      if (same && !confirm(`У этого человека уже записана оплата ${D.ru(fd.payDate)} на ${same.count} зан. (${(+same.amount || 0).toLocaleString('ru')} ₽). Записать ещё одну?\n\nЕсли это повтор по ошибке — нажмите «Отмена».`)) return false;
       const t = p || { id: uid('p') };
       Object.assign(t, { athleteId: fd.athleteId, payDate: fd.pending ? '' : fd.payDate, start: fd.start, count: +fd.count || 0, amount: +fd.amount || 0, onlyGroup: fd.onlyGroup, carryWas: +fd.carryWas || 0, carryMissed: +fd.carryMissed || 0, note: fd.note.trim(), pending: !!fd.pending });
       if (!p) db.subs.push(t);
       persist(p ? 'Абонемент сохранён' : t.pending ? 'Записан абонемент «ждём оплату»' : 'Оплата записана');
-      if (!p && !t.pending) setTimeout(() => openMsg(t.athleteId, 'Новый абонемент оплачен', {}, t.id), 50);
+      if (!p && !t.pending) setTimeout(() => { const rr = ix.subCalc.get(t.id); openMsg(t.athleteId, rr && rr.notActive ? 'Абонемент оплачен' : 'Новый абонемент оплачен', {}, t.id); }, 50);
     },
   });
   const sel = document.querySelector('#dlg select[name=athleteId]');
   if (sel) sel.onchange = () => { const id = sel.value; if (!id) return;
-    document.querySelector('#dlg [name=start]').value = defaultStart(id);
     const lp = [...(ix.subsByAth.get(id) || [])].pop(); if (lp && lp.amount) document.querySelector('#dlg [name=amount]').value = lp.amount; };
 }
 
@@ -1203,7 +1247,7 @@ function openFreeze(id, athleteId) {
   const v = f || { subId: cur ? cur.id : (subs[0] || {}).id, from: '', to: '', returned: '', certDate: '', note: '' };
   const fc = f ? calcFreeze(ix, f) : null;
   const body = `<p><b>${h(fullName(a))}</b></p><div class="fgrid">
-  ${FS('subId', 'Абонемент', subs.map(p => [p.id, 'с ' + D.ru(p.start) + ', ' + p.count + ' зан.']), v.subId, 'class="wide"')}
+  ${FS('subId', 'Абонемент', subs.map(p => [p.id, (subFirst(ix, p) ? 'с ' + D.ru(subFirst(ix, p)) : 'не активирован, оплата ' + D.ru(p.payDate)) + ', ' + p.count + ' зан.']), v.subId, 'class="wide"')}
   ${F('from', 'Болел с (по справке)', v.from, 'date', 'required')}${F('to', 'по (включительно)', v.to, 'date', 'required')}
   ${F('returned', 'Вернулся на занятия', v.returned, 'date')}${F('certDate', 'Справка получена', v.certDate, 'date')}
   <label class="f wide"><span>Примечание (без диагноза)</span><input type="text" name="note" value="${h(v.note)}"></label></div>
@@ -1296,6 +1340,18 @@ function defaultStart(aid) {            // первое занятие посл�
   if (s.remaining > 0 && s.end) return payDeadline(ix, c.sub, s.end) || ix.today;
   if (s.remaining <= 0 && s.end) { const nx = payDeadline(ix, c.sub, s.end); return nx && nx > ix.today ? nx : ix.today; }
   return ix.today;
+}
+
+function startLabel(p, r, short) {
+  if (r && r.first) return short ? D.short(r.first) : D.ru(r.first);
+  if (p.pending) return '<span class="small muted">с 1-го посещения</span>';
+  return `<span class="chip ok" title="Активируется при первом посещении${r && r.autoDate ? ', автоматически ' + D.ru(r.autoDate) : ''}">не активирован${r && r.autoDate ? ' · до ' + D.short(r.autoDate) : ''}</span>`;
+}
+function activationText(p, r) {
+  if (r.notActive) return p.pending ? 'Активируется в день первого посещения.' : `Не активирован. Активируется в день первого посещения${r.from ? ' начиная с ' + D.ru(r.from) : ''}, автоматически — ${D.ru(r.autoDate)} (п. 9.2.2). Сообщить об автоактивации до ${D.ru(r.autoNotifyBy)} (п. 9.2.3).`;
+  if (r.actKind === 'visit') return `Активирован ${D.ru(r.first)} — первое посещение после оплаты (п. 9.2.1).`;
+  if (r.actKind === 'auto') return `Активирован автоматически ${D.ru(r.act)}, первое занятие периода ${D.ru(r.first)} (п. 9.2.2, 9.3.3).`;
+  return `Дата активации задана вручную: ${D.ru(r.first)}.`;
 }
 
 /* ===== D23 CRM — интерфейс, часть 3 ===== */
@@ -1626,7 +1682,7 @@ function printAthleteReport(aid, from, to) {
   const ms = (ix.marks.get(aid) || []).filter(m => m.date >= from && m.date <= to);
   const cnt = k => ms.filter(m => m.mark === k).length;
   const total = cnt('+') + cnt('н');
-  const subs = (ix.subsByAth.get(aid) || []).filter(p => p.start && p.start <= to && (!ix.subCalc.get(p.id).next || ix.subCalc.get(p.id).next > from));
+  const subs = (ix.subsByAth.get(aid) || []).filter(p => { const r = ix.subCalc.get(p.id); return (r.first ? r.first <= to : (p.payDate && p.payDate <= to)) && (!r.end || r.end >= from || r.notActive); });
   const label = { '+': 'был', 'н': 'не был', 'б': 'болел (заморозка)', 'о': 'отменено клубом', 'с': 'соревнования' };
   const firstRec = ix.sessionsSorted.length ? ix.sessionsSorted[0].date : '';
   const html = `<h2 style="margin:0 0 4px">Посещаемость: ${h(fullName(a))}</h2>
@@ -1635,7 +1691,7 @@ function printAthleteReport(aid, from, to) {
   <tr><td>${cnt('+')}</td><td>${cnt('н')}</td><td>${cnt('б')}</td><td>${cnt('о')}</td><td>${cnt('с')}</td><td>${total ? Math.round(cnt('+') / total * 100) + '%' : '—'}</td></tr></table>
   ${firstRec && from < firstRec ? `<p style="font-size:9pt;margin:0 0 8px">Записи посещений в программе ведутся с ${D.ru(firstRec)}: более ранних отметок в базе нет.</p>` : ''}
   ${ms.length ? `<table><tr><th style="width:12%">Дата</th><th style="width:16%">День</th><th>Группа</th><th>Отметка</th></tr>${ms.map(m => `<tr><td>${D.ru(m.date)}</td><td>${DOW_FULL[D.dow(m.date)]}</td><td>${h(m.group)}</td><td>${m.mark} — ${label[m.mark] || ''}</td></tr>`).join('')}</table>` : '<p>За этот период отметок нет.</p>'}
-  ${subs.length ? `<h3>Абонементы</h3><table><tr><th>Действует с</th><th>Оплата</th><th>Занятий</th><th>Списано</th><th>Остаток</th><th>Окончание</th></tr>${subs.map(p => { const r = ix.subCalc.get(p.id); return `<tr><td>${D.ru(p.start)}</td><td>${p.pending ? 'ждём оплату' : D.ru(p.payDate)}</td><td>${p.count}</td><td>${r.charged}</td><td>${r.remaining}</td><td>${D.ru(r.end)}</td></tr>`; }).join('')}</table>` : ''}
+  ${subs.length ? `<h3>Абонементы</h3><table><tr><th>Действует с</th><th>Оплата</th><th>Занятий</th><th>Списано</th><th>Остаток</th><th>Окончание</th></tr>${subs.map(p => { const r = ix.subCalc.get(p.id); return `<tr><td>${r.first ? D.ru(r.first) : 'не активирован'}</td><td>${p.pending ? 'ждём оплату' : D.ru(p.payDate)}</td><td>${p.count}</td><td>${r.charged}</td><td>${r.remaining}</td><td>${D.ru(r.end)}</td></tr>`; }).join('')}</table>` : ''}
   <p style="font-size:9pt;margin-top:10px">Списываются «был» и «не был» (п. 9.4 договора). «Болел» при оформленной заморозке не списывается (п. 9.5). Посещаемость = был / (был + не был).</p>
   <p style="margin-top:22px">Тренер: ____________________ ${h(db.settings.coachMain)} &nbsp;&nbsp; Дата: ${D.ru(ix.today)}</p>`;
   openPrint('Посещаемость ' + shortName(a), html);
@@ -1704,10 +1760,10 @@ const ACT = {
   'sub-wait': el => { const aid = el.dataset.id; const ex = pendingSub(ix, aid);
     if (ex) { openSub(ex.id); return; }
     const last = [...(ix.subsByAth.get(aid) || [])].pop();
-    const t = { id: uid('p'), athleteId: aid, payDate: '', start: defaultStart(aid), count: db.settings.defaultCount || 12, amount: last ? last.amount : 0, onlyGroup: '', carryWas: 0, carryMissed: 0, note: '', pending: true };
-    db.subs.push(t); persist('Ждём оплату с ' + D.ru(t.start)); },
+    const t = { id: uid('p'), athleteId: aid, payDate: '', start: '', waitFrom: last ? '' : D.add(ix.today, -21), count: db.settings.defaultCount || 12, amount: last ? last.amount : 0, onlyGroup: '', carryWas: 0, carryMissed: 0, note: '', pending: true };
+    db.subs.push(t); persist('Записано «ждём оплату»'); },
   'sub-paid': el => { const p = db.subs.find(x => x.id === el.dataset.id); if (!p) return;
-    closeModal(); p.pending = false; p.payDate = ix.today;
+    closeModal(); const rr = ix.subCalc.get(p.id); if (!p.start && rr && rr.first) p.start = rr.first; p.pending = false; p.payDate = ix.today;
     persist('Оплата отмечена'); setTimeout(() => openSub(p.id), 50); },
   'print-blank': () => openBlank(),
   'athlete-report': el => openAthleteReport(el.dataset.id),
@@ -1741,7 +1797,7 @@ const ACT = {
     (location.hash.startsWith('#people') ? filteredPeople() : db.athletes).forEach(a => { const c = ix.athCalc.get(a.id); rows.push([fullName(a), a.sex, D.ru(a.birth), c.age ?? '', a.group, a.group2, a.status, c.belt, c.stripes || '', a.weight, a.phone, a.motherName, a.motherPhone, a.fatherName, a.fatherPhone, D.ru(a.medUntil), a.note]); });
     download('D23_спортсмены_' + ix.today + '.csv', csv(rows), 'text/csv'); },
   'subs-csv': () => { const rows = [['ФИО', 'Группа', 'Только на группу', 'Дата оплаты', 'Действует с', 'Занятий', 'Сумма', 'Был', 'Не был', 'Болел', 'Остаток', 'Окончание', 'Статус', 'Примечание']];
-    db.subs.forEach(p => { const a = ix.ath.get(p.athleteId), r = ix.subCalc.get(p.id); if (a) rows.push([fullName(a), a.group, p.onlyGroup, p.pending ? 'ждём оплату' : D.ru(p.payDate), D.ru(p.start), p.count, p.pending ? '' : p.amount, r.was, r.missed, r.sick, r.remaining, D.ru(r.end), r.status, p.note]); });
+    db.subs.forEach(p => { const a = ix.ath.get(p.athleteId), r = ix.subCalc.get(p.id); if (a) rows.push([fullName(a), a.group, p.onlyGroup, p.pending ? 'ждём оплату' : D.ru(p.payDate), r.first ? D.ru(r.first) : 'не активирован', p.count, p.pending ? '' : p.amount, r.was, r.missed, r.sick, r.remaining, D.ru(r.end), r.status, p.note]); });
     download('D23_абонементы_' + ix.today + '.csv', csv(rows), 'text/csv'); },
   'visits-csv': () => { const rows = [['Дата', 'День', 'Группа', 'ФИО', 'Отметка']];
     ix.sessionsSorted.forEach(s => Object.entries(s.marks).forEach(([id, m]) => { const a = ix.ath.get(id); if (a) rows.push([D.ru(s.date), DOW[D.dow(s.date)], s.group, fullName(a), m]); }));
