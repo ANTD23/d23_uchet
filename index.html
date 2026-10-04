@@ -1296,6 +1296,10 @@ function vSubs() {
   if (U.filter === 'ended') rows = rows.filter(x => latestIds.has(x.p.id) && x.r.remaining === 0 && (+x.p.count || 0) > 1 && !ix.athCalc.get(x.a.id).nextSub && x.a.status === 'занимается');
   if (U.filter === 'debt') rows = rows.filter(x => x.r.remaining < 0 && !x.p.pending);
   if (U.filter === 'pending') rows = rows.filter(x => x.p.pending);
+  if (!U.pFrom) { U.pFrom = ix.today.slice(0, 8) + '01'; const d = D.parse(U.pFrom); d.setUTCMonth(d.getUTCMonth() + 1); d.setUTCDate(0); U.pTo = D.fmt(d); }
+  const pStart = db.settings.programStart || db.settings.sickCheckFrom || '';     // начало ведения программы — раньше не считаем
+  const inP = p => !p.pending && p.payDate && p.payDate >= pStart && (U.pAll || (p.payDate >= U.pFrom && p.payDate <= U.pTo));
+  if (U.filter === 'period') rows = rows.filter(x => inP(x.p));
   if (q) rows = rows.filter(x => fullName(x.a).toLowerCase().includes(q));
   const byName = (x, y) => fullName(x.a).localeCompare(fullName(y.a), 'ru');
   const key = { name: null, start: x => x.r.first || x.p.payDate || '', rem: x => x.r.remaining, end: x => x.r.end || '' }[U.sort];
@@ -1308,10 +1312,20 @@ function vSubs() {
     return U.dir * c || byName(x, y);
   });
   const th = (k, label, cls = '') => `<th class="${cls} sortable${U.sort === k ? ' sorted' : ''}" data-act="subs-sort" data-k="${k}" title="Сортировать">${label}<span class="arr">${U.sort === k ? (U.dir > 0 ? ' ▲' : ' ▼') : ''}</span></th>`;
-  const sum = rows.filter(x => !x.p.pending).reduce((s, x) => s + (+x.p.amount || 0), 0);
-  const seg = [['active', 'Действующие'], ['ending', 'Заканчиваются'], ['ended', 'Закончились'], ['pending', 'Ждём оплату'], ['debt', 'Долги'], ['all', 'Все']];
-  return `<div class="topline"><div><h1>Абонементы</h1><div class="muted">${rows.length} · ${sum.toLocaleString('ru')} ₽</div></div>
+  const paidAll = db.subs.filter(p => !p.pending && p.payDate && p.payDate >= pStart), paidP = paidAll.filter(inP);
+  const money = l => l.reduce((s, p) => s + (+p.amount || 0), 0);
+  const pLabel = U.pAll ? 'с ' + D.ru(pStart) : U.pTo < pStart ? D.ru(U.pFrom) + ' — ' + D.ru(U.pTo) + ' (до начала программы, не считается)' : D.ru(D.max(U.pFrom, pStart)) + ' — ' + D.ru(U.pTo);
+  const seg = [['active', 'Действующие'], ['ending', 'Заканчиваются'], ['ended', 'Закончились'], ['pending', 'Ждём оплату'], ['debt', 'Долги'], ['period', 'Оплаты за период'], ['all', 'Все']];
+  return `<div class="topline"><div><h1>Абонементы</h1><div class="muted">В списке: ${rows.length}</div></div>
   <div class="row no-print"><button class="btn primary" data-act="sub-new">Новая оплата</button><button class="btn" data-act="subs-csv">В Excel (CSV)</button></div></div>
+  <div class="card no-print"><div class="row" style="align-items:flex-end">
+    <div class="stat" style="min-width:180px"><b>${money(paidP).toLocaleString('ru')} ₽</b><span class="small muted">оплачено ${pLabel} · ${paidP.length} ${plural(paidP.length, 'оплата', 'оплаты', 'оплат')}</span></div>
+    <span class="spacer"></span>
+    <label class="f" style="width:auto"><span>С</span><input type="date" data-change="subs-pfrom" value="${U.pFrom}" ${U.pAll ? 'disabled' : ''}></label>
+    <label class="f" style="width:auto"><span>По</span><input type="date" data-change="subs-pto" value="${U.pTo}" ${U.pAll ? 'disabled' : ''}></label>
+    <div class="row" style="gap:4px">${[['month', 'Этот месяц'], ['prev', 'Прошлый'], ['year', 'С начала года'], ['all', 'С начала программы']].map(([k, l]) => `<button class="btn sm${(k === 'all' && U.pAll) ? ' primary' : ''}" data-act="subs-period" data-k="${k}">${l}</button>`).join('')}</div>
+    <button class="btn sm" data-act="subs-filter" data-f="period">Показать эти оплаты</button></div>
+    <div class="small muted" style="margin-top:6px">С начала ведения программы (${D.ru(pStart)}): ${money(paidAll).toLocaleString('ru')} ₽ · ${paidAll.length} ${plural(paidAll.length, 'оплата', 'оплаты', 'оплат')}. Оплаты до ${D.ru(pStart)} (перенесённые из Excel) не считаются. Считается по дате оплаты; «ждём оплату» не входит.</div></div>
   <div class="card no-print"><div class="row"><div class="seg">${seg.map(([k, l]) => `<button data-act="subs-filter" data-f="${k}" class="${U.filter === k ? 'on' : ''}">${l}</button>`).join('')}</div>
   <input type="search" placeholder="Поиск по фамилии" data-change="subs-q" value="${h(U.q)}" style="flex:1;min-width:180px">
   <select data-change="subs-sort" style="width:auto">${[['name', 'по фамилии'], ['rem', 'по остатку'], ['end', 'по окончанию'], ['start', 'по дате начала']].map(([k, l]) => opt(k, U.sort, 'Сортировка: ' + l)).join('')}</select>
@@ -1607,7 +1621,8 @@ function vReport() {
   if (!R.from) { R.from = ix.today.slice(0, 8) + '01'; const d = D.parse(R.from); d.setUTCMonth(d.getUTCMonth() + 1); d.setUTCDate(0); R.to = D.fmt(d); }
   const sess = ix.sessionsSorted.filter(s => s.date >= R.from && s.date <= R.to);
   const cnt = (list, m) => list.reduce((n, s) => n + Object.values(s.marks).filter(x => x === m).length, 0);
-  const pays = db.subs.filter(p => !p.pending && p.payDate >= R.from && p.payDate <= R.to);
+  const pStart = db.settings.programStart || db.settings.sickCheckFrom || '';
+  const pays = db.subs.filter(p => !p.pending && p.payDate >= pStart && p.payDate >= R.from && p.payDate <= R.to);
   const groups = db.settings.groups.map(g => g.name);
   const active = db.athletes.filter(a => a.status === 'занимается');
   const ages = [['до 4', 0, 4], ['5–6', 5, 6], ['7–8', 7, 8], ['9–11', 9, 11], ['12–15', 12, 15], ['16–17', 16, 17], ['18+', 18, 200]];
@@ -1617,7 +1632,8 @@ function vReport() {
   <div class="print-only">${h(db.settings.club)} — сводка за ${D.ru(R.from)} — ${D.ru(R.to)}</div>
   <div class="card"><div class="stats"><div class="stat"><b>${sess.length}</b><span class="small muted">занятий проведено</span></div><div class="stat"><b>${cnt(sess, '+')}</b><span class="small muted">посещений</span></div>
   <div class="stat"><b>${cnt(sess, 'н')}</b><span class="small muted">пропусков без заморозки</span></div><div class="stat"><b>${cnt(sess, 'б')}</b><span class="small muted">по болезни</span></div>
-  <div class="stat"><b>${pays.length}</b><span class="small muted">оплат</span></div><div class="stat"><b>${pays.reduce((s, p) => s + (+p.amount || 0), 0).toLocaleString('ru')} ₽</b><span class="small muted">получено</span></div></div></div>
+  <div class="stat"><b>${pays.length}</b><span class="small muted">оплат</span></div><div class="stat"><b>${pays.reduce((s, p) => s + (+p.amount || 0), 0).toLocaleString('ru')} ₽</b><span class="small muted">получено</span></div></div>
+  ${pStart ? `<div class="small muted" style="margin-top:8px">Оплаты считаются с начала ведения программы (${D.ru(pStart)}); перенесённые из Excel не входят.</div>` : ''}</div>
   <div class="grid2"><div class="card flat"><table class="t"><thead><tr><th>Группа</th><th class="r">Занятий</th><th class="r">Посещений</th><th class="r">В среднем</th><th class="r">Оплат, ₽</th></tr></thead><tbody>
   ${groups.map(g => { const gs = sess.filter(s => s.group === g), v = cnt(gs, '+'); const money = pays.filter(p => (p.onlyGroup || (ix.ath.get(p.athleteId) || {}).group) === g).reduce((s, p) => s + (+p.amount || 0), 0);
     return gs.length || money ? `<tr><td>${h(g)}</td><td class="r num">${gs.length}</td><td class="r num">${v}</td><td class="r num">${gs.length ? (v / gs.length).toFixed(1) : ''}</td><td class="r num">${money.toLocaleString('ru')}</td></tr>` : ''; }).join('')}</tbody></table></div>
@@ -1648,7 +1664,7 @@ function vSettings() {
   <h2 style="margin-top:16px">Аттестация</h2><div class="fgrid">${L('Предыдущая аттестация', inp('attest.prev', A.prev, 'date'))}${L('Предстоящая аттестация', inp('attest.next', A.next, 'date'))}
   ${L('Порог допуска, %', inp('attest.threshold', A.threshold, 'number'))}${L('Минимум турниров', inp('attest.minTournaments', A.minTournaments, 'number'))}${L('Турниры обязательны до (лет, включительно)', inp('attest.tournamentsMaxAge', A.tournamentsMaxAge ?? 15, 'number'))}
   ${L('Пропуски по болезни', `<select data-change="set" data-path="attest.sickMode">${['не учитывать', 'учитывать'].map(x => opt(x, A.sickMode)).join('')}</select>`)}${L('Послабление на страйп', inp('attest.reliefCoef', A.reliefCoef, 'number', 'step="0.05"'))}</div></div></div>
-  <div class="card"><h2>Клуб</h2><div class="fgrid">${L('Клуб и адрес', inp('club', S.club))}${L('Главный тренер', inp('coachMain', S.coachMain))}${L('Второй тренер', inp('coachSecond', S.coachSecond))}${L('Кем присваивается пояс', inp('awardedBy', S.awardedBy))}${L('Занятий в абонементе по умолчанию', inp('defaultCount', S.defaultCount, 'number'))}
+  <div class="card"><h2>Клуб</h2><div class="fgrid">${L('Клуб и адрес', inp('club', S.club))}${L('Главный тренер', inp('coachMain', S.coachMain))}${L('Второй тренер', inp('coachSecond', S.coachSecond))}${L('Кем присваивается пояс', inp('awardedBy', S.awardedBy))}${L('Занятий в абонементе по умолчанию', inp('defaultCount', S.defaultCount, 'number'))}${L('Начало ведения программы (суммы оплат считаются с этой даты)', inp('programStart', S.programStart || S.sickCheckFrom, 'date'))}
   <label class="f wide"><span>Пояса (по одному в строке, по порядку)</span><textarea data-change="belts" style="min-height:120px">${h(S.belts.join('\n'))}</textarea></label></div></div>
   <div class="card"><h2>Шаблоны сообщений</h2><p class="small muted">Подстановки: {имя}, {фи}, {фио}, {остаток}, {долг}, {занятий}, {дата_начала}, {дата_окончания}, {срок_оплаты}, {группа}.</p>
   ${S.templates.map((t, i) => `<fieldset><legend>${h(t.title)}</legend><input type="text" data-change="tpl" data-i="${i}" data-k="title" value="${h(t.title)}" style="margin-bottom:6px"><textarea data-change="tpl" data-i="${i}" data-k="text">${h(t.text)}</textarea><button class="btn sm danger" data-act="tpl-del" data-i="${i}" style="margin-top:6px">Удалить шаблон</button></fieldset>`).join('')}
@@ -1985,6 +2001,12 @@ const ACT = {
   'athlete-report': el => openAthleteReport(el.dataset.id),
   'rep-range': el => { $('#dlg [name=from]').value = el.dataset.f; $('#dlg [name=to]').value = el.dataset.t; },
   'manual-admit': el => openManualAdmit(el.dataset.id),
+  'subs-period': el => { const U = ui.subs, t = ix.today, k = el.dataset.k; U.pAll = false;
+    if (k === 'all') U.pAll = true;
+    else if (k === 'month') { U.pFrom = t.slice(0, 8) + '01'; const d = D.parse(U.pFrom); d.setUTCMonth(d.getUTCMonth() + 1); d.setUTCDate(0); U.pTo = D.fmt(d); }
+    else if (k === 'prev') { const d = D.parse(t.slice(0, 8) + '01'); d.setUTCDate(0); U.pTo = D.fmt(d); U.pFrom = U.pTo.slice(0, 8) + '01'; }
+    else if (k === 'year') { U.pFrom = t.slice(0, 4) + '-01-01'; U.pTo = t; }
+    rerender(); },
   'subs-sort': el => { const k = el.dataset.k; if (ui.subs.sort === k) ui.subs.dir = -ui.subs.dir; else { ui.subs.sort = k; ui.subs.dir = k === 'start' ? -1 : 1; } rerender(); },
   'subs-dir': () => { ui.subs.dir = -ui.subs.dir; rerender(); },
   'subs-filter': el => { ui.subs.filter = el.dataset.f; rerender(); },
@@ -2050,6 +2072,8 @@ function onChange(e) {
     if (s.group && n && !confirm(`Перенести занятие ${D.ru(s.date)} из «${s.group}» в «${v || 'без группы'}»? Все ${n} отметок перейдут вместе с ним.`)) { rerender(); return; }
     s.group = v; render.keepScroll = true; persist('Группа занятия изменена'); }
   else if (k === 'subs-sort') { ui.subs.sort = v; ui.subs.dir = v === 'start' ? -1 : 1; rerender(); }
+  else if (k === 'subs-pfrom') { if (v) { ui.subs.pFrom = v; rerender(); } }
+  else if (k === 'subs-pto') { if (v) { ui.subs.pTo = v; rerender(); } }
   else if (k === 'jmgroup') { ui.journal.mgroup = v; rerender(); }
   else if (k === 'jmonth-input') { if (v) { ui.journal.month = v; rerender(); } }
   else if (k === 'attest-group') { ui.attest.group = v; rerender(); }
