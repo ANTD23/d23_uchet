@@ -769,6 +769,11 @@ const OFFICIAL_TEMPLATES = [
 ];
 const LS_DB = 'd23crm.db', LS_META = 'd23crm.meta', LS_SNAP = 'd23crm.snaps';
 let db = null, ix = null, meta = { lastExport: null, exportedRev: 0, handle: false };
+const UI_DEFAULTS = {
+  people: { q: '', group: 'все', status: 'занимается', belt: 'все', sex: 'все', ageMode: 'сейчас', ageFrom: '', ageTo: '', yFrom: '', yTo: '', sort: 'name' },
+  subs: { filter: 'active', q: '', sort: 'start', dir: -1 },
+  attest: { group: 'все', q: '', adm: 'все' },
+};
 const ui = {
   people: { q: '', group: 'все', status: 'занимается', belt: 'все', sex: 'все', ageMode: 'сейчас', ageFrom: '', ageTo: '', yFrom: '', yTo: '', sort: 'name' },
   subs: { filter: 'active', q: '', sort: 'start', dir: -1 },
@@ -1161,7 +1166,7 @@ function vPeople() {
   const sel = (k, items, label) => `<label class="f"><span>${label}</span><select data-change="pf" data-k="${k}">${items.map(x => opt(x, F[k])).join('')}</select></label>`;
   const num = (k, label, ph) => `<label class="f"><span>${label}</span><input type="number" inputmode="numeric" data-change="pf" data-k="${k}" value="${h(F[k])}" placeholder="${ph}"></label>`;
   return `<div class="topline"><div><h1>Спортсмены</h1><div class="muted">${list.length} из ${db.athletes.length}</div></div>
-    <div class="row no-print"><button class="btn primary" data-act="person-new">Добавить</button><button class="btn" data-act="people-print">Печать списка</button><button class="btn" data-act="people-entry">Список для заявки</button><button class="btn" data-act="people-csv">В Excel (CSV)</button></div></div>
+    <div class="row no-print"><button class="btn" data-act="reset-filters" data-page="people">Сбросить фильтры</button><button class="btn primary" data-act="person-new">Добавить</button><button class="btn" data-act="people-print">Печать списка</button><button class="btn" data-act="people-entry">Список для заявки</button><button class="btn" data-act="people-csv">В Excel (CSV)</button></div></div>
   <div class="card no-print"><input type="search" placeholder="Поиск: фамилия, имя, родитель, телефон" data-change="pf" data-k="q" value="${h(F.q)}" style="margin-bottom:10px">
   <details class="filt" ${window.innerWidth > 860 || ui.peopleFiltOpen ? 'open' : ''} data-filt><summary>Фильтры${['group', 'belt', 'sex'].some(k => F[k] !== 'все') || F.status !== 'занимается' || F.ageFrom || F.ageTo || F.yFrom || F.yTo ? ' (включены)' : ''}</summary>
   <div class="filters">${sel('status', ['все', ...S.statuses], 'Статус')}${sel('group', ['все', ...S.groups.map(g => g.name)], 'Группа')}${sel('belt', ['все', ...S.belts], 'Пояс')}${sel('sex', ['все', 'М', 'Ж'], 'Пол')}
@@ -1317,7 +1322,7 @@ function vSubs() {
   const pLabel = U.pAll ? 'с ' + D.ru(pStart) : U.pTo < pStart ? D.ru(U.pFrom) + ' — ' + D.ru(U.pTo) + ' (до начала программы, не считается)' : D.ru(D.max(U.pFrom, pStart)) + ' — ' + D.ru(U.pTo);
   const seg = [['active', 'Действующие'], ['ending', 'Заканчиваются'], ['ended', 'Закончились'], ['pending', 'Ждём оплату'], ['debt', 'Долги'], ['period', 'Оплаты за период'], ['all', 'Все']];
   return `<div class="topline"><div><h1>Абонементы</h1><div class="muted">В списке: ${rows.length}</div></div>
-  <div class="row no-print"><button class="btn primary" data-act="sub-new">Новая оплата</button><button class="btn" data-act="subs-csv">В Excel (CSV)</button></div></div>
+  <div class="row no-print"><button class="btn" data-act="reset-filters" data-page="subs">Сбросить фильтры</button><button class="btn primary" data-act="sub-new">Новая оплата</button><button class="btn" data-act="subs-csv">В Excel (CSV)</button></div></div>
   <div class="card no-print"><div class="row" style="align-items:flex-end">
     <div class="stat" style="min-width:180px"><b>${money(paidP).toLocaleString('ru')} ₽</b><span class="small muted">оплачено ${pLabel} · ${paidP.length} ${plural(paidP.length, 'оплата', 'оплаты', 'оплат')}</span></div>
     <span class="spacer"></span>
@@ -1534,7 +1539,7 @@ function vAttest(tab) {
   const list = all.filter(x => (!q || fullName(x.a).toLowerCase().replace(/ё/g, 'е').includes(q)) && admOk[AF](x.r));
   const ok = list.filter(x => x.r.status.startsWith('допущен')).length;
   return head + `<div class="card no-print"><div class="row"><div class="spacer grow-m">Период: <b>${D.ru(A.prev)} — ${D.ru(A.next)}</b>, порог ${A.threshold}% посещений, турниров не меньше ${A.minTournaments} (до ${A.tournamentsMaxAge ?? 15} лет включительно). Кто начал заниматься после ${D.ru(A.prev)}, ждёт следующую аттестацию. Занятия без отметки тоже считаются пропусками: с ${D.ru(db.settings.sickCheckFrom)} — пустая клетка на занятии своей группы; в перенесённой истории — отрезки, где группа провела 4 занятия и больше, а у человека нет ни одной отметки (колонка «Без отм.», подробности — при наведении). Болезнь ${A.sickMode === 'учитывать' ? 'снижает процент' : 'исключается из расчёта'}. <a href="#settings">Изменить</a></div>
-  <button class="btn" data-act="print">Печать</button></div>
+  <button class="btn" data-act="reset-filters" data-page="attest">Сбросить фильтры</button><button class="btn" data-act="print">Печать</button></div>
   <div class="filters" style="margin-top:10px;margin-bottom:0"><label class="f"><span>Группа</span><select data-change="attest-group">${groups.map(g => opt(g, U.group)).join('')}</select></label>
   <label class="f"><span>Фамилия</span><input type="search" data-change="attest-q" value="${h(U.q || '')}" placeholder="Поиск"></label>
   <label class="f"><span>Допуск</span><select data-change="attest-adm">${Object.keys(admOk).map(k => opt(k, AF)).join('')}</select></label></div></div>
@@ -1628,7 +1633,7 @@ function vReport() {
   const ages = [['до 4', 0, 4], ['5–6', 5, 6], ['7–8', 7, 8], ['9–11', 9, 11], ['12–15', 12, 15], ['16–17', 16, 17], ['18+', 18, 200]];
   const debtors = db.athletes.map(a => ({ a, c: ix.athCalc.get(a.id) })).filter(x => (x.c.subCalc && x.c.subCalc.remaining < 0) || (x.c.unpaid && x.c.unpaid.length && !x.c.pendingSub));
   const beltCount = {}; active.forEach(a => { const b = ix.athCalc.get(a.id).belt || 'не присвоен'; beltCount[b] = (beltCount[b] || 0) + 1; });
-  return `<div class="topline"><h1>Сводка</h1><div class="row no-print"><input type="date" data-change="rep" data-k="from" value="${R.from}" style="width:auto"> — <input type="date" data-change="rep" data-k="to" value="${R.to}" style="width:auto"><button class="btn" data-act="print">Печать</button></div></div>
+  return `<div class="topline"><h1>Сводка</h1><div class="row no-print"><input type="date" data-change="rep" data-k="from" value="${R.from}" style="width:auto"> — <input type="date" data-change="rep" data-k="to" value="${R.to}" style="width:auto"><button class="btn" data-act="reset-filters" data-page="report" title="Текущий месяц">Сбросить</button><button class="btn" data-act="print">Печать</button></div></div>
   <div class="print-only">${h(db.settings.club)} — сводка за ${D.ru(R.from)} — ${D.ru(R.to)}</div>
   <div class="card"><div class="stats"><div class="stat"><b>${sess.length}</b><span class="small muted">занятий проведено</span></div><div class="stat"><b>${cnt(sess, '+')}</b><span class="small muted">посещений</span></div>
   <div class="stat"><b>${cnt(sess, 'н')}</b><span class="small muted">пропусков без заморозки</span></div><div class="stat"><b>${cnt(sess, 'б')}</b><span class="small muted">по болезни</span></div>
@@ -2007,6 +2012,12 @@ const ACT = {
     else if (k === 'prev') { const d = D.parse(t.slice(0, 8) + '01'); d.setUTCDate(0); U.pTo = D.fmt(d); U.pFrom = U.pTo.slice(0, 8) + '01'; }
     else if (k === 'year') { U.pFrom = t.slice(0, 4) + '-01-01'; U.pTo = t; }
     rerender(); },
+  'reset-filters': el => { const pg = el.dataset.page;
+    if (pg === 'people') { ui.people = { ...UI_DEFAULTS.people }; ui.peopleFiltOpen = false; }
+    if (pg === 'subs') { Object.assign(ui.subs, UI_DEFAULTS.subs); delete ui.subs.pFrom; delete ui.subs.pTo; ui.subs.pAll = false; }
+    if (pg === 'attest') Object.assign(ui.attest, UI_DEFAULTS.attest);
+    if (pg === 'report') { ui.report.from = null; ui.report.to = null; }
+    rerender(); toast('Фильтры сброшены'); },
   'subs-sort': el => { const k = el.dataset.k; if (ui.subs.sort === k) ui.subs.dir = -ui.subs.dir; else { ui.subs.sort = k; ui.subs.dir = k === 'start' ? -1 : 1; } rerender(); },
   'subs-dir': () => { ui.subs.dir = -ui.subs.dir; rerender(); },
   'subs-filter': el => { ui.subs.filter = el.dataset.f; rerender(); },
