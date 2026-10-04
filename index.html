@@ -577,18 +577,35 @@ function calcAthlete(ix, a) {
 }
 
 /* ---------- допуск к аттестации ---------- */
-function calcAdmission(ix, a) {
+function calcAdmissionAuto(ix, a) {
   const A = ix.db.settings.attest;
   const r = { was: 0, missed: 0, sick: 0, tourn: 0 };
   if (!A.prev || !A.next) return { ...r, status: 'нет данных', total: 0 };
   const all = ix.marks.get(a.id) || [];
   // с какого дня человек занимается: первая отметка или дата «в клубе с», что раньше
   r.since = D.min(all.length ? all[0].date : '', a.addedAt || '') || '';
-  for (const m of all) {
-    if (m.date < A.prev || m.date > A.next) continue;
-    if (m.mark === '+') r.was++; else if (m.mark === 'н') r.missed++; else if (m.mark === 'б') r.sick++; else if (m.mark === 'с') r.tourn++;
+  // Отметки за период. Пустая клетка на занятии своей группы считается пропуском только с начала ведения
+  // журнала в программе (раньше — перенесённая история, там пропуски записаны явно).
+  r.unmarked = 0;
+  const from = D.max(A.prev, r.since || '');
+  const cutoff = ix.db.settings.sickCheckFrom || '';
+  const held = s => Object.values(s.marks).some(x => x === '+' || x === 'н');
+  let firstMark = '', heldBefore = 0, heldBeforeFrom = '';
+  for (const s of ix.sessionsSorted) {
+    if (s.date < from || s.date > A.next) continue;
+    const m = s.marks[a.id] || '';
+    if (!m) {
+      if (!inGroupOn(a, s.group, s.date) || !held(s)) continue;
+      if (!firstMark) { heldBefore++; if (!heldBeforeFrom) heldBeforeFrom = s.date; }
+      if (s.date >= cutoff) r.unmarked++;
+      continue;
+    }
+    if (!firstMark) firstMark = s.date;
+    if (m === '+') r.was++; else if (m === 'н') r.missed++; else if (m === 'б') r.sick++; else if (m === 'с') r.tourn++;
   }
-  r.total = r.was + r.missed + (A.sickMode === 'учитывать' ? r.sick : 0);
+  // занятия группы шли, а у человека за начало периода нет ни одной отметки — посещаемость не подтверждена
+  if (heldBefore >= 4) r.gap = { from: heldBeforeFrom, to: firstMark ? D.add(firstMark, -1) : A.next, sessions: heldBefore };
+  r.total = r.was + r.missed + r.unmarked + (A.sickMode === 'учитывать' ? r.sick : 0);
   const thr = (+A.threshold || 0) / 100;
   // турниры обязательны только до 15 лет включительно (на дату аттестации)
   r.age = D.age(a.birth, A.next);
@@ -600,6 +617,7 @@ function calcAdmission(ix, a) {
   if (r.since && r.since > A.prev) {                       // начал позже прошлой аттестации — ждёт следующую
     r.late = true; r.status = 'нет: начал ' + D.ru(r.since) + ', ждёт следующую'; r.needVisits = null; r.needTourn = 0; return r;
   }
+  if (r.gap) { r.status = 'нет: нет отметок с ' + D.ru(r.gap.from) + (firstMark ? ' по ' + D.ru(r.gap.to) : ''); r.needVisits = null; r.needTourn = Math.max(0, minT - r.tourn); return r; }
   if (!r.total) r.status = 'нет данных';
   else {
     const okP = r.pct >= thr - 1e-9, okT = r.tourn >= minT;
@@ -607,6 +625,16 @@ function calcAdmission(ix, a) {
   }
   r.needVisits = r.total ? Math.max(0, Math.ceil(r.total * thr - 1e-9) - r.was) : null;
   r.needTourn = Math.max(0, minT - r.tourn);
+  return r;
+}
+
+function calcAdmission(ix, a) {             // решение тренера («допуск вручную») важнее расчёта — на конкретную аттестацию
+  const r = calcAdmissionAuto(ix, a), A = ix.db.settings.attest, m = a.manualAdmit;
+  if (m && m.status && m.for === A.next) {
+    r.auto = r.status; r.manual = m;
+    r.status = m.status === 'допущен' ? 'допущен (вручную)' : 'нет: решение тренера';
+    r.needVisits = null; r.needTourn = 0;
+  }
   return r;
 }
 
@@ -1156,7 +1184,7 @@ function vPerson(id) {
     ${kv('Оплата', a.noSub ? 'без абонемента' : a.payPerVisit ? 'разово, за каждое посещение' : '')}${kv('В клубе с', D.ru(a.addedAt))}${kv('Примечание', h(a.note))}</dl>
     ${(a.transfers || []).length ? `<h3 style="margin-top:14px">Переводы</h3><ul class="list">${[...a.transfers].sort((x, y) => y.date.localeCompare(x.date)).map(t => `<li style="padding:6px 0"><div class="who small">с ${D.ru(t.date)}: ${h(t.from || '—')} → <b style="display:inline">${h(t.to)}</b></div><button class="btn sm ghost no-print" data-act="transfer-del" data-id="${id}" data-tid="${t.id}" aria-label="Удалить перевод">✕</button></li>`).join('')}</ul>` : ''}</div>
   <div class="card"><div class="row" style="justify-content:space-between"><h2>Посещения</h2><button class="btn sm no-print" data-act="athlete-report" data-id="${id}">Печать за период</button></div><div class="stats" style="margin-bottom:10px"><div class="stat"><b>${cnt('+')}</b><span class="small muted">был, 90 дней</span></div><div class="stat"><b>${cnt('н')}</b><span class="small muted">не был</span></div><div class="stat"><b>${cnt('б')}</b><span class="small muted">болел</span></div></div>
-    <div class="small">Допуск к аттестации ${D.ru(S.attest.next)}: <b>${h(adm.status)}</b>${adm.pct != null ? ` — ${Math.round(adm.pct * 100)}% посещений, турниров ${adm.tourn}` : ''}</div>
+    <div class="small">Допуск к аттестации ${D.ru(S.attest.next)}: <b>${h(adm.status)}</b> <button class="btn sm no-print" data-act="manual-admit" data-id="${id}">Допуск вручную</button>${adm.pct != null ? ` — ${Math.round(adm.pct * 100)}% посещений, турниров ${adm.tourn}` : ''}</div>
     <div class="small muted" style="margin-top:10px">Последние отметки, новые слева</div><div class="row" style="gap:4px;margin-top:4px;flex-wrap:wrap">${marks.slice(0, 24).map(m => `<span title="${D.ru(m.date)} ${h(m.group)}" class="cell-m ${{ '+': 'm-plus', 'н': 'm-n', 'б': 'm-b', 'о': 'm-o', 'с': 'm-s' }[m.mark] || ''}">${h(m.mark)}</span>`).join('') || '<span class="muted">Отметок нет</span>'}</div></div>
   </div>
   <div class="card flat"><div class="row" style="padding:14px 16px 6px"><h2 style="margin:0">Абонементы</h2><span class="spacer"></span><button class="btn sm no-print" data-act="freeze-new" data-id="${id}">Заморозка</button><button class="btn sm no-print" data-act="sub-wait" data-id="${id}">Ждём оплату</button><button class="btn sm no-print" data-act="sub-new" data-id="${id}">Добавить</button></div>
@@ -1457,23 +1485,23 @@ function vAttest(tab) {
   const q = (U.q || '').trim().toLowerCase().replace(/ё/g, 'е');
   const all = db.athletes.filter(a => a.status === 'занимается' && (U.group === 'все' || a.group === U.group || a.group2 === U.group))
     .sort((a, b) => fullName(a).localeCompare(fullName(b), 'ru')).map(a => ({ a, r: calcAdmission(ix, a) }));
-  const admOk = { 'все': () => true, 'допущен': r => r.status === 'допущен', 'не допущен': r => r.status !== 'допущен',
+  const admOk = { 'все': () => true, 'допущен': r => r.status.startsWith('допущен'), 'не допущен': r => !r.status.startsWith('допущен'), 'решение вручную': r => !!r.manual,
     'нет: посещаемость': r => /посещаемость/.test(r.status), 'нет: турниры': r => /турниры/.test(r.status),
-    'ждёт следующую': r => !!r.late, 'другая команда': r => !!r.other, 'нет данных': r => r.status === 'нет данных' };
+    'ждёт следующую': r => !!r.late, 'нет отметок за часть периода': r => !!r.gap, 'другая команда': r => !!r.other, 'нет данных': r => r.status === 'нет данных' };
   const AF = U.adm || 'все';
   const list = all.filter(x => (!q || fullName(x.a).toLowerCase().replace(/ё/g, 'е').includes(q)) && admOk[AF](x.r));
-  const ok = list.filter(x => x.r.status === 'допущен').length;
-  return head + `<div class="card no-print"><div class="row"><div class="spacer grow-m">Период: <b>${D.ru(A.prev)} — ${D.ru(A.next)}</b>, порог ${A.threshold}% посещений, турниров не меньше ${A.minTournaments} (до ${A.tournamentsMaxAge ?? 15} лет включительно). Кто начал заниматься после ${D.ru(A.prev)}, ждёт следующую аттестацию. Болезнь ${A.sickMode === 'учитывать' ? 'снижает процент' : 'исключается из расчёта'}. <a href="#settings">Изменить</a></div>
+  const ok = list.filter(x => x.r.status.startsWith('допущен')).length;
+  return head + `<div class="card no-print"><div class="row"><div class="spacer grow-m">Период: <b>${D.ru(A.prev)} — ${D.ru(A.next)}</b>, порог ${A.threshold}% посещений, турниров не меньше ${A.minTournaments} (до ${A.tournamentsMaxAge ?? 15} лет включительно). Кто начал заниматься после ${D.ru(A.prev)}, ждёт следующую аттестацию. Если группа занималась, а у человека нет отметок за часть периода, посещаемость не подтверждена. Пустая клетка на занятии своей группы с ${D.ru(db.settings.sickCheckFrom)} — пропуск. Болезнь ${A.sickMode === 'учитывать' ? 'снижает процент' : 'исключается из расчёта'}. <a href="#settings">Изменить</a></div>
   <button class="btn" data-act="print">Печать</button></div>
   <div class="filters" style="margin-top:10px;margin-bottom:0"><label class="f"><span>Группа</span><select data-change="attest-group">${groups.map(g => opt(g, U.group)).join('')}</select></label>
   <label class="f"><span>Фамилия</span><input type="search" data-change="attest-q" value="${h(U.q || '')}" placeholder="Поиск"></label>
   <label class="f"><span>Допуск</span><select data-change="attest-adm">${Object.keys(admOk).map(k => opt(k, AF)).join('')}</select></label></div></div>
   <div class="print-only"><b>${h(db.settings.club)}</b> — допуск к аттестации ${D.ru(A.next)}${U.group !== 'все' ? ', ' + h(U.group) : ''}${AF !== 'все' ? ', ' + h(AF) : ''}</div>
-  <div class="card flat show-m"><ul class="list sublist">${list.map(({ a, r }) => `<li class="click" data-go="#person/${a.id}"><div class="who"><b>${h(shortName(a))}</b><span class="small">${h(a.group)} · был ${r.was} · не был ${r.missed}${r.sick ? ' · болел ' + r.sick : ''} · турниров ${r.tourn}</span>${[r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).length ? `<span class="small">не хватает: ${[r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).join(', ')}</span>` : ''}</div>
-    <div class="subside"><b class="num">${r.pct != null ? Math.round(r.pct * 100) + '%' : '—'}</b><span class="chip ${r.status === 'допущен' ? 'ok' : r.status === 'нет данных' ? 'muted' : 'bad'}">${h(r.status.replace('нет: посещаемость и турниры', 'нет: посещ. и турниры'))}</span></div></li>`).join('')}</ul></div>
-  <div class="card flat scroll hide-m"><table class="t"><thead><tr><th>ФИО</th><th class="hide-m">Группа</th><th class="r">Был</th><th class="r">Не был</th><th class="r hide-m">Болел</th><th class="r">Турниров</th><th class="r">Посещ.</th><th>Допуск</th><th class="hide-m">Не хватает</th></tr></thead><tbody>
-  ${list.map(({ a, r }) => `<tr class="click" data-go="#person/${a.id}"><td>${h(shortName(a))}</td><td class="hide-m">${h(a.group)}</td><td class="r num">${r.was}</td><td class="r num">${r.missed}</td><td class="r num hide-m">${r.sick}</td><td class="r num">${r.tourn}</td><td class="r num">${r.pct != null ? Math.round(r.pct * 100) + '%' : ''}</td>
-  <td><span class="chip ${r.status === 'допущен' ? 'ok' : r.status === 'нет данных' || r.late || r.other ? 'muted' : 'bad'}">${h(r.status)}</span></td><td class="hide-m small">${[r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).join(', ')}</td></tr>`).join('')}</tbody></table></div>
+  <div class="card flat show-m"><ul class="list sublist">${list.map(({ a, r }) => `<li class="click" data-go="#person/${a.id}"><div class="who"><b>${h(shortName(a))}</b><span class="small">${h(a.group)} · был ${r.was} · не был ${r.missed + (r.unmarked || 0)}${r.sick ? ' · болел ' + r.sick : ''} · турниров ${r.tourn}</span>${[r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).length ? `<span class="small">не хватает: ${[r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).join(', ')}</span>` : ''}</div>
+    <div class="subside"><b class="num">${r.pct != null ? Math.round(r.pct * 100) + '%' : '—'}</b><span class="chip ${r.status.startsWith('допущен') ? 'ok' : r.status === 'нет данных' || r.late || r.other ? 'muted' : 'bad'}">${h(r.status.replace('нет: посещаемость и турниры', 'нет: посещ. и турниры'))}</span></div></li>`).join('')}</ul></div>
+  <div class="card flat scroll hide-m"><table class="t"><thead><tr><th>ФИО</th><th class="hide-m">Группа</th><th class="r">Был</th><th class="r">Не был</th><th class="r hide-m" title="Занятия своей группы без отметки — считаются пропуском">Без отм.</th><th class="r hide-m">Болел</th><th class="r">Турниров</th><th class="r">Посещ.</th><th>Допуск</th><th class="hide-m">Не хватает</th><th class="no-print"></th></tr></thead><tbody>
+  ${list.map(({ a, r }) => `<tr class="click" data-go="#person/${a.id}"><td>${h(shortName(a))}</td><td class="hide-m">${h(a.group)}</td><td class="r num">${r.was}</td><td class="r num">${r.missed}</td><td class="r num hide-m">${r.unmarked || ''}</td><td class="r num hide-m">${r.sick}</td><td class="r num">${r.tourn}</td><td class="r num">${r.pct != null ? Math.round(r.pct * 100) + '%' : ''}</td>
+  <td><span class="chip ${r.status.startsWith('допущен') ? 'ok' : r.status === 'нет данных' || r.late || r.other ? 'muted' : 'bad'}" title="${r.gap ? 'В эти даты у группы было ' + r.gap.sessions + ' занятий, а у человека нет ни одной отметки' : ''}">${h(r.status)}</span></td><td class="hide-m small">${r.manual ? 'расчёт: ' + h(r.auto) + (r.manual.note ? ' · ' + h(r.manual.note) : '') : [r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).join(', ')}</td><td class="no-print"><button class="btn sm" data-act="manual-admit" data-id="${a.id}" title="Допуск вручную">✎</button></td></tr>`).join('')}</tbody></table></div>
   <p class="small muted">Показано ${list.length} из ${all.length}, допущено ${ok}. Турнир — отметка «с» в журнале.</p>`;
 }
 function vTests() {
@@ -1842,6 +1870,20 @@ function printAthleteReport(aid, from, to) {
   openPrint('Посещаемость ' + shortName(a), html);
 }
 
+function openManualAdmit(aid) {
+  const a = ix.ath.get(aid), A = db.settings.attest, r = calcAdmissionAuto(ix, a), m = a.manualAdmit && a.manualAdmit.for === A.next ? a.manualAdmit : null;
+  const body = `<p><b>${h(fullName(a))}</b> · аттестация ${D.ru(A.next)}</p>
+  <p class="small">По расчёту программы: <b>${h(r.status)}</b>${r.pct != null ? ` (${Math.round(r.pct * 100)}% посещений, турниров ${r.tourn})` : ''}.</p>
+  <div class="fgrid">${FS('status', 'Решение', [['', 'по расчёту программы'], ['допущен', 'допустить'], ['не допущен', 'не допускать']], m ? m.status : '')}
+  <label class="f wide"><span>Причина (видна в списке допуска)</span><input type="text" name="note" value="${h(m ? m.note || '' : '')}" placeholder="например: занимается давно, в старой книге не записан"></label></div>
+  <p class="small muted">Решение действует только на аттестацию ${D.ru(A.next)}. Когда в настройках поставите следующую дату, допуск снова будет считаться автоматически.</p>`;
+  modal('Допуск вручную', body, { onSubmit(fd) {
+    const t = db.athletes.find(x => x.id === aid);
+    if (!fd.status) delete t.manualAdmit; else t.manualAdmit = { status: fd.status, note: (fd.note || '').trim(), for: A.next, at: ix.today };
+    render.keepScroll = true; persist(fd.status ? 'Допуск задан вручную' : 'Допуск снова по расчёту');
+  } });
+}
+
 function printEntry() {
   const S = db.settings, list = filteredPeople().filter(a => !a.otherTeam);
   const rows = list.map((a, i) => { const c = ix.athCalc.get(a.id); return `<tr><td>${i + 1}</td><td>${h(fullName(a))}</td><td>${D.ru(a.birth)}</td><td>${c.ageForEntry ?? ''}</td><td>${h(a.sex)}</td><td>${h(a.weight)}</td><td>${h(c.belt)}${c.stripes ? ', ' + c.stripes + ' стр.' : ''}</td><td>${c.med === 'действует' || c.med === 'истекает' ? 'есть, до ' + D.ru(a.medUntil) : c.med === 'просрочена' ? 'ПРОСРОЧЕНА' : 'нет'}</td></tr>`; }).join('');
@@ -1913,6 +1955,7 @@ const ACT = {
   'print-blank': () => openBlank(),
   'athlete-report': el => openAthleteReport(el.dataset.id),
   'rep-range': el => { $('#dlg [name=from]').value = el.dataset.f; $('#dlg [name=to]').value = el.dataset.t; },
+  'manual-admit': el => openManualAdmit(el.dataset.id),
   'subs-sort': el => { const k = el.dataset.k; if (ui.subs.sort === k) ui.subs.dir = -ui.subs.dir; else { ui.subs.sort = k; ui.subs.dir = k === 'start' ? -1 : 1; } rerender(); },
   'subs-dir': () => { ui.subs.dir = -ui.subs.dir; rerender(); },
   'subs-filter': el => { ui.subs.filter = el.dataset.f; rerender(); },
