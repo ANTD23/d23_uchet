@@ -374,6 +374,10 @@ function subGroups(ix, p) {
   return [a.group, a.group2].filter(Boolean);
 }
 function lowerBound(arr, date, key) { let lo = 0, hi = arr.length; while (lo < hi) { const mid = (lo + hi) >> 1; if ((key ? arr[mid][key] : arr[mid]) < date) lo = mid + 1; else hi = mid; } return lo; }
+function clubOpenDays(ix) {                       // дни, когда в клубе было хоть одно проведённое занятие
+  if (!ix._open) ix._open = [...new Set(ix.sessionsSorted.filter(s => Object.values(s.marks).some(x => x === '+' || x === 'н')).map(s => s.date))];
+  return ix._open;
+}
 function subKey(p) { return p.start || p.payDate || p.waitFrom || '9999-12-31'; }   // «ждём оплату» без дат — в конец очереди
 function subFirst(ix, p) { return ix.subFirst ? ix.subFirst.get(p.id) || null : p.start || null; }
 
@@ -584,28 +588,50 @@ function calcAdmissionAuto(ix, a) {
   const all = ix.marks.get(a.id) || [];
   // с какого дня человек занимается: первая отметка или дата «в клубе с», что раньше
   r.since = D.min(all.length ? all[0].date : '', a.addedAt || '') || '';
-  // Отметки за период. Пустая клетка на занятии своей группы считается пропуском только с начала ведения
-  // журнала в программе (раньше — перенесённая история, там пропуски записаны явно).
-  r.unmarked = 0;
+  // Отметки за период. После начала журнала в программе пустая клетка на занятии своей группы = пропуск.
+  // До этого (перенесённая история) ищем «дыры»: отрезки без единой отметки, когда группы человека
+  // провели 4 занятия и больше, — эти занятия тоже считаются пропусками.
+  r.unmarked = 0; r.gaps = [];
   const from = D.max(A.prev, r.since || '');
   const cutoff = ix.db.settings.sickCheckFrom || '';
+  const to = D.min(A.next, ix.today);
   const held = s => Object.values(s.marks).some(x => x === '+' || x === 'н');
-  let firstMark = '', heldBefore = 0, heldBeforeFrom = '';
   for (const s of ix.sessionsSorted) {
     if (s.date < from || s.date > A.next) continue;
     const m = s.marks[a.id] || '';
     if (!m) {
-      if (!inGroupOn(a, s.group, s.date) || !held(s)) continue;
-      if (!firstMark) { heldBefore++; if (!heldBeforeFrom) heldBeforeFrom = s.date; }
-      if (s.date >= cutoff) r.unmarked++;
+      if (s.date >= cutoff && inGroupOn(a, s.group, s.date) && held(s)) r.unmarked++;
       continue;
     }
-    if (!firstMark) firstMark = s.date;
     if (m === '+') r.was++; else if (m === 'н') r.missed++; else if (m === 'б') r.sick++; else if (m === 'с') r.tourn++;
   }
-  // занятия группы шли, а у человека за начало периода нет ни одной отметки — посещаемость не подтверждена
-  if (heldBefore >= 4) r.gap = { from: heldBeforeFrom, to: firstMark ? D.add(firstMark, -1) : A.next, sessions: heldBefore };
-  r.total = r.was + r.missed + r.unmarked + (A.sickMode === 'учитывать' ? r.sick : 0);
+  // дыры считаем по группе, в которой человек занимался перед дырой (или после неё, если дыра в начале)
+  const marksP = [];
+  for (const s of ix.sessionsSorted) if (s.date >= from && s.date <= A.next && s.marks[a.id] && s.marks[a.id] !== 'с') marksP.push({ date: s.date, group: s.group });
+  const gapEnd = D.min(cutoff || to, D.add(to, 1));             // после начала журнала пустые клетки уже посчитаны выше
+  const heldIn = (g, d1, d2) => {                               // ожидаемые занятия группы между датами (не включая)
+    const G = ix.group.get(g);
+    if (G && G.bySchedule) return clubOpenDays(ix).filter(d => d > d1 && d < d2 && G.days[D.dow(d)] && !ix.holiday.has(d));
+    return [...new Set(ix.sessionsSorted.filter(s => s.group === g && s.date > d1 && s.date < d2 && held(s)).map(s => s.date))];
+  };
+  const addGap = (g, d1, d2) => { const G = ix.group.get(g), l = heldIn(g, d1, d2); if (l.length >= (G && G.bySchedule ? 1 : 4)) r.gaps.push({ from: l[0], to: l[l.length - 1], sessions: l.length, group: g }); };
+  if (marksP.length) {
+    addGap(marksP[0].group, D.add(from, -1), D.min(marksP[0].date, gapEnd));
+    for (let k = 0; k < marksP.length - 1; k++) addGap(marksP[k].group, marksP[k].date, D.min(marksP[k + 1].date, gapEnd));
+    const last = marksP[marksP.length - 1]; if (last.date < gapEnd) addGap(last.group, last.date, gapEnd);
+  } else if (a.group) addGap(a.group, D.add(from, -1), gapEnd);
+  r.gapSessions = r.gaps.reduce((n, g) => n + g.sessions, 0);
+  // группы «по расписанию»: после начала журнала пропуском считается каждый день по расписанию, когда клуб работал
+  for (const g of [a.group, a.group2].filter(Boolean)) {
+    const G = ix.group.get(g); if (!G || !G.bySchedule || !cutoff) continue;
+    const myDays = new Set((ix.marks.get(a.id) || []).map(m => m.date));
+    const sessDays = new Set(ix.sessionsSorted.filter(s => s.group === g && held(s)).map(s => s.date));
+    for (const d of clubOpenDays(ix)) {
+      if (d < D.max(from, cutoff) || d > to || !G.days[D.dow(d)] || ix.holiday.has(d) || myDays.has(d)) continue;
+      if (!sessDays.has(d)) r.unmarked++;                          // если занятие группы было — пустая клетка уже посчитана выше
+    }
+  }
+  r.total = r.was + r.missed + r.unmarked + r.gapSessions + (A.sickMode === 'учитывать' ? r.sick : 0);
   const thr = (+A.threshold || 0) / 100;
   // турниры обязательны только до 15 лет включительно (на дату аттестации)
   r.age = D.age(a.birth, A.next);
@@ -617,7 +643,6 @@ function calcAdmissionAuto(ix, a) {
   if (r.since && r.since > A.prev) {                       // начал позже прошлой аттестации — ждёт следующую
     r.late = true; r.status = 'нет: начал ' + D.ru(r.since) + ', ждёт следующую'; r.needVisits = null; r.needTourn = 0; return r;
   }
-  if (r.gap) { r.status = 'нет: нет отметок с ' + D.ru(r.gap.from) + (firstMark ? ' по ' + D.ru(r.gap.to) : ''); r.needVisits = null; r.needTourn = Math.max(0, minT - r.tourn); return r; }
   if (!r.total) r.status = 'нет данных';
   else {
     const okP = r.pct >= thr - 1e-9, okT = r.tourn >= minT;
@@ -764,6 +789,7 @@ function normalize(d) {
   d.settings = Object.assign({}, e.settings, d.settings || {});
   d.settings.attest = Object.assign({}, e.settings.attest, d.settings.attest || {});
   if (d.settings.copiesKeep == null) d.settings.copiesKeep = 30;
+  if (!d.settings.bySchedInit) { (d.settings.groups || []).forEach(g => { if (/^разово$/i.test(g.name) && g.bySchedule == null) g.bySchedule = true; }); d.settings.bySchedInit = true; }
   d.settings.competition = Object.assign({}, e.settings.competition, d.settings.competition || {});
   for (const p of d.subs) if (!(+p.count > 0) && !(+p.amount > 0) && !p.pending) { p.pending = true; p.count = d.settings.defaultCount || 12; }
   if ((d.settings.tplVersion || 1) === 3) {           // шаблоны активации абонемента
@@ -1487,20 +1513,20 @@ function vAttest(tab) {
     .sort((a, b) => fullName(a).localeCompare(fullName(b), 'ru')).map(a => ({ a, r: calcAdmission(ix, a) }));
   const admOk = { 'все': () => true, 'допущен': r => r.status.startsWith('допущен'), 'не допущен': r => !r.status.startsWith('допущен'), 'решение вручную': r => !!r.manual,
     'нет: посещаемость': r => /посещаемость/.test(r.status), 'нет: турниры': r => /турниры/.test(r.status),
-    'ждёт следующую': r => !!r.late, 'нет отметок за часть периода': r => !!r.gap, 'другая команда': r => !!r.other, 'нет данных': r => r.status === 'нет данных' };
+    'ждёт следующую': r => !!r.late, 'есть занятия без отметки': r => (r.unmarked || 0) + (r.gapSessions || 0) > 0, 'другая команда': r => !!r.other, 'нет данных': r => r.status === 'нет данных' };
   const AF = U.adm || 'все';
   const list = all.filter(x => (!q || fullName(x.a).toLowerCase().replace(/ё/g, 'е').includes(q)) && admOk[AF](x.r));
   const ok = list.filter(x => x.r.status.startsWith('допущен')).length;
-  return head + `<div class="card no-print"><div class="row"><div class="spacer grow-m">Период: <b>${D.ru(A.prev)} — ${D.ru(A.next)}</b>, порог ${A.threshold}% посещений, турниров не меньше ${A.minTournaments} (до ${A.tournamentsMaxAge ?? 15} лет включительно). Кто начал заниматься после ${D.ru(A.prev)}, ждёт следующую аттестацию. Если группа занималась, а у человека нет отметок за часть периода, посещаемость не подтверждена. Пустая клетка на занятии своей группы с ${D.ru(db.settings.sickCheckFrom)} — пропуск. Болезнь ${A.sickMode === 'учитывать' ? 'снижает процент' : 'исключается из расчёта'}. <a href="#settings">Изменить</a></div>
+  return head + `<div class="card no-print"><div class="row"><div class="spacer grow-m">Период: <b>${D.ru(A.prev)} — ${D.ru(A.next)}</b>, порог ${A.threshold}% посещений, турниров не меньше ${A.minTournaments} (до ${A.tournamentsMaxAge ?? 15} лет включительно). Кто начал заниматься после ${D.ru(A.prev)}, ждёт следующую аттестацию. Занятия без отметки тоже считаются пропусками: с ${D.ru(db.settings.sickCheckFrom)} — пустая клетка на занятии своей группы; в перенесённой истории — отрезки, где группа провела 4 занятия и больше, а у человека нет ни одной отметки (колонка «Без отм.», подробности — при наведении). Болезнь ${A.sickMode === 'учитывать' ? 'снижает процент' : 'исключается из расчёта'}. <a href="#settings">Изменить</a></div>
   <button class="btn" data-act="print">Печать</button></div>
   <div class="filters" style="margin-top:10px;margin-bottom:0"><label class="f"><span>Группа</span><select data-change="attest-group">${groups.map(g => opt(g, U.group)).join('')}</select></label>
   <label class="f"><span>Фамилия</span><input type="search" data-change="attest-q" value="${h(U.q || '')}" placeholder="Поиск"></label>
   <label class="f"><span>Допуск</span><select data-change="attest-adm">${Object.keys(admOk).map(k => opt(k, AF)).join('')}</select></label></div></div>
   <div class="print-only"><b>${h(db.settings.club)}</b> — допуск к аттестации ${D.ru(A.next)}${U.group !== 'все' ? ', ' + h(U.group) : ''}${AF !== 'все' ? ', ' + h(AF) : ''}</div>
-  <div class="card flat show-m"><ul class="list sublist">${list.map(({ a, r }) => `<li class="click" data-go="#person/${a.id}"><div class="who"><b>${h(shortName(a))}</b><span class="small">${h(a.group)} · был ${r.was} · не был ${r.missed + (r.unmarked || 0)}${r.sick ? ' · болел ' + r.sick : ''} · турниров ${r.tourn}</span>${[r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).length ? `<span class="small">не хватает: ${[r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).join(', ')}</span>` : ''}</div>
+  <div class="card flat show-m"><ul class="list sublist">${list.map(({ a, r }) => `<li class="click" data-go="#person/${a.id}"><div class="who"><b>${h(shortName(a))}</b><span class="small">${h(a.group)} · был ${r.was} · не был ${r.missed + (r.unmarked || 0) + (r.gapSessions || 0)}${r.sick ? ' · болел ' + r.sick : ''} · турниров ${r.tourn}</span>${[r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).length ? `<span class="small">не хватает: ${[r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).join(', ')}</span>` : ''}</div>
     <div class="subside"><b class="num">${r.pct != null ? Math.round(r.pct * 100) + '%' : '—'}</b><span class="chip ${r.status.startsWith('допущен') ? 'ok' : r.status === 'нет данных' || r.late || r.other ? 'muted' : 'bad'}">${h(r.status.replace('нет: посещаемость и турниры', 'нет: посещ. и турниры'))}</span></div></li>`).join('')}</ul></div>
   <div class="card flat scroll hide-m"><table class="t"><thead><tr><th>ФИО</th><th class="hide-m">Группа</th><th class="r">Был</th><th class="r">Не был</th><th class="r hide-m" title="Занятия своей группы без отметки — считаются пропуском">Без отм.</th><th class="r hide-m">Болел</th><th class="r">Турниров</th><th class="r">Посещ.</th><th>Допуск</th><th class="hide-m">Не хватает</th><th class="no-print"></th></tr></thead><tbody>
-  ${list.map(({ a, r }) => `<tr class="click" data-go="#person/${a.id}"><td>${h(shortName(a))}</td><td class="hide-m">${h(a.group)}</td><td class="r num">${r.was}</td><td class="r num">${r.missed}</td><td class="r num hide-m">${r.unmarked || ''}</td><td class="r num hide-m">${r.sick}</td><td class="r num">${r.tourn}</td><td class="r num">${r.pct != null ? Math.round(r.pct * 100) + '%' : ''}</td>
+  ${list.map(({ a, r }) => `<tr class="click" data-go="#person/${a.id}"><td>${h(shortName(a))}</td><td class="hide-m">${h(a.group)}</td><td class="r num">${r.was}</td><td class="r num">${r.missed}</td><td class="r num hide-m" title="${(r.gaps || []).map(g => 'нет отметок ' + D.ru(g.from) + '–' + D.ru(g.to) + ': ' + g.sessions + ' зан. (' + g.group + ')').join('; ')}">${(r.unmarked || 0) + (r.gapSessions || 0) || ''}</td><td class="r num hide-m">${r.sick}</td><td class="r num">${r.tourn}</td><td class="r num">${r.pct != null ? Math.round(r.pct * 100) + '%' : ''}</td>
   <td><span class="chip ${r.status.startsWith('допущен') ? 'ok' : r.status === 'нет данных' || r.late || r.other ? 'muted' : 'bad'}" title="${r.gap ? 'В эти даты у группы было ' + r.gap.sessions + ' занятий, а у человека нет ни одной отметки' : ''}">${h(r.status)}</span></td><td class="hide-m small">${r.manual ? 'расчёт: ' + h(r.auto) + (r.manual.note ? ' · ' + h(r.manual.note) : '') : [r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).join(', ')}</td><td class="no-print"><button class="btn sm" data-act="manual-admit" data-id="${a.id}" title="Допуск вручную">✎</button></td></tr>`).join('')}</tbody></table></div>
   <p class="small muted">Показано ${list.length} из ${all.length}, допущено ${ok}. Турнир — отметка «с» в журнале.</p>`;
 }
@@ -1606,9 +1632,10 @@ function vSettings() {
   const inp = (path, val, type = 'text', extra = '') => `<input type="${type}" data-change="set" data-path="${path}" value="${h(val ?? '')}" ${extra}>`;
   const L = (label, html) => `<label class="f"><span>${label}</span>${html}</label>`;
   return `<h1>Настройки</h1>
-  <div class="card"><h2>Группы и расписание</h2><p class="small muted">Отметьте дни занятий — по ним считается окончание абонементов. При переименовании группа поменяется везде: у спортсменов, в журнале и абонементах.</p>
-  <div class="scroll"><table class="t"><thead><tr><th>Группа</th>${DOW.map(d => `<th style="text-align:center">${d}</th>`).join('')}<th></th></tr></thead><tbody>
+  <div class="card"><h2>Группы и расписание</h2><p class="small muted">Отметьте дни занятий — по ним считается окончание абонементов. «Посещ. по расписанию» — для групп, куда ходят нерегулярно (например, «Разово»): для допуска к аттестации пропуском считается каждый день по расписанию, когда клуб работал, даже если в группе в этот день никого не было. При переименовании группа поменяется везде: у спортсменов, в журнале и абонементах.</p>
+  <div class="scroll"><table class="t"><thead><tr><th>Группа</th>${DOW.map(d => `<th style="text-align:center">${d}</th>`).join('')}<th style="text-align:center" title="Для допуска к аттестации: пропуском считается каждый день по расписанию, когда клуб работал, даже если в группе никто не занимался">Посещ. по расписанию</th><th></th></tr></thead><tbody>
   ${S.groups.map((g, i) => `<tr><td><input type="text" data-change="group-name" data-i="${i}" value="${h(g.name)}" style="min-width:140px"></td>${g.days.map((on, d) => `<td style="text-align:center"><input type="checkbox" data-change="group-day" data-i="${i}" data-d="${d}" ${on ? 'checked' : ''} style="width:20px;height:20px"></td>`).join('')}
+  <td style="text-align:center"><input type="checkbox" data-change="group-bysched" data-i="${i}" ${g.bySchedule ? 'checked' : ''} style="width:20px;height:20px"></td>
   <td><button class="btn sm ghost" data-act="group-del" data-i="${i}" aria-label="Удалить группу">✕</button></td></tr>`).join('')}</tbody></table></div>
   <button class="btn" data-act="group-add" style="margin-top:8px">Добавить группу</button></div>
   <div class="grid2"><div class="card"><h2>Нерабочие дни</h2><p class="small muted">Праздники, выезды на соревнования, ремонт — дни, когда занятий нет у всего клуба. В срок абонемента не засчитываются.</p>
@@ -2042,6 +2069,7 @@ function onChange(e) {
   else if (k === 'group-name') { const g = db.settings.groups[+el.dataset.i]; const nn = v.trim(); if (!nn) { rerender(); return; }
     if (db.settings.groups.some((x, i) => i !== +el.dataset.i && x.name === nn)) { alert('Группа с таким названием уже есть'); rerender(); return; }
     renameGroup(g.name, nn); g.name = nn; render.keepScroll = true; persist('Группа переименована'); }
+  else if (k === 'group-bysched') { db.settings.groups[+el.dataset.i].bySchedule = v; render.keepScroll = true; persist(v ? 'Посещаемость группы — по расписанию' : 'Посещаемость группы — по проведённым занятиям'); }
   else if (k === 'group-day') { db.settings.groups[+el.dataset.i].days[+el.dataset.d] = v; render.keepScroll = true; persist(); }
 }
 document.addEventListener('change', onChange);
