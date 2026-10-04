@@ -1454,18 +1454,27 @@ function vAttest(tab) {
   if (U.tab === 'norms') return head + vNorms();
   const A = db.settings.attest;
   const groups = ['все', ...db.settings.groups.map(g => g.name)];
-  const list = db.athletes.filter(a => a.status === 'занимается' && (U.group === 'все' || a.group === U.group || a.group2 === U.group))
+  const q = (U.q || '').trim().toLowerCase().replace(/ё/g, 'е');
+  const all = db.athletes.filter(a => a.status === 'занимается' && (U.group === 'все' || a.group === U.group || a.group2 === U.group))
     .sort((a, b) => fullName(a).localeCompare(fullName(b), 'ru')).map(a => ({ a, r: calcAdmission(ix, a) }));
+  const admOk = { 'все': () => true, 'допущен': r => r.status === 'допущен', 'не допущен': r => r.status !== 'допущен',
+    'нет: посещаемость': r => /посещаемость/.test(r.status), 'нет: турниры': r => /турниры/.test(r.status),
+    'ждёт следующую': r => !!r.late, 'другая команда': r => !!r.other, 'нет данных': r => r.status === 'нет данных' };
+  const AF = U.adm || 'все';
+  const list = all.filter(x => (!q || fullName(x.a).toLowerCase().replace(/ё/g, 'е').includes(q)) && admOk[AF](x.r));
   const ok = list.filter(x => x.r.status === 'допущен').length;
   return head + `<div class="card no-print"><div class="row"><div class="spacer grow-m">Период: <b>${D.ru(A.prev)} — ${D.ru(A.next)}</b>, порог ${A.threshold}% посещений, турниров не меньше ${A.minTournaments} (до ${A.tournamentsMaxAge ?? 15} лет включительно). Кто начал заниматься после ${D.ru(A.prev)}, ждёт следующую аттестацию. Болезнь ${A.sickMode === 'учитывать' ? 'снижает процент' : 'исключается из расчёта'}. <a href="#settings">Изменить</a></div>
-  <select data-change="attest-group" style="width:auto">${groups.map(g => opt(g, U.group)).join('')}</select><button class="btn" data-act="print">Печать</button></div></div>
-  <div class="print-only"><b>${h(db.settings.club)}</b> — допуск к аттестации ${D.ru(A.next)}</div>
+  <button class="btn" data-act="print">Печать</button></div>
+  <div class="filters" style="margin-top:10px;margin-bottom:0"><label class="f"><span>Группа</span><select data-change="attest-group">${groups.map(g => opt(g, U.group)).join('')}</select></label>
+  <label class="f"><span>Фамилия</span><input type="search" data-change="attest-q" value="${h(U.q || '')}" placeholder="Поиск"></label>
+  <label class="f"><span>Допуск</span><select data-change="attest-adm">${Object.keys(admOk).map(k => opt(k, AF)).join('')}</select></label></div></div>
+  <div class="print-only"><b>${h(db.settings.club)}</b> — допуск к аттестации ${D.ru(A.next)}${U.group !== 'все' ? ', ' + h(U.group) : ''}${AF !== 'все' ? ', ' + h(AF) : ''}</div>
   <div class="card flat show-m"><ul class="list sublist">${list.map(({ a, r }) => `<li class="click" data-go="#person/${a.id}"><div class="who"><b>${h(shortName(a))}</b><span class="small">${h(a.group)} · был ${r.was} · не был ${r.missed}${r.sick ? ' · болел ' + r.sick : ''} · турниров ${r.tourn}</span>${[r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).length ? `<span class="small">не хватает: ${[r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).join(', ')}</span>` : ''}</div>
     <div class="subside"><b class="num">${r.pct != null ? Math.round(r.pct * 100) + '%' : '—'}</b><span class="chip ${r.status === 'допущен' ? 'ok' : r.status === 'нет данных' ? 'muted' : 'bad'}">${h(r.status.replace('нет: посещаемость и турниры', 'нет: посещ. и турниры'))}</span></div></li>`).join('')}</ul></div>
   <div class="card flat scroll hide-m"><table class="t"><thead><tr><th>ФИО</th><th class="hide-m">Группа</th><th class="r">Был</th><th class="r">Не был</th><th class="r hide-m">Болел</th><th class="r">Турниров</th><th class="r">Посещ.</th><th>Допуск</th><th class="hide-m">Не хватает</th></tr></thead><tbody>
   ${list.map(({ a, r }) => `<tr class="click" data-go="#person/${a.id}"><td>${h(shortName(a))}</td><td class="hide-m">${h(a.group)}</td><td class="r num">${r.was}</td><td class="r num">${r.missed}</td><td class="r num hide-m">${r.sick}</td><td class="r num">${r.tourn}</td><td class="r num">${r.pct != null ? Math.round(r.pct * 100) + '%' : ''}</td>
   <td><span class="chip ${r.status === 'допущен' ? 'ok' : r.status === 'нет данных' || r.late || r.other ? 'muted' : 'bad'}">${h(r.status)}</span></td><td class="hide-m small">${[r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).join(', ')}</td></tr>`).join('')}</tbody></table></div>
-  <p class="small muted">Допущено ${ok} из ${list.length}. Турнир — отметка «с» в журнале.</p>`;
+  <p class="small muted">Показано ${list.length} из ${all.length}, допущено ${ok}. Турнир — отметка «с» в журнале.</p>`;
 }
 function vTests() {
   const U = ui.attest;
@@ -1962,6 +1971,7 @@ function onChange(e) {
   const v = el.type === 'checkbox' ? el.checked : el.value;
   const live = e.type === 'input';
   if (k === 'pf') { ui.people[el.dataset.k] = v; if (live && el.type !== 'number' && el.type !== 'search') return; clearTimeout(typingTimer); typingTimer = setTimeout(() => { const pos = el.selectionStart; rerender(); const n = document.querySelector(`[data-change="pf"][data-k="${el.dataset.k}"]`); if (n && live) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {} } }, live ? 250 : 0); return; }
+  if (k === 'attest-q') { ui.attest.q = v; clearTimeout(typingTimer); typingTimer = setTimeout(() => { rerender(); const n = document.querySelector('[data-change="attest-q"]'); if (n) { n.focus(); n.setSelectionRange(v.length, v.length); } }, 250); return; }
   if (k === 'subs-q') { ui.subs.q = v; clearTimeout(typingTimer); typingTimer = setTimeout(() => { rerender(); const n = document.querySelector('[data-change="subs-q"]'); if (n) { n.focus(); n.setSelectionRange(v.length, v.length); } }, 250); return; }
   if (live) return;
   if (k === 'session-group') { const s = db.sessions.find(x => x.id === el.dataset.id); const n = Object.keys(s.marks).length;
@@ -1971,6 +1981,7 @@ function onChange(e) {
   else if (k === 'jmgroup') { ui.journal.mgroup = v; rerender(); }
   else if (k === 'jmonth-input') { if (v) { ui.journal.month = v; rerender(); } }
   else if (k === 'attest-group') { ui.attest.group = v; rerender(); }
+  else if (k === 'attest-adm') { ui.attest.adm = v; rerender(); }
   else if (k === 'test-date') { ui.attest.date = v; rerender(); }
   else if (k === 'rep') { ui.report[el.dataset.k] = v; rerender(); }
   else if (k === 'test-res' || k === 'test-relief' || k === 'test-place' || k === 'test-track') {
