@@ -423,7 +423,9 @@ function calcChain(ix, aid, og, list) {
       r.from = D.max(p.payDate || p.waitFrom || '', cursor);
       let visit = null;
       for (let k = lowerBound(marks, r.from, 'date'); k < marks.length; k++) { const m = marks[k]; if (!m.used && m.mark === '+') { visit = m; break; } }
-      r.autoDate = p.pending || !p.payDate ? null : D.max(D.add(p.payDate, 30), r.from);
+      // 30 дней считаются со дня после оплаты, а если оплатили заранее — со дня после окончания текущего абонемента
+      const base = cursor && cursor < '9999' ? D.max(p.payDate || '', D.add(cursor, -1)) : p.payDate;
+      r.autoDate = p.pending || !p.payDate ? null : (cursor >= '9999' ? null : D.add(base, 30));
       if (visit && (!r.autoDate || visit.date <= r.autoDate)) { r.act = visit.date; r.first = visit.date; r.actKind = 'visit'; }
       else if (r.autoDate && ix.today >= r.autoDate) { r.act = r.autoDate; r.first = nthTrainDay(ix, r.autoDate, 1, groups) || r.autoDate; r.actKind = 'auto'; }
     }
