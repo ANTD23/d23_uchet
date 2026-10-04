@@ -579,14 +579,25 @@ function calcAthlete(ix, a) {
 function calcAdmission(ix, a) {
   const A = ix.db.settings.attest;
   const r = { was: 0, missed: 0, sick: 0, tourn: 0 };
-  if (!A.prev || !A.next) return { ...r, status: 'нет дат', total: 0 };
-  for (const m of ix.marks.get(a.id) || []) {
+  if (!A.prev || !A.next) return { ...r, status: 'нет данных', total: 0 };
+  const all = ix.marks.get(a.id) || [];
+  // с какого дня человек занимается: первая отметка или дата «в клубе с», что раньше
+  r.since = D.min(all.length ? all[0].date : '', a.addedAt || '') || '';
+  for (const m of all) {
     if (m.date < A.prev || m.date > A.next) continue;
     if (m.mark === '+') r.was++; else if (m.mark === 'н') r.missed++; else if (m.mark === 'б') r.sick++; else if (m.mark === 'с') r.tourn++;
   }
   r.total = r.was + r.missed + (A.sickMode === 'учитывать' ? r.sick : 0);
-  const thr = (+A.threshold || 0) / 100, minT = +A.minTournaments || 0;
+  const thr = (+A.threshold || 0) / 100;
+  // турниры обязательны только до 15 лет включительно (на дату аттестации)
+  r.age = D.age(a.birth, A.next);
+  const maxAge = A.tournamentsMaxAge == null ? 15 : +A.tournamentsMaxAge;
+  r.needT = r.age == null || r.age <= maxAge;
+  const minT = r.needT ? (+A.minTournaments || 0) : 0;
   r.pct = r.total ? r.was / r.total : null;
+  if (r.since && r.since > A.prev) {                       // начал позже прошлой аттестации — ждёт следующую
+    r.late = true; r.status = 'нет: начал ' + D.ru(r.since) + ', ждёт следующую'; r.needVisits = null; r.needTourn = 0; return r;
+  }
   if (!r.total) r.status = 'нет данных';
   else {
     const okP = r.pct >= thr - 1e-9, okT = r.tourn >= minT;
@@ -1139,7 +1150,7 @@ function vPerson(id) {
     ${kv('Связь', c.contact ? telLink(c.contact) + ' (' + c.contactWho + ')' : (c.noParentPhone ? '<span class="chip bad">нет телефона родителя</span>' : ''))}
     ${kv('Медсправка', a.medUntil ? 'до ' + D.ru(a.medUntil) : '<span class="muted">не внесена</span>')}
     ${kv('На турнире', c.ageForEntry != null && S.competition.date ? c.ageForEntry + ' ' + plural(c.ageForEntry, 'год', 'года', 'лет') + ' (' + h(S.competition.name) + ')' : '')}
-    ${kv('Оплата', a.noSub ? 'без абонемента' : a.payPerVisit ? 'разово, за каждое посещение' : '')}${kv('Внесён', D.ru(a.addedAt))}${kv('Примечание', h(a.note))}</dl>
+    ${kv('Оплата', a.noSub ? 'без абонемента' : a.payPerVisit ? 'разово, за каждое посещение' : '')}${kv('В клубе с', D.ru(a.addedAt))}${kv('Примечание', h(a.note))}</dl>
     ${(a.transfers || []).length ? `<h3 style="margin-top:14px">Переводы</h3><ul class="list">${[...a.transfers].sort((x, y) => y.date.localeCompare(x.date)).map(t => `<li style="padding:6px 0"><div class="who small">с ${D.ru(t.date)}: ${h(t.from || '—')} → <b style="display:inline">${h(t.to)}</b></div><button class="btn sm ghost no-print" data-act="transfer-del" data-id="${id}" data-tid="${t.id}" aria-label="Удалить перевод">✕</button></li>`).join('')}</ul>` : ''}</div>
   <div class="card"><div class="row" style="justify-content:space-between"><h2>Посещения</h2><button class="btn sm no-print" data-act="athlete-report" data-id="${id}">Печать за период</button></div><div class="stats" style="margin-bottom:10px"><div class="stat"><b>${cnt('+')}</b><span class="small muted">был, 90 дней</span></div><div class="stat"><b>${cnt('н')}</b><span class="small muted">не был</span></div><div class="stat"><b>${cnt('б')}</b><span class="small muted">болел</span></div></div>
     <div class="small">Допуск к аттестации ${D.ru(S.attest.next)}: <b>${h(adm.status)}</b>${adm.pct != null ? ` — ${Math.round(adm.pct * 100)}% посещений, турниров ${adm.tourn}` : ''}</div>
@@ -1193,7 +1204,7 @@ function personForm(a) {
   ${F('fatherName', 'ФИО отца', a.fatherName)}${F('fatherPhone', 'Телефон отца', a.fatherPhone, 'tel')}${FS('mainContact', 'Основной контакт', [['', 'автоматически'], 'мать', 'отец', 'спортсмен'], a.mainContact)}
   <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="payPerVisit" ${a.payPerVisit ? 'checked' : ''} style="width:20px;height:20px"><span><b>Оплата разово</b> — ходит в группу, но платит за каждое посещение. Пропуски не отмечаются и не списываются, «Остальным «н»» его пропускает. Неоплаченные посещения видны как долг.</span></label>
   <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="noSub" ${a.noSub ? 'checked' : ''} style="width:20px;height:20px"><span><b>Без абонемента</b> — занимается бесплатно или по особой договорённости. Программа не будет напоминать об оплате.</span></label>
-  ${F('medUntil', 'Медсправка действует до', a.medUntil, 'date')}${F('addedAt', 'Дата внесения', a.addedAt || ix.today, 'date')}
+  ${F('medUntil', 'Медсправка действует до', a.medUntil, 'date')}${F('addedAt', 'В клубе с (начало занятий)', a.addedAt || ix.today, 'date')}
   <label class="f wide"><span>Примечание</span><textarea name="note">${h(a.note)}</textarea></label></div>
   <p class="small muted">Если человек перешёл в другую группу, используйте кнопку «Перевести» в карточке — тогда старые занятия останутся в прежней группе. Здесь группу меняйте только для исправления ошибки.</p>
   <p class="small muted">Диагнозы и медицинские подробности сюда не пишите — только дату действия справки.</p>`;
@@ -1441,14 +1452,14 @@ function vAttest(tab) {
   const list = db.athletes.filter(a => a.status === 'занимается' && (U.group === 'все' || a.group === U.group || a.group2 === U.group))
     .sort((a, b) => fullName(a).localeCompare(fullName(b), 'ru')).map(a => ({ a, r: calcAdmission(ix, a) }));
   const ok = list.filter(x => x.r.status === 'допущен').length;
-  return head + `<div class="card no-print"><div class="row"><div class="spacer grow-m">Период: <b>${D.ru(A.prev)} — ${D.ru(A.next)}</b>, порог ${A.threshold}% посещений, турниров не меньше ${A.minTournaments}, болезнь ${A.sickMode === 'учитывать' ? 'снижает процент' : 'исключается из расчёта'}. <a href="#settings">Изменить</a></div>
+  return head + `<div class="card no-print"><div class="row"><div class="spacer grow-m">Период: <b>${D.ru(A.prev)} — ${D.ru(A.next)}</b>, порог ${A.threshold}% посещений, турниров не меньше ${A.minTournaments} (до ${A.tournamentsMaxAge ?? 15} лет включительно). Кто начал заниматься после ${D.ru(A.prev)}, ждёт следующую аттестацию. Болезнь ${A.sickMode === 'учитывать' ? 'снижает процент' : 'исключается из расчёта'}. <a href="#settings">Изменить</a></div>
   <select data-change="attest-group" style="width:auto">${groups.map(g => opt(g, U.group)).join('')}</select><button class="btn" data-act="print">Печать</button></div></div>
   <div class="print-only"><b>${h(db.settings.club)}</b> — допуск к аттестации ${D.ru(A.next)}</div>
   <div class="card flat show-m"><ul class="list sublist">${list.map(({ a, r }) => `<li class="click" data-go="#person/${a.id}"><div class="who"><b>${h(shortName(a))}</b><span class="small">${h(a.group)} · был ${r.was} · не был ${r.missed}${r.sick ? ' · болел ' + r.sick : ''} · турниров ${r.tourn}</span>${[r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).length ? `<span class="small">не хватает: ${[r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).join(', ')}</span>` : ''}</div>
     <div class="subside"><b class="num">${r.pct != null ? Math.round(r.pct * 100) + '%' : '—'}</b><span class="chip ${r.status === 'допущен' ? 'ok' : r.status === 'нет данных' ? 'muted' : 'bad'}">${h(r.status.replace('нет: посещаемость и турниры', 'нет: посещ. и турниры'))}</span></div></li>`).join('')}</ul></div>
   <div class="card flat scroll hide-m"><table class="t"><thead><tr><th>ФИО</th><th class="hide-m">Группа</th><th class="r">Был</th><th class="r">Не был</th><th class="r hide-m">Болел</th><th class="r">Турниров</th><th class="r">Посещ.</th><th>Допуск</th><th class="hide-m">Не хватает</th></tr></thead><tbody>
   ${list.map(({ a, r }) => `<tr class="click" data-go="#person/${a.id}"><td>${h(shortName(a))}</td><td class="hide-m">${h(a.group)}</td><td class="r num">${r.was}</td><td class="r num">${r.missed}</td><td class="r num hide-m">${r.sick}</td><td class="r num">${r.tourn}</td><td class="r num">${r.pct != null ? Math.round(r.pct * 100) + '%' : ''}</td>
-  <td><span class="chip ${r.status === 'допущен' ? 'ok' : r.status === 'нет данных' ? 'muted' : 'bad'}">${h(r.status)}</span></td><td class="hide-m small">${[r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).join(', ')}</td></tr>`).join('')}</tbody></table></div>
+  <td><span class="chip ${r.status === 'допущен' ? 'ok' : r.status === 'нет данных' || r.late ? 'muted' : 'bad'}">${h(r.status)}</span></td><td class="hide-m small">${[r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).join(', ')}</td></tr>`).join('')}</tbody></table></div>
   <p class="small muted">Допущено ${ok} из ${list.length}. Турнир — отметка «с» в журнале.</p>`;
 }
 function vTests() {
@@ -1564,7 +1575,7 @@ function vSettings() {
   <div class="card"><h2>Соревнования</h2><div class="fgrid">${L('Название', inp('competition.name', C.name))}${L('Дата', inp('competition.date', C.date, 'date'))}${L('Город', inp('competition.city', C.city))}
   ${L('Возраст на турнире', `<select data-change="set" data-path="competition.ageMode">${['на дату соревнований', 'по году рождения (на 31.12)'].map(x => opt(x, C.ageMode)).join('')}</select>`)}</div>
   <h2 style="margin-top:16px">Аттестация</h2><div class="fgrid">${L('Предыдущая аттестация', inp('attest.prev', A.prev, 'date'))}${L('Предстоящая аттестация', inp('attest.next', A.next, 'date'))}
-  ${L('Порог допуска, %', inp('attest.threshold', A.threshold, 'number'))}${L('Минимум турниров', inp('attest.minTournaments', A.minTournaments, 'number'))}
+  ${L('Порог допуска, %', inp('attest.threshold', A.threshold, 'number'))}${L('Минимум турниров', inp('attest.minTournaments', A.minTournaments, 'number'))}${L('Турниры обязательны до (лет, включительно)', inp('attest.tournamentsMaxAge', A.tournamentsMaxAge ?? 15, 'number'))}
   ${L('Пропуски по болезни', `<select data-change="set" data-path="attest.sickMode">${['не учитывать', 'учитывать'].map(x => opt(x, A.sickMode)).join('')}</select>`)}${L('Послабление на страйп', inp('attest.reliefCoef', A.reliefCoef, 'number', 'step="0.05"'))}</div></div></div>
   <div class="card"><h2>Клуб</h2><div class="fgrid">${L('Клуб и адрес', inp('club', S.club))}${L('Главный тренер', inp('coachMain', S.coachMain))}${L('Второй тренер', inp('coachSecond', S.coachSecond))}${L('Кем присваивается пояс', inp('awardedBy', S.awardedBy))}${L('Занятий в абонементе по умолчанию', inp('defaultCount', S.defaultCount, 'number'))}
   <label class="f wide"><span>Пояса (по одному в строке, по порядку)</span><textarea data-change="belts" style="min-height:120px">${h(S.belts.join('\n'))}</textarea></label></div></div>
@@ -1966,7 +1977,7 @@ function onChange(e) {
     render.keepScroll = true; persist();
   }
   else if (k === 'norm') { const n = db.settings.norms[+el.dataset.i]; const num = !['track', 'sex', 'pullKind', 'pushKind'].includes(el.dataset.k); n[el.dataset.k] = num ? (v === '' ? null : +v) : v.trim(); render.keepScroll = true; persist(); }
-  else if (k === 'set') { const numPaths = ['attest.threshold', 'attest.minTournaments', 'attest.reliefCoef', 'defaultCount', 'copiesKeep']; setPath(db.settings, el.dataset.path, numPaths.includes(el.dataset.path) ? +v : v); render.keepScroll = true; persist('Сохранено'); }
+  else if (k === 'set') { const numPaths = ['attest.threshold', 'attest.minTournaments', 'attest.tournamentsMaxAge', 'attest.reliefCoef', 'defaultCount', 'copiesKeep']; setPath(db.settings, el.dataset.path, numPaths.includes(el.dataset.path) ? +v : v); render.keepScroll = true; persist('Сохранено'); }
   else if (k === 'belts') { db.settings.belts = v.split('\n').map(x => x.trim()).filter(Boolean); render.keepScroll = true; persist('Сохранено'); }
   else if (k === 'tpl') { db.settings.templates[+el.dataset.i][el.dataset.k] = v; render.keepScroll = true; persist('Шаблон сохранён'); }
   else if (k === 'group-name') { const g = db.settings.groups[+el.dataset.i]; const nn = v.trim(); if (!nn) { rerender(); return; }
