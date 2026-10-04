@@ -373,7 +373,8 @@ function subGroups(ix, p) {
   const a = ix.ath.get(p.athleteId); if (!a) return [];
   return [a.group, a.group2].filter(Boolean);
 }
-function subKey(p) { return p.start || p.payDate || ''; }
+function lowerBound(arr, date, key) { let lo = 0, hi = arr.length; while (lo < hi) { const mid = (lo + hi) >> 1; if ((key ? arr[mid][key] : arr[mid]) < date) lo = mid + 1; else hi = mid; } return lo; }
+function subKey(p) { return p.start || p.payDate || p.waitFrom || '9999-12-31'; }   // «ждём оплату» без дат — в конец очереди
 function subFirst(ix, p) { return ix.subFirst ? ix.subFirst.get(p.id) || null : p.start || null; }
 
 /* ---------- абонементы: активация и списание (п. 9.2–9.4 оферты) ----------
@@ -416,7 +417,8 @@ function calcChain(ix, aid, og, list) {
     if (p.start) { r.act = p.start; r.first = p.start; r.actKind = 'manual'; }
     else if (!blocked) {
       r.from = D.max(p.payDate || p.waitFrom || '', cursor);
-      const visit = marks.find(m => !m.used && m.mark === '+' && m.date >= r.from);
+      let visit = null;
+      for (let k = lowerBound(marks, r.from, 'date'); k < marks.length; k++) { const m = marks[k]; if (!m.used && m.mark === '+') { visit = m; break; } }
       r.autoDate = p.pending || !p.payDate ? null : D.max(D.add(p.payDate, 30), r.from);
       if (visit && (!r.autoDate || visit.date <= r.autoDate)) { r.act = visit.date; r.first = visit.date; r.actKind = 'visit'; }
       else if (r.autoDate && ix.today >= r.autoDate) { r.act = r.autoDate; r.first = nthTrainDay(ix, r.autoDate, 1, groups) || r.autoDate; r.actKind = 'auto'; }
@@ -433,8 +435,10 @@ function calcChain(ix, aid, og, list) {
     const carry = Math.max(0, +p.carryWas || 0) + Math.max(0, +p.carryMissed || 0);
     const cap = Math.max(0, (+p.count || 0) - carry);
     let used = 0;
-    for (const m of marks) {
-      if (m.used || m.date < r.first || (r.next && m.date >= r.next)) continue;
+    for (let k = lowerBound(marks, r.first, 'date'); k < marks.length; k++) {
+      const m = marks[k];
+      if (r.next && m.date >= r.next) break;
+      if (m.used) continue;
       let charged = m.mark === '+' || m.mark === 'н';
       if (m.mark === 'б' && fr.some(x => x.c.mode === 'lapsed' && x.f.from && x.f.to && m.date >= x.f.from && m.date <= x.f.to)) charged = true;
       if (!charged) { if (used < cap) { if (m.mark === 'б') r.sick++; else if (m.mark === 'с') r.comp++; else if (m.mark === 'о') r.cancel++; } continue; }
@@ -449,7 +453,7 @@ function calcChain(ix, aid, og, list) {
     else if (!hasSchedule(ix, groups)) { r.endKind = 'nosched'; cursor = '9999-12-31'; }
     else {
       let maxGroupDate = '';
-      for (const g of groups) for (const d of ix.groupDates.get(g) || []) if (d >= r.first && (!r.next || d < r.next) && d > maxGroupDate) maxGroupDate = d;
+      for (const g of groups) { const gd = ix.groupDates.get(g) || []; let k = r.next ? lowerBound(gd, r.next) - 1 : gd.length - 1; if (k >= 0 && gd[k] >= r.first && gd[k] > maxGroupDate) maxGroupDate = gd[k]; }
       const from = D.max(D.add(r.first, -1), maxGroupDate);
       r.end = nthTrainDay(ix, D.add(from, 1), r.remaining, groups) || ''; r.endKind = 'forecast';
       cursor = r.end ? D.add(r.end, 1) : '9999-12-31';
@@ -462,7 +466,7 @@ function calcChain(ix, aid, og, list) {
     let t = null;
     for (const [p, r] of done) if (r.first && r.first <= m.date && !(r.next && m.date >= r.next)) t = r;
     if (!t && m.date >= (ix.db.settings.sickCheckFrom || '')) { if (!ix.unpaid.has(aid)) ix.unpaid.set(aid, []); ix.unpaid.get(aid).push(m.date); }
-    if (t) { t.was++; t.charged++; t.remaining--; t.debtVisits = (t.debtVisits || 0) + 1; if (m.date > t.lastCharged) t.lastCharged = m.date; if (t.remaining <= 0) { t.end = t.lastCharged; t.endKind = 'fact'; } }
+    if (t) { t.was++; t.charged++; t.remaining--; t.debtVisits = (t.debtVisits || 0) + 1; (t.debtDates = t.debtDates || []).push(m.date); if (m.date > t.lastCharged) t.lastCharged = m.date; if (t.remaining <= 0) { t.end = t.lastCharged; t.endKind = 'fact'; } }
   }
   for (const [p, r] of done) {
     setSubStatus(ix, p, r);
@@ -561,10 +565,12 @@ function calcAthlete(ix, a) {
   const cs = currentSub(ix, a.id);
   r.sub = cs; r.subCalc = cs ? ix.subCalc.get(cs.id) : null;
   r.noSub = !!a.noSub;
-  r.unpaid = a.noSub ? [] : (ix.unpaid.get(a.id) || []);
+  r.unpaid = a.noSub ? [] : (ix.unpaid.get(a.id) || []);                 // посещения вне любого абонемента
   r.nextSub = upcomingSub(ix, a.id);
   r.pendingSub = pendingSub(ix, a.id);
   r.pendingCalc = r.pendingSub ? ix.subCalc.get(r.pendingSub.id) : null;
+  // все неоплаченные посещения: сверх текущего абонемента + без абонемента вообще
+  r.debtDates = [...((r.subCalc && r.subCalc.remaining < 0 && r.subCalc.debtDates) || []), ...r.unpaid].sort();
   return r;
 }
 
@@ -715,6 +721,7 @@ function normalize(d) {
   for (const k of ['athletes', 'sessions', 'subs', 'freezes', 'awards', 'tests']) if (!Array.isArray(d[k])) d[k] = [];
   d.settings = Object.assign({}, e.settings, d.settings || {});
   d.settings.attest = Object.assign({}, e.settings.attest, d.settings.attest || {});
+  if (d.settings.copiesKeep == null) d.settings.copiesKeep = 30;
   d.settings.competition = Object.assign({}, e.settings.competition, d.settings.competition || {});
   for (const p of d.subs) if (!(+p.count > 0) && !(+p.amount > 0) && !p.pending) { p.pending = true; p.count = d.settings.defaultCount || 12; }
   if ((d.settings.tplVersion || 1) === 3) {           // шаблоны активации абонемента
@@ -875,14 +882,14 @@ function attention() {
       out.push({ tone: 'bad', a, text: `${nm}: ждём оплату${c.pendingCalc && c.pendingCalc.first ? ' с ' + D.ru(c.pendingCalc.first) : ''}${n ? ', в долг ' + n + ' ' + plural(n, 'занятие', 'занятия', 'занятий') : ''}`, tpl: 'Абонемент закончился', sub: c.pendingSub.id, paid: c.pendingSub.id });
     } else if (s) {
       const single = (+c.sub.count || 0) <= 1;
-      if (s.remaining < 0) out.push({ tone: 'bad', a, text: `${nm}: долг ${-s.remaining} ${plural(-s.remaining, 'занятие', 'занятия', 'занятий')} сверх оплаты`, tpl: 'Долг по занятиям', extra: { 'N': String(-s.remaining) } });
+      if (s.remaining < 0 && !(c.debtDates || []).length) out.push({ tone: 'bad', a, text: `${nm}: долг ${-s.remaining} ${plural(-s.remaining, 'занятие', 'занятия', 'занятий')} сверх оплаты`, tpl: 'Долг по занятиям' });
       else if (s.remaining === 0 && !c.nextSub && !single) out.push({ tone: 'warn', a, text: `${nm}: абонемент использован${s.end ? ' ' + D.ru(s.end) : ''}, нового нет`, tpl: 'Абонемент закончился', wait: true });
       else if (s.remaining === 1 && !c.nextSub && !single) out.push({ tone: 'warn', a, text: `${nm}: осталось одно занятие${s.end ? ' (' + D.ru(s.end) + ')' : ''}`, tpl: 'Абонемент заканчивается' });
       else if (s.remaining === 2 && !c.nextSub && !single) out.push({ tone: 'warn', a, text: `${nm}: осталось два занятия${s.end ? ' (последнее ' + D.ru(s.end) + ')' : ''}`, tpl: 'Абонемент заканчивается' });
     }
-    if (!a.noSub && c.unpaid.length && !c.pendingSub) {
-      const n = c.unpaid.length;
-      out.push({ tone: 'bad', a, text: `${nm}: не оплачено ${n} ${plural(n, 'посещение', 'посещения', 'посещений')} (${c.unpaid.map(d => D.short(d)).join(', ')})`, unpaid: true });
+    if (c.debtDates.length && !c.pendingSub) {
+      const n = c.debtDates.length;
+      out.push({ tone: 'bad', a, text: `${nm}: не оплачено ${n} ${plural(n, 'посещение', 'посещения', 'посещений')} (${c.debtDates.map(d => D.short(d)).join(', ')})${c.subCalc && c.subCalc.remaining < 0 ? ' — абонемент закончился' : ''}`, unpaid: true, tpl: c.subCalc ? 'Абонемент закончился' : null });
     }
     if (c.med === 'просрочена') out.push({ tone: 'bad', a, text: `${nm}: медсправка просрочена (${D.ru(a.medUntil)}) — к занятиям не допускать` });
     else if (c.med === 'истекает') out.push({ tone: 'warn', a, text: `${nm}: медсправка до ${D.ru(a.medUntil)}` });
@@ -1199,7 +1206,7 @@ function vSubs() {
   const U = ui.subs, q = U.q.trim().toLowerCase();
   let rows = db.subs.map(p => ({ p, r: ix.subCalc.get(p.id), a: ix.ath.get(p.athleteId) })).filter(x => x.a);
   const latestIds = new Set(db.athletes.map(a => { const c = ix.athCalc.get(a.id); return c.sub && c.sub.id; }).filter(Boolean));
-  if (U.filter === 'active') rows = rows.filter(x => latestIds.has(x.p.id) && x.r.remaining > 0 || x.r.notActive || (x.r.first && x.r.first > ix.today));
+  if (U.filter === 'active') rows = rows.filter(x => !x.p.pending && (latestIds.has(x.p.id) && x.r.remaining > 0 || x.r.notActive || (x.r.first && x.r.first > ix.today)));
   if (U.filter === 'ending') rows = rows.filter(x => latestIds.has(x.p.id) && (x.r.remaining === 1 || x.r.remaining === 2) && !ix.athCalc.get(x.a.id).nextSub && x.a.status === 'занимается');
   if (U.filter === 'ended') rows = rows.filter(x => latestIds.has(x.p.id) && x.r.remaining === 0 && (+x.p.count || 0) > 1 && !ix.athCalc.get(x.a.id).nextSub && x.a.status === 'занимается');
   if (U.filter === 'debt') rows = rows.filter(x => x.r.remaining < 0 && !x.p.pending);
@@ -1242,8 +1249,8 @@ function openSub(id, athleteId) {
   const p = id ? db.subs.find(x => x.id === id) : null;
   const aid = p ? p.athleteId : athleteId || '';
   const last = aid ? [...(ix.subsByAth.get(aid) || [])].pop() : null;
-  const up = !p && aid ? (ix.athCalc.get(aid).unpaid || []) : [];
-  const v = p || { athleteId: aid, payDate: ix.today, start: up.length ? up[0] : '', count: up.length && !last ? up.length : (db.settings.defaultCount || 12), amount: last ? last.amount : '', onlyGroup: '', carryWas: 0, carryMissed: 0, note: '' };
+  const up = !p && aid ? (ix.athCalc.get(aid).debtDates || []) : [];
+  const v = p || { athleteId: aid, payDate: ix.today, start: up.length ? up[0] : '', count: last ? (+last.count || db.settings.defaultCount || 12) : (up.length || db.settings.defaultCount || 12), amount: last ? last.amount : '', onlyGroup: '', carryWas: 0, carryMissed: 0, note: '' };
   const r = p ? ix.subCalc.get(p.id) : null;
   const body = `<div class="fgrid">${aid && p ? `<input type="hidden" name="athleteId" value="${aid}"><div class="wide"><b>${h(fullName(ix.ath.get(aid)))}</b></div>` : FS('athleteId', 'Спортсмен', [['', '— выберите —'], ...athleteOptions(aid)], aid, 'required class="wide"')}
   ${F('payDate', 'Дата оплаты', v.payDate, 'date')}${F('start', 'Дата активации (пусто — автоматически)', v.start, 'date')}
@@ -1274,7 +1281,7 @@ function openSub(id, athleteId) {
   const sel = document.querySelector('#dlg select[name=athleteId]');
   if (sel) sel.onchange = () => { const id = sel.value; if (!id) return;
     const lp = [...(ix.subsByAth.get(id) || [])].pop(); if (lp && lp.amount) document.querySelector('#dlg [name=amount]').value = lp.amount;
-    const u2 = ix.athCalc.get(id).unpaid || [], note = document.querySelector('#unpaid-note');
+    const u2 = ix.athCalc.get(id).debtDates || [], note = document.querySelector('#unpaid-note');
     document.querySelector('#dlg [name=start]').value = u2.length ? u2[0] : '';
     if (u2.length && !lp) document.querySelector('#dlg [name=count]').value = u2.length;
     if (note) { note.style.display = u2.length ? '' : 'none'; if (u2.length) note.innerHTML = '<b>Есть неоплаченные посещения: ' + u2.map(d => D.short(d)).join(', ') + '.</b> Дата активации поставлена на первое из них, чтобы оплата их покрыла.'; } };
@@ -1558,12 +1565,16 @@ function vData() {
   <p>База хранится в этом браузере на этом устройстве. Копия в файле нужна, чтобы ничего не потерять и чтобы работать с компьютера и телефона.</p>
   <div class="stats" style="margin:12px 0"><div class="stat"><b>${db.athletes.length}</b><span class="small muted">спортсменов</span></div><div class="stat"><b>${db.sessions.length}</b><span class="small muted">занятий</span></div><div class="stat"><b>${db.subs.length}</b><span class="small muted">абонементов</span></div><div class="stat"><b>${size} КБ</b><span class="small muted">объём</span></div></div>
   <p class="small">Последнее изменение: ${new Date(db.updatedAt).toLocaleString('ru')}. ${meta.lastExport ? 'Копия сохранена: ' + new Date(meta.lastExport).toLocaleString('ru') + (dirty() ? ' — после неё были изменения.' : ' — актуальна.') : 'Копию ещё не сохраняли.'}</p>
-  <div class="row"><button class="btn primary" data-act="export">Сохранить копию</button>${window.showSaveFilePicker ? '<button class="btn" data-act="export-new">Сохранить в другой файл</button>' : ''}<button class="btn" data-act="import">Загрузить копию из файла</button></div></div>
+  <div class="row"><button class="btn primary" data-act="export">Сохранить копию</button>${window.showDirectoryPicker ? '<button class="btn" data-act="import-latest">Загрузить последнюю копию из папки</button>' : ''}<button class="btn" data-act="import">Загрузить копию из файла…</button>${window.showDirectoryPicker ? '<button class="btn" data-act="export-new">Выбрать другую папку</button>' : ''}</div>
+  <p class="small muted" style="margin-top:10px">Имя копии: <b>D23_данные_ГГГГ-ММ-ДД_ЧЧ-ММ_${isPhone() ? 'тел' : 'пк'}.json</b> — дата, время и откуда сохранено. В списке файлов самая свежая копия оказывается последней по имени.
+  ${window.showDirectoryPicker ? `Копии сохраняются в папку${meta.copyDirName ? ' «' + h(meta.copyDirName) + '»' : ', которую вы выберете при первом сохранении'}.` : 'На телефоне копия сохраняется в «Загрузки» — оттуда отправьте её на Яндекс Диск.'}
+  ${meta.lastExportName ? '<br>Последняя сохранённая: ' + h(meta.lastExportName) + '.' : ''}${meta.lastImportName ? '<br>Последняя загруженная: ' + h(meta.lastImportName) + ' (' + new Date(meta.lastImportAt).toLocaleString('ru') + ').' : ''}</p>
+  ${window.showDirectoryPicker ? `<label class="row small" style="gap:8px;margin-top:6px">Хранить в папке последние <input type="number" min="0" max="999" data-change="set" data-path="copiesKeep" value="${db.settings.copiesKeep ?? 30}" style="width:80px"> копий (0 — не удалять старые)</label>` : ''}</div>
   <div class="card"><h2>Как работать с компьютера и телефона через Яндекс Диск</h2>
   <ol style="padding-left:20px;margin:0">
-  <li>На компьютере нажмите «Сохранить копию» и сохраните файл в папку Яндекс Диска${window.showSaveFilePicker ? '. Браузер запомнит файл, дальше копия будет перезаписываться одной кнопкой' : ''}.</li>
-  <li>Перед работой на телефоне откройте эту программу там, нажмите «Загрузить копию из файла» и выберите файл на Яндекс Диске.</li>
-  <li>Закончили на телефоне — «Сохранить копию» и загрузите файл на Яндекс Диск. На компьютере перед работой снова «Загрузить копию».</li></ol>
+  <li>На компьютере «Сохранить копию» кладёт новый файл с датой и временем в папку Яндекс Диска (папку выбираете один раз).</li>
+  <li>На телефоне: «Загрузить копию из файла…» → Яндекс Диск → самый нижний по имени файл (самый свежий).</li>
+  <li>Закончили на телефоне — «Сохранить копию» и отправьте файл из «Загрузок» на Яндекс Диск. На компьютере перед работой — «Загрузить последнюю копию из папки».</li></ol>
   <p class="small muted">Правило одно: работаете там, куда последним загрузили свежую копию. Если загрузить файл старше текущих данных, программа предупредит.</p></div>
   <div class="card"><h2>Прежние версии</h2><p class="small muted">Программа сама хранит последние 5 версий в этом браузере: на начало каждого дня работы и перед загрузкой копии.</p>
   ${snaps.length ? `<ul class="list">${snaps.map((s, i) => `<li><div class="who"><b>${new Date(s.at).toLocaleString('ru')}</b><span class="small">${h(s.reason)}</span></div><button class="btn sm" data-act="snap-restore" data-i="${i}">Вернуть эту версию</button></li>`).join('')}</ul>` : '<p class="muted">Пока нет.</p>'}</div>
@@ -1576,21 +1587,65 @@ function vData() {
 function idb() { return new Promise((res, rej) => { const r = indexedDB.open('d23crm', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
 async function kvGet(k) { try { const d = await idb(); return await new Promise(r => { const q = d.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => r(q.result); q.onerror = () => r(null); }); } catch (e) { return null; } }
 async function kvSet(k, v) { try { const d = await idb(); d.transaction('kv', 'readwrite').objectStore('kv').put(v, k); } catch (e) {} }
-function markExported() { meta.lastExport = new Date().toISOString(); meta.exportedRev = db.rev; writeMeta(); rerender(); toast('Копия сохранена'); }
-async function exportData(forceNew) {
+function markExported(name) { meta.lastExport = new Date().toISOString(); meta.exportedRev = db.rev; if (name) meta.lastExportName = name; writeMeta(); rerender(); toast(name ? 'Копия сохранена: ' + name : 'Копия сохранена'); }
+const COPY_RE = /^D23_данные_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}(-\d{2})?(_[а-яa-z]+)?\.json$/i;
+function isPhone() { return /Android|iPhone|iPad/i.test(navigator.userAgent) || matchMedia('(pointer:coarse)').matches; }
+function copyName(withSec) {
+  const t = new Date();
+  return `D23_данные_${D.today()}_${pad(t.getHours())}-${pad(t.getMinutes())}${withSec ? '-' + pad(t.getSeconds()) : ''}_${isPhone() ? 'тел' : 'пк'}.json`;
+}
+async function copyDir(ask) {                  // папка для копий на компьютере (запоминается)
+  if (!window.showDirectoryPicker) return null;
+  let dir = await kvGet('copyDir');
+  if (dir) { try { if ((await dir.requestPermission({ mode: 'readwrite' })) !== 'granted') dir = null; } catch (e) { dir = null; } }
+  if (!dir && ask) {
+    alert('Выберите папку для копий — лучше папку Яндекс Диска. Программа запомнит её, и дальше копии будут сохраняться туда одной кнопкой.');
+    dir = await showDirectoryPicker({ id: 'd23copies', mode: 'readwrite', startIn: 'documents' });
+    await kvSet('copyDir', dir);
+  }
+  return dir;
+}
+async function exportData(newDir) {
   const json = JSON.stringify(db, null, 1);
-  if (window.showSaveFilePicker) {
+  if (window.showDirectoryPicker) {
     try {
-      let hnd = forceNew ? null : await kvGet('handle');
-      if (hnd) { const p = await hnd.requestPermission({ mode: 'readwrite' }); if (p !== 'granted') hnd = null; }
-      if (!hnd) { hnd = await showSaveFilePicker({ suggestedName: 'D23_данные.json', types: [{ description: 'Данные D23', accept: { 'application/json': ['.json'] } }] }); await kvSet('handle', hnd); }
-      const w = await hnd.createWritable(); await w.write(json); await w.close();
-      markExported(); return;
+      if (newDir) await kvSet('copyDir', null);
+      const dir = await copyDir(true);
+      if (dir) {
+        let name = copyName(false);
+        const minute = name.replace(/_(тел|пк)\.json$/, '');
+        for await (const [n] of dir.entries()) if (n.startsWith(minute)) { name = copyName(true); break; }
+        const fh = await dir.getFileHandle(name, { create: true });
+        const wr = await fh.createWritable(); await wr.write(json); await wr.close();
+        meta.copyDirName = dir.name;
+        await pruneCopies(dir);
+        markExported(name); return;
+      }
     } catch (e) { if (e.name === 'AbortError') return; console.warn(e); }
   }
-  const t = new Date(), stamp = D.today() + '_' + pad(t.getHours()) + pad(t.getMinutes());
-  download('D23_данные_' + stamp + '.json', json, 'application/json');
-  markExported();
+  const name = copyName(false);
+  download(name, json, 'application/json');
+  markExported(name);
+}
+async function pruneCopies(dir) {               // оставляем последние N копий в папке
+  const keep = +db.settings.copiesKeep || 0; if (!keep) return;
+  const files = [];
+  for await (const [n, h] of dir.entries()) if (h.kind === 'file' && COPY_RE.test(n)) { try { files.push({ n, t: (await h.getFile()).lastModified }); } catch (e) {} }
+  files.sort((a, b) => b.t - a.t || b.n.localeCompare(a.n));
+  for (const f of files.slice(keep)) { try { await dir.removeEntry(f.n); } catch (e) {} }
+}
+async function importLatest() {                 // компьютер: самая свежая копия из папки
+  try {
+    const dir = await copyDir(true); if (!dir) return importData();
+    let best = null;
+    for await (const [n, h] of dir.entries()) {
+      if (h.kind !== 'file' || !/\.json$/i.test(n)) continue;
+      const f = await h.getFile();
+      if (!best || f.lastModified > best.lastModified) best = f;
+    }
+    if (!best) { alert('В папке «' + dir.name + '» нет файлов копий.'); return; }
+    applyImport(await best.text(), best.name);
+  } catch (e) { if (e.name !== 'AbortError') { console.warn(e); importData(); } }
 }
 function download(name, text, type) {
   const blob = new Blob([text], { type: type + ';charset=utf-8' });
@@ -1599,29 +1654,27 @@ function download(name, text, type) {
 }
 function importData() {
   const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json';
-  inp.onchange = () => {
-    const f = inp.files[0]; if (!f) return;
-    const r = new FileReader();
-    r.onload = () => {
-      let d; try { d = JSON.parse(r.result); } catch (e) { alert('Файл не читается: это не копия данных D23.'); return; }
-      if (d.app !== 'D23CRM') { alert('Это не копия данных D23. Выберите файл, сохранённый этой программой.'); return; }
-      if (db && db.rev) {
-        const older = d.updatedAt && db.updatedAt && d.updatedAt < db.updatedAt;
-        const msg = older
-          ? `Файл старее данных на этом устройстве.\n\nВ файле: ${new Date(d.updatedAt).toLocaleString('ru')}\nЗдесь: ${new Date(db.updatedAt).toLocaleString('ru')}\n\nЗаменить данные здесь более старыми? Текущая версия сохранится в «Прежних версиях».`
-          : `Заменить данные на этом устройстве копией из файла от ${new Date(d.updatedAt).toLocaleString('ru')}?\n\nТекущая версия сохранится в «Прежних версиях».`;
-        if (!confirm(msg)) return;
-        snapshot('перед загрузкой копии');
-      }
-      db = normalize(d);
-      try { localStorage.setItem(LS_DB, JSON.stringify(db)); } catch (e) { alert('Не хватает места в браузере'); }
-      meta.exportedRev = db.rev; meta.lastExport = meta.lastExport || new Date().toISOString(); writeMeta();
-      location.hash = '#today'; render(); toast('Данные загружены');
-    };
-    r.readAsText(f);
-  };
+  inp.onchange = () => { const f = inp.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => applyImport(r.result, f.name); r.readAsText(f); };
   inp.click();
 }
+function applyImport(text, fname) {
+  let d; try { d = JSON.parse(text); } catch (e) { alert('Файл не читается: это не копия данных D23.'); return; }
+  if (d.app !== 'D23CRM') { alert('Это не копия данных D23. Выберите файл, сохранённый этой программой.'); return; }
+  if (db && db.rev) {
+    const older = d.updatedAt && db.updatedAt && d.updatedAt < db.updatedAt;
+    const head = `Файл: ${fname}\nДанные в файле от ${new Date(d.updatedAt).toLocaleString('ru')}\nДанные здесь от ${new Date(db.updatedAt).toLocaleString('ru')}\n\n`;
+    const msg = older
+      ? head + 'Файл СТАРЕЕ данных на этом устройстве. Заменить данные здесь более старыми? Текущая версия сохранится в «Прежних версиях».'
+      : head + 'Заменить данные на этом устройстве копией из файла? Текущая версия сохранится в «Прежних версиях».';
+    if (!confirm(msg)) return;
+    snapshot('перед загрузкой копии');
+  }
+  db = normalize(d);
+  try { localStorage.setItem(LS_DB, JSON.stringify(db)); } catch (e) { alert('Не хватает места в браузере'); }
+  meta.exportedRev = db.rev; meta.lastExport = meta.lastExport || new Date().toISOString(); meta.lastImportName = fname; meta.lastImportAt = new Date().toISOString(); writeMeta();
+  location.hash = '#today'; render(); toast('Загружено: ' + fname);
+}
+
 function csv(rows) { return '\ufeff' + rows.map(r => r.map(v => { v = String(v ?? ''); return /[;"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(';')).join('\r\n'); }
 
 /* ---------- печатные списки ---------- */
@@ -1768,7 +1821,7 @@ function renameGroup(oldN, newN) {
 const ACT = {
   'close': () => closeModal(),
   'start-empty': () => { db = emptyDb(); persist('Пустая база создана'); },
-  'export': () => exportData(false), 'export-new': () => exportData(true), 'import': () => importData(),
+  'export': () => exportData(false), 'export-new': () => exportData(true), 'import': () => importData(), 'import-latest': () => importLatest(),
   'print': () => window.print(),
   'open-session': el => { const s = findOrCreateSession(el.dataset.date, el.dataset.group); location.hash = '#session/' + s.id; },
   'open-session-pick': () => { ui.journal.tab = 'session'; location.hash = '#journal'; },
@@ -1896,7 +1949,7 @@ function onChange(e) {
     render.keepScroll = true; persist();
   }
   else if (k === 'norm') { const n = db.settings.norms[+el.dataset.i]; const num = !['track', 'sex', 'pullKind', 'pushKind'].includes(el.dataset.k); n[el.dataset.k] = num ? (v === '' ? null : +v) : v.trim(); render.keepScroll = true; persist(); }
-  else if (k === 'set') { const numPaths = ['attest.threshold', 'attest.minTournaments', 'attest.reliefCoef', 'defaultCount']; setPath(db.settings, el.dataset.path, numPaths.includes(el.dataset.path) ? +v : v); render.keepScroll = true; persist('Сохранено'); }
+  else if (k === 'set') { const numPaths = ['attest.threshold', 'attest.minTournaments', 'attest.reliefCoef', 'defaultCount', 'copiesKeep']; setPath(db.settings, el.dataset.path, numPaths.includes(el.dataset.path) ? +v : v); render.keepScroll = true; persist('Сохранено'); }
   else if (k === 'belts') { db.settings.belts = v.split('\n').map(x => x.trim()).filter(Boolean); render.keepScroll = true; persist('Сохранено'); }
   else if (k === 'tpl') { db.settings.templates[+el.dataset.i][el.dataset.k] = v; render.keepScroll = true; persist('Шаблон сохранён'); }
   else if (k === 'group-name') { const g = db.settings.groups[+el.dataset.i]; const nn = v.trim(); if (!nn) { rerender(); return; }
