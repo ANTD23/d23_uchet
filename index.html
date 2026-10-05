@@ -827,6 +827,8 @@ const OFFICIAL_TEMPLATES = [
   { title: 'Абонемент закончился', text: 'Здравствуйте.\n{фи}.\n❌ Срок действия текущего абонемента закончился {дата_окончания}\n✅ Срок оплаты следующего абонемента до {срок_оплаты}.' },
 ];
 const LS_DB = 'd23crm.db', LS_META = 'd23crm.meta', LS_SNAP = 'd23crm.snaps';
+const STANDALONE = location.protocol === 'file:';     // автономная версия: файл открыт с диска, без сайта
+const STORAGE_OK = (() => { try { localStorage.setItem('d23crm.test', '1'); localStorage.removeItem('d23crm.test'); return true; } catch (e) { return false; } })();
 let db = null, ix = null, meta = { lastExport: null, exportedRev: 0, handle: false };
 const UI_DEFAULTS = {
   people: { q: '', group: 'все', status: 'занимается', belt: 'все', sex: 'все', ageMode: 'сейчас', ageFrom: '', ageTo: '', yFrom: '', yTo: '', sort: 'name' },
@@ -1133,7 +1135,7 @@ function telLink(p) { const d = cleanPhone(p); return d ? `<a href="tel:+7${d}" 
 /* ---------- каркас ---------- */
 function route() { const [v, arg] = (location.hash.slice(1) || 'today').split('/'); return { v, arg: arg ? decodeURIComponent(arg) : '' }; }
 function navHTML(cur) {
-  const side = `<aside class="side no-print"><div class="brand"><div class="mark-logo">D23</div><div><b>Club D23</b><span>учёт клуба</span></div></div>
+  const side = `<aside class="side no-print"><div class="brand"><div class="mark-logo">D23</div><div><b>Club D23</b><span>${STANDALONE ? 'автономная · ' : ''}учёт клуба</span></div></div>
     <nav class="nav">${NAV.map(([k, l]) => `<a href="#${k}" class="${cur === k ? 'on' : ''}">${I[k]}${l}</a>`).join('')}</nav>
     <div class="sync">${dirty() ? `Есть изменения, которых нет в копии. ${meta.lastExport ? 'Последняя копия: ' + D.ru(meta.lastExport.slice(0, 10)) : 'Копию ещё не сохраняли'}.<button class="btn sm" data-act="export">Сохранить копию</button>` : (meta.lastExport ? 'Копия сохранена ' + D.ru(meta.lastExport.slice(0, 10)) + '.' : 'Данные хранятся в этом браузере.')}</div></aside>`;
   const tabs = [['today', 'Сегодня'], ['journal', 'Посещения'], ['people', 'Люди'], ['subs', 'Оплаты'], ['more', 'Ещё']];
@@ -1142,6 +1144,9 @@ function navHTML(cur) {
   return side + bar;
 }
 function render() {
+  if (!STORAGE_OK) { document.getElementById('app').innerHTML = `<main style="max-width:560px;margin:10vh auto;padding:0 16px"><div class="card"><h1>Браузер не сохраняет данные</h1>
+    <p>${STANDALONE ? 'Этот браузер не разрешает файлу с диска хранить данные, поэтому работать в нём нельзя — всё пропадёт.' : 'Хранилище браузера недоступно (возможно, включён режим инкогнито или запрет сайтам хранить данные).'}</p>
+    <p>${STANDALONE ? 'Откройте файл в Chrome, Edge или Яндекс Браузере на компьютере.' : 'Откройте программу в обычном окне браузера.'}</p></div></main>`; return; }
   if (locked) { document.getElementById('app').innerHTML = pinHTML(); const i = document.querySelector('#pin-form input'); if (i && !i.disabled) i.focus(); return; }
   if (!db) { document.getElementById('app').innerHTML = loadError ? brokenHTML() : welcomeHTML(); return; }
   ix = buildIndex(db, D.today());
@@ -1171,6 +1176,7 @@ function welcomeHTML() {
   return `<main style="max-width:640px;margin:8vh auto;padding:0 16px">
     <div class="card"><div class="row" style="margin-bottom:10px"><div class="mark-logo" style="background:var(--nav);color:#fff">D23</div><h1 style="margin:0">Учёт Club D23</h1></div>
     <p>Все данные хранятся в этом браузере на этом устройстве. Чтобы перенести их на другое устройство, сохраните копию в файл и откройте её там.</p>
+    ${STANDALONE ? '<div class="banner">Автономная версия (файл с диска). Её данные хранятся отдельно от версии на сайте — перенесите их копией: на сайте «Данные» → «Сохранить копию», здесь «Загрузить данные из файла».</div>' : ''}
     <div class="row" style="margin-top:14px"><button class="btn primary" data-act="import">Загрузить данные из файла</button><button class="btn" data-act="start-empty">Начать с пустой базы</button></div>
     <p class="small muted" style="margin-top:14px">Для первого запуска загрузите файл «D23_данные_импорт.json» — в нём ваши спортсмены, посещения, абонементы и пояса из прежних таблиц.</p></div></main>`;
 }
@@ -1938,8 +1944,10 @@ function vData() {
   let snaps = []; try { snaps = JSON.parse(localStorage.getItem(LS_SNAP) || '[]'); } catch (e) {}
   const size = Math.round(JSON.stringify(db).length / 1024);
   return `<h1>Данные</h1>
+  ${STANDALONE ? `<div class="card"><h2>Автономная версия</h2><p>Программа открыта как файл с диска и работает без интернета и без сайта. Её данные хранятся <b>отдельно</b> от версии на сайте и от других браузеров: это как ещё одно устройство. Переносите данные только копией-файлом и работайте там, куда последней загрузили свежую копию.</p>
+  <p class="small muted">Не переименовывайте и не перемещайте этот файл: в части браузеров данные привязаны к его пути. Копии отсюда сохраняются с пометкой «авт».</p></div>` : ''}
   <div class="card"><h2>Защита PIN-кодом</h2>
-  ${!window.crypto || !crypto.subtle ? '<p class="muted">Этот браузер не поддерживает шифрование — откройте программу по адресу https://.</p>' : pinOn() ? `
+  ${!window.crypto || !crypto.subtle ? (STANDALONE ? '<p class="muted">Этот браузер не даёт шифрования для файла с диска. Откройте файл в Chrome, Edge или Яндекс Браузере на компьютере.</p>' : '<p class="muted">Этот браузер не поддерживает шифрование — откройте программу по адресу https://.</p>') : pinOn() ? `
     <p>PIN включён: данные в этом браузере и сохраняемые копии зашифрованы (AES-256). Программа блокируется после ${lockMin()} мин. бездействия или сворачивания.</p>
     <div class="row" style="gap:8px;align-items:flex-end"><label class="f"><span>Блокировать через</span><select data-change="lockmin">${[1, 3, 5, 10, 15, 30].map(n => opt(n, lockMin(), n + ' мин.')).join('')}</select></label>
     <button class="btn" data-act="pin-lock">Заблокировать сейчас</button></div>
@@ -1990,7 +1998,7 @@ const COPY_RE = /^D23_данные_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}(-\d{2})?(_[а-�
 function isPhone() { return /Android|iPhone|iPad/i.test(navigator.userAgent) || matchMedia('(pointer:coarse)').matches; }
 function copyName(withSec) {
   const t = new Date();
-  return `D23_данные_${D.today()}_${pad(t.getHours())}-${pad(t.getMinutes())}${withSec ? '-' + pad(t.getSeconds()) : ''}_${isPhone() ? 'тел' : 'пк'}.json`;
+  return `D23_данные_${D.today()}_${pad(t.getHours())}-${pad(t.getMinutes())}${withSec ? '-' + pad(t.getSeconds()) : ''}_${STANDALONE ? 'авт' : isPhone() ? 'тел' : 'пк'}.json`;
 }
 async function copyDir(ask) {                  // папка для копий на компьютере (запоминается)
   if (!window.showDirectoryPicker) return null;

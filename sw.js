@@ -1,5 +1,5 @@
 // Club D23 — кэш программы для работы без интернета. Данных спортсменов здесь нет.
-const CACHE = 'd23-app-v1';
+const CACHE = 'd23-app-v2';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', e => {
@@ -13,8 +13,13 @@ self.addEventListener('fetch', e => {
     const fromCache = () => caches.match(e.request).then(m => m || caches.match('./index.html'));
     const timer = setTimeout(() => { if (!done) fromCache().then(r => { if (r && !done) { done = true; resolve(r); } }); }, 4000);
     fetch(e.request).then(r => {
-      if (r && r.ok) { const cp = r.clone(); caches.open(CACHE).then(c => c.put(e.request, cp)); }
-      if (!done) { done = true; clearTimeout(timer); resolve(r); }
+      if (r && r.ok) {
+        const cp = r.clone(); caches.open(CACHE).then(c => c.put(e.request, cp));
+        if (!done) { done = true; clearTimeout(timer); resolve(r); }
+      } else {                                   // ошибка сервера (404/5xx) — отдаём рабочую копию из кэша, если есть
+        clearTimeout(timer);
+        if (!done) fromCache().then(c => { if (!done) { done = true; resolve(c || r); } });
+      }
     }).catch(() => { clearTimeout(timer); if (!done) fromCache().then(r => { done = true; resolve(r || Response.error()); }); });
   }));
 });
