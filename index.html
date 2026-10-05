@@ -110,6 +110,10 @@ table.t tr.pend:hover td{background:#F6D3CE} table.t tr.rem1:hover td{background
 .sublist li.rem2{background:#FFF6D2;box-shadow:inset 5px 0 0 #E2B92E} .sublist li.rem2 .nm{color:#6E5303}
 .sublist li.pend{background:#FBE6E3;box-shadow:inset 5px 0 0 #B42A20} .sublist li.pend .nm{color:#8E1F17}
 .sublist .who .small{white-space:normal}
+.alert.done .txt{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--line)}
+.alert.done .dot{background:var(--line)}
+.attn-donelist{padding:6px 16px 12px}.attn-donelist summary{cursor:pointer;padding:6px 0;color:var(--muted)}
+.sublist .who .chip.st{display:inline-block;white-space:normal;text-align:left;margin:4px 0 2px;max-width:100%}
 .sublist li > .belt{align-self:center}
 .grid2{grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr))}
 
@@ -853,7 +857,8 @@ function emptyDb() {
 }
 function normalize(d) {
   const e = emptyDb();
-  for (const k of ['athletes', 'sessions', 'subs', 'freezes', 'awards', 'tests']) if (!Array.isArray(d[k])) d[k] = [];
+  for (const k of ['athletes', 'sessions', 'subs', 'freezes', 'awards', 'tests', 'destroyLog']) if (!Array.isArray(d[k])) d[k] = [];
+  if (!d.attnDone || typeof d.attnDone !== 'object' || Array.isArray(d.attnDone)) d.attnDone = {};
   d.settings = Object.assign({}, e.settings, d.settings || {});
   d.settings.attest = Object.assign({}, e.settings.attest, d.settings.attest || {});
   if (d.settings.copiesKeep == null) d.settings.copiesKeep = 30;
@@ -1243,6 +1248,15 @@ function attention() {
 }
 
 /* ---------- СЕГОДНЯ ---------- */
+/* «Требует внимания»: отметка «сделано». Ключ — человек + текст пункта: изменилась ситуация (другой остаток, дата) — пункт появится снова */
+const attnKey = x => (x.a ? x.a.id : '') + '|' + x.text;
+function attnMark(key, on) {
+  db.attnDone = db.attnDone || {};
+  const live = new Set(attention().map(attnKey));
+  for (const k of Object.keys(db.attnDone)) if (!live.has(k)) delete db.attnDone[k];   // неактуальные — убрать
+  if (on) db.attnDone[key] = ix.today; else delete db.attnDone[key];
+  render.keepScroll = true; persist(on ? 'Отмечено как сделанное' : 'Возвращено в список');
+}
 function vToday() {
   const t = ix.today, dw = D.dow(t);
   const hol = ix.holiday.get(t);
@@ -1253,7 +1267,8 @@ function vToday() {
     const n = s ? Object.values(s.marks).filter(m => m === '+').length : 0;
     return `<button class="btn ${s ? '' : 'primary'}" data-act="open-session" data-date="${t}" data-group="${h(g)}">${s ? h(g || 'без группы') + ' · отмечено ' + n : 'Отметить «' + h(g) + '»'}</button>`;
   }).join('');
-  const al = attention();
+  const all = attention(), doneMap = db.attnDone || {};
+  const al = all.filter(x => !doneMap[attnKey(x)]), done = all.filter(x => doneMap[attnKey(x)]);
   const comp = db.settings.competition;
   const days = comp.date && comp.date >= t ? D.diff(t, comp.date) : null;
   const active = db.athletes.filter(a => a.status === 'занимается').length;
@@ -1265,16 +1280,18 @@ function vToday() {
     ${hol ? `<p class="muted">Нерабочий день: ${h(hol)}. Занятия не идут в срок абонементов.</p>` : ''}
     <div class="today-groups">${groupsBtns || '<span class="muted">По расписанию занятий нет.</span>'}
       <button class="btn" data-act="open-session-pick">Другая группа или дата</button></div></div>
-  <div class="card flat"><div style="padding:14px 16px 6px"><h2>Требует внимания <span class="muted small">${al.length || ''}</span></h2></div>
+  <div class="card flat"><div style="padding:14px 16px 6px"><h2>Требует внимания <span class="muted small">${al.length || ''}${done.length ? ' · сделано ' + done.length : ''}</span></h2></div>
     ${al.length ? al.map(x => `<div class="alert ${x.tone}"><span class="dot"></span><div class="txt">${h(x.text)}</div>
-      <div class="row">${x.tpl ? `<button class="btn sm" data-act="msg" data-id="${x.a.id}" data-tpl="${h(x.tpl)}"${x.sub ? ` data-sub="${x.sub}"` : ''} data-extra='${h(JSON.stringify(x.extra || {}))}'>Написать</button>` : ''}
+      <div class="row">${x.tpl ? `<button class="btn sm" data-act="msg" data-id="${x.a.id}" data-tpl="${h(x.tpl)}"${x.sub ? ` data-sub="${x.sub}"` : ''} data-key="${h(attnKey(x))}" data-extra='${h(JSON.stringify(x.extra || {}))}'>Написать</button>` : ''}
       ${x.paid ? `<button class="btn sm" data-act="sub-paid" data-id="${x.paid}">Оплачено</button>` : ''}${x.wait ? `<button class="btn sm" data-act="sub-wait" data-id="${x.a.id}">Ждём оплату</button>` : ''}${x.unpaid ? `<button class="btn sm" data-act="sub-new" data-id="${x.a.id}">Оплата</button><button class="btn sm" data-act="sub-wait" data-id="${x.a.id}">Ждём оплату</button><button class="btn sm" data-act="no-sub" data-id="${x.a.id}" title="Занимается бесплатно — больше не напоминать">Без абонемента</button>` : ''}
       ${x.act === 'freeze-new' ? `<button class="btn sm" data-act="freeze-new" data-id="${x.a.id}">Заморозка</button>` : ''}
       ${x.freeze ? `<button class="btn sm" data-act="freeze-edit" data-id="${x.freeze}">Открыть</button>` : ''}
       ${x.session ? `<a class="btn sm" href="#session/${x.session}">Открыть</a>` : ''}
       ${x.go ? `<a class="btn sm" href="${x.go}">Открыть</a>` : ''}
-      ${x.a && !x.freeze ? `<a class="btn sm ghost" href="#person/${x.a.id}">Карточка</a>` : ''}</div></div>`).join('')
-      : '<div class="empty">Всё в порядке: долгов, просроченных справок и заканчивающихся абонементов нет.</div>'}</div>`;
+      ${x.a && !x.freeze ? `<a class="btn sm ghost" href="#person/${x.a.id}">Карточка</a>` : ''}<button class="btn sm attn-done" data-act="attn-done" data-key="${h(attnKey(x))}" title="Сделано — убрать из списка, пока ситуация не изменится">✓ Сделано</button></div></div>`).join('')
+      : `<div class="empty">${done.length ? 'Всё сделано.' : 'Всё в порядке: долгов, просроченных справок и заканчивающихся абонементов нет.'}</div>`}
+    ${done.length ? `<details class="attn-donelist"><summary class="small">Сделано: ${done.length}</summary>${done.map(x => `<div class="alert done"><span class="dot"></span><div class="txt">${h(x.text)}<span class="small muted"> · сделано ${D.ru(doneMap[attnKey(x)])}</span></div>
+      <div class="row">${x.a ? `<a class="btn sm ghost" href="#person/${x.a.id}">Карточка</a>` : ''}<button class="btn sm" data-act="attn-undo" data-key="${h(attnKey(x))}">Вернуть</button></div></div>`).join('')}</details>` : ''}</div>`;
 }
 
 /* ---------- ПОСЕЩЕНИЯ ---------- */
@@ -1715,7 +1732,13 @@ function openAward(id, athleteId) {
 }
 
 /* ---------- СООБЩЕНИЯ ---------- */
-function openMsg(aid, tplTitle, extra = {}, subId = null) {
+let msgAttnKey = '';
+function msgSent() {                              // отправлено из «Требует внимания» — отметить пункт сделанным
+  const cb = $('#msg-done');
+  if (msgAttnKey && cb && cb.checked && !(db.attnDone || {})[msgAttnKey]) { const k = msgAttnKey; msgAttnKey = ''; setTimeout(() => attnMark(k, true), 0); }
+}
+function openMsg(aid, tplTitle, extra = {}, subId = null, attnK = '') {
+  msgAttnKey = attnK;
   const a = ix.ath.get(aid), c = ix.athCalc.get(aid);
   const T = db.settings.templates;
   const idx = Math.max(0, T.findIndex(t => t.title === tplTitle));
@@ -1724,12 +1747,14 @@ function openMsg(aid, tplTitle, extra = {}, subId = null) {
   const body = `<p><b>${h(fullName(a))}</b>${phone ? ' · ' + telLink(c.contact) + ' (' + c.contactWho + ')' : ' · <span class="chip bad">нет телефона</span>'}</p>
   <label class="f"><span>Шаблон</span><select id="msg-tpl">${T.map((t, i) => opt(i, idx, t.title)).join('')}</select></label>
   <label class="f" style="margin-top:10px"><span>Текст</span><textarea id="msg-text" style="min-height:150px">${h(fill(idx))}</textarea></label>
+  ${attnK ? '<label class="row small" style="gap:8px;margin-top:8px"><input type="checkbox" id="msg-done" checked style="width:20px;height:20px"> После отправки отметить в «Требует внимания» как сделанное</label>' : ''}
   <p class="small muted">Переписку сохраняйте — она подтверждает, что клиент уведомлён. Шаблоны меняются в настройках.</p>`;
   modal('Сообщение', body, { extraBtn: `<button type="button" class="btn primary" data-act="msg-copy">Скопировать</button>${navigator.share ? '<button type="button" class="btn" data-act="msg-share">Поделиться…</button>' : ''}${phone ? `<a class="btn" id="msg-sms">SMS</a>` : ''}` });
   const upd = () => { const t = $('#msg-text').value; const sms = $('#msg-sms');
     if (sms) sms.href = 'sms:+7' + phone + '?body=' + encodeURIComponent(t); };
   $('#msg-tpl').onchange = e => { $('#msg-text').value = fill(+e.target.value); upd(); };
   $('#msg-text').oninput = upd; upd();
+  const sms = $('#msg-sms'); if (sms) sms.addEventListener('click', msgSent);
 }
 
 /* ---------- ПЕРЕВОД В ДРУГУЮ ГРУППУ ---------- */
@@ -1803,8 +1828,8 @@ function vAttest(tab) {
   <label class="f"><span>Фамилия</span><input type="search" data-change="attest-q" value="${h(U.q || '')}" placeholder="Поиск"></label>
   <label class="f"><span>Допуск</span><select data-change="attest-adm">${Object.keys(admOk).map(k => opt(k, AF)).join('')}</select></label></div></div>
   <div class="print-only"><b>${h(db.settings.club)}</b> — допуск к аттестации ${D.ru(A.next)}${U.group !== 'все' ? ', ' + h(U.group) : ''}${AF !== 'все' ? ', ' + h(AF) : ''}</div>
-  <div class="card flat show-m"><ul class="list sublist">${list.map(({ a, r }) => `<li class="click" data-go="#person/${a.id}"><div class="who"><b>${h(shortName(a))}</b><span class="small">${h(a.group)} · был ${r.was} · не был ${r.missed + (r.unmarked || 0) + (r.gapSessions || 0)}${r.sick ? ' · болел ' + r.sick : ''} · турниров ${r.tourn}</span>${[r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).length ? `<span class="small">не хватает: ${[r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).join(', ')}</span>` : ''}</div>
-    <div class="subside"><b class="num">${r.pct != null ? Math.round(r.pct * 100) + '%' : '—'}</b><span class="chip ${r.status.startsWith('допущен') ? 'ok' : r.status === 'нет данных' || r.late || r.other ? 'muted' : 'bad'}">${h(r.status.replace('нет: посещаемость и турниры', 'нет: посещ. и турниры'))}</span></div></li>`).join('')}</ul></div>
+  <div class="card flat show-m"><ul class="list sublist">${list.map(({ a, r }) => `<li class="click" data-go="#person/${a.id}"><div class="who"><b>${h(shortName(a))}</b><span class="chip st ${r.status.startsWith('допущен') ? 'ok' : r.status === 'нет данных' || r.late || r.other ? 'muted' : 'bad'}">${h(r.status.replace('нет: посещаемость и турниры', 'нет: посещ. и турниры'))}</span><span class="small">${h(a.group)} · был ${r.was} · не был ${r.missed + (r.unmarked || 0) + (r.gapSessions || 0)}${r.sick ? ' · болел ' + r.sick : ''} · турниров ${r.tourn}</span>${[r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).length ? `<span class="small">не хватает: ${[r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).join(', ')}</span>` : ''}</div>
+    <div class="subside"><b class="num">${r.pct != null ? Math.round(r.pct * 100) + '%' : '—'}</b></div></li>`).join('')}</ul></div>
   <div class="card flat scroll hide-m"><table class="t"><thead><tr><th>ФИО</th><th class="hide-m">Группа</th><th class="r">Был</th><th class="r">Не был</th><th class="r hide-m" title="Занятия своей группы без отметки — считаются пропуском">Без отм.</th><th class="r hide-m">Болел</th><th class="r">Турниров</th><th class="r">Посещ.</th><th>Допуск</th><th class="hide-m">Не хватает</th><th class="no-print"></th></tr></thead><tbody>
   ${list.map(({ a, r }) => `<tr class="click" data-go="#person/${a.id}"><td>${h(shortName(a))}</td><td class="hide-m">${h(a.group)}</td><td class="r num">${r.was}</td><td class="r num">${r.missed}</td><td class="r num hide-m" title="${(r.gaps || []).map(g => 'нет отметок ' + D.ru(g.from) + '–' + D.ru(g.to) + ': ' + g.sessions + ' зан. (' + g.group + ')').join('; ')}">${(r.unmarked || 0) + (r.gapSessions || 0) || ''}</td><td class="r num hide-m">${r.sick}</td><td class="r num">${r.tourn}</td><td class="r num">${r.pct != null ? Math.round(r.pct * 100) + '%' : ''}</td>
   <td><span class="chip ${r.status.startsWith('допущен') ? 'ok' : r.status === 'нет данных' || r.late || r.other ? 'muted' : 'bad'}" title="${r.gap ? 'В эти даты у группы было ' + r.gap.sessions + ' занятий, а у человека нет ни одной отметки' : ''}">${h(r.status)}</span></td><td class="hide-m small">${r.manual ? 'расчёт: ' + h(r.auto) + (r.manual.note ? ' · ' + h(r.manual.note) : '') : [r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).join(', ')}</td><td class="no-print"><button class="btn sm" data-act="manual-admit" data-id="${a.id}" title="Допуск вручную">✎</button></td></tr>`).join('')}</tbody></table></div>
@@ -1932,7 +1957,7 @@ function vSettings() {
   <h2 style="margin-top:16px">Аттестация</h2><div class="fgrid">${L('Предыдущая аттестация', inp('attest.prev', A.prev, 'date'))}${L('Предстоящая аттестация', inp('attest.next', A.next, 'date'))}
   ${L('Порог допуска, %', inp('attest.threshold', A.threshold, 'number'))}${L('Минимум турниров', inp('attest.minTournaments', A.minTournaments, 'number'))}${L('Турниры обязательны до (лет, включительно)', inp('attest.tournamentsMaxAge', A.tournamentsMaxAge ?? 15, 'number'))}
   ${L('Пропуски по болезни', `<select data-change="set" data-path="attest.sickMode">${['не учитывать', 'учитывать'].map(x => opt(x, A.sickMode)).join('')}</select>`)}${L('Послабление на страйп', inp('attest.reliefCoef', A.reliefCoef, 'number', 'step="0.05"'))}</div></div></div>
-  <div class="card"><h2>Клуб</h2><div class="fgrid">${L('Клуб и адрес', inp('club', S.club))}${L('Главный тренер', inp('coachMain', S.coachMain))}${L('Второй тренер', inp('coachSecond', S.coachSecond))}${L('Кем присваивается пояс', inp('awardedBy', S.awardedBy))}${L('Занятий в абонементе по умолчанию', inp('defaultCount', S.defaultCount, 'number'))}${L('Начало ведения программы (суммы оплат считаются с этой даты)', inp('programStart', S.programStart || S.sickCheckFrom, 'date'))}
+  <div class="card"><h2>Клуб</h2><div class="fgrid">${L('Клуб и адрес', inp('club', S.club))}${L('Главный тренер', inp('coachMain', S.coachMain))}${L('Второй тренер', inp('coachSecond', S.coachSecond))}${L('Кем присваивается пояс', inp('awardedBy', S.awardedBy))}${L('Оператор персональных данных (ФИО полностью, для актов)', inp('operatorName', S.operatorName || S.awardedBy))}${L('Адрес оператора для актов', inp('operatorAddress', S.operatorAddress || ''))}${L('Занятий в абонементе по умолчанию', inp('defaultCount', S.defaultCount, 'number'))}${L('Начало ведения программы (суммы оплат считаются с этой даты)', inp('programStart', S.programStart || S.sickCheckFrom, 'date'))}
   <label class="f wide"><span>Пояса (по одному в строке, по порядку)</span><textarea data-change="belts" style="min-height:120px">${h(S.belts.join('\n'))}</textarea></label></div></div>
   <div class="card"><h2>Шаблоны сообщений</h2><p class="small muted">Подстановки: {имя}, {фи}, {фио}, {остаток}, {долг}, {занятий}, {дата_начала}, {дата_окончания}, {срок_оплаты}, {группа}.</p>
   ${S.templates.map((t, i) => `<fieldset><legend>${h(t.title)}</legend><input type="text" data-change="tpl" data-i="${i}" data-k="title" value="${h(t.title)}" style="margin-bottom:6px"><textarea data-change="tpl" data-i="${i}" data-k="text">${h(t.text)}</textarea><button class="btn sm danger" data-act="tpl-del" data-i="${i}" style="margin-top:6px">Удалить шаблон</button></fieldset>`).join('')}
@@ -1986,6 +2011,7 @@ function vData() {
     return `<div class="card"><h2>Срок хранения персональных данных</h2><p class="small muted">По п. 12.3.1 оферты данные хранятся 3 года после прекращения договора. Дата прекращения ставится сама, когда статус меняется на «ушёл».</p>
     ${R.expired.length ? `<h3>Срок истёк — удалить (кнопка «Удалить» в карточке), затем составить акт</h3><ul class="list">${li(R.expired)}</ul>` : '<p>Истёкших сроков нет.</p>'}
     ${R.noDate.length ? `<details><summary class="small">«Ушёл» без даты прекращения договора: ${R.noDate.length}</summary><ul class="list">${li(R.noDate)}</ul></details>` : ''}</div>`; })()}
+  ${destroyCardHTML()}
   <div class="card"><h2>Удаление</h2><button class="btn danger" data-act="wipe">Удалить все данные из этого браузера</button></div>`;
 }
 
@@ -2262,6 +2288,90 @@ function retention() {
   const left = db.athletes.filter(a => a.status === 'ушёл');
   return { expired: left.filter(a => a.endedAt && keepUntil(a.endedAt) <= ix.today), noDate: left.filter(a => !a.endedAt) };
 }
+/* ---------- журнал уничтожения персональных данных (приказ Роскомнадзора от 28.10.2022 № 179) ---------- */
+const DESTROY_REASONS = ['Истёк срок хранения (п. 12.3.1 оферты, п. 6.6 Политики)', 'Отзыв согласия на обработку персональных данных',
+  'Требование субъекта (законного представителя) об уничтожении', 'Достижение целей обработки', 'Ошибочно внесённая или дублирующая запись', 'Иная причина'];
+const PD_SYSTEM = 'Программа учёта посещений и оплат «Учёт Club D23»';
+const PD_METHOD = 'удаление записей из базы данных программы на устройстве Оператора и из её прежних версий в памяти браузера без возможности восстановления';
+function pdCategories(a) {                        // перечень категорий уничтожаемых данных — по тому, что есть у человека
+  const has = k => a[k] && String(a[k]).trim(), c = [];
+  c.push('фамилия, имя' + (has('middle') ? ', отчество' : ''));
+  if (has('birth')) c.push('дата рождения'); if (has('sex')) c.push('пол'); if (has('weight')) c.push('вес');
+  if (has('phone')) c.push('контактный телефон');
+  if (has('motherName') || has('motherPhone') || has('fatherName') || has('fatherPhone')) c.push('сведения о законных представителях (ФИО, телефоны)');
+  c.push('группа, статус, дата начала занятий' + (a.endedAt ? ' и прекращения договора' : ''));
+  const n = (l, f) => l.filter(f).length, m = (ix.marks.get(a.id) || []).length, s = (ix.subsByAth.get(a.id) || []).length;
+  if (m) c.push(`сведения о посещениях (${m})`); if (s) c.push(`сведения об оплатах и абонементах (${s})`);
+  if (n(db.freezes, x => x.athleteId === a.id) || has('medUntil')) c.push('сведения о состоянии здоровья (срок медицинского допуска, периоды болезни, даты справок)');
+  const w = n(db.awards, x => x.athleteId === a.id), t = n(db.tests, x => x.athleteId === a.id);
+  if (w) c.push(`сведения о спортивной квалификации (${w})`); if (t) c.push(`результаты контрольных нормативов (${t})`);
+  if (has('note')) c.push('примечания');
+  return c;
+}
+function openDestroy(id) {
+  const a = ix.ath.get(id); if (!a) return;
+  const used = (ix.marks.get(id) || []).length + (ix.subsByAth.get(id) || []).length, cats = pdCategories(a);
+  const expired = a.endedAt && keepUntil(a.endedAt) <= ix.today;
+  modal('Уничтожение персональных данных', `<p><b>${h(fullName(a))}</b>${a.birth ? ', ' + D.ru(a.birth) : ''}</p>
+    ${used && !expired ? `<div class="banner">Есть история: посещения и оплаты (${used}). Если человек просто ушёл — поставьте статус «ушёл», история сохранится. Уничтожайте данные, если истёк срок хранения, отозвано согласие, есть требование об уничтожении или запись ошибочная.</div>` : ''}
+    <label class="f"><span>Причина уничтожения</span><select name="reason">${DESTROY_REASONS.map(r => opt(r, expired ? DESTROY_REASONS[0] : DESTROY_REASONS[2])).join('')}</select></label>
+    ${F('note', 'Уточнение (реквизиты заявления, «иная причина»)', '')}
+    <p class="small"><b>Будут уничтожены:</b> ${h(cats.join('; '))}.</p>
+    <p class="small muted">В журнал уничтожения запишутся ФИО, перечень категорий, причина и дата — этого требует приказ Роскомнадзора № 179. Запись хранится 3 года, из неё печатаются акт и выгрузка.</p>`,
+    { submit: 'Уничтожить', onSubmit(fd) {
+      if (fd.reason === 'Иная причина' && !String(fd.note || '').trim()) { alert('Укажите причину в поле «Уточнение».'); return false; }
+      if (!confirm('Уничтожить данные: ' + fullName(a) + '? Отменить будет нельзя.')) return false;
+      destroyPerson(a, fd.reason, String(fd.note || '').trim(), cats); return true;
+    } });
+}
+function destroyPerson(a, reason, note, cats) {
+  const id = a.id, year = ix.today.slice(0, 4);
+  db.destroyLog = db.destroyLog || [];
+  const no = db.destroyLog.filter(x => x.date.slice(0, 4) === year).length + 1 + '/' + year;
+  db.destroyLog.push({ id: uid('x'), no, date: ix.today, at: new Date().toISOString(), subject: [a.last, a.first, a.middle].filter(Boolean).join(' '), categories: cats, reason, note, copiesDone: '' });
+  stripPerson(db, id);
+  rewriteSnaps(d => stripPerson(d, id));           // и из «Прежних версий» в этом браузере
+  location.hash = '#data'; persist('Данные уничтожены, запись внесена в журнал');
+  setTimeout(() => alert('Данные удалены из программы и из «Прежних версий» в этом браузере, запись внесена в журнал уничтожения («Данные»).\n\nДальше:\n1. Сохраните новую копию данных.\n2. Удалите старые файлы копий (Яндекс Диск, «Загрузки», компьютер) и CSV с его данными.\n3. Загрузите новую копию на другое устройство.\n4. В журнале нажмите «Копии очищены», затем напечатайте акт и выгрузку.'), 50);
+}
+function destroyCardHTML() {
+  const log = (db.destroyLog || []).slice().reverse(), old = log.filter(x => keepUntil(x.date) <= ix.today);
+  return `<div class="card"><h2>Журнал уничтожения персональных данных</h2>
+  <p class="small muted">Каждое уничтожение данных человека записывается сюда: ФИО, категории данных, причина, дата (приказ Роскомнадзора от 28.10.2022 № 179). Из журнала печатаются акт об уничтожении и выгрузка. Записи и акты хранятся 3 года.</p>
+  ${log.length ? `<ul class="list">${log.map(x => `<li style="flex-wrap:wrap"><div class="who"><b>№ ${h(x.no || '')} · ${D.ru(x.date)} · ${h(x.subject)}</b><span class="small">${h(x.reason)}${x.copiesDone ? ' · копии очищены ' + D.ru(x.copiesDone) : ' · <b>копии ещё не очищены</b>'}</span></div>
+    <div class="row" style="gap:6px">${x.copiesDone ? '' : `<button class="btn sm" data-act="destroy-copies" data-id="${x.id}">Копии очищены</button>`}<button class="btn sm" data-act="destroy-act" data-id="${x.id}">Акт</button><button class="btn sm" data-act="destroy-extract" data-id="${x.id}">Выгрузка</button></div></li>`).join('')}</ul>
+  <div class="row" style="margin-top:8px"><button class="btn" data-act="destroy-extract" data-id="">Выгрузка всего журнала</button>${old.length ? `<button class="btn danger" data-act="destroy-prune">Удалить записи старше 3 лет (${old.length})</button>` : ''}</div>` : '<p class="small">Записей нет.</p>'}</div>`;
+}
+function operatorLine() { const S = db.settings; return `${h(S.operatorName || S.awardedBy || '')}${S.operatorAddress ? ', ' + h(S.operatorAddress) : ', адрес: ________________________________'}`; }
+const PRINT_CSS = 'h1{font-size:14pt;text-align:center;margin:0 0 4px}h2{font-size:11pt;text-align:center;font-weight:normal;margin:0 0 12px}p{margin:4px 0}.sig{margin-top:28px}.l{display:inline-block;min-width:180px;border-bottom:1px solid #000}ol li{margin:5px 0}';
+function printDestroyExtract(list) {
+  if (!list.length) { alert('Журнал пуст.'); return; }
+  openPrint('Выгрузка из журнала уничтожения ПДн', `<h1>Выгрузка из журнала регистрации событий</h1><h2>уничтожение персональных данных в информационной системе персональных данных</h2>
+  <p><b>Оператор:</b> ${operatorLine()}</p><p><b>Информационная система:</b> ${h(PD_SYSTEM)}</p><p><b>Дата выгрузки:</b> ${D.ru(ix.today)}</p>
+  <table><thead><tr><th>№</th><th>Дата уничтожения</th><th>ФИО субъекта персональных данных</th><th>Перечень категорий уничтоженных персональных данных</th><th>Информационная система</th><th>Причина уничтожения</th></tr></thead><tbody>
+  ${list.map(x => `<tr><td>${h(x.no || '')}</td><td>${D.ru(x.date)}</td><td>${h(x.subject)}</td><td>${h(x.categories.join('; '))}</td><td>${h(PD_SYSTEM)}</td><td>${h(x.reason)}${x.note ? ' (' + h(x.note) + ')' : ''}</td></tr>`).join('')}</tbody></table>
+  <p class="sig">Оператор <span class="l"></span> / ${h(db.settings.operatorName || db.settings.awardedBy || '')} /</p>`, PRINT_CSS);
+}
+function printDestroyAct(x) {
+  const op = h(db.settings.operatorName || db.settings.awardedBy || '');
+  openPrint('Акт об уничтожении ПДн № ' + (x.no || ''), `<h1>АКТ № ${h(x.no || '')}</h1><h2>об уничтожении персональных данных</h2>
+  <p style="display:flex;justify-content:space-between"><span>г. Геленджик</span><span>«____» ____________ 20___ г.</span></p>
+  <ol>
+  <li><b>Оператор:</b> ${operatorLine()}.</li>
+  <li><b>Лицо, осуществляющее обработку по поручению Оператора:</b> уничтожение по поручению не осуществлялось.</li>
+  <li><b>Субъект персональных данных:</b> ${h(x.subject)}.</li>
+  <li><b>Лицо, уничтожившее персональные данные:</b> ${op}, Оператор (плательщик налога на профессиональный доход).</li>
+  <li><b>Перечень категорий уничтоженных персональных данных:</b> ${h(x.categories.join('; '))}.</li>
+  <li><b>Информационная система персональных данных:</b> ${h(PD_SYSTEM)}${x.copiesDone ? '; резервные копии данных программы в облачном хранилище «Яндекс Диск» и на устройствах Оператора' : ''}.</li>
+  <li><b>Материальные носители</b> (при уничтожении документов на бумажном носителе): <span class="l" style="min-width:260px"></span>, количество листов: <span class="l" style="min-width:50px"></span>.</li>
+  <li><b>Способ уничтожения:</b> ${h(PD_METHOD)}${x.copiesDone ? '; удаление файлов резервных копий, созданных до даты уничтожения (' + D.ru(x.copiesDone) + ')' : '; файлы резервных копий: <span class="l"></span>'}; документы на бумажном носителе — <span class="l"></span>.</li>
+  <li><b>Причина уничтожения:</b> ${h(x.reason)}${x.note ? ' (' + h(x.note) + ')' : ''}.</li>
+  <li><b>Дата уничтожения:</b> ${D.ru(x.date)}.</li>
+  </ol>
+  <p>Приложение: выгрузка из журнала регистрации событий в информационной системе персональных данных.</p>
+  <p class="sig">Персональные данные уничтожил: <span class="l"></span> / ${op} /</p>
+  <p style="margin-top:20px;font-size:9pt">Акт и выгрузка хранятся не менее 3 лет с даты уничтожения (п. 8.3 Политики обработки персональных данных).</p>`, PRINT_CSS);
+}
 function stripPerson(d, id) {                   // удалить человека и всё, что на него ссылается
   d.athletes = d.athletes.filter(x => x.id !== id); d.subs = d.subs.filter(p => p.athleteId !== id);
   d.awards = d.awards.filter(w => w.athleteId !== id); d.freezes = d.freezes.filter(f => f.athleteId !== id);
@@ -2333,13 +2443,15 @@ const ACT = {
     if (!t || !confirm(`Удалить запись о переводе с ${D.ru(t.date)} (${t.from} → ${t.to})? Текущая группа в карточке не изменится.`)) return;
     a.transfers = a.transfers.filter(x => x !== t); render.keepScroll = true; persist('Перевод удалён'); },
   'person-new': () => openPerson(null), 'person-edit': el => openPerson(el.dataset.id),
-  'person-del': el => { const id = el.dataset.id, a = ix.ath.get(id);
-    const used = (ix.marks.get(id) || []).length + (ix.subsByAth.get(id) || []).length;
-    if (!confirm(used ? `У ${fullName(a)} есть посещения и оплаты (${used}). Лучше поставить статус «ушёл» — история сохранится.\n\nВсё равно удалить вместе с историей?` : `Удалить ${fullName(a)}?`)) return;
-    stripPerson(db, id);
-    rewriteSnaps(d => stripPerson(d, id));         // №6: и из «Прежних версий» в этом браузере
-    closeModal(); location.hash = '#people'; persist('Удалено');
-    setTimeout(() => alert('Удалено из программы и из «Прежних версий» в этом браузере.\n\nЧеловек остался в ранее сохранённых копиях: папка на Яндекс Диске, «Загрузки» телефона, выгруженные CSV, а также в программе на другом устройстве. Для акта уничтожения: сохраните новую копию, удалите старые файлы копий, загрузите новую копию на другое устройство.'), 50); },
+  'person-del': el => openDestroy(el.dataset.id),
+  'destroy-copies': el => { const x = (db.destroyLog || []).find(y => y.id === el.dataset.id); if (!x) return;
+    if (!confirm(`Подтверждаете, что для «${x.subject}»:\n— удалены файлы копий, сохранённые до ${D.ru(x.date)}, в папке Яндекс Диска, в «Загрузках» и на компьютере;\n— удалены CSV и иные файлы с его данными;\n— на другие устройства загружена новая копия (или он удалён там вручную)?`)) return;
+    x.copiesDone = ix.today; render.keepScroll = true; persist('Отмечено: копии очищены'); },
+  'destroy-act': el => { const x = (db.destroyLog || []).find(y => y.id === el.dataset.id); if (x) printDestroyAct(x); },
+  'destroy-extract': el => { const l = db.destroyLog || []; printDestroyExtract(el.dataset.id ? l.filter(y => y.id === el.dataset.id) : l); },
+  'destroy-prune': () => { const old = (db.destroyLog || []).filter(x => keepUntil(x.date) <= ix.today);
+    if (!old.length || !confirm(`Удалить из журнала ${old.length} ${plural(old.length, 'запись', 'записи', 'записей')} старше 3 лет? Распечатанные акты храните отдельно.`)) return;
+    db.destroyLog = db.destroyLog.filter(x => !old.includes(x)); render.keepScroll = true; persist('Старые записи журнала удалены'); },
   'sub-new': el => openSub(null, el.dataset.id), 'sub-edit': el => openSub(el.dataset.id),
   'sub-del': el => { const nf = db.freezes.filter(f => f.subId === el.dataset.id).length; if (!confirm('Удалить абонемент?' + (nf ? `\n\nК нему привязана заморозка (${nf}) — её нужно будет привязать к другому абонементу.` : ''))) return; db.subs = db.subs.filter(p => p.id !== el.dataset.id); closeModal(); persist('Абонемент удалён'); },
   'no-sub': el => { const a = db.athletes.find(x => x.id === el.dataset.id); a.noSub = true; render.keepScroll = true; persist('Статус «без абонемента»: ' + shortName(a)); },
@@ -2375,9 +2487,11 @@ const ACT = {
   'freeze-mark': el => { closeModal(); markFreeze(el.dataset.id); },
   'award-new': el => openAward(null, el.dataset.id), 'award-edit': el => openAward(el.dataset.id),
   'award-del': el => { if (!confirm('Удалить запись о присвоении?')) return; db.awards = db.awards.filter(w => w.id !== el.dataset.id); closeModal(); persist('Удалено'); },
-  'msg': el => openMsg(el.dataset.id, el.dataset.tpl, el.dataset.extra ? JSON.parse(el.dataset.extra) : {}, el.dataset.sub || null),
-  'msg-share': () => { navigator.share({ text: $('#msg-text').value }).catch(() => {}); },
-  'msg-copy': () => { const t = $('#msg-text'); t.select(); (navigator.clipboard ? navigator.clipboard.writeText(t.value) : Promise.reject()).then(() => toast('Скопировано')).catch(() => { document.execCommand('copy'); toast('Скопировано'); }); },
+  'msg': el => openMsg(el.dataset.id, el.dataset.tpl, el.dataset.extra ? JSON.parse(el.dataset.extra) : {}, el.dataset.sub || null, el.dataset.key || ''),
+  'msg-share': () => { navigator.share({ text: $('#msg-text').value }).then(msgSent).catch(() => {}); },
+  'msg-copy': () => { const t = $('#msg-text'); t.select(); (navigator.clipboard ? navigator.clipboard.writeText(t.value) : Promise.reject()).then(() => toast('Скопировано')).catch(() => { document.execCommand('copy'); toast('Скопировано'); }); msgSent(); },
+  'attn-done': el => attnMark(el.dataset.key, true),
+  'attn-undo': el => attnMark(el.dataset.key, false),
   'test-add': () => openTestAdd(), 'test-protocol': () => printProtocol(),
   'test-del': el => { if (!confirm('Удалить строку сдачи?')) return; db.tests = db.tests.filter(t => t.id !== el.dataset.id); render.keepScroll = true; persist(); },
   'set-test-date': el => { ui.attest.date = el.dataset.date; ui.attest.group = 'все'; },
