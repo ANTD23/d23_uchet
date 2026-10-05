@@ -186,7 +186,9 @@ dialog form{display:flex;flex-direction:column;max-height:92vh}
   .tabbar a.on{color:#fff;font-weight:600}
   .tabbar svg{width:22px;height:22px}
   .list > li{padding:10px 12px}
-  .mk{width:36px;height:40px}
+  .mk{width:44px;height:44px}
+  .marks{gap:6px}
+  .marks .mk:first-child{margin-right:6px}            /* «+» отдельно от «н» */
   .card{padding:13px}
   .hide-m{display:none!important}
   .test-grid{grid-template-columns:repeat(3,1fr)}
@@ -246,6 +248,12 @@ dialog form{display:flex;flex-direction:column;max-height:92vh}
   h1{font-size:15pt}
 }
 
+@media (max-width:440px){                             /* узкий телефон: кнопки отметок — отдельной строкой во всю ширину */
+  .list > li:has(> .marks){flex-wrap:wrap;row-gap:6px}
+  .list > li > .marks{width:100%;display:flex}
+  .list > li > .marks .mk{flex:1;height:46px}
+}
+.toast .btn{margin-left:10px;min-height:32px;padding:4px 12px}
 </style></head>
 <body><div id="app"></div>
 <script>
@@ -261,15 +269,20 @@ const D = {
   diff(a, b) { return Math.round((D.parse(b) - D.parse(a)) / 864e5); }, // b − a, дней
   ru(s) { if (!s) return ''; const [y, m, d] = s.split('-'); return d + '.' + m + '.' + y; },
   short(s) { if (!s) return ''; const [, m, d] = s.split('-'); return d + '.' + m; },
-  age(birth, at) {                                                   // полных лет (DATEDIF "Y")
+  leap(y) { return y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0); },
+  lastDay(y, m) { return new Date(Date.UTC(y, m, 0)).getUTCDate(); },  // последний день месяца m (1–12)
+  age(birth, at) {                                                   // полных лет на дату at (день рождения включительно)
     if (!birth || !at || birth > at) return null;
-    const [by, bm, bd] = birth.split('-').map(Number), [ay, am, ad] = at.split('-').map(Number);
+    let [by, bm, bd] = birth.split('-').map(Number); const [ay, am, ad] = at.split('-').map(Number);
+    // №24: родившийся 29.02 в невисокосный год достигает возраста 28.02 — п. 3 ст. 192 ГК РФ по аналогии (ст. 6 ГК РФ):
+    // если в месяце окончания срока нет соответствующего числа, срок истекает в последний день месяца
+    if (bm === 2 && bd === 29 && !D.leap(ay)) bd = 28;
     let a = ay - by; if (am < bm || (am === bm && ad < bd)) a--; return a;
   },
   months(a, b) {                                                     // полных месяцев (DATEDIF "M")
     if (!a || !b || a > b) return null;
     const [ay, am, ad] = a.split('-').map(Number), [by, bm, bd] = b.split('-').map(Number);
-    let m = (by - ay) * 12 + (bm - am); if (bd < ad) m--; return m;
+    let m = (by - ay) * 12 + (bm - am); if (bd < ad && bd !== D.lastDay(by, bm)) m--; return m;   // п. 3 ст. 192 ГК: 31.01 + 1 мес. = 28(29).02
   },
   max(a, b) { return !a ? b : !b ? a : (a > b ? a : b); },
   min(a, b) { return !a ? b : !b ? a : (a < b ? a : b); },
@@ -337,12 +350,20 @@ function buildIndex(db, today) {
 }
 
 /* ---------- расписание ---------- */
+function daysOn(G, date) {                       // расписание группы на дату (№15: с историей изменений)
+  const hist = G && G.schedHistory;
+  if (!hist || !hist.length) return G ? G.days : [];
+  let r = hist[0].days;
+  for (const e of hist) { if (!e.from || e.from <= date) r = e.days; else break; }
+  return r;
+}
+function everScheduled(G) { return !!G && (G.days.some(Boolean) || (G.schedHistory || []).some(e => e.days.some(Boolean))); }
 function isTrainDay(ix, date, groups) {
   if (ix.holiday.has(date)) return false;
   const d = D.dow(date);
-  return groups.some(g => { const G = ix.group.get(g); return G && G.days[d]; });
+  return groups.some(g => { const G = ix.group.get(g); return G && daysOn(G, date)[d]; });
 }
-function hasSchedule(ix, groups) { return groups.some(g => { const G = ix.group.get(g); return G && G.days.some(Boolean); }); }
+function hasSchedule(ix, groups) { return groups.some(g => everScheduled(ix.group.get(g))); }
 function nthTrainDay(ix, fromInclusive, n, groups) {          // n-е занятие начиная с даты
   if (!fromInclusive || n < 1 || !hasSchedule(ix, groups)) return null;
   let d = fromInclusive, c = 0;
@@ -397,12 +418,36 @@ function computeSubs(ix) {
   for (const [aid, all] of ix.subsByAth) {
     const chains = new Map();
     for (const p of all) { const k = p.onlyGroup || ''; if (!chains.has(k)) chains.set(k, []); chains.get(k).push(p); }
-    for (const [og, list] of chains) calcChain(ix, aid, og, list);
+    const shared = withBlankCells(ix, aid, (ix.marks.get(aid) || []).map(m => ({ ...m, used: false })));   // одна отметка — одно списание на все цепочки
+    const hasMain = chains.has('');
+    const order = [...chains.keys()].sort((a, b) => (a === '') - (b === ''));       // сначала «только на группу», основной последним
+    for (const og of order) calcChain(ix, aid, og, chains.get(og), shared, hasMain);
   }
+}
+/* п. 9.3.4, 9.4: занятие по Расписанию списывается независимо от присутствия.
+   Пустая клетка у члена группы на состоявшемся занятии считается «н» (на заморозке — «б»).
+   Только для расчёта абонементов: в журнале клетка остаётся пустой, допуск считает пропуски по-своему. */
+function withBlankCells(ix, aid, list) {
+  const a = ix.ath.get(aid), cutoff = ix.db.settings.sickCheckFrom || '';
+  if (!a || !cutoff || a.payPerVisit || a.noSub || a.status === 'ушёл') return list;
+  const myDays = new Set(list.map(m => m.date));
+  const frz = ix.freezesByAth.get(aid) || [];
+  const extra = [];
+  for (let k = lowerBound(ix.sessionsSorted, cutoff, 'date'); k < ix.sessionsSorted.length; k++) {
+    const s = ix.sessionsSorted[k];
+    if (s.date >= ix.today || myDays.has(s.date) || !inGroupOn(a, s.group, s.date)) continue;
+    if (!Object.values(s.marks || {}).some(x => x === '+' || x === 'н')) continue;      // занятие не состоялось (всё «о» или пусто)
+    if (a.addedAt && s.date < a.addedAt) continue;                                      // ещё не занимался в клубе
+    const sick = frz.some(f => f.from && f.to && s.date >= f.from && s.date <= f.to);
+    extra.push({ date: s.date, group: s.group, mark: sick ? 'б' : 'н', sid: s.id, auto: true, used: false });
+    myDays.add(s.date);
+  }
+  return extra.length ? [...list, ...extra].sort((x, y) => x.date < y.date ? -1 : x.date > y.date ? 1 : 0) : list;
 }
 function setSubStatus(ix, p, r) {
   if (r.notActive) { r.status = p.pending ? 'ждём оплату' : 'не активирован'; r.tone = p.pending ? 'bad' : 'ok'; return; }
-  if (r.remaining < 0) { r.status = 'долг ' + (-r.remaining); r.tone = 'bad'; }
+  if (r.next && r.remaining > 0) { r.status = 'не израсходовано ' + r.remaining + ' (начат следующий)'; r.tone = 'bad'; r.burned = r.remaining; }
+  else if (r.remaining < 0) { r.status = 'долг ' + (-r.remaining); r.tone = 'bad'; }
   else if (r.remaining === 0) { r.status = 'использован'; r.tone = 'muted'; }
   else if (r.remaining === 1) { r.status = 'осталось 1'; r.tone = 'warn'; }
   else if (r.remaining === 2) { r.status = 'осталось 2'; r.tone = 'warn'; }
@@ -410,9 +455,9 @@ function setSubStatus(ix, p, r) {
   if (!(+p.count > 0)) { r.status = 'не указано занятий'; r.tone = 'bad'; }
   if (p.pending) { r.pending = true; r.status = 'ждём оплату'; r.tone = 'bad'; }
 }
-function calcChain(ix, aid, og, list) {
-  const marks = (ix.marks.get(aid) || []).filter(m => !og || m.group === og).map(m => ({ ...m, used: false }));
-  let cursor = '', blocked = false;
+function calcChain(ix, aid, og, list, shared, hasMain) {
+  const marks = shared.filter(m => !og || m.group === og);                     // те же объекты: флаг used общий
+  let cursor = '', blocked = false, cursorForecast = false;
   const done = [];
   for (let i = 0; i < list.length; i++) {
     const p = list[i];
@@ -426,6 +471,7 @@ function calcChain(ix, aid, og, list) {
       // 30 дней считаются со дня после оплаты, а если оплатили заранее — со дня после окончания текущего абонемента
       const base = cursor && cursor < '9999' ? D.max(p.payDate || '', D.add(cursor, -1)) : p.payDate;
       r.autoDate = p.pending || !p.payDate ? null : (cursor >= '9999' ? null : D.add(base, 30));
+      r.autoFromForecast = !!(r.autoDate && cursorForecast && cursor && D.add(cursor, -1) > (p.payDate || ''));
       if (visit && (!r.autoDate || visit.date <= r.autoDate)) { r.act = visit.date; r.first = visit.date; r.actKind = 'visit'; }
       else if (r.autoDate && ix.today >= r.autoDate) { r.act = r.autoDate; r.first = nthTrainDay(ix, r.autoDate, 1, groups) || r.autoDate; r.actKind = 'auto'; }
     }
@@ -445,24 +491,29 @@ function calcChain(ix, aid, og, list) {
       const m = marks[k];
       if (r.next && m.date >= r.next) break;
       if (m.used) continue;
+      if (m.auto && (+p.count || 0) <= 1) continue;                                   // разовая оплата — раздел 9 не применяется
       let charged = m.mark === '+' || m.mark === 'н';
       if (m.mark === 'б' && fr.some(x => x.c.mode === 'lapsed' && x.f.from && x.f.to && m.date >= x.f.from && m.date <= x.f.to)) charged = true;
+      // п. 9.5.8: «б» без оформленной заморозки списывается как пропуск (после начала ведения в программе)
+      if (m.mark === 'б' && m.date >= (ix.db.settings.sickCheckFrom || '') && !fr.some(x => x.f.from && x.f.to && m.date >= x.f.from && m.date <= x.f.to)) charged = true;
+      // п. 9.5.7 «б»: после Базовой даты и до дня возобновления занятия не списываются (пока ждём возвращения — тоже)
+      if (m.mark === 'н' && fr.some(x => x.f.subId === p.id && (x.c.mode === 'b' || x.c.mode === 'wait') && x.c.base && m.date > x.c.base && (!x.f.returned || m.date < x.f.returned))) charged = false;
       if (!charged) { if (used < cap) { if (m.mark === 'б') r.sick++; else if (m.mark === 'с') r.comp++; else if (m.mark === 'о') r.cancel++; } continue; }
       if (used >= cap) break;
-      m.used = true; used++;
+      m.used = true; used++; if (m.auto) r.blank = (r.blank || 0) + 1;
       if (m.mark === '+') r.was++; else if (m.mark === 'н') r.missed++; else { r.sick++; r.sickCharged++; }
       r.lastCharged = m.date;
     }
     r.charged = used + carry;
     r.remaining = (+p.count || 0) - r.charged;
-    if (r.remaining <= 0) { r.end = r.lastCharged || r.first; r.endKind = 'fact'; cursor = D.add(r.end, 1); }
+    if (r.remaining <= 0) { r.end = r.lastCharged || r.first; r.endKind = 'fact'; cursor = D.add(r.end, 1); cursorForecast = false; }
     else if (!hasSchedule(ix, groups)) { r.endKind = 'nosched'; cursor = '9999-12-31'; }
     else {
       let maxGroupDate = '';
       for (const g of groups) { const gd = ix.groupDates.get(g) || []; let k = r.next ? lowerBound(gd, r.next) - 1 : gd.length - 1; if (k >= 0 && gd[k] >= r.first && gd[k] > maxGroupDate) maxGroupDate = gd[k]; }
       const from = D.max(D.add(r.first, -1), maxGroupDate);
       r.end = nthTrainDay(ix, D.add(from, 1), r.remaining, groups) || ''; r.endKind = 'forecast';
-      cursor = r.end ? D.add(r.end, 1) : '9999-12-31';
+      cursor = r.end ? D.add(r.end, 1) : '9999-12-31'; cursorForecast = true;
     }
     ix.subCalc.set(p.id, r); done.push([p, r]);
   }
@@ -471,8 +522,8 @@ function calcChain(ix, aid, og, list) {
     if (m.used || m.mark !== '+') continue;
     let t = null;
     for (const [p, r] of done) if (r.first && r.first <= m.date && !(r.next && m.date >= r.next)) t = r;
-    if (!t && m.date >= (ix.db.settings.sickCheckFrom || '')) { if (!ix.unpaid.has(aid)) ix.unpaid.set(aid, []); ix.unpaid.get(aid).push(m.date); }
-    if (t) { t.was++; t.charged++; t.remaining--; t.debtVisits = (t.debtVisits || 0) + 1; (t.debtDates = t.debtDates || []).push(m.date); if (m.date > t.lastCharged) t.lastCharged = m.date; if (t.remaining <= 0) { t.end = t.lastCharged; t.endKind = 'fact'; } }
+    if (!t && (!og || !hasMain) && m.date >= (ix.db.settings.sickCheckFrom || '')) { if (!ix.unpaid.has(aid)) ix.unpaid.set(aid, []); ix.unpaid.get(aid).push(m.date); }
+    if (t) { m.used = true; t.was++; t.charged++; t.remaining--; t.debtVisits = (t.debtVisits || 0) + 1; (t.debtDates = t.debtDates || []).push(m.date); if (m.date > t.lastCharged) t.lastCharged = m.date; if (t.remaining <= 0) { t.end = t.lastCharged; t.endKind = 'fact'; } }
   }
   for (const [p, r] of done) {
     setSubStatus(ix, p, r);
@@ -492,6 +543,12 @@ function pendingSub(ix, aid) {                // абонемент «ждём �
   const l = (ix.subsByAth.get(aid) || []).filter(p => p.pending); return l.length ? l[l.length - 1] : null;
 }
 
+function nthLessonSkipping(ix, from, n, groups, skip) {   // как nthTrainDay, но без занятий, отменённых клубом (п. 9.7)
+  if (!from || n < 1 || !hasSchedule(ix, groups)) return null;
+  let d = from, c = 0;
+  for (let i = 0; i < 1500; i++) { if (isTrainDay(ix, d, groups) && !skip.has(d)) { c++; if (c === n) return d; } d = D.add(d, 1); }
+  return null;
+}
 function calcFreeze(ix, f) {
   const r = { mode: 'incomplete', ext: 0, text: '' };
   const p = f.subId ? ix.db.subs.find(s => s.id === f.subId) : null;
@@ -499,14 +556,16 @@ function calcFreeze(ix, f) {
   const groups = subGroups(ix, p);
   const first = subFirst(ix, p);
   if (!first) { r.text = 'Абонемент ещё не активирован'; return r; }
-  const base = nthTrainDay(ix, first, +p.count || 0, groups);
+  const skip = new Set((ix.marks.get(f.athleteId) || []).filter(m => m.mark === 'о').map(m => m.date));
+  const nth = (from, n) => nthLessonSkipping(ix, from, n, groups, skip);
+  const base = nth(first, +p.count || 0);
   r.base = base;
   if (!base) { r.text = 'У группы не задано расписание'; return r; }
-  r.ext = countTrainDays(ix, f.from, D.min(f.to, base), groups);
+  r.ext = trainDaysBetween(ix, f.from, D.min(f.to, base), groups).filter(d => !skip.has(d)).length;
   if (r.ext === 0) { r.mode = 'none'; r.text = 'Болезнь не пришлась на занятия в сроке абонемента — продлевать нечего'; return r; }
   r.returnBy = D.add(D.max(f.to, base), 15);                               // п. 9.5.4 «б»
-  const firstAfterBase = nthTrainDay(ix, D.add(base, 1), 1, groups);
-  const firstFromReturn = f.returned ? nthTrainDay(ix, f.returned, 1, groups) : null;
+  const firstAfterBase = nth(D.add(base, 1), 1);
+  const firstFromReturn = f.returned ? nth(f.returned, 1) : null;
   let mode;
   if (f.returned) {
     if (f.returned <= f.to) mode = 'err';
@@ -531,8 +590,8 @@ function calcFreeze(ix, f) {
   if (f.certDate) r.remindBy = mode === 'wait' ? D.add(r.returnBy, -5) : null;
   else if (mode === 'wait') r.remindBy = D.add(D.min(certBy, r.returnBy), -5);
   else if (mode === 'a' || mode === 'b') r.remindBy = D.add(certBy, -5);
-  if (r.mode === 'a') r.newEnd = nthTrainDay(ix, D.add(base, 1), r.ext, groups);
-  if (r.mode === 'b') r.newEnd = nthTrainDay(ix, f.returned, r.ext, groups);
+  if (r.mode === 'a') r.newEnd = nth(D.add(base, 1), r.ext);
+  if (r.mode === 'b') r.newEnd = nth(f.returned, r.ext);
   if (r.mode === 'lapsed') {
     r.text = lapsedByCert
       ? (f.certDate ? 'Справка получена после срока ' + D.ru(checkBy) : 'Справка не получена до ' + D.ru(checkBy)) + ' — продление прекратилось (п. 9.5.5), занятия болезни списываются'
@@ -613,7 +672,7 @@ function calcAdmissionAuto(ix, a) {
   const gapEnd = D.min(cutoff || to, D.add(to, 1));             // после начала журнала пустые клетки уже посчитаны выше
   const heldIn = (g, d1, d2) => {                               // ожидаемые занятия группы между датами (не включая)
     const G = ix.group.get(g);
-    if (G && G.bySchedule) return clubOpenDays(ix).filter(d => d > d1 && d < d2 && G.days[D.dow(d)] && !ix.holiday.has(d));
+    if (G && G.bySchedule) return clubOpenDays(ix).filter(d => d > d1 && d < d2 && daysOn(G, d)[D.dow(d)] && !ix.holiday.has(d));
     return [...new Set(ix.sessionsSorted.filter(s => s.group === g && s.date > d1 && s.date < d2 && held(s)).map(s => s.date))];
   };
   const addGap = (g, d1, d2) => { const G = ix.group.get(g), l = heldIn(g, d1, d2); if (l.length >= (G && G.bySchedule ? 1 : 4)) r.gaps.push({ from: l[0], to: l[l.length - 1], sessions: l.length, group: g }); };
@@ -629,7 +688,7 @@ function calcAdmissionAuto(ix, a) {
     const myDays = new Set((ix.marks.get(a.id) || []).map(m => m.date));
     const sessDays = new Set(ix.sessionsSorted.filter(s => s.group === g && held(s)).map(s => s.date));
     for (const d of clubOpenDays(ix)) {
-      if (d < D.max(from, cutoff) || d > to || !G.days[D.dow(d)] || ix.holiday.has(d) || myDays.has(d)) continue;
+      if (d < D.max(from, cutoff) || d > to || !daysOn(G, d)[D.dow(d)] || ix.holiday.has(d) || myDays.has(d)) continue;
       if (!sessDays.has(d)) r.unmarked++;                          // если занятие группы было — пустая клетка уже посчитана выше
     }
   }
@@ -723,7 +782,7 @@ function calcTest(ix, t) {
   if (r.monMode === 'замена' && main.filter(s => s === 'не сдал').length === 1 && failedWithRelief) r.checks.push('замена невозможна: на этом упражнении послабление');
   return r;
 }
-function calcTestResultOnly(ix, t) { const x = { ...t }; const tests = ix.db.tests; ix.db.tests = []; const r = calcTest(ix, x).result; ix.db.tests = tests; return r; }
+function calcTestResultOnly(ix, t) { const x = { ...t }; const tests = ix.db.tests; ix.db.tests = []; try { return calcTest(ix, x).result; } finally { ix.db.tests = tests; } }
 
 /* ---------- подстановка в шаблоны сообщений ---------- */
 function firstSession(ix, p) { return subFirst(ix, p) || ''; }
@@ -756,7 +815,7 @@ function fillTemplate(text, ix, a, extra = {}, subId = null) {
   return text.replace(/\{([а-яё_]+)\}/gi, (m, k) => (k.toLowerCase() in map && map[k.toLowerCase()] !== '' ? map[k.toLowerCase()] : m));
 }
 
-if (typeof module !== 'undefined') module.exports = { D, buildIndex, calcFreeze, calcAdmission, calcTest, fillTemplate, groupOn, inGroupOn, nthTrainDay, payDeadline, firstSession, fullName, shortName, cleanPhone, fmtPhone, EX };
+if (typeof module !== 'undefined') module.exports = { daysOn, D, buildIndex, calcFreeze, calcAdmission, calcTest, fillTemplate, groupOn, inGroupOn, nthTrainDay, payDeadline, firstSession, fullName, shortName, cleanPhone, fmtPhone, EX };
 
 /* ===== D23 CRM — интерфейс, часть 1 ===== */
 const OFFICIAL_TEMPLATES = [
@@ -824,28 +883,198 @@ function normalize(d) {
 function loadAll() {
   setTimeout(purgeEmptySessions, 0);
   try { const m = localStorage.getItem(LS_META); if (m) meta = Object.assign(meta, JSON.parse(m)); } catch (e) {}
-  try { const s = localStorage.getItem(LS_DB); db = s ? normalize(JSON.parse(s)) : null; } catch (e) { db = null; }
+  let s = null;
+  try { s = localStorage.getItem(LS_DB); } catch (e) {}
+  if (pinOn()) { db = null; locked = true; return; }                       // №20: данные откроются после PIN
+  if (!s) { db = null; return; }
+  if (isEnc(s)) { db = null; loadError = s; return; }                      // зашифровано, а PIN в этом браузере не настроен
+  try { db = normalize(JSON.parse(s)); } catch (e) { db = null; loadError = s; console.error('База не читается', e); }   // №10: не затираем
+}
+let loadError = null;                            // текст базы, которую не удалось прочитать (№10)
+
+/* ---------- PIN-код и шифрование данных в браузере (№20) ----------
+   Ключ AES-256-GCM выводится из PIN через PBKDF2 (310 000 итераций, соль хранится в meta).
+   В хранилище и в копиях-файлах — только шифротекст; ключ живёт в памяти до блокировки. */
+const PIN_ITER = 310000;
+let cryptoKey = null, locked = false, pinFails = 0, pinWaitUntil = 0, lockTimer = null, lastActive = Date.now(), hiddenAt = 0;
+let writeChain = Promise.resolve();
+const keyCache = new Map();                      // ключи чужих копий (соль → ключ) на время сеанса
+const pinOn = () => !!meta.pinSalt;
+const isEnc = s => typeof s === 'string' && s.startsWith('{"enc":1');
+const b64 = buf => { const b = new Uint8Array(buf); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); };
+const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function deriveKey(pin, saltB64) {
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(String(pin)), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: unb64(saltB64), iterations: PIN_ITER, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+async function encText(text, key = cryptoKey) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(text));
+  return '{"enc":1,"iv":"' + b64(iv) + '","ct":"' + b64(ct) + '"}';
+}
+async function decText(s, key = cryptoKey) {
+  const o = JSON.parse(s);
+  return new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(o.iv) }, key, unb64(o.ct)));
+}
+async function checkPin(pin) { const k = await deriveKey(pin, meta.pinSalt); await decText(meta.pinCheck, k); return k; }   // неверный PIN — исключение
+function queue(fn) { writeChain = writeChain.then(fn).catch(showError); return writeChain; }
+function storeDb(json) {                         // запись базы; при включённом PIN — шифротекст (в очереди, по порядку)
+  if (!pinOn()) return writeDbRaw(json);
+  if (!cryptoKey) return '';
+  queue(async () => { const w = writeDbRaw(await encText(json)); if (w) toast(w); });
+  return '';
+}
+function writeDbRaw(payload) {                   // №9: при нехватке места — освобождаем за счёт старых прежних версий
+  let saved = false;
+  try { localStorage.setItem(LS_DB, payload); return ''; } catch (e) {
+    try {
+      const l = JSON.parse(localStorage.getItem(LS_SNAP) || '[]');
+      while (!saved && l.length) { l.pop(); localStorage.setItem(LS_SNAP, JSON.stringify(l)); try { localStorage.setItem(LS_DB, payload); saved = true; } catch (_) {} }
+    } catch (_) {}
+    if (saved) return 'Мало места в браузере: удалены старые «Прежние версии». Сохраните копию в файл.';
+    alert('Не удалось сохранить: в браузере закончилось место. Последнее изменение НЕ сохранено. Сразу сохраните копию в файл (раздел «Данные»).');
+    return '';
+  }
+}
+async function snapText(s) { return isEnc(s.data) ? decText(s.data) : s.data; }
+function rewriteSnaps(fn) {                      // изменить все прежние версии (расшифровать → fn → зашифровать)
+  return queue(async () => {
+    let list = []; try { list = JSON.parse(localStorage.getItem(LS_SNAP) || '[]'); } catch (e) {}
+    const outL = [];
+    for (const s of list) { try { const d = JSON.parse(await snapText(s)); fn(d); const t = JSON.stringify(d); outL.push({ ...s, data: pinOn() ? await encText(t) : t }); } catch (e) {} }
+    try { localStorage.setItem(LS_SNAP, JSON.stringify(outL)); } catch (e) { localStorage.removeItem(LS_SNAP); }
+  });
+}
+async function exportPayload(pretty = true) {    // содержимое файла-копии; при PIN — зашифровано, метка времени открыта
+  const json = JSON.stringify(db, null, pretty ? 1 : 0), head = { app: 'D23CRM', version: db.version || 1, rev: db.rev, updatedAt: db.updatedAt };
+  if (!pinOn() || !cryptoKey) return json;
+  return JSON.stringify({ ...head, encSalt: meta.pinSalt, data: await encText(json) });
+}
+function lock() {
+  if (!pinOn() || locked) return;
+  queue(() => { closeModal(); db = null; ix = null; cryptoKey = null; locked = true; stopLockTimer(); location.hash = '#today'; render(); });
+}
+function lockMin() { return +meta.lockMin || 5; }
+function startLockTimer() {
+  stopLockTimer(); lastActive = Date.now();
+  lockTimer = setInterval(() => { if (pinOn() && db && Date.now() - lastActive > lockMin() * 60e3) lock(); }, 15000);
+}
+function stopLockTimer() { if (lockTimer) clearInterval(lockTimer); lockTimer = null; }
+['click', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, () => { lastActive = Date.now(); }, true));
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) hiddenAt = Date.now();
+  else if (pinOn() && db && hiddenAt && Date.now() - hiddenAt > lockMin() * 60e3) lock();
+});
+async function unlock(pin) {
+  let key; try { key = await checkPin(pin); } catch (e) { return false; }
+  cryptoKey = key; locked = false; pinFails = 0;
+  const raw = localStorage.getItem(LS_DB);
+  if (!raw) db = null;
+  else { try { db = normalize(JSON.parse(isEnc(raw) ? await decText(raw) : raw)); if (!isEnc(raw)) storeDb(JSON.stringify(db)); } catch (e) { db = null; loadError = raw; } }
+  startLockTimer(); purgeEmptySessions(); render(); return true;
+}
+async function pinEnable(pin) {                  // включить или сменить PIN: перешифровать базу и прежние версии
+  const salt = b64(crypto.getRandomValues(new Uint8Array(16))), key = await deriveKey(pin, salt);
+  const check = await encText('D23-PIN-OK', key), oldKey = cryptoKey;
+  await writeChain;
+  let list = []; try { list = JSON.parse(localStorage.getItem(LS_SNAP) || '[]'); } catch (e) {}
+  const snaps = [];
+  for (const s of list) { try { const t = isEnc(s.data) ? await decText(s.data, oldKey) : s.data; snaps.push({ ...s, data: await encText(t, key) }); } catch (e) {} }
+  const dbEnc = await encText(JSON.stringify(db), key);
+  meta.pinSalt = salt; meta.pinCheck = check; writeMeta();          // сначала meta: при сбое база откроется после PIN и в старом виде
+  localStorage.setItem(LS_DB, dbEnc); cryptoKey = key;
+  try { localStorage.setItem(LS_SNAP, JSON.stringify(snaps)); } catch (e) { localStorage.removeItem(LS_SNAP); }
+  startLockTimer();
+}
+async function pinDisable() {
+  await writeChain;
+  let list = []; try { list = JSON.parse(localStorage.getItem(LS_SNAP) || '[]'); } catch (e) {}
+  const snaps = [];
+  for (const s of list) { try { snaps.push({ ...s, data: await snapText(s) }); } catch (e) {} }
+  localStorage.setItem(LS_DB, JSON.stringify(db));
+  try { localStorage.setItem(LS_SNAP, JSON.stringify(snaps)); } catch (e) { localStorage.removeItem(LS_SNAP); }
+  delete meta.pinSalt; delete meta.pinCheck; writeMeta(); cryptoKey = null; stopLockTimer();
+}
+function pinHTML() {
+  const wait = Math.max(0, Math.ceil((pinWaitUntil - Date.now()) / 1000));
+  return `<main style="max-width:420px;margin:12vh auto;padding:0 16px"><div class="card">
+    <div class="row" style="margin-bottom:10px"><div class="mark-logo" style="background:var(--nav);color:#fff">D23</div><h1 style="margin:0">Учёт Club D23</h1></div>
+    <form id="pin-form"><label class="f"><span>PIN-код</span><input type="password" name="pin" inputmode="numeric" autocomplete="off" autofocus required ${wait ? 'disabled' : ''}></label>
+    <button class="btn primary" style="margin-top:10px;width:100%" ${wait ? 'disabled' : ''}>Открыть</button></form>
+    ${wait ? `<p class="small" style="color:var(--bad)">Слишком много неверных попыток. Подождите ${wait} с.</p>` : pinFails ? `<p class="small" style="color:var(--bad)">Неверный PIN (попыток: ${pinFails}).</p>` : ''}
+    <details style="margin-top:14px"><summary class="small">Забыли PIN?</summary><p class="small">Данные в этом браузере зашифрованы, восстановить их без PIN нельзя — так и задумано. Копии, сохранённые с PIN, тоже открываются только им. Если есть незашифрованная копия или вы помните PIN другой копии, удалите данные отсюда и загрузите её.</p>
+    <button class="btn danger sm" data-act="wipe">Удалить все данные из этого браузера</button></details></div></main>`;
+}
+document.addEventListener('submit', e => {
+  if (e.target.id !== 'pin-form') return;
+  e.preventDefault();
+  if (Date.now() < pinWaitUntil) return;
+  const pin = new FormData(e.target).get('pin');
+  e.target.querySelector('button').disabled = true;
+  unlock(pin).then(ok => {
+    if (ok) return;
+    pinFails++; if (pinFails >= 5) { pinWaitUntil = Date.now() + 30000 * Math.pow(2, pinFails - 5); setTimeout(render, pinWaitUntil - Date.now() + 100); }
+    render();
+  });
+});
+function importEncrypted(d, fname) {            // копия-файл, сохранённая с PIN
+  const tryKey = async k => { try { return await decText(d.data, k); } catch (e) { return null; } };
+  (async () => {
+    let txt = null;
+    if (cryptoKey && d.encSalt === meta.pinSalt) txt = await tryKey(cryptoKey);
+    if (!txt && keyCache.has(d.encSalt)) txt = await tryKey(keyCache.get(d.encSalt));
+    if (txt) return applyImport(txt, fname);
+    modal('Копия защищена PIN-кодом', `<p class="small">Файл «${h(fname)}» зашифрован. Введите PIN, с которым его сохранили.</p>${F('pin', 'PIN-код', '', 'password', 'inputmode="numeric" autocomplete="off" required')}`, { submit: 'Открыть', onSubmit(fd) {
+      deriveKey(fd.pin, d.encSalt).then(async k => { const t = await tryKey(k); if (!t) { alert('PIN не подходит к этой копии.'); return; } keyCache.set(d.encSalt, k); closeModal(); applyImport(t, fname); }).catch(showError);
+      return false;
+    } });
+  })().catch(showError);
+}
+function keepBroken() {                          // перед заменой повреждённой базы — скачать её файлом
+  if (!loadError) return;
+  download(copyName(true).replace(/\.json$/, '_повреждённая.json'), loadError, 'application/json');
+  loadError = null;
+}
+function brokenHTML() {
+  let snaps = []; try { snaps = JSON.parse(localStorage.getItem(LS_SNAP) || '[]'); } catch (e) {}
+  return `<main style="max-width:640px;margin:8vh auto;padding:0 16px"><div class="card">
+    <h1>Данные в браузере не читаются</h1>
+    <p>Сохранённая база повреждена. Она <b>не удалена</b>: пока вы ничего не выбрали, она остаётся в браузере как есть.</p>
+    <p>Любой вариант ниже сначала скачает повреждённые данные файлом «…_повреждённая.json» — их можно будет восстановить вручную.</p>
+    ${snaps.length ? `<h2>Вернуть прежнюю версию из этого браузера</h2><ul class="list">${snaps.map((x, i) => `<li><div class="who"><b>${new Date(x.at).toLocaleString('ru')}</b><span class="small">${h(x.reason)}</span></div><button class="btn sm" data-act="snap-restore" data-i="${i}">Вернуть</button></li>`).join('')}</ul>` : ''}
+    <div class="row" style="margin-top:14px"><button class="btn primary" data-act="import">Загрузить копию из файла</button>${window.showDirectoryPicker ? '<button class="btn" data-act="import-latest">Последняя копия из папки</button>' : ''}<button class="btn" data-act="broken-download">Только скачать повреждённые данные</button></div>
+    <p class="small muted" style="margin-top:14px">Начать с пустой базы можно в крайнем случае, кнопкой ниже.</p><button class="btn danger" data-act="start-empty">Начать с пустой базы</button></div></main>`;
 }
 function writeMeta() { try { localStorage.setItem(LS_META, JSON.stringify(meta)); } catch (e) {} }
 function snapshot(reason) {
   if (!db || !db.rev) return;
-  try {
-    const list = JSON.parse(localStorage.getItem(LS_SNAP) || '[]');
-    list.unshift({ at: new Date().toISOString(), rev: db.rev, reason, data: JSON.stringify(db) });
-    const size = list[0].data.length, maxN = Math.max(1, Math.min(5, Math.floor(2500000 / Math.max(1, size))));
-    while (list.length > maxN) list.pop();
-    localStorage.setItem(LS_SNAP, JSON.stringify(list));
-  } catch (e) { try { localStorage.removeItem(LS_SNAP); } catch (_) {} }
+  const json = JSON.stringify(db), at = new Date().toISOString(), rev = db.rev;
+  const put = data => {
+    let list = [];
+    try { list = JSON.parse(localStorage.getItem(LS_SNAP) || '[]'); if (!Array.isArray(list)) list = []; } catch (e) { list = []; }
+    list.unshift({ at, rev, reason, data });
+    list = list.slice(0, Math.max(1, Math.min(5, Math.floor(2500000 / Math.max(1, data.length)))));
+    while (list.length) {                        // №9: не помещается — убираем по одной самой старой, а не все сразу
+      try { localStorage.setItem(LS_SNAP, JSON.stringify(list)); return; } catch (e) { list.pop(); }
+    }                                            // не поместилась даже одна — прежние версии остаются как были
+  };
+  if (!pinOn()) return put(json);
+  if (cryptoKey) queue(async () => put(await encText(json)));
 }
 function persist(msg) {
   const today = D.today();
   if (meta.snapDay !== today) { snapshot('начало дня'); meta.snapDay = today; }
   db.rev = (db.rev || 0) + 1; db.updatedAt = new Date().toISOString();
-  try { localStorage.setItem(LS_DB, JSON.stringify(db)); }
-  catch (e) { alert('Не удалось сохранить: в браузере закончилось место. Сохраните копию в файл и удалите старые версии в разделе «Данные».'); }
+  const warn = storeDb(JSON.stringify(db));
   writeMeta();
   render();
-  if (msg) toast(msg);
+  if (warn || msg) toast(warn || msg);
+}
+function undoToast(msg, fn) {                    // сообщение с кнопкой «Отменить» (6 с)
+  document.querySelectorAll('.toast').forEach(x => x.remove());
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+  const b = document.createElement('button'); b.className = 'btn sm'; b.textContent = 'Отменить'; b.onclick = () => { t.remove(); fn(); };
+  t.appendChild(b); document.body.appendChild(t); setTimeout(() => t.remove(), 6000);
 }
 function toast(msg) {
   document.querySelectorAll('.toast').forEach(x => x.remove()); const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t);
@@ -913,7 +1142,8 @@ function navHTML(cur) {
   return side + bar;
 }
 function render() {
-  if (!db) { document.getElementById('app').innerHTML = welcomeHTML(); return; }
+  if (locked) { document.getElementById('app').innerHTML = pinHTML(); const i = document.querySelector('#pin-form input'); if (i && !i.disabled) i.focus(); return; }
+  if (!db) { document.getElementById('app').innerHTML = loadError ? brokenHTML() : welcomeHTML(); return; }
   ix = buildIndex(db, D.today());
   const { v, arg } = route();
   const views = { today: vToday, journal: vJournal, session: vSession, people: vPeople, person: vPerson, subs: vSubs, attest: vAttest, report: vReport, settings: vSettings, data: vData, more: vMore };
@@ -932,7 +1162,8 @@ function purgeEmptySessions() {          // открытые по ошибке �
   const cur = route().v === 'session' ? route().arg : '';
   const before = db.sessions.length;
   db.sessions = db.sessions.filter(s => s.id === cur || Object.values(s.marks || {}).some(Boolean));
-  if (db.sessions.length !== before) { db.rev = (db.rev || 0) + 1; db.updatedAt = new Date().toISOString(); try { localStorage.setItem(LS_DB, JSON.stringify(db)); } catch (e) {} }
+  // техническая чистка: метку времени и номер версии не трогаем, иначе старые данные выглядят «свежими» (№1)
+  if (db.sessions.length !== before) storeDb(JSON.stringify(db));
 }
 window.addEventListener('hashchange', () => { const d = document.getElementById('dlg'); if (d && d.open) d.close(); purgeEmptySessions(); render(); });
 
@@ -990,7 +1221,7 @@ function attention() {
   const fromM = D.max(D.add(t, -21), db.settings.sickCheckFrom || '');
   for (const ss of ix.sessionsSorted) {
     if (ss.date < fromM || ss.date > t || !ss.group || !Object.values(ss.marks).some(Boolean)) continue;
-    const G = ix.group.get(ss.group); if (!G || !G.days.some(Boolean)) continue;           // «Разово», «Гость» — без расписания, не проверяем
+    const G = ix.group.get(ss.group); if (!everScheduled(G)) continue;           // «Разово», «Гость» — без расписания, не проверяем
     const who = db.athletes.filter(a => a.status === 'занимается' && !a.payPerVisit && !ss.marks[a.id] && inGroupOn(a, ss.group, ss.date)).filter(a => {
       const c = ix.athCalc.get(a.id); return c.sub && (+c.sub.count || 0) > 1 && c.subCalc && !c.subCalc.notActive && c.subCalc.first <= ss.date; });
     if (who.length) out.push({ tone: 'warn', text: `${D.ru(ss.date)}, ${ss.group}: нет отметки у ${who.length} чел. (${who.slice(0, 4).map(shortName).join(', ')}${who.length > 4 ? '…' : ''}) — поставьте «+», «н» или «б»`, session: ss.id });
@@ -999,6 +1230,8 @@ function attention() {
   if (noGroup.length) out.push({ tone: 'warn', text: `${noGroup.length} ${plural(noGroup.length, 'занятие', 'занятия', 'занятий')} без группы (${noGroup.map(s => D.short(s.date)).join(', ')}) — выберите группу`, session: noGroup[0].id });
   const comp = db.settings.competition;
   if (comp.date && comp.date < t) out.push({ tone: 'muted', text: `Дата соревнований «${comp.name}» прошла — обновите в настройках`, go: '#settings' });
+  const R = retention();
+  if (R.expired.length) out.push({ tone: 'muted', a: R.expired[0], text: `Истёк срок хранения данных (п. 12.3.1): ${R.expired.length} ${plural(R.expired.length, 'человек', 'человека', 'человек')} — раздел «Данные»` });
   const order = { bad: 0, warn: 1, sick: 2, muted: 3 };
   return out.sort((x, y) => order[x.tone] - order[y.tone]);
 }
@@ -1007,7 +1240,7 @@ function attention() {
 function vToday() {
   const t = ix.today, dw = D.dow(t);
   const hol = ix.holiday.get(t);
-  const planned = db.settings.groups.filter(g => g.days[dw]);
+  const planned = db.settings.groups.filter(g => daysOn(g, t)[dw]);
   const todaySessions = ix.sessionsSorted.filter(s => s.date === t);
   const groupsBtns = [...new Set([...planned.map(g => g.name), ...todaySessions.map(s => s.group)])].map(g => {
     const s = todaySessions.find(x => x.group === g);
@@ -1018,8 +1251,8 @@ function vToday() {
   const comp = db.settings.competition;
   const days = comp.date && comp.date >= t ? D.diff(t, comp.date) : null;
   const active = db.athletes.filter(a => a.status === 'занимается').length;
-  const banner = dirty() && (!meta.lastExport || D.diff(meta.lastExport.slice(0, 10), t) >= 3)
-    ? `<div class="banner no-print"><div class="spacer">${meta.lastExport ? 'Копию данных не сохраняли с ' + D.ru(meta.lastExport.slice(0, 10)) : 'Копия данных ещё ни разу не сохранялась'}. Если браузер очистится, изменения пропадут.</div><button class="btn primary" data-act="export">Сохранить копию</button></div>` : '';
+  const banner = dirty() && (!meta.lastExport || Date.now() - Date.parse(meta.lastExport) > 3 * 3600e3)
+    ? `<div class="banner no-print"><div class="spacer">${meta.lastExport ? 'Есть изменения после копии от ' + new Date(meta.lastExport).toLocaleString('ru', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'Копия данных ещё ни разу не сохранялась'}. Сохраните копию, прежде чем работать на другом устройстве.</div><button class="btn primary" data-act="export">Сохранить копию</button></div>` : '';
   return `${banner}
   <div class="topline"><div><h1>${DOW_FULL[dw][0].toUpperCase() + DOW_FULL[dw].slice(1)}, ${D.ru(t)}</h1><div class="muted">Занимается: ${active}${days != null ? ' · до «' + h(comp.name) + '» ' + days + ' ' + plural(days, 'день', 'дня', 'дней') : ''}</div></div></div>
   <div class="card"><h2>Тренировки сегодня</h2>
@@ -1041,7 +1274,7 @@ function vToday() {
 /* ---------- ПОСЕЩЕНИЯ ---------- */
 function findOrCreateSession(date, group) {
   let s = db.sessions.find(x => x.date === date && x.group === group);
-  if (!s) { s = { id: uid('s'), date, group, marks: {} }; db.sessions.push(s); persist(); }
+  if (!s) { s = { id: uid('s'), date, group, marks: {} }; db.sessions.push(s); }   // сохранится с первой отметкой (№1)
   return s;
 }
 function vJournal() {
@@ -1063,14 +1296,14 @@ function vJournal() {
     return `<li class="click" data-go="#session/${s.id}"><div class="who"><b>${D.ru(s.date)}, ${DOW[D.dow(s.date)]} — ${h(s.group || 'без группы')}</b><span class="small">был ${c('+')} · не был ${c('н')}${c('б') ? ' · болел ' + c('б') : ''}${c('о') ? ' · отменено' : ''}</span></div>${!s.group ? '<span class="chip warn">нет группы</span>' : offSchedule(s) ? '<span class="chip warn" title="В этот день недели у группы нет занятий по расписанию">не по расписанию</span>' : ''}</li>`;
   }).join('')}</ul>` : '<div class="empty">Занятий пока нет. Откройте первое занятие выше.</div>'}</div>`;
 }
-function offSchedule(s) { const g = ix.group.get(s.group); return g && g.days.some(Boolean) && !g.days[D.dow(s.date)]; }
+function offSchedule(s) { const g = ix.group.get(s.group); return everScheduled(g) && !daysOn(g, s.date)[D.dow(s.date)]; }
 function suggestGroup(date) {
-  const dw = D.dow(date); const g = db.settings.groups.find(g => g.days[dw]); return g ? g.name : (db.settings.groups[0] || {}).name;
+  const dw = D.dow(date); const g = db.settings.groups.find(g => daysOn(g, date)[dw]); return g ? g.name : (db.settings.groups[0] || {}).name;
 }
 function sickOn(aid, date) { return db.freezes.some(f => f.athleteId === aid && f.from && f.to && date >= f.from && date <= f.to); }
 function sessionMembers(s) {           // только состав выбранной группы
   if (!s.group) return [];
-  return db.athletes.filter(a => inGroupOn(a, s.group, s.date) && (a.status === 'занимается' || s.marks[a.id]))
+  return db.athletes.filter(a => inGroupOn(a, s.group, s.date) && (a.status === 'занимается' || a.status === 'приостановил' || s.marks[a.id]))   // «приостановил» — в списке: занятия у них списываются
     .sort((a, b) => fullName(a).localeCompare(fullName(b), 'ru'));
 }
 function sessionOthers(s) {            // отмечены на занятии, но из других групп
@@ -1080,7 +1313,7 @@ function sessionOthers(s) {            // отмечены на занятии, 
 }
 function markRow(s, a, showGroup) {
   const m = s.marks[a.id] || '', ac = ix.athCalc.get(a.id);
-  return `<li><div class="who"><b>${h(shortName(a))}</b><span class="small row" style="gap:6px">${beltHTML(ac.belt, ac.stripes)} ${chipSub(ac)} ${chipMed(ac.med)}${sickOn(a.id, s.date) ? ' <span class="chip sick">болеет</span>' : ''}${showGroup ? ' <span class="chip muted">' + h(groupOn(a, s.date) || 'без группы') + '</span>' + (groupOn(a, s.date) && groupOn(a, s.date) !== s.group && m ? ` <button class="btn sm no-print" data-act="move-own" data-sid="${s.id}" data-aid="${a.id}">Перенести в «${h(groupOn(a, s.date))}»</button>` : '') : ''}</span></div>
+  return `<li><div class="who"><b>${h(shortName(a))}</b><span class="small row" style="gap:6px">${beltHTML(ac.belt, ac.stripes)} ${chipSub(ac)} ${chipMed(ac.med)}${a.status === 'приостановил' ? ' <span class="chip warn">приостановил</span>' : ''}${sickOn(a.id, s.date) ? ' <span class="chip sick">болеет</span>' : ''}${showGroup ? ' <span class="chip muted">' + h(groupOn(a, s.date) || 'без группы') + '</span>' + (groupOn(a, s.date) && groupOn(a, s.date) !== s.group && m ? ` <button class="btn sm no-print" data-act="move-own" data-sid="${s.id}" data-aid="${a.id}">Перенести в «${h(groupOn(a, s.date))}»</button>` : '') : ''}</span></div>
     <div class="marks">${['+', 'н', 'б', 'о', 'с'].map(k => `<button class="mk${m === k ? ' on' : ''}" data-act="mark" data-sid="${s.id}" data-aid="${a.id}" data-m="${k}" aria-label="${MARKS[k].label}">${k}</button>`).join('')}</div></li>`;
 }
 function vSession(sid) {
@@ -1098,7 +1331,7 @@ function vSession(sid) {
   ${hol ? `<div class="banner">Этот день отмечен как нерабочий: ${h(hol)}.</div>` : ''}
   ${offSchedule(s) ? `<div class="banner">По расписанию у «${h(s.group)}» нет занятий в ${DOW_FULL[D.dow(s.date)]}. Проверьте, та ли группа выбрана.</div>` : ''}
   ${!s.group ? `<div class="banner">У занятия не выбрана группа. Выберите её в списке выше — тогда появится состав группы.</div>` : ''}
-  <div class="legend" style="margin-bottom:10px"><span><b style="background:var(--ok)">+</b>был</span><span><b style="background:var(--bad)">н</b>не был, списывается</span><span><b style="background:var(--sick)">б</b>болел, заморозка</span><span><b style="background:var(--cancel)">о</b>отменено клубом</span><span><b style="background:var(--comp)">с</b>соревнования</span></div>
+  <div class="legend" style="margin-bottom:10px"><span><b style="background:var(--ok)">+</b>был</span><span><b style="background:var(--bad)">н</b>не был, списывается</span><span><b style="background:var(--sick)">б</b>болел, заморозка</span><span><b style="background:var(--cancel)">о</b>отменено клубом</span><span><b style="background:var(--comp)">с</b>соревнования</span><span class="muted">пустая клетка на состоявшемся занятии в расчёте абонемента = «н»</span></div>
   ${s.group ? `<div class="card flat"><ul class="list">${people.map(a => markRow(s, a, false)).join('') || '<li class="muted">В группе нет занимающихся.</li>'}</ul></div>` : ''}
   ${extra.length ? `<details class="card flat" ${openExtra ? 'open' : ''}><summary style="padding:12px 16px;cursor:pointer"><b>${s.group ? 'Из других групп на этом занятии' : 'Отмечены на занятии'}: ${extra.length}</b>${extra.length > 1 ? ` <button class="btn sm no-print" data-act="move-own" data-sid="${s.id}" style="margin-left:8px">Перенести всех в их группы</button>` : ''}</summary>
   <p class="small muted" style="padding:0 16px">Если отметку поставили не в ту группу, «Перенести» переставит её на занятие группы человека за эту же дату. Если человек действительно приходил в эту группу — ничего не делайте.</p><ul class="list" style="border-top:1px solid var(--line)">${extra.map(a => markRow(s, a, true)).join('')}</ul></details>` : ''}
@@ -1212,6 +1445,7 @@ function vPerson(id) {
     ${kv('Телефон', telLink(a.phone))}${kv('Мать', [h(a.motherName), telLink(a.motherPhone)].filter(Boolean).join(', '))}${kv('Отец', [h(a.fatherName), telLink(a.fatherPhone)].filter(Boolean).join(', '))}
     ${kv('Связь', c.contact ? telLink(c.contact) + ' (' + c.contactWho + ')' : (c.noParentPhone ? '<span class="chip bad">нет телефона родителя</span>' : ''))}
     ${kv('Медсправка', a.medUntil ? 'до ' + D.ru(a.medUntil) : '<span class="muted">не внесена</span>')}
+    ${kv('Согласие на сведения о здоровье', a.healthConsent ? 'получено' : '<span class="muted">не отмечено</span>')}${kv('Договор прекращён', a.endedAt ? D.ru(a.endedAt) + ' · хранить до ' + D.ru(keepUntil(a.endedAt)) : '')}
     ${kv('На турнире', c.ageForEntry != null && S.competition.date ? c.ageForEntry + ' ' + plural(c.ageForEntry, 'год', 'года', 'лет') + ' (' + h(S.competition.name) + ')' : '')}
     ${kv('Команда', a.otherTeam ? 'другая' + (a.teamName ? ' — ' + h(a.teamName) : '') + ', к аттестации не допускается' : '')}
     ${kv('Оплата', a.noSub ? 'без абонемента' : a.payPerVisit ? 'разово, за каждое посещение' : '')}${kv('В клубе с', D.ru(a.addedAt))}${kv('Примечание', h(a.note))}</dl>
@@ -1251,7 +1485,8 @@ document.addEventListener('submit', e => {
   e.target.querySelectorAll('input[type=checkbox]').forEach(cb => { if (cb.name && !cb.name.endsWith('[]')) fd[cb.name] = cb.checked; });
   fd.__multi = {};
   e.target.querySelectorAll('input[type=checkbox][name$="[]"]:checked').forEach(cb => { (fd.__multi[cb.name] = fd.__multi[cb.name] || []).push(cb.value); });
-  if (dlgSubmit && dlgSubmit(fd) !== false) closeModal();
+  let ok; try { ok = dlgSubmit && dlgSubmit(fd); } catch (err) { showError(err); return; }
+  if (dlgSubmit && ok !== false) closeModal();
 });
 const F = (name, label, val = '', type = 'text', extra = '') => `<label class="f"><span>${label}</span><input type="${type}" name="${name}" value="${h(val)}" ${extra}></label>`;
 const FS = (name, label, items, val, extra = '') => `<label class="f"><span>${label}</span><select name="${name}" ${extra}>${items.map(x => Array.isArray(x) ? opt(x[0], val, x[1]) : opt(x, val)).join('')}</select></label>`;
@@ -1268,21 +1503,31 @@ function personForm(a) {
   ${F('fatherName', 'ФИО отца', a.fatherName)}${F('fatherPhone', 'Телефон отца', a.fatherPhone, 'tel')}${FS('mainContact', 'Основной контакт', [['', 'автоматически'], 'мать', 'отец', 'спортсмен'], a.mainContact)}
   <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="otherTeam" ${a.otherTeam ? 'checked' : ''} style="width:20px;height:20px"><span><b>Другая команда</b> — занимается в клубе, но не член команды D23: к аттестации не допускается, в заявку на турнир не попадает.</span></label>
   ${F('teamName', 'Название команды (если другая)', a.teamName || '')}
-  <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="payPerVisit" ${a.payPerVisit ? 'checked' : ''} style="width:20px;height:20px"><span><b>Оплата разово</b> — ходит в группу, но платит за каждое посещение. Пропуски не отмечаются и не списываются, «Остальным «н»» его пропускает. Неоплаченные посещения видны как долг.</span></label>
+  <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="payPerVisit" ${a.payPerVisit ? 'checked' : ''} style="width:20px;height:20px"><span><b>Оплата разово</b> — ходит в группу, но платит за каждое посещение. Пропуски в журнале не отмечаются и не списываются, «Остальным «н»» его пропускает; в допуске к аттестации пропуски считаются по расписанию группы. Неоплаченные посещения видны как долг.</span></label>
   <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="noSub" ${a.noSub ? 'checked' : ''} style="width:20px;height:20px"><span><b>Без абонемента</b> — занимается бесплатно или по особой договорённости. Программа не будет напоминать об оплате.</span></label>
-  ${F('medUntil', 'Медсправка действует до', a.medUntil, 'date')}${F('addedAt', 'В клубе с (начало занятий)', a.addedAt || ix.today, 'date')}
+  <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="healthConsent" ${a.healthConsent ? 'checked' : ''} style="width:20px;height:20px"><span><b>Согласие на сведения о здоровье</b> получено (Прил. 4, разд. I, п. 3). Без него медсправку и периоды болезни не вносить (п. 12.1.1, 12.2 оферты).</span></label>
+  ${F('medUntil', 'Медсправка действует до', a.medUntil, 'date')}${F('addedAt', 'В клубе с (начало занятий)', a.addedAt || (a.id ? '' : ix.today), 'date')}
+  ${F('endedAt', 'Договор прекращён (для статуса «ушёл»)', a.endedAt || '', 'date')}
   <label class="f wide"><span>Примечание</span><textarea name="note">${h(a.note)}</textarea></label></div>
   <p class="small muted">Если человек перешёл в другую группу, используйте кнопку «Перевести» в карточке — тогда старые занятия останутся в прежней группе. Здесь группу меняйте только для исправления ошибки.</p>
   <p class="small muted">Диагнозы и медицинские подробности сюда не пишите — только дату действия справки.</p>`;
 }
-const PERSON_FIELDS = ['last', 'first', 'middle', 'sex', 'birth', 'weight', 'group', 'group2', 'status', 'phone', 'motherName', 'motherPhone', 'fatherName', 'fatherPhone', 'mainContact', 'medUntil', 'addedAt', 'note'];
+const PERSON_FIELDS = ['last', 'first', 'middle', 'sex', 'birth', 'weight', 'group', 'group2', 'status', 'phone', 'motherName', 'motherPhone', 'fatherName', 'fatherPhone', 'mainContact', 'medUntil', 'addedAt', 'endedAt', 'note'];
 function openPerson(id) {
   const a = id ? ix.ath.get(id) : { status: 'занимается' };
   modal(id ? 'Изменить данные' : 'Новый спортсмен', personForm(a), {
     extraBtn: id ? `<button type="button" class="btn danger" data-act="person-del" data-id="${id}">Удалить</button>` : '',
     onSubmit(fd) {
+      if (fd.medUntil && !fd.healthConsent) { alert('Дата медсправки — сведения о здоровье. Отметьте, что согласие получено, или очистите дату.'); return false; }
+      const norm = s => String(s || '').trim().toLowerCase().replace(/ё/g, 'е');
+      const twin = db.athletes.find(x => x.id !== id && norm(x.last) === norm(fd.last) && norm(x.first) === norm(fd.first) && (!fd.birth || !x.birth || x.birth === fd.birth));
+      if (twin && !confirm(`Уже есть: ${fullName(twin)}${twin.birth ? ', ' + D.ru(twin.birth) : ''} (${twin.status}). Это другой человек?\n\nЕсли тот же — нажмите «Отмена» и откройте его карточку.`)) return false;
       const t = id ? db.athletes.find(x => x.id === id) : { id: uid('a') };
+      const wasLeft = !!id && t.status === 'ушёл';
       for (const k of PERSON_FIELDS) t[k] = (fd[k] || '').trim();
+      if (t.status === 'ушёл' && !t.endedAt && !wasLeft) t.endedAt = ix.today;          // п. 12.3.1: от этой даты — 3 года хранения
+      if (t.status !== 'ушёл') t.endedAt = '';
+      t.healthConsent = !!fd.healthConsent;
       t.noSub = !!fd.noSub; t.payPerVisit = !!fd.payPerVisit; t.otherTeam = !!fd.otherTeam; t.teamName = (fd.teamName || '').trim();
       if (!id) db.athletes.push(t);
       persist(id ? 'Сохранено' : 'Спортсмен добавлен');
@@ -1365,7 +1610,7 @@ function openSub(id, athleteId) {
   <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:${v.pending ? 'var(--bad-bg)' : 'var(--sunk)'}"><input type="checkbox" name="pending" ${v.pending ? 'checked' : ''} style="width:20px;height:20px"><span><b>Ждём оплату</b> — человек занимается, но абонемент ещё не оплачен. Посещения списываются с него как обычно.</span></label>
   <label class="f wide"><span>Примечание</span><input type="text" name="note" value="${h(v.note)}"></label></div>
   <details style="margin-top:10px"><summary class="small">Перенос из прежнего журнала</summary><div class="fgrid" style="margin-top:8px">${F('carryWas', 'Был (перенос)', v.carryWas || 0, 'number')}${F('carryMissed', 'Не был (перенос)', v.carryMissed || 0, 'number')}</div></details>
-  ${r ? `<div class="card" style="margin:12px 0 0;background:var(--sunk)"><div class="stats"><div class="stat"><b>${r.was}</b><span class="small muted">был</span></div><div class="stat"><b>${r.missed}</b><span class="small muted">не был</span></div><div class="stat"><b>${r.sick}</b><span class="small muted">болел</span></div><div class="stat"><b>${r.remaining}</b><span class="small muted">остаток</span></div></div>
+  ${r ? `<div class="card" style="margin:12px 0 0;background:var(--sunk)"><div class="stats"><div class="stat"><b>${r.was}</b><span class="small muted">был</span></div><div class="stat"><b>${r.missed}</b><span class="small muted">не был</span></div><div class="stat"><b>${r.sick}</b><span class="small muted">болел</span></div>${r.blank ? `<div class="stat"><b>${r.blank}</b><span class="small muted">из «не был» — пустые клетки</span></div>` : ''}<div class="stat"><b>${r.remaining}</b><span class="small muted">остаток</span></div></div>
   <div class="small" style="margin-top:8px">${activationText(p, r)}</div>
   <div class="small" style="margin-top:4px">${r.end ? (r.endKind === 'fact' ? 'Последнее списанное занятие: ' : 'Окончание по расписанию: ') + D.ru(r.end) : ''}${r.notifyBy ? ' · сообщить об окончании не позднее ' + D.ru(r.notifyBy) : ''}</div></div>` : ''}`;
   modal(p ? 'Абонемент' : 'Новая оплата', body, {
@@ -1373,8 +1618,14 @@ function openSub(id, athleteId) {
     onSubmit(fd) {
       if (!fd.athleteId) { alert('Выберите спортсмена'); return false; }
       if (!(+fd.count >= 1)) { alert('Количество занятий должно быть не меньше 1'); return false; }
+      if (+fd.amount < 0) { alert('Сумма не может быть отрицательной'); return false; }
       const same = !p && db.subs.find(q => q.athleteId === fd.athleteId && q.payDate && q.payDate === fd.payDate && +q.count === +fd.count && (q.onlyGroup || '') === (fd.onlyGroup || ''));
       if (same && !confirm(`У этого человека уже записана оплата ${D.ru(fd.payDate)} на ${same.count} зан. (${(+same.amount || 0).toLocaleString('ru')} ₽). Записать ещё одну?\n\nЕсли это повтор по ошибке — нажмите «Отмена».`)) return false;
+      if (fd.start && !fd.pending) {                     // п. 9.3.2: новый не начинается, пока не истёк период текущего
+        const prev = (ix.subsByAth.get(fd.athleteId) || []).filter(q => q !== p && (q.onlyGroup || '') === (fd.onlyGroup || '') && subFirst(ix, q) && subFirst(ix, q) < fd.start).pop();
+        const pr = prev && ix.subCalc.get(prev.id);
+        if (pr && pr.remaining > 0 && !confirm(`Предыдущий абонемент (с ${D.ru(pr.first)}) ещё не истёк: осталось ${pr.remaining} зан. Если новый начнётся ${D.ru(fd.start)}, период предыдущего оборвётся (п. 9.3.2).\n\nОставьте дату активации пустой — новый начнётся сам после окончания текущего.\n\nВсё равно сохранить с этой датой?`)) return false;
+      }
       const t = p || { id: uid('p') };
       Object.assign(t, { athleteId: fd.athleteId, payDate: fd.pending ? '' : fd.payDate, start: fd.start, count: +fd.count || 0, amount: +fd.amount || 0, onlyGroup: fd.onlyGroup, carryWas: +fd.carryWas || 0, carryMissed: +fd.carryMissed || 0, note: fd.note.trim(), pending: !!fd.pending });
       if (!p) db.subs.push(t);
@@ -1415,6 +1666,8 @@ function openFreeze(id, athleteId) {
     extraBtn: f ? `<button type="button" class="btn danger" data-act="freeze-del" data-id="${f.id}">Удалить</button><button type="button" class="btn" data-act="freeze-mark" data-id="${f.id}">Проставить «б» в журнале</button><button type="button" class="btn" data-act="msg" data-id="${aid}" data-sub="${f.subId}" data-tpl="Абонемент продлён">Сообщение</button>` : '',
     onSubmit(fd) {
       if (fd.to < fd.from) { alert('Дата окончания болезни раньше начала'); return false; }
+      if (!a.healthConsent && !confirm('В карточке не отмечено согласие на сведения о здоровье. Период болезни и справка — сведения о здоровье (п. 12.2 оферты).\n\nСохранить заморозку всё равно? (Лучше сначала получить согласие и отметить его в карточке.)')) return false;
+      if (!f && db.freezes.some(x => x.subId === fd.subId)) { alert('По п. 9.5.1 заморозка оформляется однократно за период абонемента — для этого абонемента она уже есть.'); return false; }
       const t = f || { id: uid('f'), athleteId: aid };
       Object.assign(t, { subId: fd.subId, from: fd.from, to: fd.to, returned: fd.returned, certDate: fd.certDate, note: fd.note.trim() });
       if (!f) db.freezes.push(t);
@@ -1506,7 +1759,7 @@ function startLabel(p, r, short) {
   return `<span class="chip ok" title="Активируется при первом посещении${r && r.autoDate ? ', автоматически ' + D.ru(r.autoDate) : ''}">не активирован${r && r.autoDate ? ' · до ' + D.short(r.autoDate) : ''}</span>`;
 }
 function activationText(p, r) {
-  if (r.notActive) return p.pending ? 'Активируется в день первого посещения.' : `Не активирован. Активируется в день первого посещения${r.from ? ' начиная с ' + D.ru(r.from) : ''}, автоматически — ${D.ru(r.autoDate)} (п. 9.2.2). Сообщить об автоактивации до ${D.ru(r.autoNotifyBy)} (п. 9.2.3).`;
+  if (r.notActive) return p.pending ? 'Активируется в день первого посещения.' : `Не активирован. Активируется в день первого посещения${r.from ? ' начиная с ' + D.ru(r.from) : ''}, автоматически — ${D.ru(r.autoDate)} (п. 9.2.2). Сообщить об автоактивации до ${D.ru(r.autoNotifyBy)} (п. 9.2.3).${r.autoFromForecast ? ' Дата посчитана от прогнозного окончания текущего абонемента и сдвинется, если тот продлится (болезнь, отмены) — тогда сообщите клиенту новую.' : ''}`;
   if (r.actKind === 'visit') return `Активирован ${D.ru(r.first)} — первое посещение после оплаты (п. 9.2.1).`;
   if (r.actKind === 'auto') return `Активирован автоматически ${D.ru(r.act)}, первое занятие периода ${D.ru(r.first)} (п. 9.2.2, 9.3.3).`;
   return `Дата активации задана вручную: ${D.ru(r.first)}.`;
@@ -1655,11 +1908,15 @@ function vSettings() {
   const inp = (path, val, type = 'text', extra = '') => `<input type="${type}" data-change="set" data-path="${path}" value="${h(val ?? '')}" ${extra}>`;
   const L = (label, html) => `<label class="f"><span>${label}</span>${html}</label>`;
   return `<h1>Настройки</h1>
-  <div class="card"><h2>Группы и расписание</h2><p class="small muted">Отметьте дни занятий — по ним считается окончание абонементов. «Посещ. по расписанию» — для групп, куда ходят нерегулярно (например, «Разово»): для допуска к аттестации пропуском считается каждый день по расписанию, когда клуб работал, даже если в группе в этот день никого не было. При переименовании группа поменяется везде: у спортсменов, в журнале и абонементах.</p>
+  ${(() => { if (!ui.schedFrom) ui.schedFrom = ix.today; return ''; })()}
+  <div class="card"><h2>Группы и расписание</h2>
+  <label class="row small" style="gap:8px;margin:0 0 8px"><b>Изменения расписания действуют с</b><input type="date" data-change="sched-from" value="${ui.schedFrom}" style="width:auto"></label>
+  <p class="small muted">Галочки показывают расписание на эту дату. Изменение действует только с неё: прошлые занятия, сроки абонементов и заморозки до этой даты считаются по прежнему расписанию (п. 9.3.8 оферты).</p>
+  <p class="small muted">Отметьте дни занятий — по ним считается окончание абонементов. «Посещ. по расписанию» — для групп, куда ходят нерегулярно (например, «Разово»): для допуска к аттестации пропуском считается каждый день по расписанию, когда клуб работал, даже если в группе в этот день никого не было. При переименовании группа поменяется везде: у спортсменов, в журнале и абонементах.</p>
   <div class="scroll"><table class="t"><thead><tr><th>Группа</th>${DOW.map(d => `<th style="text-align:center">${d}</th>`).join('')}<th style="text-align:center" title="Для допуска к аттестации: пропуском считается каждый день по расписанию, когда клуб работал, даже если в группе никто не занимался">Посещ. по расписанию</th><th></th></tr></thead><tbody>
-  ${S.groups.map((g, i) => `<tr><td><input type="text" data-change="group-name" data-i="${i}" value="${h(g.name)}" style="min-width:140px"></td>${g.days.map((on, d) => `<td style="text-align:center"><input type="checkbox" data-change="group-day" data-i="${i}" data-d="${d}" ${on ? 'checked' : ''} style="width:20px;height:20px"></td>`).join('')}
+  ${S.groups.map((g, i) => `<tr><td><input type="text" data-change="group-name" data-i="${i}" value="${h(g.name)}" style="min-width:140px"></td>${daysOn(g, ui.schedFrom).map((on, d) => `<td style="text-align:center"><input type="checkbox" data-change="group-day" data-i="${i}" data-d="${d}" ${on ? 'checked' : ''} style="width:20px;height:20px"></td>`).join('')}
   <td style="text-align:center"><input type="checkbox" data-change="group-bysched" data-i="${i}" ${g.bySchedule ? 'checked' : ''} style="width:20px;height:20px"></td>
-  <td><button class="btn sm ghost" data-act="group-del" data-i="${i}" aria-label="Удалить группу">✕</button></td></tr>`).join('')}</tbody></table></div>
+  <td><button class="btn sm ghost" data-act="group-del" data-i="${i}" aria-label="Удалить группу">✕</button></td></tr>${(g.schedHistory || []).length > 1 ? `<tr><td colspan="10" class="small muted" style="padding-top:0">История расписания: ${g.schedHistory.map((e, k) => `${k ? 'с ' + D.ru(e.from) : 'исходное'}: ${e.days.map((x, j) => x ? DOW[j] : '').filter(Boolean).join(' ') || 'нет дней'}${k ? ` <button class="btn sm ghost" data-act="sched-del" data-i="${i}" data-from="${e.from}" aria-label="Удалить это изменение">✕</button>` : ''}`).join(' · ')}</td></tr>` : ''}`).join('')}</tbody></table></div>
   <button class="btn" data-act="group-add" style="margin-top:8px">Добавить группу</button></div>
   <div class="grid2"><div class="card"><h2>Нерабочие дни</h2><p class="small muted">Праздники, выезды на соревнования, ремонт — дни, когда занятий нет у всего клуба. В срок абонемента не засчитываются.</p>
   <ul class="list" style="max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:8px">${[...S.holidays].sort((a, b) => a.date.localeCompare(b.date)).map(x => `<li><span class="num" style="width:90px">${D.ru(x.date)}</span><span class="who small">${h(x.reason)}</span><button class="btn sm ghost" data-act="hol-del" data-date="${x.date}" aria-label="Удалить">✕</button></li>`).join('') || '<li class="muted">Нет</li>'}</ul>
@@ -1681,10 +1938,27 @@ function vData() {
   let snaps = []; try { snaps = JSON.parse(localStorage.getItem(LS_SNAP) || '[]'); } catch (e) {}
   const size = Math.round(JSON.stringify(db).length / 1024);
   return `<h1>Данные</h1>
+  <div class="card"><h2>Защита PIN-кодом</h2>
+  ${!window.crypto || !crypto.subtle ? '<p class="muted">Этот браузер не поддерживает шифрование — откройте программу по адресу https://.</p>' : pinOn() ? `
+    <p>PIN включён: данные в этом браузере и сохраняемые копии зашифрованы (AES-256). Программа блокируется после ${lockMin()} мин. бездействия или сворачивания.</p>
+    <div class="row" style="gap:8px;align-items:flex-end"><label class="f"><span>Блокировать через</span><select data-change="lockmin">${[1, 3, 5, 10, 15, 30].map(n => opt(n, lockMin(), n + ' мин.')).join('')}</select></label>
+    <button class="btn" data-act="pin-lock">Заблокировать сейчас</button></div>
+    <details style="margin-top:10px"><summary class="small">Сменить или выключить PIN</summary><div class="fgrid" style="margin-top:8px">
+    <label class="f"><span>Текущий PIN</span><input type="password" id="pin-old" inputmode="numeric" autocomplete="off"></label>
+    <label class="f"><span>Новый PIN</span><input type="password" id="pin-new" inputmode="numeric" autocomplete="off"></label>
+    <label class="f"><span>Новый PIN ещё раз</span><input type="password" id="pin-new2" inputmode="numeric" autocomplete="off"></label></div>
+    <div class="row" style="margin-top:8px"><button class="btn" data-act="pin-on">Сменить PIN</button><button class="btn danger" data-act="pin-off">Выключить PIN</button><button class="btn" data-act="export-plain">Копия без шифрования…</button></div></details>
+    <p class="small muted" style="margin-top:8px">Копии с PIN открываются на другом устройстве только с этим PIN (программа спросит его при загрузке). CSV не шифруются.</p>` : `
+    <p>Без PIN любой, кто получит телефон в разблокированном виде или файл копии, увидит данные детей и телефоны родителей. С PIN данные в браузере и копии-файлы хранятся зашифрованными.</p>
+    <p class="small"><b>Без PIN данные не восстановить.</b> Запишите его и храните отдельно от телефона. Лучше 6 цифр и больше.</p>
+    <div class="fgrid"><label class="f"><span>Новый PIN</span><input type="password" id="pin-new" inputmode="numeric" autocomplete="off"></label>
+    <label class="f"><span>Ещё раз</span><input type="password" id="pin-new2" inputmode="numeric" autocomplete="off"></label></div>
+    <button class="btn primary" data-act="pin-on" style="margin-top:8px">Включить PIN</button>`}</div>
   <div class="card"><h2>Копия в файл</h2>
   <p>База хранится в этом браузере на этом устройстве. Копия в файле нужна, чтобы ничего не потерять и чтобы работать с компьютера и телефона.</p>
   <div class="stats" style="margin:12px 0"><div class="stat"><b>${db.athletes.length}</b><span class="small muted">спортсменов</span></div><div class="stat"><b>${db.sessions.length}</b><span class="small muted">занятий</span></div><div class="stat"><b>${db.subs.length}</b><span class="small muted">абонементов</span></div><div class="stat"><b>${size} КБ</b><span class="small muted">объём</span></div></div>
   <p class="small">Последнее изменение: ${new Date(db.updatedAt).toLocaleString('ru')}. ${meta.lastExport ? 'Копия сохранена: ' + new Date(meta.lastExport).toLocaleString('ru') + (dirty() ? ' — после неё были изменения.' : ' — актуальна.') : 'Копию ещё не сохраняли.'}</p>
+  ${meta.persistent === false ? '<div class="banner">Браузер не разрешил постоянное хранение: при нехватке места на устройстве он может очистить данные программы. Сохраняйте копию после каждой тренировки. На телефоне помогает установка программы на главный экран («Добавить на главный экран»).</div>' : meta.persistent ? '<p class="small muted">Хранилище постоянное: браузер не очистит его сам при нехватке места.</p>' : ''}
   <div class="row"><button class="btn primary" data-act="export">Сохранить копию</button>${window.showDirectoryPicker ? '<button class="btn" data-act="import-latest">Загрузить последнюю копию из папки</button>' : ''}<button class="btn" data-act="import">Загрузить копию из файла…</button>${window.showDirectoryPicker ? '<button class="btn" data-act="export-new">Выбрать другую папку</button>' : ''}</div>
   <p class="small muted" style="margin-top:10px">Имя копии: <b>D23_данные_ГГГГ-ММ-ДД_ЧЧ-ММ_${isPhone() ? 'тел' : 'пк'}.json</b> — дата, время и откуда сохранено. В списке файлов самая свежая копия оказывается последней по имени.
   ${window.showDirectoryPicker ? `Копии сохраняются в папку${meta.copyDirName ? ' «' + h(meta.copyDirName) + '»' : ', которую вы выберете при первом сохранении'}.` : 'На телефоне копия сохраняется в «Загрузки» — оттуда отправьте её на Яндекс Диск.'}
@@ -1700,6 +1974,10 @@ function vData() {
   ${snaps.length ? `<ul class="list">${snaps.map((s, i) => `<li><div class="who"><b>${new Date(s.at).toLocaleString('ru')}</b><span class="small">${h(s.reason)}</span></div><button class="btn sm" data-act="snap-restore" data-i="${i}">Вернуть эту версию</button></li>`).join('')}</ul>` : '<p class="muted">Пока нет.</p>'}</div>
   <div class="card"><h2>Выгрузка таблиц</h2><div class="row"><button class="btn" data-act="people-csv">Спортсмены (CSV)</button><button class="btn" data-act="subs-csv">Абонементы (CSV)</button><button class="btn" data-act="visits-csv">Посещения (CSV)</button></div>
   <p class="small muted">CSV открывается в Excel. Файлы содержат персональные данные: храните на устройстве с паролем, организаторам соревнований передавайте только объём заявки.</p></div>
+  ${(() => { const R = retention(), li = l => l.map(a => `<li class="click" data-go="#person/${a.id}"><div class="who"><b>${h(fullName(a))}</b><span class="small">${a.endedAt ? 'договор прекращён ' + D.ru(a.endedAt) + ', хранить до ' + D.ru(keepUntil(a.endedAt)) : 'дата прекращения договора не указана'}</span></div></li>`).join('');
+    return `<div class="card"><h2>Срок хранения персональных данных</h2><p class="small muted">По п. 12.3.1 оферты данные хранятся 3 года после прекращения договора. Дата прекращения ставится сама, когда статус меняется на «ушёл».</p>
+    ${R.expired.length ? `<h3>Срок истёк — удалить (кнопка «Удалить» в карточке), затем составить акт</h3><ul class="list">${li(R.expired)}</ul>` : '<p>Истёкших сроков нет.</p>'}
+    ${R.noDate.length ? `<details><summary class="small">«Ушёл» без даты прекращения договора: ${R.noDate.length}</summary><ul class="list">${li(R.noDate)}</ul></details>` : ''}</div>`; })()}
   <div class="card"><h2>Удаление</h2><button class="btn danger" data-act="wipe">Удалить все данные из этого браузера</button></div>`;
 }
 
@@ -1726,7 +2004,7 @@ async function copyDir(ask) {                  // папка для копий �
   return dir;
 }
 async function exportData(newDir) {
-  const json = JSON.stringify(db, null, 1);
+  const json = await exportPayload();
   if (window.showDirectoryPicker) {
     try {
       if (newDir) await kvSet('copyDir', null);
@@ -1754,17 +2032,22 @@ async function pruneCopies(dir) {               // оставляем после
   files.sort((a, b) => b.t - a.t || b.n.localeCompare(a.n));
   for (const f of files.slice(keep)) { try { await dir.removeEntry(f.n); } catch (e) {} }
 }
-async function importLatest() {                 // компьютер: самая свежая копия из папки
+const IMPORT_RE = /^D23_данные_\d{4}-\d{2}-\d{2}.*\.json$/i;   // допускает «(1)» и «_до_загрузки»
+async function importLatest() {                 // компьютер: самая свежая копия из папки — по метке внутри файла (№3)
   try {
     const dir = await copyDir(true); if (!dir) return importData();
-    let best = null;
-    for await (const [n, h] of dir.entries()) {
-      if (h.kind !== 'file' || !/\.json$/i.test(n)) continue;
-      const f = await h.getFile();
-      if (!best || f.lastModified > best.lastModified) best = f;
+    let best = null, bad = 0;
+    for await (const [n, fh] of dir.entries()) {
+      if (fh.kind !== 'file' || !IMPORT_RE.test(n)) continue;
+      try {
+        const text = await (await fh.getFile()).text(), d = JSON.parse(text);
+        if (d.app !== 'D23CRM' || !d.updatedAt) { bad++; continue; }
+        if (!best || d.updatedAt > best.updatedAt) best = { updatedAt: d.updatedAt, text, name: n };
+      } catch (e) { bad++; console.warn('Пропущен файл', n, e); }
     }
     if (!best) { alert('В папке «' + dir.name + '» нет файлов копий.'); return; }
-    applyImport(await best.text(), best.name);
+    if (bad) toast('Пропущено нечитаемых файлов: ' + bad);
+    applyImport(best.text, best.name);
   } catch (e) { if (e.name !== 'AbortError') { console.warn(e); importData(); } }
 }
 function download(name, text, type) {
@@ -1777,20 +2060,43 @@ function importData() {
   inp.onchange = () => { const f = inp.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => applyImport(r.result, f.name); r.readAsText(f); };
   inp.click();
 }
+const DATA_VERSION = 1;                          // версия формата данных; повышать при изменении структуры
+function validateDb(d) {                         // минимальная проверка файла перед заменой базы
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
+  for (const k of ['athletes', 'sessions', 'subs']) if (!Array.isArray(d[k])) return 'нет раздела ' + k;
+  if (d.athletes.some(a => !a || !a.id)) return 'спортсмен без идентификатора';
+  if (new Set(d.athletes.map(a => a.id)).size !== d.athletes.length) return 'повторяющиеся идентификаторы';
+  if (d.sessions.some(s => !s || !iso.test(s.date || '') || !s.marks || typeof s.marks !== 'object')) return 'занятие с неверной датой или без отметок';
+  if (d.subs.some(p => !p || !p.athleteId || (p.payDate && !iso.test(p.payDate)) || (p.start && !iso.test(p.start)))) return 'абонемент с неверными данными';
+  return '';
+}
 function applyImport(text, fname) {
   let d; try { d = JSON.parse(text); } catch (e) { alert('Файл не читается: это не копия данных D23.'); return; }
   if (d.app !== 'D23CRM') { alert('Это не копия данных D23. Выберите файл, сохранённый этой программой.'); return; }
+  if (d.encSalt && d.data) return importEncrypted(d, fname);
+  if ((+d.version || 1) > DATA_VERSION) { alert('Файл сохранён более новой версией программы. Обновите страницу (с интернетом) и загрузите файл снова.'); return; }
+  const bad = validateDb(d); if (bad) { alert('Файл повреждён или неполный (' + bad + '). Данные не загружены.'); return; }
   if (db && db.rev) {
     const older = d.updatedAt && db.updatedAt && d.updatedAt < db.updatedAt;
     const head = `Файл: ${fname}\nДанные в файле от ${new Date(d.updatedAt).toLocaleString('ru')}\nДанные здесь от ${new Date(db.updatedAt).toLocaleString('ru')}\n\n`;
-    const msg = older
-      ? head + 'Файл СТАРЕЕ данных на этом устройстве. Заменить данные здесь более старыми? Текущая версия сохранится в «Прежних версиях».'
-      : head + 'Заменить данные на этом устройстве копией из файла? Текущая версия сохранится в «Прежних версиях».';
-    if (!confirm(msg)) return;
+    if (dirty()) {                               // №2: здесь есть изменения, которых нет ни в одной копии
+      const n = db.rev - (meta.exportedRev || 0);
+      const msg = head + `ВНИМАНИЕ: на этом устройстве ${n} ${plural(n, 'изменение', 'изменения', 'изменений')} после последней сохранённой копии (${meta.lastExport ? new Date(meta.lastExport).toLocaleString('ru') : 'копию здесь ещё не сохраняли'}). Загрузка файла их сотрёт.\n\n` +
+        (older ? 'Кроме того, файл СТАРЕЕ данных на этом устройстве.\n\n' : '') +
+        'Сейчас текущие данные будут скачаны отдельным файлом «…_до_загрузки.json» (в «Загрузки»), затем загрузится выбранный файл.\n\nПродолжить?';
+      if (!confirm(msg)) return;
+      const nm = copyName(true).replace(/\.json$/, '_до_загрузки.json'); exportPayload().then(t => download(nm, t, 'application/json')).catch(showError);
+    } else {
+      const msg = older
+        ? head + 'Файл СТАРЕЕ данных на этом устройстве. Заменить данные здесь более старыми? Текущая версия сохранится в «Прежних версиях».'
+        : head + 'Заменить данные на этом устройстве копией из файла? Текущая версия сохранится в «Прежних версиях».';
+      if (!confirm(msg)) return;
+    }
     snapshot('перед загрузкой копии');
   }
+  keepBroken();
   db = normalize(d);
-  try { localStorage.setItem(LS_DB, JSON.stringify(db)); } catch (e) { alert('Не хватает места в браузере'); }
+  { const w = storeDb(JSON.stringify(db)); if (w) setTimeout(() => toast(w), 3000); }
   meta.exportedRev = db.rev; meta.lastExport = meta.lastExport || new Date().toISOString(); meta.lastImportName = fname; meta.lastImportAt = new Date().toISOString(); writeMeta();
   location.hash = '#today'; render(); toast('Загружено: ' + fname);
 }
@@ -1805,7 +2111,7 @@ function openPrint(title, html, css = '') {
   w.document.close();
 }
 /* ---------- бланк для печати (как в книге учёта посещений) ---------- */
-function blankPeople(g, first, last) {
+function blankPeople(g, first, last) {            // в печатный бланк — только «занимается» («приостановил» вписывается вручную)
   return db.athletes.filter(a => a.status === 'занимается' && (inGroupOn(a, g, first) || inGroupOn(a, g, last)))
     .sort((a, b) => fullName(a).localeCompare(fullName(b), 'ru'));
 }
@@ -1943,7 +2249,34 @@ function printEntry() {
 }
 
 /* ---------- обработчики ---------- */
+function keepUntil(ended) { return ended ? (+ended.slice(0, 4) + 3) + ended.slice(4) : ''; }   // п. 12.3.1: 3 года после прекращения
+function retention() {
+  const left = db.athletes.filter(a => a.status === 'ушёл');
+  return { expired: left.filter(a => a.endedAt && keepUntil(a.endedAt) <= ix.today), noDate: left.filter(a => !a.endedAt) };
+}
+function stripPerson(d, id) {                   // удалить человека и всё, что на него ссылается
+  d.athletes = d.athletes.filter(x => x.id !== id); d.subs = d.subs.filter(p => p.athleteId !== id);
+  d.awards = d.awards.filter(w => w.athleteId !== id); d.freezes = d.freezes.filter(f => f.athleteId !== id);
+  d.tests = d.tests.filter(t => t.athleteId !== id); d.sessions.forEach(s => { if (s.marks) delete s.marks[id]; });
+}
 function setPath(obj, path, val) { const ks = path.split('.'); let o = obj; while (ks.length > 1) o = o[ks.shift()]; o[ks[0]] = val; }
+function setGroupDay(g, d, v, from) {           // №15: изменение дня — только с даты from, прошлое не трогаем
+  if (!(g.schedHistory || []).length) {
+    if (!db.sessions.some(s => s.group === g.name && s.date < from)) { g.days[d] = v; return 'сразу'; }   // прошлого нет — правим как есть
+    g.schedHistory = [{ from: '', days: [...g.days] }];
+  }
+  const H = g.schedHistory;
+  let e = H.find(x => x.from === from);
+  if (!e) { e = { from, days: [...daysOn(g, from)] }; H.push(e); H.sort((a, b) => (a.from || '').localeCompare(b.from || '')); }
+  e.days[d] = v;
+  normSched(g);
+  return 'с даты';
+}
+function normSched(g) {                           // убрать записи, не меняющие расписание; days = последнее расписание
+  const H = g.schedHistory || [];
+  for (let i = H.length - 1; i > 0; i--) if (H[i].days.join() === H[i - 1].days.join()) H.splice(i, 1);
+  if (H.length <= 1) { if (H.length) g.days = [...H[0].days]; delete g.schedHistory; } else g.days = [...H[H.length - 1].days];
+}
 function renameGroup(oldN, newN) {
   if (!oldN || oldN === newN) return;
   db.athletes.forEach(a => { if (a.group === oldN) a.group = newN; if (a.group2 === oldN) a.group2 = newN; });
@@ -1954,7 +2287,8 @@ function renameGroup(oldN, newN) {
 }
 const ACT = {
   'close': () => closeModal(),
-  'start-empty': () => { db = emptyDb(); persist('Пустая база создана'); },
+  'start-empty': () => { if (loadError && !confirm('Повреждённые данные будут скачаны файлом и заменены пустой базой. Продолжить?')) return; keepBroken(); db = emptyDb(); persist('Пустая база создана'); },
+  'broken-download': () => { if (loadError) download(copyName(true).replace(/\.json$/, '_повреждённая.json'), loadError, 'application/json'); },
   'export': () => exportData(false), 'export-new': () => exportData(true), 'import': () => importData(), 'import-latest': () => importLatest(),
   'print': () => window.print(),
   'open-session': el => { const s = findOrCreateSession(el.dataset.date, el.dataset.group); location.hash = '#session/' + s.id; },
@@ -1964,10 +2298,16 @@ const ACT = {
   'jmonth': el => { ui.journal.month = el.dataset.m; rerender(); },
   'mark': el => { const s = db.sessions.find(x => x.id === el.dataset.sid); const cur = s.marks[el.dataset.aid];
     if (cur === el.dataset.m) delete s.marks[el.dataset.aid]; else s.marks[el.dataset.aid] = el.dataset.m; render.keepScroll = true; persist(); },
-  'mark-all': el => { const s = db.sessions.find(x => x.id === el.dataset.id); const m = el.dataset.m;
+  'mark-all': el => { const s = db.sessions.find(x => x.id === el.dataset.id); const m = el.dataset.m; const before = JSON.stringify(s.marks);
     if (m === 'о' && !confirm('Отметить занятие отменённым для всех? Оно не спишется ни у кого.')) return;
-    sessionMembers(s).forEach(a => { if (m === 'о') s.marks[a.id] = m; else if (!s.marks[a.id] && !a.payPerVisit) s.marks[a.id] = sickOn(a.id, s.date) ? 'б' : m; }); render.keepScroll = true; persist(); },
-  'mark-rest': el => { const s = db.sessions.find(x => x.id === el.dataset.id); sessionMembers(s).forEach(a => { if (!s.marks[a.id] && !a.payPerVisit) s.marks[a.id] = sickOn(a.id, s.date) ? 'б' : 'н'; }); render.keepScroll = true; persist(); },
+    if (m === '+') { const n = sessionMembers(s).filter(a => !s.marks[a.id] && !a.payPerVisit && a.status !== 'приостановил').length;
+      if (!n) { toast('Все уже отмечены'); return; }
+      if (!confirm(`Поставить «был» всем неотмеченным (${n} ${plural(n, 'человек', 'человека', 'человек')})?`)) return; }
+    setTimeout(() => undoToast(m === 'о' ? 'Занятие отменено' : 'Отмечено', () => { s.marks = JSON.parse(before); render.keepScroll = true; persist('Отметки возвращены'); }), 0);
+    sessionMembers(s).forEach(a => { if (m === 'о') s.marks[a.id] = m; else if (!s.marks[a.id] && !a.payPerVisit && !(m === '+' && a.status === 'приостановил')) s.marks[a.id] = sickOn(a.id, s.date) ? 'б' : m; }); render.keepScroll = true; persist(); },
+  'mark-rest': el => { const s = db.sessions.find(x => x.id === el.dataset.id); const before = JSON.stringify(s.marks);
+    setTimeout(() => undoToast('Остальным поставлено «н»', () => { s.marks = JSON.parse(before); render.keepScroll = true; persist('Отметки возвращены'); }), 0);
+    sessionMembers(s).forEach(a => { if (!s.marks[a.id] && !a.payPerVisit) s.marks[a.id] = sickOn(a.id, s.date) ? 'б' : 'н'; }); render.keepScroll = true; persist(); },
   'session-add': el => { const id = $('#add-to-session').value; if (!id) return; const s = db.sessions.find(x => x.id === el.dataset.id); s.marks[id] = '+'; ui.openOthers = s.id; render.keepScroll = true; persist('Добавлен на занятие'); },
   'session-del': el => { const s = db.sessions.find(x => x.id === el.dataset.id); const n = Object.keys(s.marks).length;
     if (!confirm(`Удалить занятие ${D.ru(s.date)}${n ? ' и ' + n + ' отметок' : ''}?`)) return; db.sessions = db.sessions.filter(x => x !== s); location.hash = '#journal'; persist('Занятие удалено'); },
@@ -1988,9 +2328,10 @@ const ACT = {
   'person-del': el => { const id = el.dataset.id, a = ix.ath.get(id);
     const used = (ix.marks.get(id) || []).length + (ix.subsByAth.get(id) || []).length;
     if (!confirm(used ? `У ${fullName(a)} есть посещения и оплаты (${used}). Лучше поставить статус «ушёл» — история сохранится.\n\nВсё равно удалить вместе с историей?` : `Удалить ${fullName(a)}?`)) return;
-    db.athletes = db.athletes.filter(x => x.id !== id); db.subs = db.subs.filter(p => p.athleteId !== id); db.awards = db.awards.filter(w => w.athleteId !== id);
-    db.freezes = db.freezes.filter(f => f.athleteId !== id); db.tests = db.tests.filter(t => t.athleteId !== id); db.sessions.forEach(s => delete s.marks[id]);
-    closeModal(); location.hash = '#people'; persist('Удалено'); },
+    stripPerson(db, id);
+    rewriteSnaps(d => stripPerson(d, id));         // №6: и из «Прежних версий» в этом браузере
+    closeModal(); location.hash = '#people'; persist('Удалено');
+    setTimeout(() => alert('Удалено из программы и из «Прежних версий» в этом браузере.\n\nЧеловек остался в ранее сохранённых копиях: папка на Яндекс Диске, «Загрузки» телефона, выгруженные CSV, а также в программе на другом устройстве. Для акта уничтожения: сохраните новую копию, удалите старые файлы копий, загрузите новую копию на другое устройство.'), 50); },
   'sub-new': el => openSub(null, el.dataset.id), 'sub-edit': el => openSub(el.dataset.id),
   'sub-del': el => { const nf = db.freezes.filter(f => f.subId === el.dataset.id).length; if (!confirm('Удалить абонемент?' + (nf ? `\n\nК нему привязана заморозка (${nf}) — её нужно будет привязать к другому абонементу.` : ''))) return; db.subs = db.subs.filter(p => p.id !== el.dataset.id); closeModal(); persist('Абонемент удалён'); },
   'no-sub': el => { const a = db.athletes.find(x => x.id === el.dataset.id); a.noSub = true; render.keepScroll = true; persist('Статус «без абонемента»: ' + shortName(a)); },
@@ -2035,6 +2376,8 @@ const ACT = {
   'check-all': () => document.querySelectorAll('#dlg .picklist input[type=checkbox]').forEach(c => c.checked = true),
   'norm-add': () => { db.settings.norms.push({ track: '', sex: '', from: '', to: '' }); rerender(); persist(); },
   'norm-del-last': () => { if (confirm('Удалить последнюю строку норм?')) { db.settings.norms.pop(); render.keepScroll = true; persist(); } },
+  'sched-del': el => { const g = db.settings.groups[+el.dataset.i]; if (!g || !confirm('Удалить изменение расписания «' + g.name + '» с ' + D.ru(el.dataset.from) + '? С этой даты снова будет действовать предыдущее расписание.')) return;
+    g.schedHistory = (g.schedHistory || []).filter(x => x.from !== el.dataset.from); normSched(g); render.keepScroll = true; persist('Изменение расписания удалено'); },
   'group-add': () => { db.settings.groups.push({ name: 'Новая группа', days: [false, false, false, false, false, false, false] }); render.keepScroll = true; persist(); },
   'group-del': el => { const g = db.settings.groups[+el.dataset.i]; const used = db.athletes.filter(a => a.group === g.name || a.group2 === g.name).length + db.sessions.filter(s => s.group === g.name).length;
     if (used && !confirm(`Группа «${g.name}» используется (${used}). Удалить её из списка? Записи в журнале и у спортсменов останутся с этим названием.`)) return; db.settings.groups.splice(+el.dataset.i, 1); render.keepScroll = true; persist(); },
@@ -2043,26 +2386,41 @@ const ACT = {
   'tpl-add': () => { db.settings.templates.push({ title: 'Новый шаблон', text: 'Здравствуйте! ' }); render.keepScroll = true; persist(); },
   'tpl-del': el => { if (confirm('Удалить шаблон?')) { db.settings.templates.splice(+el.dataset.i, 1); render.keepScroll = true; persist(); } },
   'people-print': () => window.print(), 'people-entry': () => printEntry(),
-  'people-csv': () => { const rows = [['ФИО', 'Пол', 'Дата рождения', 'Возраст', 'Группа', 'Вторая группа', 'Статус', 'Пояс', 'Страйпы', 'Вес', 'Телефон', 'Мать', 'Тел. матери', 'Отец', 'Тел. отца', 'Медсправка до', 'Примечание']];
+  'people-csv': () => { if (pinOn() && !confirm('CSV не шифруется: в файле будут открытые персональные данные. Продолжить?')) return; const rows = [['ФИО', 'Пол', 'Дата рождения', 'Возраст', 'Группа', 'Вторая группа', 'Статус', 'Пояс', 'Страйпы', 'Вес', 'Телефон', 'Мать', 'Тел. матери', 'Отец', 'Тел. отца', 'Медсправка до', 'Примечание']];
     (location.hash.startsWith('#people') ? filteredPeople() : db.athletes).forEach(a => { const c = ix.athCalc.get(a.id); rows.push([fullName(a), a.sex, D.ru(a.birth), c.age ?? '', a.group, a.group2, a.status, c.belt, c.stripes || '', a.weight, a.phone, a.motherName, a.motherPhone, a.fatherName, a.fatherPhone, D.ru(a.medUntil), a.note]); });
     download('D23_спортсмены_' + ix.today + '.csv', csv(rows), 'text/csv'); },
-  'subs-csv': () => { const rows = [['ФИО', 'Группа', 'Только на группу', 'Дата оплаты', 'Действует с', 'Занятий', 'Сумма', 'Был', 'Не был', 'Болел', 'Остаток', 'Окончание', 'Статус', 'Примечание']];
+  'subs-csv': () => { if (pinOn() && !confirm('CSV не шифруется: в файле будут открытые персональные данные. Продолжить?')) return; const rows = [['ФИО', 'Группа', 'Только на группу', 'Дата оплаты', 'Действует с', 'Занятий', 'Сумма', 'Был', 'Не был', 'Болел', 'Остаток', 'Окончание', 'Статус', 'Примечание']];
     db.subs.forEach(p => { const a = ix.ath.get(p.athleteId), r = ix.subCalc.get(p.id); if (a) rows.push([fullName(a), a.group, p.onlyGroup, p.pending ? 'ждём оплату' : D.ru(p.payDate), r.first ? D.ru(r.first) : 'не активирован', p.count, p.pending ? '' : p.amount, r.was, r.missed, r.sick, r.remaining, D.ru(r.end), r.status, p.note]); });
     download('D23_абонементы_' + ix.today + '.csv', csv(rows), 'text/csv'); },
-  'visits-csv': () => { const rows = [['Дата', 'День', 'Группа', 'ФИО', 'Отметка']];
+  'visits-csv': () => { if (pinOn() && !confirm('CSV не шифруется: в файле будут открытые персональные данные. Продолжить?')) return; const rows = [['Дата', 'День', 'Группа', 'ФИО', 'Отметка']];
     ix.sessionsSorted.forEach(s => Object.entries(s.marks).forEach(([id, m]) => { const a = ix.ath.get(id); if (a) rows.push([D.ru(s.date), DOW[D.dow(s.date)], s.group, fullName(a), m]); }));
     download('D23_посещения_' + ix.today + '.csv', csv(rows), 'text/csv'); },
   'snap-restore': el => { const snaps = JSON.parse(localStorage.getItem(LS_SNAP) || '[]'); const s = snaps[+el.dataset.i];
     if (!s || !confirm('Вернуть версию от ' + new Date(s.at).toLocaleString('ru') + '? Текущие данные сохранятся как прежняя версия.')) return;
-    snapshot('перед возвратом версии'); db = normalize(JSON.parse(s.data)); persist('Версия восстановлена'); },
+    snapText(s).then(t => normalize(JSON.parse(t))).then(nd => { snapshot('перед возвратом версии'); keepBroken(); db = nd; persist('Версия восстановлена'); },
+      () => alert('Эта версия тоже не читается — выберите другую или загрузите копию из файла.')); },
   'wipe': () => { if (!confirm('Удалить все данные из этого браузера? Сначала сохраните копию в файл.')) return; if (prompt('Для подтверждения напишите: УДАЛИТЬ') !== 'УДАЛИТЬ') return;
-    localStorage.removeItem(LS_DB); localStorage.removeItem(LS_SNAP); localStorage.removeItem(LS_META); db = null; meta = { lastExport: null, exportedRev: 0 }; render(); },
+    localStorage.removeItem(LS_DB); localStorage.removeItem(LS_SNAP); localStorage.removeItem(LS_META); db = null; loadError = null; cryptoKey = null; locked = false; stopLockTimer(); meta = { lastExport: null, exportedRev: 0 }; render(); },
+  'pin-lock': () => lock(),
+  'pin-on': () => {
+    const a = ($('#pin-new') || {}).value || '', b = ($('#pin-new2') || {}).value || '', old = ($('#pin-old') || {}).value || '';
+    if (a.length < 4) { alert('PIN — не короче 4 символов. Лучше 6 цифр и больше.'); return; }
+    if (a !== b) { alert('PIN и повтор не совпадают.'); return; }
+    if (!confirm('ВАЖНО: без PIN данные в этом браузере и копии, сохранённые с ним, открыть будет невозможно — восстановления нет.\n\nЗапишите PIN и храните отдельно от телефона. Продолжить?')) return;
+    (async () => { if (pinOn()) { try { await checkPin(old); } catch (e) { alert('Текущий PIN неверный.'); return; } }
+      const was = pinOn(); await pinEnable(a); rerender(); toast(was ? 'PIN изменён' : 'PIN включён: данные в браузере зашифрованы'); })().catch(showError); },
+  'pin-off': () => {
+    const old = ($('#pin-old') || {}).value || '';
+    if (!confirm('Выключить PIN? Данные в браузере будут храниться незашифрованными.')) return;
+    (async () => { try { await checkPin(old); } catch (e) { alert('Введите текущий PIN в поле «Текущий PIN».'); return; } await pinDisable(); rerender(); toast('PIN выключен'); })().catch(showError); },
+  'export-plain': () => { if (!confirm('Сохранить копию БЕЗ шифрования? Её откроет любой, у кого окажется файл. Храните только в надёжном месте.')) return;
+    download(copyName(true).replace(/\.json$/, '_без_PIN.json'), JSON.stringify(db, null, 1), 'application/json'); },
 };
 document.addEventListener('click', e => {
   const act = e.target.closest('[data-act]');
   if (act && !(act.tagName === 'INPUT' || act.tagName === 'SELECT')) {
     const fn = ACT[act.dataset.act];
-    if (fn) { e.preventDefault(); fn(act, e); }
+    if (fn) { e.preventDefault(); try { fn(act, e); } catch (err) { showError(err); } }
     if (act.dataset.go) location.hash = act.dataset.go;
     return;
   }
@@ -2107,11 +2465,16 @@ function onChange(e) {
     if (db.settings.groups.some((x, i) => i !== +el.dataset.i && x.name === nn)) { alert('Группа с таким названием уже есть'); rerender(); return; }
     renameGroup(g.name, nn); g.name = nn; render.keepScroll = true; persist('Группа переименована'); }
   else if (k === 'group-bysched') { db.settings.groups[+el.dataset.i].bySchedule = v; render.keepScroll = true; persist(v ? 'Посещаемость группы — по расписанию' : 'Посещаемость группы — по проведённым занятиям'); }
-  else if (k === 'group-day') { db.settings.groups[+el.dataset.i].days[+el.dataset.d] = v; render.keepScroll = true; persist(); }
+  else if (k === 'group-day') { const g = db.settings.groups[+el.dataset.i], from = ui.schedFrom || ix.today;
+    const how = setGroupDay(g, +el.dataset.d, v, from); render.keepScroll = true; persist(how === 'сразу' ? 'Расписание изменено' : 'Расписание «' + g.name + '» изменено с ' + D.ru(from)); }
+  else if (k === 'lockmin') { meta.lockMin = +v; writeMeta(); rerender(); }
+  else if (k === 'sched-from') { if (v) { ui.schedFrom = v; rerender(); } }
 }
-document.addEventListener('change', onChange);
+function safeChange(e) { try { onChange(e); } catch (err) { showError(err); } }
+function showError(err) { console.error(err); alert('Ошибка: ' + (err && err.message || err) + '\nДействие не выполнено. Если повторяется — сохраните копию данных и опишите, что нажимали.'); }
+document.addEventListener('change', safeChange);
 document.addEventListener('toggle', e => { if (e.target.matches && e.target.matches('details[data-filt]')) ui.peopleFiltOpen = e.target.open; }, true);
-document.addEventListener('input', onChange);
+document.addEventListener('input', safeChange);
 
 /* установка как приложение и работа без интернета — только когда программа открыта как сайт (https) */
 if (location.protocol === 'https:' || location.hostname === 'localhost') {
@@ -2119,5 +2482,8 @@ if (location.protocol === 'https:' || location.hostname === 'localhost') {
   if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
 loadAll(); render();
+// №7: просим браузер не очищать хранилище при нехватке места
+if (navigator.storage && navigator.storage.persist) navigator.storage.persisted()
+  .then(p => p || navigator.storage.persist()).then(ok => { meta.persistent = !!ok; writeMeta(); if (route().v === 'data') rerender(); }).catch(() => {});
 
 </script></body></html>
