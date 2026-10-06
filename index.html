@@ -1558,7 +1558,7 @@ function personForm(a) {
   ${F('teamName', 'Название команды (если другая)', a.teamName || '')}
   <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="payPerVisit" ${a.payPerVisit ? 'checked' : ''} style="width:20px;height:20px"><span><b>Оплата разово</b> — ходит в группу, но платит за каждое посещение. Пропуски в журнале не отмечаются и не списываются, «Остальным «н»» его пропускает; в допуске к аттестации пропуски считаются по расписанию группы. Неоплаченные посещения видны как долг.</span></label>
   <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="noSub" ${a.noSub ? 'checked' : ''} style="width:20px;height:20px"><span><b>Без абонемента</b> — занимается бесплатно или по особой договорённости. Программа не будет напоминать об оплате.</span></label>
-  <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="healthConsent" ${a.healthConsent ? 'checked' : ''} style="width:20px;height:20px"><span><b>Согласие на сведения о здоровье</b> получено (Прил. 4, разд. I, п. 3). Без него медсправку и периоды болезни не вносить (п. 12.1.1, 12.2 оферты).</span></label>
+  <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="healthConsent" ${a.healthConsent ? 'checked' : ''} style="width:20px;height:20px"><span><b>Согласие на сведения о здоровье</b> получено (Бланк № 2.1). Без него медсправку и периоды болезни не вносить (п. 12.1.1, 12.2 оферты).</span></label>
   ${F('medUntil', 'Медсправка действует до', a.medUntil, 'date')}${F('addedAt', 'В клубе с (начало занятий)', a.addedAt || (a.id ? '' : ix.today), 'date')}
   ${F('endedAt', 'Договор прекращён (для статуса «ушёл»)', a.endedAt || '', 'date')}
   <label class="f wide"><span>Примечание</span><textarea name="note">${h(a.note)}</textarea></label></div>
@@ -1657,7 +1657,7 @@ function openSub(id, athleteId) {
   const body = `<div class="fgrid">${aid && p ? `<input type="hidden" name="athleteId" value="${aid}"><div class="wide"><b>${h(fullName(ix.ath.get(aid)))}</b></div>` : FS('athleteId', 'Спортсмен', [['', '— выберите —'], ...athleteOptions(aid)], aid, 'required class="wide"')}
   ${F('payDate', 'Дата оплаты', v.payDate, 'date')}${F('start', 'Дата активации (пусто — автоматически)', v.start, 'date')}
   <p class="small wide" id="unpaid-note" style="margin:-4px 0 0;${up.length ? '' : 'display:none'}"><b>Есть неоплаченные посещения: ${up.map(d => D.short(d)).join(', ')}.</b> Дата активации поставлена на первое из них, чтобы оплата их покрыла.</p>
-  <p class="small muted wide" style="margin:-4px 0 0">Пусто: абонемент активируется сам в день первого посещения после оплаты, а если посещений не будет — на 30-й день после оплаты (п. 9.2). Дату ставьте вручную, только если нужно иначе.</p>
+  <p class="small muted wide" style="margin:-4px 0 0">Пусто: абонемент активируется сам в день первого посещения после оплаты (при оплате заранее — первого посещения после окончания текущего), а если посещений не будет — на 30-й день: считая со следующего дня после оплаты, а при оплате заранее — со следующего дня после окончания текущего абонемента (п. 9.2). Дату ставьте вручную, только если нужно иначе.</p>
   ${F('count', 'Оплачено занятий', v.count, 'number', 'min="1" inputmode="numeric" required')}${F('amount', 'Сумма, ₽', v.amount, 'number', 'inputmode="numeric"')}
   ${FS('onlyGroup', 'Абонемент только на группу', [['', 'все группы человека'], ...db.settings.groups.map(g => g.name)], v.onlyGroup)}
   <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:${v.pending ? 'var(--bad-bg)' : 'var(--sunk)'}"><input type="checkbox" name="pending" ${v.pending ? 'checked' : ''} style="width:20px;height:20px"><span><b>Ждём оплату</b> — человек занимается, но абонемент ещё не оплачен. Посещения списываются с него как обычно.</span></label>
@@ -1748,7 +1748,7 @@ function openAward(id, athleteId) {
   const body = `<div class="fgrid">${FS('athleteId', 'Спортсмен', [['', '— выберите —'], ...athleteOptions(v.athleteId)], v.athleteId, 'required class="wide"')}
   ${F('date', 'Дата аттестации', v.date, 'date', 'required')}${FS('belt', 'Пояс', db.settings.belts, v.belt)}${FS('stripes', 'Страйпы', [0, 1, 2, 3, 4], v.stripes)}
   ${F('by', 'Кем присвоено', v.by)}<label class="f wide"><span>Примечание</span><input type="text" name="note" value="${h(v.note)}"></label></div>
-  <p class="small muted">Сюда вносится итог — когда сданы все три этапа. Пояс и страйпы в карточке берутся из последней записи.</p>`;
+  <p class="small muted">Сюда вносится итог — когда сданы оба этапа (нормативы и техника). Пояс и страйпы в карточке берутся из последней записи.</p>`;
   modal(w ? 'Присвоение пояса' : 'Присвоить пояс', body, {
     extraBtn: w ? `<button type="button" class="btn danger" data-act="award-del" data-id="${w.id}">Удалить</button>` : '',
     onSubmit(fd) {
