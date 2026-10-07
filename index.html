@@ -160,7 +160,10 @@ table.t tr.pend:hover td{background:#F6D3CE} table.t tr.rem1:hover td{background
 /* карточка человека */
 .person-head{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
 .kv{display:grid;grid-template-columns:max-content 1fr;gap:4px 14px;font-size:.93rem}
-.kv dt{color:var(--muted)} .kv dd{margin:0}
+.kv dt{color:var(--muted)} .kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+@media(max-width:600px){.kv{grid-template-columns:1fr;gap:0}.kv dt{font-size:.8rem;margin-top:8px}.kv dt:first-child{margin-top:0}}
+.mlast{display:inline-flex;flex-direction:column;align-items:center;gap:1px;border:0;background:none;padding:0;cursor:pointer;font:inherit;color:inherit}
+.mlast small{font-size:.66rem;color:var(--muted);font-variant-numeric:tabular-nums;line-height:1}
 
 /* модальное окно */
 dialog{border:0;border-radius:14px;padding:0;width:min(640px,96vw);max-height:92vh;box-shadow:0 20px 60px rgba(10,30,20,.35)}
@@ -1697,7 +1700,7 @@ function vPerson(id) {
     ${(a.transfers || []).length ? `<h3 style="margin-top:14px">Переводы</h3><ul class="list">${[...a.transfers].sort((x, y) => y.date.localeCompare(x.date)).map(t => `<li style="padding:6px 0"><div class="who small">с ${D.ru(t.date)}: ${h(t.from || '—')} → <b style="display:inline">${h(t.to)}</b></div><button class="btn sm ghost no-print" data-act="transfer-del" data-id="${id}" data-tid="${t.id}" aria-label="Удалить перевод">✕</button></li>`).join('')}</ul>` : ''}</div>
   <div class="card"><div class="row" style="justify-content:space-between"><h2>Посещения</h2><button class="btn sm no-print" data-act="athlete-report" data-id="${id}">Печать за период</button></div><div class="stats" style="margin-bottom:10px"><div class="stat"><b>${cnt('+')}</b><span class="small muted">был, 90 дней</span></div><div class="stat"><b>${cnt('н')}</b><span class="small muted">не был</span></div><div class="stat"><b>${cnt('б')}</b><span class="small muted">болел</span></div></div>
     <div class="small">Допуск к аттестации ${D.ru(S.attest.next)}: <b>${h(adm.status)}</b> <button class="btn sm no-print" data-act="manual-admit" data-id="${id}">Допуск вручную</button>${adm.pct != null ? ` — ${Math.round(adm.pct * 100)}% посещений, турниров ${adm.tourn}` : ''}</div>
-    <div class="small muted" style="margin-top:10px">Последние отметки, новые слева</div><div class="row" style="gap:4px;margin-top:4px;flex-wrap:wrap">${marks.slice(0, 24).map(m => `<span title="${D.ru(m.date)} ${h(m.group)}" class="cell-m ${{ '+': 'm-plus', 'н': 'm-n', 'б': 'm-b', 'о': 'm-o', 'с': 'm-s' }[m.mark] || ''}">${h(m.mark)}</span>`).join('') || '<span class="muted">Отметок нет</span>'}</div></div>
+    <div class="small muted" style="margin-top:10px">Последние ${Math.min(24, marks.length) || ''} ${plural(Math.min(24, marks.length), 'отметка', 'отметки', 'отметок')}, новые слева · нажмите — дата и группа</div><div class="row" style="gap:6px 4px;margin-top:4px;flex-wrap:wrap">${marks.slice(0, 24).map(m => `<button type="button" class="mlast" data-act="mark-info" data-txt="${h(D.ru(m.date) + ', ' + DOW_FULL[D.dow(m.date)] + (m.group ? ' · ' + m.group : '') + ' — ' + (MARKS[m.mark] ? MARKS[m.mark].label : m.mark) + (m.trial ? ' (пробное)' : ''))}" title="${D.ru(m.date)} ${h(m.group)}"><span class="cell-m ${{ '+': 'm-plus', 'н': 'm-n', 'б': 'm-b', 'о': 'm-o', 'с': 'm-s' }[m.mark] || ''}">${h(m.mark)}</span><small>${D.short(m.date)}</small></button>`).join('') || '<span class="muted">Отметок нет</span>'}</div>${marks.length > 24 ? `<div class="small muted" style="margin-top:6px">Все отметки — «Печать за период» или «Посещения» → «Месяц».</div>` : ''}</div>
   </div>
   <div class="card flat"><div class="row" style="padding:14px 16px 6px"><h2 style="margin:0">Абонементы</h2><span class="spacer"></span>${R ? '' : `<button class="btn sm no-print" data-act="refuse" data-id="${id}">Отказ от договора</button>`}<button class="btn sm no-print" data-act="freeze-new" data-id="${id}">Заморозка</button><button class="btn sm no-print" data-act="sub-wait" data-id="${id}">Ждём оплату</button><button class="btn sm no-print" data-act="sub-new" data-id="${id}">Добавить</button></div>
   ${subs.length ? `<div class="scroll"><table class="t"><thead><tr><th>Действует с</th><th class="r">Занятий</th><th class="r">Сумма</th><th class="r">Был</th><th class="r">Не был</th><th class="r">Болел</th><th class="r">Остаток</th><th>Окончание</th><th></th></tr></thead><tbody>
@@ -2922,6 +2925,7 @@ const ACT = {
     if (!confirm('Удалить запись об отказе и возврате? Статус «ушёл» и дата прекращения договора останутся — их меняйте кнопкой «Изменить».')) return;
     delete a.refund; render.keepScroll = true; persist('Запись об отказе удалена'); },
   'docs-edit': el => openDocs(el.dataset.id),
+  'mark-info': el => toast(el.dataset.txt),
   'brief-new': el => { const d = el.dataset.date && el.dataset.date < ix.today ? el.dataset.date : ix.today; openBrief([el.dataset.id], d, el.dataset.date ? (briefNeed(ix.ath.get(el.dataset.id), el.dataset.date) || {}).kind : ''); },
   'brief-session': el => { const s = db.sessions.find(x => x.id === el.dataset.id); if (!s) return;
     const ids = [...new Set([...sessionMembers(s).filter(a => s.marks[a.id] === '+' || !s.marks[a.id]).map(a => a.id), ...Object.keys(s.marks).filter(id => s.marks[id] === '+')])];
