@@ -405,6 +405,7 @@ function clubOpenDays(ix) {                       // дни, когда в кл�
 }
 function inTrip(ix, date) { return (ix.db.settings.trips || []).some(x => x.from && x.to && date >= x.from && date <= (x.ext && x.ext > x.to ? x.ext : x.to)); }
 function tripAt(ix, date) { return (ix.db.settings.trips || []).find(x => x.from && x.to && date >= x.from && date <= (x.ext && x.ext > x.to ? x.ext : x.to)) || null; }
+function subTotal(p) { return (+p.count || 0) + Math.max(0, Math.floor(+p.bonus || 0)); }   // оплачено + добавлено решением главного тренера
 function subKey(p) { return p.start || p.payDate || p.waitFrom || '9999-12-31'; }   // «ждём оплату» без дат — в конец очереди
 function subFirst(ix, p) { return ix.subFirst ? ix.subFirst.get(p.id) || null : p.start || null; }
 
@@ -484,7 +485,7 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
       else if (r.autoDate && ix.today >= r.autoDate) { r.act = r.autoDate; r.first = nthTrainDay(ix, r.autoDate, 1, groups) || r.autoDate; r.actKind = 'auto'; }
     }
     if (!r.act) {
-      blocked = true; r.notActive = true; r.actKind = 'none'; r.remaining = +p.count || 0;
+      blocked = true; r.notActive = true; r.actKind = 'none'; r.remaining = subTotal(p);
       if (r.autoDate) r.autoNotifyBy = D.add(r.autoDate, -3);                      // п. 9.2.3
       setSubStatus(ix, p, r); ix.subFirst.set(p.id, null); ix.subCalc.set(p.id, r); done.push([p, r]); continue;
     }
@@ -493,7 +494,7 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
     r.next = nm ? nm.start : null;
     const fr = (ix.freezesByAth.get(aid) || []).map(f => ({ f, c: calcFreeze(ix, f) }));
     const carry = Math.max(0, +p.carryWas || 0) + Math.max(0, +p.carryMissed || 0);
-    const cap = Math.max(0, (+p.count || 0) - carry);
+    const cap = Math.max(0, subTotal(p) - carry);
     let used = 0;
     for (let k = lowerBound(marks, r.first, 'date'); k < marks.length; k++) {
       const m = marks[k];
@@ -517,7 +518,7 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
       r.lastCharged = m.date;
     }
     r.charged = used + carry;
-    r.remaining = (+p.count || 0) - r.charged;
+    r.remaining = subTotal(p) - r.charged;
     if (r.remaining <= 0) { r.end = r.lastCharged || r.first; r.endKind = 'fact'; cursor = D.add(r.end, 1); cursorForecast = false; }
     else if (!hasSchedule(ix, groups)) { r.endKind = 'nosched'; cursor = '9999-12-31'; }
     else {
@@ -571,7 +572,7 @@ function calcFreeze(ix, f) {
   // отмены и дни соревнований сдвигают базовую дату, но внутри периода болезни приоритет у заморозки: они считаются днями болезни и отдельно срок не продлевают
   const skip = new Set((ix.marks.get(f.athleteId) || []).filter(m => (m.mark === 'о' || m.mark === 'с') && !(m.date >= f.from && m.date <= f.to)).map(m => m.date));
   const nth = (from, n) => nthLessonSkipping(ix, from, n, groups, skip);
-  const base = nth(first, +p.count || 0);
+  const base = nth(first, subTotal(p));
   r.base = base;
   if (!base) { r.text = 'У группы не задано расписание'; return r; }
   r.ext = trainDaysBetween(ix, f.from, D.min(f.to, base), groups).filter(d => !skip.has(d)).length;
@@ -586,31 +587,37 @@ function calcFreeze(ix, f) {
     else mode = f.returned <= base ? 'a' : 'b';
   } else mode = ix.today > r.returnBy ? 'lapsed' : 'wait';
   if (mode === 'err') { r.mode = 'err'; r.text = 'Дата возвращения должна быть позже последнего дня болезни'; return r; }
-  let certBy = null;                                                        // п. 9.5.4 «а»
-  if (mode === 'a') certBy = D.min(D.add(f.to, 15), firstAfterBase);
+  let certBy = null;
+  /* правило клуба: справку приносят на занятие, с которого вернулись; не принёс — спросить на следующем занятии;
+     нет справки и на нём — заморозки нет (занятия болезни списываются) */
+  const askBy = (mode === 'a' || mode === 'b') && firstFromReturn ? nth(D.add(firstFromReturn, 1), 1) : null;
+  if ((mode === 'a' || mode === 'b') && firstFromReturn) certBy = firstFromReturn;
+  else if (mode === 'a') certBy = D.min(D.add(f.to, 15), firstAfterBase);
   else if (mode === 'b') certBy = D.min(D.add(f.to, 15), firstFromReturn);
   else if (mode === 'wait') certBy = f.to < base ? D.min(D.add(f.to, 15), firstAfterBase) : D.add(f.to, 15);
-  r.certBy = certBy;
-  const checkBy = mode === 'wait' ? D.add(f.to, 15) : certBy;
-  const certIsSession = (mode === 'a' || mode === 'b') && certBy && certBy === (mode === 'a' ? firstAfterBase : firstFromReturn);
+  r.certBy = certBy; r.askBy = askBy;
+  const checkBy = mode === 'wait' ? D.add(f.to, 15) : askBy || certBy;
+  r.checkBy = checkBy;
+  r.certAsk = !!(askBy && !f.certDate && ix.today >= certBy && ix.today <= askBy);   // вернулся без справки — спросить на следующем занятии
+  const certIsSession = !askBy && (mode === 'a' || mode === 'b') && certBy && certBy === (mode === 'a' ? firstAfterBase : firstFromReturn);
   r.certIsSession = certIsSession;
   let lapsedByCert = false;
   if (mode === 'a' || mode === 'b' || mode === 'wait') {
-    lapsedByCert = f.certDate ? f.certDate > checkBy : (certIsSession ? ix.today >= checkBy : ix.today > checkBy);
+    lapsedByCert = f.certDate ? f.certDate > checkBy : (certIsSession ? ix.today >= checkBy : ix.today > checkBy);   // при правиле «спросить на следующем» — весь день этого занятия
   }
   r.mode = lapsedByCert ? 'lapsed' : mode;
   r.lapsedByCert = lapsedByCert;
   if (f.certDate) r.remindBy = mode === 'wait' ? D.add(r.returnBy, -5) : null;
   else if (mode === 'wait') r.remindBy = D.add(D.min(certBy, r.returnBy), -5);
-  else if (mode === 'a' || mode === 'b') r.remindBy = D.add(certBy, -5);
+  else if ((mode === 'a' || mode === 'b') && !askBy) r.remindBy = D.add(certBy, -5);
   if (r.mode === 'a') r.newEnd = nth(D.add(base, 1), r.ext);
   if (r.mode === 'b') r.newEnd = nth(f.returned, r.ext);
   if (r.mode === 'lapsed') {
     r.text = lapsedByCert
-      ? (f.certDate ? 'Справка получена после срока ' + D.ru(checkBy) : 'Справка не получена до ' + D.ru(checkBy)) + ' — продление прекратилось (п. 9.5.5), занятия болезни списываются'
+      ? (f.certDate ? 'Справка получена после срока ' + D.ru(checkBy) : 'Справка не получена ' + (askBy ? 'и на занятии ' + D.ru(askBy) + ' (вернулся ' + D.ru(f.returned) + ')' : 'до ' + D.ru(checkBy))) + ' — заморозки нет, занятия болезни списываются'
       : 'Не вернулся до ' + D.ru(r.returnBy) + ' — продление прекратилось (п. 9.5.5)';
   } else if (r.mode === 'wait') r.text = 'Ждём возвращения: +' + r.ext + ' зан. продления';
-  else r.text = 'Продление +' + r.ext + ' зан., окончание по сроку ' + D.ru(r.newEnd);
+  else r.text = 'Продление +' + r.ext + ' зан., окончание по сроку ' + D.ru(r.newEnd) + (r.certAsk ? ' — если принесёт справку до конца занятия ' + D.ru(askBy) : (askBy && !f.certDate ? ' — при справке на занятии ' + D.ru(certBy) + ' или ' + D.ru(askBy) : ''));
   return r;
 }
 
@@ -833,7 +840,7 @@ function refundInfo(ix, p) {                    // п. 10.4.2, 10.4.5, 10.4.6: �
   if (!r || !n || p.pending || (!paid && !own)) return null;
   if (r.notActive) return { sum: paid || own * n, price: null, left: n, notActive: true };
   const price = Math.max(own, refundAuto(p));                 // своя цена не может быть ниже расчётной (п. 10.4.2)
-  const left = Math.max(0, r.remaining), sum = price * left;
+  const left = Math.max(0, r.remaining - Math.max(0, Math.floor(+p.bonus || 0))), sum = price * left;   // добавленные тренером занятия бесплатные — к возврату не идут
   return { sum: paid ? Math.min(paid, sum) : sum, price, left, own: own > 0 };
 }
 function refundFor(ix, p) { const x = refundInfo(ix, p); return x ? x.sum : null; }
@@ -866,7 +873,7 @@ function fillTemplate(text, ix, a, extra = {}, subId = null) {
   return text.replace(/\{([а-яё_]+)\}/gi, (m, k) => (k.toLowerCase() in map && map[k.toLowerCase()] !== '' ? map[k.toLowerCase()] : m));
 }
 
-if (typeof module !== 'undefined') module.exports = { tripAt, refundFor, refundInfo, refundAuto, daysOn, D, buildIndex, calcFreeze, calcAdmission, calcTest, fillTemplate, groupOn, inGroupOn, nthTrainDay, payDeadline, firstSession, fullName, shortName, cleanPhone, fmtPhone, EX };
+if (typeof module !== 'undefined') module.exports = { subTotal, tripAt, refundFor, refundInfo, refundAuto, daysOn, D, buildIndex, calcFreeze, calcAdmission, calcTest, fillTemplate, groupOn, inGroupOn, nthTrainDay, payDeadline, firstSession, fullName, shortName, cleanPhone, fmtPhone, EX };
 
 /* ===== D23 CRM — интерфейс, часть 1 ===== */
 const OFFICIAL_TEMPLATES = [
@@ -1147,7 +1154,7 @@ const LOG_F = { last: 'фамилия', first: 'имя', middle: 'отчеств
   medUntil: 'медсправка', addedAt: 'в клубе с', endedAt: 'договор прекращён', note: 'примечание', healthConsent: 'согласие 2.1', noSub: 'без абонемента',
   payPerVisit: 'оплата разово', otherTeam: 'другая команда', teamName: 'команда', docs: 'документы', publish: 'публикация фото', refund: 'отказ и возврат', briefings: 'инструктаж по ТБ', transfers: 'переводы', manualAdmit: 'допуск вручную' };
 const LOG_SHOW = new Set(['group', 'group2', 'status', 'endedAt', 'addedAt', 'weight', 'mainContact', 'publish', 'noSub', 'payPerVisit', 'otherTeam', 'healthConsent']);
-const SUB_F = { pending: 'ждём оплату', payDate: 'дата оплаты', start: 'дата начала', count: 'занятий', amount: 'сумма', onlyGroup: 'группа', refundPrice: 'цена для возврата', carryWas: 'перенос', carryMissed: 'перенос', note: 'примечание', waitFrom: 'ждём с' };
+const SUB_F = { pending: 'ждём оплату', payDate: 'дата оплаты', start: 'дата начала', count: 'занятий', amount: 'сумма', onlyGroup: 'группа', refundPrice: 'цена для возврата', bonus: 'продление тренером', bonusNote: 'причина продления', carryWas: 'перенос', carryMissed: 'перенос', note: 'примечание', waitFrom: 'ждём с' };
 function logVal(v) { if (v === true) return 'да'; if (v === false || v == null || v === '') return '—'; if (/^\d{4}-\d\d-\d\d$/.test(v)) return D.ru(v); return String(v); }
 function logRefund(x, y) {
   if (!y) return 'запись об отказе удалена';
@@ -1411,7 +1418,9 @@ function attention() {
   for (const f of db.freezes) {
     const a = ix.ath.get(f.athleteId); if (!a) continue;
     const c = calcFreeze(ix, f);
-    if (['a', 'b', 'wait'].includes(c.mode) && !f.certDate && c.certBy) out.push({ tone: 'sick', a, text: `${shortName(a)}: справка о болезни нужна ${c.certIsSession ? 'до начала занятия' : 'не позднее'} ${D.ru(c.certBy)}${c.remindBy ? ', напомнить до ' + D.ru(c.remindBy) : ''}`, freeze: f.id });
+    if (c.certAsk) out.push({ tone: 'bad', a, text: `${shortName(a)}: вернулся ${D.ru(f.returned)} без справки о болезни — спросить справку на занятии ${D.ru(c.askBy)}. Не принесёт — заморозки нет, ${c.ext} ${plural(c.ext, 'занятие', 'занятия', 'занятий')} болезни спишутся`, freeze: f.id });
+    else if (['a', 'b', 'wait'].includes(c.mode) && !f.certDate && c.certBy && !c.askBy) out.push({ tone: 'sick', a, text: `${shortName(a)}: справка о болезни нужна ${c.certIsSession ? 'до начала занятия' : 'не позднее'} ${D.ru(c.certBy)}${c.remindBy ? ', напомнить до ' + D.ru(c.remindBy) : ''}`, freeze: f.id });
+    else if (['a', 'b'].includes(c.mode) && !f.certDate && c.askBy && ix.today < c.certBy) out.push({ tone: 'sick', a, text: `${shortName(a)}: справку о болезни принести на занятие ${D.ru(c.certBy)}`, freeze: f.id });
     if (c.mode === 'wait' && f.certDate) out.push({ tone: 'sick', a, text: `${shortName(a)}: заморозка — вернуться не позднее ${D.ru(c.returnBy)}`, freeze: f.id });
   }
   // занятия, где у кого-то из группы с действующим абонементом нет отметки (за 3 недели)
@@ -1692,7 +1701,7 @@ function vPerson(id) {
   </div>
   <div class="card flat"><div class="row" style="padding:14px 16px 6px"><h2 style="margin:0">Абонементы</h2><span class="spacer"></span>${R ? '' : `<button class="btn sm no-print" data-act="refuse" data-id="${id}">Отказ от договора</button>`}<button class="btn sm no-print" data-act="freeze-new" data-id="${id}">Заморозка</button><button class="btn sm no-print" data-act="sub-wait" data-id="${id}">Ждём оплату</button><button class="btn sm no-print" data-act="sub-new" data-id="${id}">Добавить</button></div>
   ${subs.length ? `<div class="scroll"><table class="t"><thead><tr><th>Действует с</th><th class="r">Занятий</th><th class="r">Сумма</th><th class="r">Был</th><th class="r">Не был</th><th class="r">Болел</th><th class="r">Остаток</th><th>Окончание</th><th></th></tr></thead><tbody>
-  ${subs.map(p => { const r = ix.subCalc.get(p.id); return `<tr class="click" data-act="sub-edit" data-id="${p.id}"><td class="num">${startLabel(p, r)}${p.onlyGroup ? ' <span class="chip">' + h(p.onlyGroup) + '</span>' : ''}</td><td class="r num">${p.count}</td><td class="r num">${p.pending ? '<span class="small muted">не оплачен</span>' : (+p.amount || 0).toLocaleString('ru')}</td><td class="r num">${r.was}</td><td class="r num">${r.missed}</td><td class="r num">${r.sick}${r.sickCharged ? ' (спис. ' + r.sickCharged + ')' : ''}</td><td class="r num"><b>${r.remaining}</b></td><td class="num">${r.end ? D.ru(r.end) : (r.endKind === 'nosched' ? '<span class="small muted">нет расписания</span>' : '')}</td><td><span class="chip ${r.tone}">${h(r.status)}</span></td></tr>`; }).join('')}</tbody></table></div>` : '<div class="empty">Абонементов нет</div>'}
+  ${subs.map(p => { const r = ix.subCalc.get(p.id); return `<tr class="click" data-act="sub-edit" data-id="${p.id}"><td class="num">${startLabel(p, r)}${p.onlyGroup ? ' <span class="chip">' + h(p.onlyGroup) + '</span>' : ''}</td><td class="r num">${p.count}${+p.bonus > 0 ? ` <span class="chip ok" title="${h(p.bonusNote || 'решение тренера')}">+${p.bonus}</span>` : ''}</td><td class="r num">${p.pending ? '<span class="small muted">не оплачен</span>' : (+p.amount || 0).toLocaleString('ru')}</td><td class="r num">${r.was}</td><td class="r num">${r.missed}</td><td class="r num">${r.sick}${r.sickCharged ? ' (спис. ' + r.sickCharged + ')' : ''}</td><td class="r num"><b>${r.remaining}</b></td><td class="num">${r.end ? D.ru(r.end) : (r.endKind === 'nosched' ? '<span class="small muted">нет расписания</span>' : '')}</td><td><span class="chip ${r.tone}">${h(r.status)}</span></td></tr>`; }).join('')}</tbody></table></div>` : '<div class="empty">Абонементов нет</div>'}
   ${freezes.length ? `<div style="padding:8px 16px 14px"><h3>Заморозки по болезни</h3><ul class="list">${freezes.map(f => { const fc = calcFreeze(ix, f); return `<li class="click" data-act="freeze-edit" data-id="${f.id}"><div class="who"><b>${D.ru(f.from)} — ${D.ru(f.to)}</b><span class="small">${h(fc.text)}</span></div><span class="chip ${fc.mode === 'lapsed' ? 'bad' : fc.mode === 'wait' ? 'warn' : 'sick'}">${{ a: 'оформлена', b: 'оформлена', wait: 'ждём', lapsed: 'прекращена', none: 'без продления', incomplete: 'не заполнена', err: 'ошибка' }[fc.mode]}</span></li>`; }).join('')}</ul></div>` : ''}</div>
   <div class="grid2"><div class="card flat"><div class="row" style="padding:14px 16px 6px"><h2 style="margin:0">Пояса</h2><span class="spacer"></span><button class="btn sm no-print" data-act="award-new" data-id="${id}">Присвоить</button></div>
   ${awards.length ? `<ul class="list">${awards.map(w => `<li class="click" data-act="award-edit" data-id="${w.id}">${beltHTML(w.belt, w.stripes)}<div class="who"><b>${h(w.belt)}${w.stripes ? ', ' + w.stripes + ' стр.' : ''}</b><span class="small">${D.ru(w.date)} · ${h(w.by)}</span></div></li>`).join('')}</ul>` : '<div class="empty">Присвоений нет</div>'}</div>
@@ -1868,6 +1877,10 @@ function openSub(id, athleteId) {
   ${F('refundPrice', 'Цена занятия для возврата, ₽', v.refundPrice || '', 'number', 'min="0" step="10" inputmode="numeric" placeholder="пусто — по п. 10.4.2"')}
   <p class="small muted wide" style="margin:-4px 0 0">Пусто — цена считается сама: сумма ÷ число занятий, вверх до 10 ₽ (5 500 → 460, 5 000 → 420). Свою цену можно поставить только не ниже расчётной.</p>
   ${FS('onlyGroup', 'Абонемент только на группу', [['', 'все группы человека'], ...db.settings.groups.map(g => g.name)], v.onlyGroup)}
+  <details class="wide" ${+v.bonus > 0 ? 'open' : ''}><summary class="small"><b>Продлить решением главного тренера</b>${+v.bonus > 0 ? ' — сейчас +' + v.bonus + ' зан.' : ''}</summary><div class="fgrid" style="margin-top:8px">
+  ${F('bonus', 'Добавить занятий (бесплатно)', +v.bonus > 0 ? v.bonus : '', 'number', 'min="0" step="1" inputmode="numeric" placeholder="0"')}${r && r.end ? F('bonusTo', 'или продлить до даты', '', 'date', 'min="' + D.add(r.end, 1) + '"') : ''}
+  ${F('bonusNote', 'Причина', v.bonusNote || '', 'text', 'placeholder="например: травма на тренировке, решение тренера"')}</div>
+  <p class="small muted" style="margin:6px 0 0">Добавленные занятия идут после оплаченных: срок абонемента сдвигается по расписанию. В сумму возврата при отказе они не входят.${r && r.end ? ' Дата «до» пересчитывается в число занятий по расписанию группы.' : ''}</p></details>
   <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:${v.pending ? 'var(--bad-bg)' : 'var(--sunk)'}"><input type="checkbox" name="pending" ${v.pending ? 'checked' : ''} style="width:20px;height:20px"><span><b>Ждём оплату</b> — человек занимается, но абонемент ещё не оплачен. Посещения списываются с него как обычно.</span></label>
   <label class="f wide"><span>Примечание</span><input type="text" name="note" value="${h(v.note)}"></label></div>
   <details style="margin-top:10px"><summary class="small">Перенос из прежнего журнала</summary><div class="fgrid" style="margin-top:8px">${F('carryWas', 'Был (перенос)', v.carryWas || 0, 'number')}${F('carryMissed', 'Не был (перенос)', v.carryMissed || 0, 'number')}</div></details>
@@ -1891,12 +1904,19 @@ function openSub(id, athleteId) {
         if (pr && pr.remaining > 0 && !confirm(`Предыдущий абонемент (с ${D.ru(pr.first)}) ещё не истёк: осталось ${pr.remaining} зан. Если новый начнётся ${D.ru(fd.start)}, период предыдущего оборвётся (п. 9.3.2).\n\nОставьте дату активации пустой — новый начнётся сам после окончания текущего.\n\nВсё равно сохранить с этой датой?`)) return false;
       }
       const t = p || { id: uid('p') };
-      Object.assign(t, { athleteId: fd.athleteId, payDate: fd.pending ? '' : fd.payDate, start: fd.start, count: +fd.count || 0, amount: +fd.amount || 0, refundPrice: +fd.refundPrice > 0 ? +fd.refundPrice : '', onlyGroup: fd.onlyGroup, carryWas: +fd.carryWas || 0, carryMissed: +fd.carryMissed || 0, note: fd.note.trim(), pending: !!fd.pending });
+      if (+fd.bonus < 0 || (fd.bonus !== '' && fd.bonus != null && !Number.isInteger(+fd.bonus))) { alert('Добавить занятий — целое число не меньше 0'); return false; }
+      if (+fd.bonus > 0 && !String(fd.bonusNote || '').trim()) { alert('Укажите причину продления — она будет видна в карточке и в истории изменений.'); return false; }
+      Object.assign(t, { athleteId: fd.athleteId, payDate: fd.pending ? '' : fd.payDate, start: fd.start, count: +fd.count || 0, bonus: +fd.bonus > 0 ? +fd.bonus : '', bonusNote: +fd.bonus > 0 ? String(fd.bonusNote || '').trim() : '', amount: +fd.amount || 0, refundPrice: +fd.refundPrice > 0 ? +fd.refundPrice : '', onlyGroup: fd.onlyGroup, carryWas: +fd.carryWas || 0, carryMissed: +fd.carryMissed || 0, note: fd.note.trim(), pending: !!fd.pending });
       if (!p) db.subs.push(t);
       persist(p ? 'Абонемент сохранён' : t.pending ? 'Записан абонемент «ждём оплату»' : 'Оплата записана');
       if (!p && !t.pending && t.count > 1) setTimeout(() => { const rr = ix.subCalc.get(t.id); openMsg(t.athleteId, rr && rr.notActive ? 'Абонемент оплачен' : 'Новый абонемент оплачен', {}, t.id); }, 50);
     },
   });
+  const bt = document.querySelector('#dlg [name=bonusTo]');
+  if (bt && p && r && r.end) bt.onchange = () => { if (!bt.value) return;
+    const cur = Math.max(0, Math.floor(+p.bonus || 0)), add = countTrainDays(ix, D.add(r.end, 1), bt.value, subGroups(ix, p));
+    document.querySelector('#dlg [name=bonus]').value = cur + add;
+    toast(add ? `До ${D.ru(bt.value)} — ещё ${add} ${plural(add, 'занятие', 'занятия', 'занятий')} по расписанию` : 'До этой даты занятий по расписанию нет'); };
   const sel = document.querySelector('#dlg select[name=athleteId]');
   if (sel) sel.onchange = () => { const id = sel.value; if (!id) return;
     const lp = [...(ix.subsByAth.get(id) || [])].pop(); if (lp && lp.amount) document.querySelector('#dlg [name=amount]').value = lp.amount;
@@ -1920,10 +1940,10 @@ function openFreeze(id, athleteId) {
   ${F('from', 'Болел с (по справке)', v.from, 'date', 'required')}${F('to', 'по (включительно)', v.to, 'date', 'required')}
   ${F('returned', 'Вернулся на занятия', v.returned, 'date')}${F('certDate', 'Справка получена', v.certDate, 'date')}
   <label class="f wide"><span>Примечание (без диагноза)</span><input type="text" name="note" value="${h(v.note)}"></label></div>
-  <p class="small muted">Даты болезни — по справке, не раньше дня, когда клиент предупредил. Справка — не позднее 15 дней после болезни и до первого занятия продления (п. 9.5.4). Без неё продление прекращается (п. 9.5.5).</p>
+  <p class="small muted">Даты болезни — по справке, не раньше дня, когда клиент предупредил. Справку приносят на занятие, с которого вернулись. Пришёл без справки — программа напомнит спросить её на следующем занятии; не принёс и тогда — заморозки нет, занятия болезни списываются. Пока не вернулся — справка не позднее 15 дней после болезни (п. 9.5.4).</p>
   ${fc ? `<div class="card" style="margin:8px 0 0;background:var(--sunk)"><b>${h(fc.text)}</b><dl class="kv small" style="margin-top:8px">
     ${fc.base ? `<dt>Базовое окончание</dt><dd>${D.ru(fc.base)}</dd>` : ''}${fc.ext ? `<dt>Занятий продления</dt><dd>${fc.ext}</dd>` : ''}
-    ${fc.certBy ? `<dt>Справка (п. 9.5.4 «а»)</dt><dd>${f.certDate ? 'получена ' + D.ru(f.certDate) : (fc.certIsSession ? 'до начала занятия ' : 'не позднее ') + D.ru(fc.certBy)}</dd>` : ''}
+    ${fc.certBy ? `<dt>Справка</dt><dd>${f.certDate ? 'получена ' + D.ru(f.certDate) : fc.askBy ? `на занятие возвращения ${D.ru(fc.certBy)}; не принёс — спросить на занятии ${D.ru(fc.askBy)}, без неё заморозки нет` : (fc.certIsSession ? 'до начала занятия ' : 'не позднее ') + D.ru(fc.certBy)}</dd>` : ''}
     ${fc.returnBy ? `<dt>Вернуться не позднее (п. 9.5.4 «б»)</dt><dd>${f.returned ? 'вернулся ' + D.ru(f.returned) : D.ru(fc.returnBy)}</dd>` : ''}
     ${fc.remindBy ? `<dt>Напомнить клиенту (п. 9.5.6)</dt><dd>не позднее ${D.ru(fc.remindBy)}</dd>` : ''}</dl></div>` : ''}`;
   modal('Заморозка по болезни', body, {
