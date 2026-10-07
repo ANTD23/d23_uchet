@@ -1563,7 +1563,7 @@ function vSession(sid) {
   ${s.group ? `<div class="card flat"><ul class="list">${people.map(a => markRow(s, a, false)).join('') || '<li class="muted">В группе нет занимающихся.</li>'}</ul></div>` : ''}
   ${extra.length ? `<details class="card flat" ${openExtra ? 'open' : ''}><summary style="padding:12px 16px;cursor:pointer"><b>${s.group ? 'Из других групп на этом занятии' : 'Отмечены на занятии'}: ${extra.length}</b>${extra.length > 1 ? ` <button class="btn sm no-print" data-act="move-own" data-sid="${s.id}" style="margin-left:8px">Перенести всех в их группы</button>` : ''}</summary>
   <p class="small muted" style="padding:0 16px">Если отметку поставили не в ту группу, «Перенести» переставит её на занятие группы человека за эту же дату. Если человек действительно приходил в эту группу — ничего не делайте.</p><ul class="list" style="border-top:1px solid var(--line)">${extra.map(a => markRow(s, a, true)).join('')}</ul></details>` : ''}
-  <div class="card no-print"><div class="row"><select id="add-to-session" style="flex:1;min-width:200px">${opt('', '', 'Гость или человек из другой группы…')}${addable.map(a => opt(a.id, '', fullName(a) + (a.group ? ' — ' + a.group : ''))).join('')}</select>
+  <div class="card no-print"><div class="row"><select id="add-to-session" style="flex:1 1 100%;min-width:0">${opt('', '', 'Гость или из другой группы…')}${addable.map(a => opt(a.id, '', fullName(a) + (a.group ? ' — ' + a.group : ''))).join('')}</select>
   <button class="btn" data-act="session-add" data-id="${s.id}">Добавить</button><span class="spacer"></span><button class="btn danger" data-act="session-del" data-id="${s.id}">Удалить занятие</button></div></div>`;
 }
 function monthView(tabs, groups) {
@@ -1662,7 +1662,7 @@ function vPerson(id) {
   const inPer = subs.filter(q => keep.has(q.id) || !perFrom || (subFirst(ix, q) || q.payDate || q.waitFrom || '9999') >= perFrom);
   let shownSubs = inPer;
   if (SS.n !== 'all') { const imp = inPer.filter(q => keep.has(q.id)), rest = inPer.filter(q => !keep.has(q.id)); const room = Math.max(0, +SS.n - imp.length); const pick = new Set([...imp, ...rest.slice(0, room)].map(q => q.id)); shownSubs = inPer.filter(q => pick.has(q.id)); }
-  const subsCtl = subs.length > 1 ? `<div class="row small no-print" style="gap:6px;padding:0 16px 8px;flex-wrap:wrap"><span class="muted">Показывать</span><select data-change="subsshow" data-k="n" style="width:auto;min-height:34px;padding:2px 6px">${[['3', 'последние 3'], ['5', 'последние 5'], ['10', 'последние 10'], ['all', 'все']].map(([v, l]) => opt(v, SS.n, l)).join('')}</select><select data-change="subsshow" data-k="per" style="width:auto;min-height:34px;padding:2px 6px">${[['all', 'за всё время'], ['3', 'за 3 месяца'], ['6', 'за 6 месяцев'], ['12', 'за 12 месяцев'], ['year', 'с начала года']].map(([v, l]) => opt(v, SS.per, l)).join('')}</select></div>` : '';
+  const subsCtl = subs.length ? `<div class="row small no-print" style="gap:6px;padding:0 16px 8px;flex-wrap:wrap"><span class="muted">Показывать</span><select data-change="subsshow" data-k="n" style="width:auto;min-height:34px;padding:2px 6px">${[['3', 'последние 3'], ['5', 'последние 5'], ['10', 'последние 10'], ['all', 'все']].map(([v, l]) => opt(v, SS.n, l)).join('')}</select><select data-change="subsshow" data-k="per" style="width:auto;min-height:34px;padding:2px 6px">${[['all', 'за всё время'], ['3', 'за 3 месяца'], ['6', 'за 6 месяцев'], ['12', 'за 12 месяцев'], ['year', 'с начала года']].map(([v, l]) => opt(v, SS.per, l)).join('')}</select></div>` : '';
   const subsMore = shownSubs.length < subs.length ? `<div class="small muted no-print" style="padding:8px 16px">Показано ${shownSubs.length} из ${subs.length}. <button class="btn sm" data-act="subs-show-all">Показать все</button></div>` : '';
   const marks = [...(ix.marks.get(id) || [])].reverse();
   const awards = [...(ix.awardsByAth.get(id) || [])].reverse();
@@ -1773,7 +1773,7 @@ document.addEventListener('submit', e => {
 const F = (name, label, val = '', type = 'text', extra = '') => `<label class="f"><span>${label}</span><input type="${type}" name="${name}" value="${h(val)}" ${extra}></label>`;
 const FS = (name, label, items, val, extra = '') => `<label class="f"><span>${label}</span><select name="${name}" ${extra}>${items.map(x => Array.isArray(x) ? opt(x[0], val, x[1]) : opt(x, val)).join('')}</select></label>`;
 function athleteOptions(cur, filter = a => a.status !== 'ушёл') {
-  return db.athletes.filter(a => filter(a) || a.id === cur).sort((a, b) => fullName(a).localeCompare(fullName(b), 'ru')).map(a => [a.id, fullName(a)]);
+  return db.athletes.filter(a => filter(a) || a.id === cur).sort((a, b) => fullName(a).localeCompare(fullName(b), 'ru')).map(a => [a.id, [a.last, a.first, a.middle ? a.middle[0] + '.' : ''].filter(Boolean).join(' ')]);   // отчество — инициалом: длинные ФИО не обрезаются на телефоне
 }
 
 function personForm(a) {
