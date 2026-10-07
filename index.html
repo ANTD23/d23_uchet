@@ -261,7 +261,7 @@ dialog form{display:flex;flex-direction:column;max-height:92vh}
 </style></head>
 <body><div id="app"></div>
 <script>
-const DEFAULT_SETTINGS = {"club": "Клуб D23, г. Геленджик, ул. Островского, 164 В", "coachMain": "Тарасов А. Н.", "coachSecond": "Тарасова Ю. А.", "awardedBy": "Тарасов Антон Николаевич", "groups": [{"name": "Группа #1", "days": [false, false, false, false, false, false, false]}, {"name": "Группа #2", "days": [true, false, true, false, true, false, false]}, {"name": "Группа #3", "days": [false, true, false, true, false, true, false]}, {"name": "BJJ #1", "days": [false, true, false, true, false, true, false]}, {"name": "Фитнес 35+", "days": [false, false, false, false, false, false, false]}, {"name": "Разово", "days": [false, false, false, false, false, false, false]}, {"name": "Гость", "days": [false, false, false, false, false, false, false]}], "statuses": ["занимается", "приостановил", "ушёл"], "belts": ["белый", "серый-белый", "серый", "серый-чёрный", "жёлтый-белый", "жёлтый", "жёлтый-чёрный", "оранжевый-белый", "оранжевый", "оранжевый-чёрный", "зелёный-белый", "зелёный", "зелёный-чёрный", "синий", "фиолетовый", "коричневый", "чёрный"], "holidays": [{"date": "2026-12-31", "reason": "Новогодние каникулы (перенос)"}, {"date": "2027-01-01", "reason": "Новогодние каникулы"}, {"date": "2027-01-02", "reason": "Новогодние каникулы"}, {"date": "2027-01-03", "reason": "нерабочий день"}, {"date": "2027-01-04", "reason": "Новогодние каникулы"}, {"date": "2027-01-05", "reason": "Новогодние каникулы"}, {"date": "2027-01-06", "reason": "Новогодние каникулы"}, {"date": "2027-01-07", "reason": "Рождество Христово"}, {"date": "2027-01-08", "reason": "Новогодние каникулы"}, {"date": "2027-01-09", "reason": "Выходной по производственному календарю"}, {"date": "2027-02-22", "reason": "Перенос с 20 февраля"}, {"date": "2027-02-23", "reason": "День защитника Отечества"}, {"date": "2027-03-08", "reason": "Международный женский день"}, {"date": "2027-05-01", "reason": "Праздник Весны и Труда"}, {"date": "2027-05-03", "reason": "Перенос с 1 мая"}, {"date": "2027-05-09", "reason": "нерабочий день"}, {"date": "2027-05-10", "reason": "Перенос с 9 мая"}, {"date": "2027-06-12", "reason": "День России"}, {"date": "2027-06-14", "reason": "Перенос с 12 июня"}, {"date": "2027-11-04", "reason": "День народного единства"}, {"date": "2027-11-05", "reason": "Перенос со 2 января"}, {"date": "2027-12-31", "reason": "Перенос с 3 января"}], "competition": {"name": "ADCC Краснодар", "date": "2026-10-25", "city": "Краснодар", "ageMode": "на дату соревнований"}, "attest": {"prev": "2026-02-28", "next": "2026-11-28", "threshold": 80, "sickMode": "не учитывать", "minTournaments": 2, "reliefCoef": 0.8}, "norms": [{"track": "Дети", "sex": "М", "from": 4, "to": 5, "pullKind": "вис, сек", "pullS": 10, "pullB": 15, "pushKind": "с колен", "pushS": 5, "pushB": 8, "crS": 10, "crB": 15, "jumpS": 60, "jumpB": 70, "monS": null, "monB": null, "note": "общие; прыжок — клубная норма"}, {"track": "Дети", "sex": "Ж", "from": 4, "to": 5, "pullKind": "вис, сек", "pullS": 10, "pullB": 15, "pushKind": "с колен", "pushS": 5, "pushB": 8, "crS": 10, "crB": 15, "jumpS": 60, "jumpB": 70, "monS": null, "monB": null, "note": "общие; прыжок — клубная норма"}, {"track": "Дети", "sex": "М", "from": 6, "to": 7, "pullKind": "низкая", "pullS": 4, "pullB": 7, "pushKind": "полные", "pushS": 4, "pushB": 7, "crS": 15, "crB": 20, "jumpS": 77, "jumpB": 87, "monS": 5, "monB": 8, "note": "общие; прыжок — ГТО девочки"}, {"track": "Дети", "sex": "Ж", "from": 6, "to": 7, "pullKind": "низкая", "pullS": 4, "pullB": 7, "pushKind": "полные", "pushS": 4, "pushB": 7, "crS": 15, "crB": 20, "jumpS": 77, "jumpB": 87, "monS": 5, "monB": 8, "note": "общие; прыжок — ГТО девочки"}, {"track": "Дети", "sex": "М", "from": 8, "to": 9, "pullKind": "высокая", "pullS": 6, "pullB": 8, "pushKind": "полные", "pushS": 5, "pushB": 11, "crS": 30, "crB": 40, "jumpS": 103, "jumpB": 117, "monS": 14, "monB": 22, "note": "прыжок общий — ГТО девочки"}, {"track": "Дети", "sex": "Ж", "from": 8, "to": 9, "pullKind": "низкая", "pullS": 6, "pullB": 10, "pushKind": "полные", "pushS": 5, "pushB": 11, "crS": 30, "crB": 40, "jumpS": 103, "jumpB": 117, "monS": 14, "monB": 22, "note": "прыжок общий — ГТО девочки"}, {"track": "Дети", "sex": "М", "from": 10, "to": 11, "pullKind": "высокая", "pullS": 7, "pullB": 10, "pushKind": "полные", "pushS": 10, "pushB": 13, "crS": 35, "crB": 45, "jumpS": 128, "jumpB": 142, "monS": 22, "monB": 35, "note": ""}, {"track": "Дети", "sex": "Ж", "from": 10, "to": 11, "pullKind": "низкая", "pullS": 7, "pullB": 11, "pushKind": "полные", "pushS": 5, "pushB": 8, "crS": 30, "crB": 40, "jumpS": 118, "jumpB": 132, "monS": 22, "monB": 35, "note": ""}, {"track": "Дети", "sex": "М", "from": 12, "to": 13, "pullKind": "высокая", "pullS": 8, "pullB": 12, "pushKind": "полные", "pushS": 12, "pushB": 18, "crS": 40, "crB": 50, "jumpS": 147, "jumpB": 162, "monS": 35, "monB": 35, "note": ""}, {"track": "Дети", "sex": "Ж", "from": 12, "to": 13, "pullKind": "низкая", "pullS": 8, "pullB": 12, "pushKind": "полные", "pushS": 6, "pushB": 9, "crS": 35, "crB": 45, "jumpS": 132, "jumpB": 147, "monS": 22, "monB": 35, "note": ""}, {"track": "Дети", "sex": "М", "from": 14, "to": 15, "pullKind": "высокая", "pullS": 10, "pullB": 14, "pushKind": "полные", "pushS": 19, "pushB": 25, "crS": 50, "crB": 60, "jumpS": 167, "jumpB": 193, "monS": 35, "monB": 35, "note": ""}, {"track": "Дети", "sex": "Ж", "from": 14, "to": 15, "pullKind": "низкая", "pullS": 9, "pullB": 13, "pushKind": "полные", "pushS": 7, "pushB": 11, "crS": 40, "crB": 50, "jumpS": 148, "jumpB": 162, "monS": 30, "monB": 35, "note": ""}, {"track": "Синий+", "sex": "М", "from": 16, "to": 20, "pullKind": "высокая", "pullS": 12, "pullB": 16, "pushKind": "полные", "pushS": 30, "pushB": 38, "crS": 50, "crB": 60, "jumpS": 213, "jumpB": 235, "monS": 35, "monB": 35, "note": "юниоры"}, {"track": "Синий+", "sex": "Ж", "from": 16, "to": 20, "pullKind": "низкая", "pullS": 9, "pullB": 13, "pushKind": "полные", "pushS": 11, "pushB": 15, "crS": 40, "crB": 50, "jumpS": 173, "jumpB": 188, "monS": 35, "monB": 35, "note": "юниоры"}, {"track": "Синий+", "sex": "М", "from": 21, "to": 29, "pullKind": "высокая", "pullS": 13, "pullB": 16, "pushKind": "полные", "pushS": 33, "pushB": 45, "crS": 50, "crB": 60, "jumpS": 228, "jumpB": 244, "monS": 35, "monB": 35, "note": ""}, {"track": "Синий+", "sex": "Ж", "from": 21, "to": 29, "pullKind": "низкая", "pullS": 13, "pullB": 19, "pushKind": "полные", "pushS": 13, "pushB": 18, "crS": 40, "crB": 50, "jumpS": 183, "jumpB": 198, "monS": 30, "monB": 35, "note": ""}, {"track": "Синий+", "sex": "М", "from": 30, "to": 39, "pullKind": "высокая", "pullS": 8, "pullB": 13, "pushKind": "полные", "pushS": 19, "pushB": 33, "crS": 45, "crB": 55, "jumpS": 213, "jumpB": 234, "monS": 30, "monB": 35, "note": ""}, {"track": "Синий+", "sex": "Ж", "from": 30, "to": 39, "pullKind": "низкая", "pullS": 12, "pullB": 17, "pushKind": "полные", "pushS": 11, "pushB": 16, "crS": 35, "crB": 45, "jumpS": 152, "jumpB": 173, "monS": 22, "monB": 35, "note": ""}, {"track": "Синий+", "sex": "М", "from": 40, "to": 49, "pullKind": "высокая", "pullS": 7, "pullB": 10, "pushKind": "полные", "pushS": 18, "pushB": 29, "crS": 40, "crB": 50, "jumpS": 200, "jumpB": 220, "monS": 22, "monB": 35, "note": "прыжок — клубная норма"}, {"track": "Синий+", "sex": "Ж", "from": 40, "to": 49, "pullKind": "низкая", "pullS": 10, "pullB": 15, "pushKind": "полные", "pushS": 10, "pushB": 14, "crS": 30, "crB": 40, "jumpS": 140, "jumpB": 160, "monS": 18, "monB": 30, "note": "прыжок — клубная норма"}, {"track": "Синий+", "sex": "М", "from": 50, "to": 120, "pullKind": "высокая", "pullS": 5, "pullB": 8, "pushKind": "полные", "pushS": 15, "pushB": 24, "crS": 35, "crB": 45, "jumpS": 185, "jumpB": 205, "monS": 18, "monB": 30, "note": "прыжок — клубная норма"}, {"track": "Синий+", "sex": "Ж", "from": 50, "to": 120, "pullKind": "низкая", "pullS": 8, "pullB": 12, "pushKind": "полные", "pushS": 8, "pushB": 12, "crS": 25, "crB": 35, "jumpS": 125, "jumpB": 145, "monS": 14, "monB": 22, "note": "прыжок — клубная норма"}, {"track": "Белый", "sex": "М", "from": 16, "to": 29, "pullKind": "высокая", "pullS": 10, "pullB": 14, "pushKind": "полные", "pushS": 27, "pushB": 33, "crS": 50, "crB": 60, "jumpS": 207, "jumpB": 228, "monS": 30, "monB": 35, "note": "включая юниоров 16–20 на белом"}, {"track": "Белый", "sex": "Ж", "from": 16, "to": 29, "pullKind": "низкая", "pullS": 9, "pullB": 13, "pushKind": "полные", "pushS": 9, "pushB": 13, "crS": 40, "crB": 50, "jumpS": 167, "jumpB": 183, "monS": 22, "monB": 35, "note": "включая юниоров 16–20 на белом"}, {"track": "Белый", "sex": "М", "from": 30, "to": 39, "pullKind": "высокая", "pullS": 4, "pullB": 8, "pushKind": "полные", "pushS": 15, "pushB": 19, "crS": 45, "crB": 55, "jumpS": 197, "jumpB": 213, "monS": 22, "monB": 35, "note": ""}, {"track": "Белый", "sex": "Ж", "from": 30, "to": 39, "pullKind": "низкая", "pullS": 8, "pullB": 12, "pushKind": "полные", "pushS": 8, "pushB": 11, "crS": 35, "crB": 45, "jumpS": 138, "jumpB": 152, "monS": 18, "monB": 30, "note": ""}, {"track": "Белый", "sex": "М", "from": 40, "to": 49, "pullKind": "высокая", "pullS": 3, "pullB": 7, "pushKind": "полные", "pushS": 12, "pushB": 18, "crS": 40, "crB": 50, "jumpS": 185, "jumpB": 200, "monS": 18, "monB": 30, "note": "прыжок — клубная норма"}, {"track": "Белый", "sex": "Ж", "from": 40, "to": 49, "pullKind": "низкая", "pullS": 7, "pullB": 10, "pushKind": "полные", "pushS": 6, "pushB": 10, "crS": 30, "crB": 40, "jumpS": 125, "jumpB": 140, "monS": 14, "monB": 22, "note": "прыжок — клубная норма"}, {"track": "Белый", "sex": "М", "from": 50, "to": 120, "pullKind": "высокая", "pullS": 2, "pullB": 5, "pushKind": "полные", "pushS": 10, "pushB": 15, "crS": 35, "crB": 45, "jumpS": 170, "jumpB": 185, "monS": 14, "monB": 22, "note": "прыжок — клубная норма"}, {"track": "Белый", "sex": "Ж", "from": 50, "to": 120, "pullKind": "низкая", "pullS": 5, "pullB": 8, "pushKind": "полные", "pushS": 5, "pushB": 8, "crS": 25, "crB": 35, "jumpS": 115, "jumpB": 130, "monS": 10, "monB": 18, "note": "прыжок — клубная норма"}], "sickCheckFrom": "2026-10-03", "templates": [{"title": "Осталось одно занятие", "text": "Привет! По абонементу осталось одно занятие. Дальше нужно продление — скажи, когда удобно оплатить."}, {"title": "Абонемент использован", "text": "Привет! Абонемент закончился, все {занятий} занятий проведены. Продлеваем?"}, {"title": "Оплата принята", "text": "Привет! Оплата получена, чек отправил. Абонемент на {занятий} занятий действует с {дата_начала}."}, {"title": "Пропуск без предупреждения", "text": "Привет! Сегодня тебя не было на тренировке. Занятие списано — по договору пропуск без оформленной заморозки списывается. Если заболел, предупреди сразу и принеси справку, тогда заморозим."}, {"title": "Заморозка оформлена", "text": "Привет! Заморозку оформил, занятия за период болезни не списываются. Не забудь справку — без неё продление не сохранится."}, {"title": "Занятие отменено", "text": "Сегодняшняя тренировка отменяется — [причина]. Занятие не списывается, срок абонемента сдвинется на одно занятие вперёд."}, {"title": "Долг по занятиям", "text": "Привет! По учёту получается на {долг} занятий больше, чем оплачено. Давай сверимся и закроем."}, {"title": "Осталось одно занятие (официально)", "text": "Здравствуйте.\n{фи}.\n❌ Действие текущего абонемента заканчивается {дата_окончания}.\n✔️ Срок оплаты следующего абонемента до {срок_оплаты}."}], "defaultCount": 12};
+const DEFAULT_SETTINGS = {"club": "Клуб D23, г. Геленджик, ул. Островского, 164 В", "coachMain": "Тарасов А. Н.", "coachSecond": "Тарасова Ю. А.", "awardedBy": "Тарасов Антон Николаевич", "groups": [{"name": "Группа #1", "days": [false, false, false, false, false, false, false]}, {"name": "Группа #2", "days": [true, false, true, false, true, false, false]}, {"name": "Группа #3", "days": [false, true, false, true, false, true, false]}, {"name": "BJJ #1", "days": [false, true, false, true, false, true, false]}, {"name": "Фитнес 35+", "days": [false, false, false, false, false, false, false]}, {"name": "Разово", "days": [false, false, false, false, false, false, false]}, {"name": "Гость", "days": [false, false, false, false, false, false, false]}], "statuses": ["занимается", "приостановил", "ушёл"], "belts": ["белый", "серый-белый", "серый", "серый-чёрный", "жёлтый-белый", "жёлтый", "жёлтый-чёрный", "оранжевый-белый", "оранжевый", "оранжевый-чёрный", "зелёный-белый", "зелёный", "зелёный-чёрный", "синий", "фиолетовый", "коричневый", "чёрный"], "holidays": [{"date": "2026-12-31", "reason": "Новогодние каникулы (перенос)"}, {"date": "2027-01-01", "reason": "Новогодние каникулы"}, {"date": "2027-01-02", "reason": "Новогодние каникулы"}, {"date": "2027-01-03", "reason": "нерабочий день"}, {"date": "2027-01-04", "reason": "Новогодние каникулы"}, {"date": "2027-01-05", "reason": "Новогодние каникулы"}, {"date": "2027-01-06", "reason": "Новогодние каникулы"}, {"date": "2027-01-07", "reason": "Рождество Христово"}, {"date": "2027-01-08", "reason": "Новогодние каникулы"}, {"date": "2027-01-09", "reason": "Выходной по производственному календарю"}, {"date": "2027-02-22", "reason": "Перенос с 20 февраля"}, {"date": "2027-02-23", "reason": "День защитника Отечества"}, {"date": "2027-03-08", "reason": "Международный женский день"}, {"date": "2027-05-01", "reason": "Праздник Весны и Труда"}, {"date": "2027-05-03", "reason": "Перенос с 1 мая"}, {"date": "2027-05-09", "reason": "нерабочий день"}, {"date": "2027-05-10", "reason": "Перенос с 9 мая"}, {"date": "2027-06-12", "reason": "День России"}, {"date": "2027-06-14", "reason": "Перенос с 12 июня"}, {"date": "2027-12-31", "reason": "Перенос с 3 января"}], "competition": {"name": "ADCC Краснодар", "date": "2026-10-25", "city": "Краснодар", "ageMode": "на дату соревнований"}, "attest": {"prev": "2026-02-28", "next": "2026-11-28", "threshold": 80, "sickMode": "не учитывать", "minTournaments": 2, "reliefCoef": 0.8}, "norms": [{"track": "Дети", "sex": "М", "from": 4, "to": 5, "pullKind": "вис, сек", "pullS": 10, "pullB": 15, "pushKind": "с колен", "pushS": 5, "pushB": 8, "crS": 10, "crB": 15, "jumpS": 60, "jumpB": 70, "monS": null, "monB": null, "note": "общие; прыжок — клубная норма"}, {"track": "Дети", "sex": "Ж", "from": 4, "to": 5, "pullKind": "вис, сек", "pullS": 10, "pullB": 15, "pushKind": "с колен", "pushS": 5, "pushB": 8, "crS": 10, "crB": 15, "jumpS": 60, "jumpB": 70, "monS": null, "monB": null, "note": "общие; прыжок — клубная норма"}, {"track": "Дети", "sex": "М", "from": 6, "to": 7, "pullKind": "низкая", "pullS": 4, "pullB": 7, "pushKind": "полные", "pushS": 4, "pushB": 7, "crS": 15, "crB": 20, "jumpS": 77, "jumpB": 87, "monS": 5, "monB": 8, "note": "общие; прыжок — ГТО девочки"}, {"track": "Дети", "sex": "Ж", "from": 6, "to": 7, "pullKind": "низкая", "pullS": 4, "pullB": 7, "pushKind": "полные", "pushS": 4, "pushB": 7, "crS": 15, "crB": 20, "jumpS": 77, "jumpB": 87, "monS": 5, "monB": 8, "note": "общие; прыжок — ГТО девочки"}, {"track": "Дети", "sex": "М", "from": 8, "to": 9, "pullKind": "высокая", "pullS": 6, "pullB": 8, "pushKind": "полные", "pushS": 5, "pushB": 11, "crS": 30, "crB": 40, "jumpS": 103, "jumpB": 117, "monS": 14, "monB": 22, "note": "прыжок общий — ГТО девочки"}, {"track": "Дети", "sex": "Ж", "from": 8, "to": 9, "pullKind": "низкая", "pullS": 6, "pullB": 10, "pushKind": "полные", "pushS": 5, "pushB": 11, "crS": 30, "crB": 40, "jumpS": 103, "jumpB": 117, "monS": 14, "monB": 22, "note": "прыжок общий — ГТО девочки"}, {"track": "Дети", "sex": "М", "from": 10, "to": 11, "pullKind": "высокая", "pullS": 7, "pullB": 10, "pushKind": "полные", "pushS": 10, "pushB": 13, "crS": 35, "crB": 45, "jumpS": 128, "jumpB": 142, "monS": 22, "monB": 35, "note": ""}, {"track": "Дети", "sex": "Ж", "from": 10, "to": 11, "pullKind": "низкая", "pullS": 7, "pullB": 11, "pushKind": "полные", "pushS": 5, "pushB": 8, "crS": 30, "crB": 40, "jumpS": 118, "jumpB": 132, "monS": 22, "monB": 35, "note": ""}, {"track": "Дети", "sex": "М", "from": 12, "to": 13, "pullKind": "высокая", "pullS": 8, "pullB": 12, "pushKind": "полные", "pushS": 12, "pushB": 18, "crS": 40, "crB": 50, "jumpS": 147, "jumpB": 162, "monS": 35, "monB": 35, "note": ""}, {"track": "Дети", "sex": "Ж", "from": 12, "to": 13, "pullKind": "низкая", "pullS": 8, "pullB": 12, "pushKind": "полные", "pushS": 6, "pushB": 9, "crS": 35, "crB": 45, "jumpS": 132, "jumpB": 147, "monS": 22, "monB": 35, "note": ""}, {"track": "Дети", "sex": "М", "from": 14, "to": 15, "pullKind": "высокая", "pullS": 10, "pullB": 14, "pushKind": "полные", "pushS": 19, "pushB": 25, "crS": 50, "crB": 60, "jumpS": 167, "jumpB": 193, "monS": 35, "monB": 35, "note": ""}, {"track": "Дети", "sex": "Ж", "from": 14, "to": 15, "pullKind": "низкая", "pullS": 9, "pullB": 13, "pushKind": "полные", "pushS": 7, "pushB": 11, "crS": 40, "crB": 50, "jumpS": 148, "jumpB": 162, "monS": 30, "monB": 35, "note": ""}, {"track": "Синий+", "sex": "М", "from": 16, "to": 20, "pullKind": "высокая", "pullS": 12, "pullB": 16, "pushKind": "полные", "pushS": 30, "pushB": 38, "crS": 50, "crB": 60, "jumpS": 213, "jumpB": 235, "monS": 35, "monB": 35, "note": "юниоры"}, {"track": "Синий+", "sex": "Ж", "from": 16, "to": 20, "pullKind": "низкая", "pullS": 9, "pullB": 13, "pushKind": "полные", "pushS": 11, "pushB": 15, "crS": 40, "crB": 50, "jumpS": 173, "jumpB": 188, "monS": 35, "monB": 35, "note": "юниоры"}, {"track": "Синий+", "sex": "М", "from": 21, "to": 29, "pullKind": "высокая", "pullS": 13, "pullB": 16, "pushKind": "полные", "pushS": 33, "pushB": 45, "crS": 50, "crB": 60, "jumpS": 228, "jumpB": 244, "monS": 35, "monB": 35, "note": ""}, {"track": "Синий+", "sex": "Ж", "from": 21, "to": 29, "pullKind": "низкая", "pullS": 13, "pullB": 19, "pushKind": "полные", "pushS": 13, "pushB": 18, "crS": 40, "crB": 50, "jumpS": 183, "jumpB": 198, "monS": 30, "monB": 35, "note": ""}, {"track": "Синий+", "sex": "М", "from": 30, "to": 39, "pullKind": "высокая", "pullS": 8, "pullB": 13, "pushKind": "полные", "pushS": 19, "pushB": 33, "crS": 45, "crB": 55, "jumpS": 213, "jumpB": 234, "monS": 30, "monB": 35, "note": ""}, {"track": "Синий+", "sex": "Ж", "from": 30, "to": 39, "pullKind": "низкая", "pullS": 12, "pullB": 17, "pushKind": "полные", "pushS": 11, "pushB": 16, "crS": 35, "crB": 45, "jumpS": 152, "jumpB": 173, "monS": 22, "monB": 35, "note": ""}, {"track": "Синий+", "sex": "М", "from": 40, "to": 49, "pullKind": "высокая", "pullS": 7, "pullB": 10, "pushKind": "полные", "pushS": 18, "pushB": 29, "crS": 40, "crB": 50, "jumpS": 200, "jumpB": 220, "monS": 22, "monB": 35, "note": "прыжок — клубная норма"}, {"track": "Синий+", "sex": "Ж", "from": 40, "to": 49, "pullKind": "низкая", "pullS": 10, "pullB": 15, "pushKind": "полные", "pushS": 10, "pushB": 14, "crS": 30, "crB": 40, "jumpS": 140, "jumpB": 160, "monS": 18, "monB": 30, "note": "прыжок — клубная норма"}, {"track": "Синий+", "sex": "М", "from": 50, "to": 120, "pullKind": "высокая", "pullS": 5, "pullB": 8, "pushKind": "полные", "pushS": 15, "pushB": 24, "crS": 35, "crB": 45, "jumpS": 185, "jumpB": 205, "monS": 18, "monB": 30, "note": "прыжок — клубная норма"}, {"track": "Синий+", "sex": "Ж", "from": 50, "to": 120, "pullKind": "низкая", "pullS": 8, "pullB": 12, "pushKind": "полные", "pushS": 8, "pushB": 12, "crS": 25, "crB": 35, "jumpS": 125, "jumpB": 145, "monS": 14, "monB": 22, "note": "прыжок — клубная норма"}, {"track": "Белый", "sex": "М", "from": 16, "to": 29, "pullKind": "высокая", "pullS": 10, "pullB": 14, "pushKind": "полные", "pushS": 27, "pushB": 33, "crS": 50, "crB": 60, "jumpS": 207, "jumpB": 228, "monS": 30, "monB": 35, "note": "включая юниоров 16–20 на белом"}, {"track": "Белый", "sex": "Ж", "from": 16, "to": 29, "pullKind": "низкая", "pullS": 9, "pullB": 13, "pushKind": "полные", "pushS": 9, "pushB": 13, "crS": 40, "crB": 50, "jumpS": 167, "jumpB": 183, "monS": 22, "monB": 35, "note": "включая юниоров 16–20 на белом"}, {"track": "Белый", "sex": "М", "from": 30, "to": 39, "pullKind": "высокая", "pullS": 4, "pullB": 8, "pushKind": "полные", "pushS": 15, "pushB": 19, "crS": 45, "crB": 55, "jumpS": 197, "jumpB": 213, "monS": 22, "monB": 35, "note": ""}, {"track": "Белый", "sex": "Ж", "from": 30, "to": 39, "pullKind": "низкая", "pullS": 8, "pullB": 12, "pushKind": "полные", "pushS": 8, "pushB": 11, "crS": 35, "crB": 45, "jumpS": 138, "jumpB": 152, "monS": 18, "monB": 30, "note": ""}, {"track": "Белый", "sex": "М", "from": 40, "to": 49, "pullKind": "высокая", "pullS": 3, "pullB": 7, "pushKind": "полные", "pushS": 12, "pushB": 18, "crS": 40, "crB": 50, "jumpS": 185, "jumpB": 200, "monS": 18, "monB": 30, "note": "прыжок — клубная норма"}, {"track": "Белый", "sex": "Ж", "from": 40, "to": 49, "pullKind": "низкая", "pullS": 7, "pullB": 10, "pushKind": "полные", "pushS": 6, "pushB": 10, "crS": 30, "crB": 40, "jumpS": 125, "jumpB": 140, "monS": 14, "monB": 22, "note": "прыжок — клубная норма"}, {"track": "Белый", "sex": "М", "from": 50, "to": 120, "pullKind": "высокая", "pullS": 2, "pullB": 5, "pushKind": "полные", "pushS": 10, "pushB": 15, "crS": 35, "crB": 45, "jumpS": 170, "jumpB": 185, "monS": 14, "monB": 22, "note": "прыжок — клубная норма"}, {"track": "Белый", "sex": "Ж", "from": 50, "to": 120, "pullKind": "низкая", "pullS": 5, "pullB": 8, "pushKind": "полные", "pushS": 5, "pushB": 8, "crS": 25, "crB": 35, "jumpS": 115, "jumpB": 130, "monS": 10, "monB": 18, "note": "прыжок — клубная норма"}], "sickCheckFrom": "2026-10-03", "templates": [{"title": "Осталось одно занятие", "text": "Привет! По абонементу осталось одно занятие. Дальше нужно продление — скажи, когда удобно оплатить."}, {"title": "Абонемент использован", "text": "Привет! Абонемент закончился, все {занятий} занятий проведены. Продлеваем?"}, {"title": "Оплата принята", "text": "Привет! Оплата получена, чек отправил. Абонемент на {занятий} занятий действует с {дата_начала}."}, {"title": "Пропуск без предупреждения", "text": "Привет! Сегодня тебя не было на тренировке. Занятие списано — по договору пропуск без оформленной заморозки списывается. Если заболел, предупреди сразу и принеси справку, тогда заморозим."}, {"title": "Заморозка оформлена", "text": "Привет! Заморозку оформил, занятия за период болезни не списываются. Не забудь справку — без неё продление не сохранится."}, {"title": "Занятие отменено", "text": "Сегодняшняя тренировка отменяется — [причина]. Занятие не списывается, срок абонемента сдвинется на одно занятие вперёд."}, {"title": "Долг по занятиям", "text": "Привет! По учёту получается на {долг} занятий больше, чем оплачено. Давай сверимся и закроем."}, {"title": "Осталось одно занятие (официально)", "text": "Здравствуйте.\n{фи}.\n❌ Действие текущего абонемента заканчивается {дата_окончания}.\n✔️ Срок оплаты следующего абонемента до {срок_оплаты}."}], "defaultCount": 12};
 /* ===== D23 CRM — логика расчётов (без DOM) ===== */
 const pad = n => String(n).padStart(2, '0');
 const D = {
@@ -403,6 +403,8 @@ function clubOpenDays(ix) {                       // дни, когда в кл�
   if (!ix._open) ix._open = [...new Set(ix.sessionsSorted.filter(s => Object.values(s.marks).some(x => x === '+' || x === 'н')).map(s => s.date))];
   return ix._open;
 }
+function inTrip(ix, date) { return (ix.db.settings.trips || []).some(x => x.from && x.to && date >= x.from && date <= (x.ext && x.ext > x.to ? x.ext : x.to)); }
+function tripAt(ix, date) { return (ix.db.settings.trips || []).find(x => x.from && x.to && date >= x.from && date <= (x.ext && x.ext > x.to ? x.ext : x.to)) || null; }
 function subKey(p) { return p.start || p.payDate || p.waitFrom || '9999-12-31'; }   // «ждём оплату» без дат — в конец очереди
 function subFirst(ix, p) { return ix.subFirst ? ix.subFirst.get(p.id) || null : p.start || null; }
 
@@ -433,13 +435,14 @@ function computeSubs(ix) {
    Только для расчёта абонементов: в журнале клетка остаётся пустой, допуск считает пропуски по-своему. */
 function withBlankCells(ix, aid, list) {
   const a = ix.ath.get(aid), cutoff = ix.db.settings.sickCheckFrom || '';
-  if (!a || !cutoff || a.payPerVisit || a.noSub || a.status === 'ушёл') return list;
+  if (!a || !cutoff || a.payPerVisit || a.noSub) return list;
+  const stop = a.status === 'ушёл' ? (a.endedAt || ix.today) : '';   // п. 10.3: после даты прекращения договора не списываем
   const myDays = new Set(list.map(m => m.date));
   const frz = ix.freezesByAth.get(aid) || [];
   const extra = [];
   for (let k = lowerBound(ix.sessionsSorted, cutoff, 'date'); k < ix.sessionsSorted.length; k++) {
     const s = ix.sessionsSorted[k];
-    if (s.date >= ix.today || myDays.has(s.date) || !inGroupOn(a, s.group, s.date)) continue;
+    if (s.date >= ix.today || (stop && s.date >= stop) || myDays.has(s.date) || !inGroupOn(a, s.group, s.date)) continue;
     if (!Object.values(s.marks || {}).some(x => x === '+' || x === 'н')) continue;      // занятие не состоялось (всё «о» или пусто)
     if (a.addedAt && s.date < a.addedAt) continue;                                      // ещё не занимался в клубе
     const sick = frz.some(f => f.from && f.to && s.date >= f.from && s.date <= f.to);
@@ -462,6 +465,7 @@ function setSubStatus(ix, p, r) {
 function calcChain(ix, aid, og, list, shared, hasMain) {
   const marks = shared.filter(m => !og || m.group === og);                     // те же объекты: флаг used общий
   let cursor = '', blocked = false, cursorForecast = false;
+  const A0 = ix.ath.get(aid), leftAt = A0 && A0.status === 'ушёл' ? (A0.endedAt || '') : '';   // п. 10.3
   const done = [];
   for (let i = 0; i < list.length; i++) {
     const p = list[i];
@@ -469,7 +473,7 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
     const groups = subGroups(ix, p);
     if (p.start) { r.act = p.start; r.first = p.start; r.actKind = 'manual'; }
     else if (!blocked) {
-      r.from = D.max(p.payDate || p.waitFrom || '', cursor);
+      r.from = cursor && cursor < '9999' ? cursor : (p.payDate || p.waitFrom || '');   // п. 8.6.1: посещения до оплаты — в новый абонемент
       let visit = null;
       for (let k = lowerBound(marks, r.from, 'date'); k < marks.length; k++) { const m = marks[k]; if (!m.used && m.mark === '+') { visit = m; break; } }
       // 30 дней считаются со дня после оплаты, а если оплатили заранее — со дня после окончания текущего абонемента
@@ -494,12 +498,14 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
     for (let k = lowerBound(marks, r.first, 'date'); k < marks.length; k++) {
       const m = marks[k];
       if (r.next && m.date >= r.next) break;
+      if (leftAt && m.date >= leftAt) break;                                          // п. 10.3: договор прекращён
       if (m.used) continue;
       if (m.auto && (+p.count || 0) <= 1) continue;                                   // разовая оплата — раздел 9 не применяется
-      // в периоде заморозки «о» и «с» считаются днями болезни (приоритет заморозки): при сгорании продления списываются, как «б»
+      // в периоде заморозки «о» и «с» считаются днями болезни (приоритет заморозки): при сгорании продления «с» списывается, «о» — нет (п. 9.5.8.1)
       const mk = (m.mark === 'о' || m.mark === 'с') && fr.some(x => x.f.from && x.f.to && m.date >= x.f.from && m.date <= x.f.to) ? 'б' : m.mark;
       let charged = mk === '+' || mk === 'н';
-      if (mk === 'б' && fr.some(x => x.c.mode === 'lapsed' && x.f.from && x.f.to && m.date >= x.f.from && m.date <= x.f.to)) charged = true;
+      if (mk === 'с' && m.date >= (ix.db.settings.programStart || ix.db.settings.sickCheckFrom || '') && !inTrip(ix, m.date)) charged = true;   // п. 9.6.2.1: «с» вне объявленного выезда
+      if (mk === 'б' && m.mark !== 'о' && fr.some(x => x.c.mode === 'lapsed' && x.f.from && x.f.to && m.date >= x.f.from && m.date <= x.f.to)) charged = true;   // п. 9.5.8.1: отменённое клубом не списывается
       // п. 9.5.8: «б» без оформленной заморозки списывается как пропуск (после начала ведения в программе)
       if (mk === 'б' && m.date >= (ix.db.settings.sickCheckFrom || '') && !fr.some(x => x.f.from && x.f.to && m.date >= x.f.from && m.date <= x.f.to)) charged = true;
       // п. 9.5.7 «б»: после Базовой даты и до дня возобновления занятия не списываются (пока ждём возвращения — тоже)
@@ -507,7 +513,7 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
       if (!charged) { if (used < cap) { if (mk === 'б') r.sick++; else if (mk === 'с') r.comp++; else if (mk === 'о') r.cancel++; } continue; }
       if (used >= cap) break;
       m.used = true; used++; if (m.auto) r.blank = (r.blank || 0) + 1;
-      if (m.mark === '+') r.was++; else if (m.mark === 'н') r.missed++; else { r.sick++; r.sickCharged++; }
+      if (mk === '+') r.was++; else if (mk === 'н' || mk === 'с') r.missed++; else { r.sick++; r.sickCharged++; }
       r.lastCharged = m.date;
     }
     r.charged = used + carry;
@@ -663,7 +669,7 @@ function calcAdmissionAuto(ix, a, fromOverride) {
   // Отметки за период. После начала журнала в программе пустая клетка на занятии своей группы = пропуск.
   // До этого (перенесённая история) ищем «дыры»: отрезки без единой отметки, когда группы человека
   // провели 4 занятия и больше, — эти занятия тоже считаются пропусками.
-  r.unmarked = 0; r.gaps = [];
+  r.unmarked = 0; r.gaps = []; const ev = new Set();      // турниры: один выезд или один турнир — одно участие
   const from = D.max(fromOverride || A.prev, r.since || '');
   const cutoff = ix.db.settings.sickCheckFrom || '';
   const to = D.min(A.next, ix.today);
@@ -675,8 +681,17 @@ function calcAdmissionAuto(ix, a, fromOverride) {
       if (s.date >= cutoff && inGroupOn(a, s.group, s.date) && held(s)) r.unmarked++;
       continue;
     }
-    if (m === '+') r.was++; else if (m === 'н') r.missed++; else if (m === 'б') { r.sick++; if (sickCert(ix, a.id, s.date)) r.sickCert++; } else if (m === 'с') r.tourn++;
+    if (m === '+') r.was++; else if (m === 'н') r.missed++; else if (m === 'б') { r.sick++; if (sickCert(ix, a.id, s.date)) r.sickCert++; }
+    else if (m === 'с') { const tr = tripAt(ix, s.date); ev.add(tr ? 'trip:' + (tr.id || tr.from) : 'с:' + s.date); }
   }
+  for (const T of ix.db.tourneys || []) {                       // турниры из раздела «Турниры» (без задвоения с отметкой «с» той же поездки)
+    if (!T.date || T.date < from || T.date > A.next || !T.res || !(a.id in T.res)) continue;
+    const tr = tripAt(ix, T.date);
+    let k = tr ? 'trip:' + (tr.id || tr.from) : null;
+    if (!k) { const near = all.find(m => m.mark === 'с' && m.date >= from && m.date <= A.next && Math.abs(D.diff(m.date, T.date)) <= 3); k = near ? 'с:' + near.date : 'T:' + T.id; }
+    ev.add(k);
+  }
+  r.tourn = ev.size;
   // дыры считаем по группе, в которой человек занимался перед дырой (или после неё, если дыра в начале)
   const marksP = [];
   for (const s of ix.sessionsSorted) if (s.date >= from && s.date <= A.next && s.marks[a.id] && s.marks[a.id] !== 'с') marksP.push({ date: s.date, group: s.group });
@@ -812,6 +827,16 @@ function calcTestResultOnly(ix, t) { const x = { ...t }; const tests = ix.db.tes
 
 /* ---------- подстановка в шаблоны сообщений ---------- */
 function firstSession(ix, p) { return subFirst(ix, p) || ''; }
+function refundAuto(p) { const paid = +p.amount || 0, n = +p.count || 0; return paid && n ? Math.ceil(paid / n / 10) * 10 : 0; }   // п. 10.4.2: сумма ÷ занятий, вверх до 10 ₽
+function refundInfo(ix, p) {                    // п. 10.4.2, 10.4.5, 10.4.6: сумма к возврату при отказе на сегодня
+  const r = ix.subCalc.get(p.id), paid = +p.amount || 0, n = +p.count || 0, own = +p.refundPrice || 0;
+  if (!r || !n || p.pending || (!paid && !own)) return null;
+  if (r.notActive) return { sum: paid || own * n, price: null, left: n, notActive: true };
+  const price = Math.max(own, refundAuto(p));                 // своя цена не может быть ниже расчётной (п. 10.4.2)
+  const left = Math.max(0, r.remaining), sum = price * left;
+  return { sum: paid ? Math.min(paid, sum) : sum, price, left, own: own > 0 };
+}
+function refundFor(ix, p) { const x = refundInfo(ix, p); return x ? x.sum : null; }
 function payDeadline(ix, p, end) {      // день первого занятия нового абонемента
   if (!p || !end) return '';
   return nthTrainDay(ix, D.add(end, 1), 1, subGroups(ix, p)) || '';
@@ -841,7 +866,7 @@ function fillTemplate(text, ix, a, extra = {}, subId = null) {
   return text.replace(/\{([а-яё_]+)\}/gi, (m, k) => (k.toLowerCase() in map && map[k.toLowerCase()] !== '' ? map[k.toLowerCase()] : m));
 }
 
-if (typeof module !== 'undefined') module.exports = { daysOn, D, buildIndex, calcFreeze, calcAdmission, calcTest, fillTemplate, groupOn, inGroupOn, nthTrainDay, payDeadline, firstSession, fullName, shortName, cleanPhone, fmtPhone, EX };
+if (typeof module !== 'undefined') module.exports = { tripAt, refundFor, refundInfo, refundAuto, daysOn, D, buildIndex, calcFreeze, calcAdmission, calcTest, fillTemplate, groupOn, inGroupOn, nthTrainDay, payDeadline, firstSession, fullName, shortName, cleanPhone, fmtPhone, EX };
 
 /* ===== D23 CRM — интерфейс, часть 1 ===== */
 const OFFICIAL_TEMPLATES = [
@@ -851,6 +876,10 @@ const OFFICIAL_TEMPLATES = [
   { title: 'Автоактивация абонемента', text: 'Здравствуйте.\n{фи}.\nНапоминаю: оплаченный абонемент активируется автоматически {дата_автоактивации} (п. 9.2.2 договора). С этой даты начнётся период его действия.' },
   { title: 'Абонемент продлён', text: 'Здравствуйте.\n{фи}.\nСрок действия текущего абонемента продлен, до {дата_окончания}\n✅ Срок оплаты следующего абонемента до {срок_оплаты}.' },
   { title: 'Абонемент закончился', text: 'Здравствуйте.\n{фи}.\n❌ Срок действия текущего абонемента закончился {дата_окончания}\n✅ Срок оплаты следующего абонемента до {срок_оплаты}.' },
+];
+const NEW_TEMPLATES_5 = [
+  { title: 'Давно не были', text: 'Здравствуйте.\n{фи}.\nДавно не видели вас на тренировках — всё в порядке? Абонемент действует, осталось занятий: {остаток}, последнее по расписанию — {дата_окончания}.\nЕсли заболели, сообщите: оформим заморозку по справке (п. 9.5 договора).' },
+  { title: 'Возврат при отказе от договора', text: 'Здравствуйте.\n{фи}.\nЗаявление об отказе от договора получено {дата_отказа}, договор расторгнут с этой даты (п. 10.3).\nК возврату: {сумма_возврата} ₽ ({расчёт}).\nВерну не позднее {срок_возврата} тем же способом, которым была оплата (п. 10.4.3).' },
 ];
 const LS_DB = 'd23crm.db', LS_META = 'd23crm.meta', LS_SNAP = 'd23crm.snaps';
 const STANDALONE = location.protocol === 'file:';     // автономная версия: файл открыт с диска, без сайта
@@ -879,7 +908,7 @@ function emptyDb() {
 }
 function normalize(d) {
   const e = emptyDb();
-  for (const k of ['athletes', 'sessions', 'subs', 'freezes', 'awards', 'tests', 'destroyLog']) if (!Array.isArray(d[k])) d[k] = [];
+  for (const k of ['athletes', 'sessions', 'subs', 'freezes', 'awards', 'tests', 'destroyLog', 'tourneys', 'log']) if (!Array.isArray(d[k])) d[k] = [];
   if (!d.attnDone || typeof d.attnDone !== 'object' || Array.isArray(d.attnDone)) d.attnDone = {};
   d.settings = Object.assign({}, e.settings, d.settings || {});
   d.settings.attest = Object.assign({}, e.settings.attest, d.settings.attest || {});
@@ -909,6 +938,12 @@ function normalize(d) {
     d.settings.templates = [...OFFICIAL_TEMPLATES.filter(o => !have.has(o.title)).map(o => ({ ...o })), ...(d.settings.templates || [])];
     d.settings.tplVersion = 4;
   }
+  if ((d.settings.tplVersion || 1) === 4) {           // «давно не были», возврат при отказе
+    const have = new Set((d.settings.templates || []).map(t => t.title));
+    d.settings.templates = [...(d.settings.templates || []), ...NEW_TEMPLATES_5.filter(o => !have.has(o.title)).map(o => ({ ...o }))];
+    d.settings.tplVersion = 5;
+  }
+  if (d.settings.adultTarget == null) d.settings.adultTarget = 16;
   return d;
 }
 function loadAll() {
@@ -1092,12 +1127,91 @@ function snapshot(reason) {
   if (!pinOn()) return put(json);
   if (cryptoKey) queue(async () => put(await encText(json)));
 }
+/* ---------- журнал изменений: что и когда менялось в карточке, абонементах, отметках прошлых дней ---------- */
+let logBase = null, logBaseFor = null;
+function logSetBase() {
+  logBaseFor = db;
+  logBase = db ? JSON.parse(JSON.stringify({ athletes: db.athletes, subs: db.subs, freezes: db.freezes, awards: db.awards, tourneys: db.tourneys || [], sessions: db.sessions })) : null;
+}
+const LOG_F = { last: 'фамилия', first: 'имя', middle: 'отчество', sex: 'пол', birth: 'дата рождения', weight: 'вес', group: 'группа', group2: 'вторая группа', status: 'статус',
+  phone: 'телефон', motherName: 'ФИО матери', motherPhone: 'телефон матери', fatherName: 'ФИО отца', fatherPhone: 'телефон отца', mainContact: 'основной контакт',
+  medUntil: 'медсправка', addedAt: 'в клубе с', endedAt: 'договор прекращён', note: 'примечание', healthConsent: 'согласие 2.1', noSub: 'без абонемента',
+  payPerVisit: 'оплата разово', otherTeam: 'другая команда', teamName: 'команда', docs: 'документы', publish: 'публикация фото', refund: 'отказ и возврат', transfers: 'переводы', manualAdmit: 'допуск вручную' };
+const LOG_SHOW = new Set(['group', 'group2', 'status', 'endedAt', 'addedAt', 'weight', 'mainContact', 'publish', 'noSub', 'payPerVisit', 'otherTeam', 'healthConsent']);
+const SUB_F = { pending: 'ждём оплату', payDate: 'дата оплаты', start: 'дата начала', count: 'занятий', amount: 'сумма', onlyGroup: 'группа', refundPrice: 'цена для возврата', carryWas: 'перенос', carryMissed: 'перенос', note: 'примечание', waitFrom: 'ждём с' };
+function logVal(v) { if (v === true) return 'да'; if (v === false || v == null || v === '') return '—'; if (/^\d{4}-\d\d-\d\d$/.test(v)) return D.ru(v); return String(v); }
+function logRefund(x, y) {
+  if (!y) return 'запись об отказе удалена';
+  if (!x) return `отказ от договора ${D.ru(y.date)}, к возврату ${(+y.sum || 0).toLocaleString('ru')} ₽`;
+  const l = [];
+  if (y.paidAt !== x.paidAt) l.push(y.paidAt ? 'возврат выплачен ' + D.ru(y.paidAt) : 'отметка о выплате снята');
+  if (y.checkAt !== x.checkAt) l.push(y.checkAt ? 'чек скорректирован ' + D.ru(y.checkAt) : 'отметка о чеке снята');
+  if (+y.sum !== +x.sum || y.date !== x.date) l.push(`отказ ${D.ru(y.date)}, к возврату ${(+y.sum || 0).toLocaleString('ru')} ₽`);
+  return l.join(', ') || 'отказ и возврат';
+}
+function logDocs(x, y) {
+  x = x || {}; y = y || {}; const N = { pack: 'пакет выдан', b1: 'Бланк 1', b21: 'Бланк 2.1', b23: 'Бланк 2.3', b3: 'Бланк 3' };
+  return 'документы: ' + Object.keys(N).filter(k => (x[k] || '') !== (y[k] || '')).map(k => N[k] + ' ' + logVal(y[k])).join(', ');
+}
+function logDiff(b, d) {
+  const out = [], push = (aid, t) => out.push({ aid, t }), byId = l => new Map((l || []).map(x => [x.id, x]));
+  const same = (x, y) => JSON.stringify(x === false || x == null ? '' : x) === JSON.stringify(y === false || y == null ? '' : y);
+  const A0 = byId(b.athletes);
+  for (const a of d.athletes) {
+    const o = A0.get(a.id); if (!o) { push(a.id, 'добавлен в базу'); continue; }
+    const ch = Object.keys(LOG_F).filter(k => !same(o[k], a[k])).map(k => k === 'refund' ? logRefund(o.refund, a.refund) : k === 'docs' ? logDocs(o.docs, a.docs) : LOG_SHOW.has(k) ? `${LOG_F[k]}: ${logVal(o[k])} → ${logVal(a[k])}` : LOG_F[k]);
+    if (ch.length) push(a.id, 'карточка: ' + ch.join(', '));
+  }
+  const subTxt = p => `${p.count} зан.` + (p.pending ? ', ждём оплату' : `, ${(+p.amount || 0).toLocaleString('ru')} ₽${p.payDate ? ' от ' + D.ru(p.payDate) : ''}`);
+  const S0 = byId(b.subs), S1 = byId(d.subs);
+  for (const p of d.subs) {
+    const o = S0.get(p.id); if (!o) { push(p.athleteId, 'абонемент добавлен: ' + subTxt(p)); continue; }
+    const ks = Object.keys(SUB_F).filter(k => !same(o[k], p[k])); if (!ks.length) continue;
+    push(p.athleteId, (o.pending && !p.pending ? 'оплата отмечена: ' : 'абонемент изменён: ') + subTxt(p) + ' (' + [...new Set(ks.map(k => SUB_F[k]))].join(', ') + ')');
+  }
+  for (const o of b.subs || []) if (!S1.has(o.id)) push(o.athleteId, 'абонемент удалён: ' + subTxt(o));
+  const frTxt = f => `${D.ru(f.from)} — ${D.ru(f.to)}`, F0 = byId(b.freezes), F1 = byId(d.freezes);
+  for (const f of d.freezes) { const o = F0.get(f.id); if (!o) push(f.athleteId, 'заморозка добавлена: ' + frTxt(f)); else if (JSON.stringify(o) !== JSON.stringify(f)) push(f.athleteId, 'заморозка изменена: ' + frTxt(f)); }
+  for (const o of b.freezes || []) if (!F1.has(o.id)) push(o.athleteId, 'заморозка удалена: ' + frTxt(o));
+  const W0 = byId(b.awards), W1 = byId(d.awards);
+  for (const w of d.awards) { const o = W0.get(w.id); if (!o) push(w.athleteId, `присвоено: ${w.belt}${w.stripes ? ', ' + w.stripes + ' стр.' : ''} (${D.ru(w.date)})`); else if (JSON.stringify(o) !== JSON.stringify(w)) push(w.athleteId, `присвоение изменено: ${w.belt}${w.stripes ? ', ' + w.stripes + ' стр.' : ''} (${D.ru(w.date)})`); }
+  for (const o of b.awards || []) if (!W1.has(o.id)) push(o.athleteId, `присвоение удалено: ${o.belt} (${D.ru(o.date)})`);
+  const T0 = byId(b.tourneys);
+  for (const T of d.tourneys || []) {
+    const o = T0.get(T.id) || { res: {} }, r0 = o.res || {}, r1 = T.res || {}, nm = `${T.name || 'турнир'} ${D.ru(T.date)}`;
+    for (const aid of new Set([...Object.keys(r0), ...Object.keys(r1)])) {
+      if (!(aid in r0)) push(aid, `турнир: ${nm}${r1[aid] ? ', ' + r1[aid] + ' место' : ''}`);
+      else if (!(aid in r1)) push(aid, `убран из турнира: ${nm}`);
+      else if (r0[aid] !== r1[aid]) push(aid, `турнир ${nm}: место ${r0[aid] || '—'} → ${r1[aid] || '—'}`);
+    }
+  }
+  const today = D.today(), M0 = new Map(), sInfo = new Map();
+  for (const ss of b.sessions || []) if (ss.date < today) { sInfo.set(ss.id, ss); for (const [aid, m] of Object.entries(ss.marks || {})) if (m) M0.set(ss.id + '|' + aid, m); }
+  const M1 = new Map();
+  for (const ss of d.sessions) if (ss.date < today) { sInfo.set(ss.id, ss); for (const [aid, m] of Object.entries(ss.marks || {})) if (m) M1.set(ss.id + '|' + aid, m); }
+  for (const k of new Set([...M0.keys(), ...M1.keys()])) {
+    const x = M0.get(k) || '', y = M1.get(k) || ''; if (x === y) continue;
+    const [sid, aid] = k.split('|'), ss = sInfo.get(sid);
+    push(aid, `отметка ${D.ru(ss.date)}${ss.group ? ' «' + ss.group + '»' : ''}: ${x || 'пусто'} → ${y || 'пусто'}`);
+  }
+  const live = new Set(d.athletes.map(a => a.id));
+  return out.filter(e => live.has(e.aid));
+}
+function logChanges() {
+  if (!db || logBaseFor !== db || !logBase) return;
+  try {
+    const e = logDiff(logBase, db); if (!e.length) return;
+    const at = new Date().toISOString();
+    db.log = (db.log || []).concat(e.map(x => ({ at, aid: x.aid, t: x.t }))).slice(-4000);
+  } catch (err) { console.error('журнал изменений', err); }
+}
 function persist(msg) {
+  logChanges();
   const today = D.today();
   if (meta.snapDay !== today) { snapshot('начало дня'); meta.snapDay = today; }
   db.rev = (db.rev || 0) + 1; db.updatedAt = new Date().toISOString();
   const warn = storeDb(JSON.stringify(db));
-  writeMeta();
+  writeMeta(); logSetBase();
   render();
   if (warn || msg) toast(warn || msg);
 }
@@ -1123,11 +1237,12 @@ const I = {
   report: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
   settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
   data: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v3h16v-3"/></svg>',
+  tourn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3"/></svg>',
   more: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>',
 };
 const NAV = [
   ['today', 'Сегодня'], ['journal', 'Посещения'], ['people', 'Спортсмены'], ['subs', 'Абонементы'],
-  ['attest', 'Аттестация'], ['report', 'Сводка'], ['settings', 'Настройки'], ['data', 'Данные'],
+  ['attest', 'Аттестация'], ['tourn', 'Турниры'], ['report', 'Сводка'], ['settings', 'Настройки'], ['data', 'Данные'],
 ];
 
 /* ---------- пояс ---------- */
@@ -1168,7 +1283,7 @@ function navHTML(cur) {
     <nav class="nav">${NAV.map(([k, l]) => `<a href="#${k}" class="${cur === k ? 'on' : ''}">${I[k]}${l}</a>`).join('')}</nav>
     <div class="sync">${dirty() ? `Есть изменения, которых нет в копии. ${meta.lastExport ? 'Последняя копия: ' + D.ru(meta.lastExport.slice(0, 10)) : 'Копию ещё не сохраняли'}.<button class="btn sm" data-act="export">Сохранить копию</button>` : (meta.lastExport ? 'Копия сохранена ' + D.ru(meta.lastExport.slice(0, 10)) + '.' : 'Данные хранятся в этом браузере.')}</div></aside>`;
   const tabs = [['today', 'Сегодня'], ['journal', 'Посещения'], ['people', 'Люди'], ['subs', 'Оплаты'], ['more', 'Ещё']];
-  const moreOn = ['attest', 'report', 'settings', 'data', 'more'].includes(cur);
+  const moreOn = ['attest', 'tourn', 'report', 'settings', 'data', 'more'].includes(cur);
   const bar = `<nav class="tabbar no-print">${tabs.map(([k, l]) => `<a href="#${k}" class="${cur === k || (k === 'more' && moreOn) ? 'on' : ''}">${I[k]}${l}</a>`).join('')}</nav>`;
   return side + bar;
 }
@@ -1179,8 +1294,9 @@ function render() {
   if (locked) { document.getElementById('app').innerHTML = pinHTML(); const i = document.querySelector('#pin-form input'); if (i && !i.disabled) i.focus(); return; }
   if (!db) { document.getElementById('app').innerHTML = loadError ? brokenHTML() : welcomeHTML(); return; }
   ix = buildIndex(db, D.today());
+  if (logBaseFor !== db) logSetBase();
   const { v, arg } = route();
-  const views = { today: vToday, journal: vJournal, session: vSession, people: vPeople, person: vPerson, subs: vSubs, attest: vAttest, report: vReport, settings: vSettings, data: vData, more: vMore };
+  const views = { today: vToday, journal: vJournal, session: vSession, people: vPeople, person: vPerson, subs: vSubs, attest: vAttest, tourn: vTourn, report: vReport, settings: vSettings, data: vData, more: vMore };
   const fn = views[v] || vToday;
   const navKey = v === 'session' ? 'journal' : v === 'person' ? 'people' : v;
   let body;
@@ -1246,6 +1362,28 @@ function attention() {
     const fr = ix.freezesByAth.get(a.id) || [];
     const loose = (ix.marks.get(a.id) || []).filter(m => m.mark === 'б' && D.diff(m.date, t) <= 60 && m.date >= (db.settings.sickCheckFrom || '') && !fr.some(f => f.from && f.to && m.date >= f.from && m.date <= f.to));
     if (loose.length) out.push({ tone: 'sick', a, text: `${nm}: «б» без записи о заморозке (${loose.map(m => D.short(m.date)).join(', ')}) — занятия не списываются`, act: 'freeze-new' });
+    if (s && !s.notActive && s.remaining > 0 && !a.payPerVisit && !a.noSub && !c.pendingSub && s.first && s.first <= t) {   // пропадает: абонемент идёт, а человека нет
+      const lastPlus = (ix.marks.get(a.id) || []).filter(m => m.mark === '+').slice(-1)[0];
+      const since = D.max(lastPlus ? lastPlus.date : '', s.first);
+      const frNow = fr.some(f => f.from && f.from <= t && (!f.to || f.to >= D.add(t, -14)));
+      if (D.diff(since, t) >= 14 && !frNow) {
+        const held = ix.sessionsSorted.filter(ss => ss.date > since && ss.date <= t && inGroupOn(a, ss.group, ss.date) && Object.values(ss.marks).some(x => x === '+')).length;
+        if (held >= 3) out.push({ tone: 'muted', a, text: `${nm}: не был ${D.diff(since, t)} дн. (с ${D.ru(since)}), абонемент действует — узнать, всё ли в порядке`, tpl: 'Давно не были' });
+      }
+    }
+    { const dk = a.docs || {};
+      if (dk.pack && D.diff(dk.pack, t) >= 14) { const miss = docsMissing(a, c); if (miss.length) out.push({ tone: 'warn', a, text: `${nm}: пакет документов выдан ${D.ru(dk.pack)}, не вернули: ${miss.join(', ')}`, docs: a.id }); } }
+  }
+  for (const a of db.athletes) {                   // отказ от договора: возврат и чек (п. 10.4.3)
+    const R = a.refund; if (!R || !(+R.sum > 0)) continue;
+    if (!R.paidAt) out.push({ tone: 'bad', a, text: `${shortName(a)}: отказ от договора ${D.ru(R.date)} — вернуть ${(+R.sum).toLocaleString('ru')} ₽ ${R.due < t ? '— СРОК ПРОШЁЛ ' + D.ru(R.due) : 'до ' + D.ru(R.due)} (п. 10.4.3)`, tpl: 'Возврат при отказе от договора', extra: refundExtra(a) });
+    else if (!R.checkAt) out.push({ tone: 'warn', a, text: `${shortName(a)}: возврат ${(+R.sum).toLocaleString('ru')} ₽ выплачен ${D.ru(R.paidAt)} — скорректируйте чек в «Мой налог»: аннулируйте чек об оплате, при частичном возврате сформируйте новый на оставшуюся сумму` });
+  }
+  for (const a of db.athletes) {                   // «приостановил» дольше 60 дней — перевести в «ушёл» (п. 12.3.1)
+    if (a.status !== 'приостановил') continue;
+    const c = ix.athCalc.get(a.id), lm = (ix.marks.get(a.id) || []).slice(-1)[0];
+    const last = D.max(c.subCalc && c.subCalc.remaining <= 0 ? c.subCalc.end : (c.subCalc ? t : ''), lm ? lm.date : '') || a.addedAt || '';
+    if (!last || D.diff(last, t) > 60) out.push({ tone: 'muted', a, text: `${shortName(a)}: «приостановил»${last ? ' с ' + D.ru(last) : ''} — если не вернётся, поставьте «ушёл» (срок хранения данных, п. 12.3.1)` });
   }
   for (const p of db.subs) {                       // активация абонементов (п. 9.2.3, 9.3.7)
     const a = ix.ath.get(p.athleteId), r = ix.subCalc.get(p.id); if (!a || !r || p.pending || a.status === 'ушёл') continue;
@@ -1302,6 +1440,8 @@ function vToday() {
   const comp = db.settings.competition;
   const days = comp.date && comp.date >= t ? D.diff(t, comp.date) : null;
   const active = db.athletes.filter(a => a.status === 'занимается').length;
+  const bdays = [];
+  for (let k = 0; k < 7; k++) { const d = D.add(t, k); for (const a of db.athletes) if (a.status !== 'ушёл' && a.birth && a.birth.slice(5) === d.slice(5)) bdays.push({ a, d, k, age: D.age(a.birth, d) }); }
   const banner = dirty() && (!meta.lastExport || Date.now() - Date.parse(meta.lastExport) > 3 * 3600e3)
     ? `<div class="banner no-print"><div class="spacer">${meta.lastExport ? 'Есть изменения после копии от ' + new Date(meta.lastExport).toLocaleString('ru', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'Копия данных ещё ни разу не сохранялась'}. Сохраните копию, прежде чем работать на другом устройстве.</div><button class="btn primary" data-act="export">Сохранить копию</button></div>` : '';
   return `${banner}
@@ -1310,12 +1450,14 @@ function vToday() {
     ${hol ? `<p class="muted">Нерабочий день: ${h(hol)}. Занятия не идут в срок абонементов.</p>` : ''}
     <div class="today-groups">${groupsBtns || '<span class="muted">По расписанию занятий нет.</span>'}
       <button class="btn" data-act="open-session-pick">Другая группа или дата</button></div></div>
+  ${bdays.length ? `<div class="card flat"><div style="padding:14px 16px 4px"><h2>Дни рождения на неделе</h2></div><ul class="list">${bdays.map(x => `<li class="click" data-go="#person/${x.a.id}"><div class="who"><b>${h(fullName(x.a))}</b><span class="small">${x.k === 0 ? '<b>сегодня</b>' : x.k === 1 ? 'завтра' : DOW_FULL[D.dow(x.d)]}, ${D.ru(x.d)} · исполняется ${x.age} ${plural(x.age, 'год', 'года', 'лет')}</span></div><span class="chip">${h(x.a.group || '')}</span></li>`).join('')}</ul></div>` : ''}
   <div class="card flat"><div style="padding:14px 16px 6px"><h2>Требует внимания <span class="muted small">${al.length || ''}${done.length ? ' · сделано ' + done.length : ''}</span></h2></div>
     ${al.length ? al.map(x => `<div class="alert ${x.tone}"><span class="dot"></span><div class="txt">${h(x.text)}</div>
       <div class="row">${x.tpl ? `<button class="btn sm" data-act="msg" data-id="${x.a.id}" data-tpl="${h(x.tpl)}"${x.sub ? ` data-sub="${x.sub}"` : ''} data-key="${h(attnKey(x))}" data-extra='${h(JSON.stringify(x.extra || {}))}'>Написать</button>` : ''}
       ${x.paid ? `<button class="btn sm" data-act="sub-paid" data-id="${x.paid}">Оплачено</button>` : ''}${x.wait ? `<button class="btn sm" data-act="sub-wait" data-id="${x.a.id}">Ждём оплату</button>` : ''}${x.unpaid ? `<button class="btn sm" data-act="sub-new" data-id="${x.a.id}">Оплата</button><button class="btn sm" data-act="sub-wait" data-id="${x.a.id}">Ждём оплату</button><button class="btn sm" data-act="no-sub" data-id="${x.a.id}" title="Занимается бесплатно — больше не напоминать">Без абонемента</button>` : ''}
       ${x.act === 'freeze-new' ? `<button class="btn sm" data-act="freeze-new" data-id="${x.a.id}">Заморозка</button>` : ''}
       ${x.freeze ? `<button class="btn sm" data-act="freeze-edit" data-id="${x.freeze}">Открыть</button>` : ''}
+      ${x.docs ? `<button class="btn sm" data-act="docs-edit" data-id="${x.docs}">Документы</button>` : ''}
       ${x.session ? `<a class="btn sm" href="#session/${x.session}">Открыть</a>` : ''}
       ${x.go ? `<a class="btn sm" href="${x.go}">Открыть</a>` : ''}
       ${x.a && !x.freeze ? `<a class="btn sm ghost" href="#person/${x.a.id}">Карточка</a>` : ''}<button class="btn sm attn-done" data-act="attn-done" data-key="${h(attnKey(x))}" title="Сделано — убрать из списка, пока ситуация не изменится">✓ Сделано</button></div></div>`).join('')
@@ -1485,13 +1627,30 @@ function vPerson(id) {
   const adm = calcAdmission(ix, a);
   const cnt = k => marks.filter(m => m.mark === k && m.date >= D.add(ix.today, -90)).length;
   const kv = (k, v) => v ? `<dt>${k}</dt><dd>${v}</dd>` : '';
+  const R = a.refund, dk = a.docs || {}, minor = c.age != null && c.age < 18;
+  const myT = (db.tourneys || []).filter(T => T.res && id in T.res).sort((x, y) => (y.date || '').localeCompare(x.date || ''));
+  const myLog = (db.log || []).filter(x => x.aid === id).reverse();
+  const no = t => `<span class="chip ${t ? 'bad' : 'muted'}">нет</span>`;
+  const refundCard = R ? `<div class="card"><h2>Отказ от договора</h2><dl class="kv">${kv('Заявление получено', D.ru(R.date) + (R.how ? ' (' + h(R.how) + ')' : ''))}
+    ${kv('К возврату', (+R.sum || 0).toLocaleString('ru') + ' ₽' + (+R.calcSum !== +R.sum ? ' <span class="small muted">(расчёт ' + (+R.calcSum || 0).toLocaleString('ru') + ' ₽)</span>' : ''))}
+    ${+R.sum > 0 ? kv('Вернуть до', D.ru(R.due) + (!R.paidAt && R.due < ix.today ? ' <span class="chip bad">срок прошёл</span>' : '')) + kv('Выплачено', R.paidAt ? D.ru(R.paidAt) : no(true)) + kv('Чек в «Мой налог»', R.checkAt ? 'скорректирован ' + D.ru(R.checkAt) : no(!!R.paidAt)) : ''}</dl>
+    <div class="row no-print" style="margin-top:10px">${+R.sum > 0 && !R.paidAt ? `<button class="btn primary sm" data-act="refund-paid" data-id="${id}">Возврат выплачен</button>` : ''}${+R.sum > 0 && R.paidAt && !R.checkAt ? `<button class="btn primary sm" data-act="refund-check" data-id="${id}">Чек скорректирован</button>` : ''}
+    <button class="btn sm" data-act="refund-print" data-id="${id}">Расчёт (печать)</button><button class="btn sm" data-act="msg" data-id="${id}" data-tpl="Возврат при отказе от договора" data-extra='${h(JSON.stringify(refundExtra(a)))}'>Написать</button><button class="btn sm ghost" data-act="refund-del" data-id="${id}">Удалить запись</button></div></div>` : '';
+  const pubTxt = { 'да': 'можно публиковать', 'частично': '<span class="chip warn">частично — смотреть бланк</span>', 'нет': '<span class="chip bad">нельзя публиковать</span>' }[a.publish] || '<span class="chip bad">нет согласия</span>';
+  const docsCard = `<div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Документы</h2><button class="btn sm no-print" data-act="docs-edit" data-id="${id}">Отметить</button></div><dl class="kv" style="margin-top:8px">
+    ${kv('Пакет «домой» выдан', dk.pack ? D.ru(dk.pack) : '')}${kv('Бланк 1 — заявление, анкета', dk.b1 ? D.ru(dk.b1) : no(true))}${kv('Бланк 2.1 — здоровье', dk.b21 ? D.ru(dk.b21) : a.healthConsent ? 'получен' : no(true))}
+    ${kv('Бланк 2.3 — фото', dk.b23 ? D.ru(dk.b23) : '<span class="muted">нет (необязательный)</span>')}${kv('Фото и видео', pubTxt)}${minor || dk.b3 ? kv('Бланк 3 — законный представитель', dk.b3 ? D.ru(dk.b3) : no(true)) : ''}</dl></div>`;
+  const PL = { '1': '1 место', '2': '2 место', '3': '3 место' };
+  const tournCard = `<div class="card flat"><div style="padding:14px 16px 6px"><h2>Турниры</h2></div>${myT.length ? `<ul class="list">${myT.map(T => `<li class="click" data-go="#tourn"><div class="who"><b>${h(T.name)}</b><span class="small">${D.ru(T.date)}${T.city ? ', ' + h(T.city) : ''}</span></div><span class="chip ${T.res[id] ? 'ok' : 'muted'}">${PL[T.res[id]] || 'участие'}</span></li>`).join('')}</ul>` : '<div class="empty">Нет записей. Турниры вносятся в разделе «Турниры».</div>'}</div>`;
+  const logCard = myLog.length ? `<details class="card no-print"><summary><b>История изменений</b> <span class="small muted">${myLog.length}</span></summary><ul class="list" style="margin-top:8px">${myLog.slice(0, 150).map(x => `<li style="padding:6px 0"><span class="small num" style="min-width:110px">${new Date(x.at).toLocaleString('ru', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}</span><span class="who small">${h(x.t)}</span></li>`).join('')}</ul>${myLog.length > 150 ? '<p class="small muted">Показаны последние 150.</p>' : ''}</details>` : '';
   return `<div class="topline"><div><a href="#people" class="small no-print">← Спортсмены</a></div></div>
   <div class="card"><div class="person-head">${beltHTML(c.belt, c.stripes, true)}
     <div style="flex:1;min-width:220px"><h1>${h(fullName(a))}</h1>
     <div class="row" style="gap:6px">${c.age != null ? `<span class="muted">${c.age} ${plural(c.age, 'год', 'года', 'лет')}</span>` : ''}<span class="chip">${h(a.group || 'без группы')}${a.group2 ? ' / ' + h(a.group2) : ''}</span>
-    <span class="chip ${a.status === 'занимается' ? 'ok' : 'muted'}">${h(a.status)}</span>${a.otherTeam ? `<span class="chip warn">другая команда${a.teamName ? ': ' + h(a.teamName) : ''}</span>` : ''}${chipSub(c)}${chipMed(c.med)}</div>
+    <span class="chip ${a.status === 'занимается' ? 'ok' : 'muted'}">${h(a.status)}</span>${a.otherTeam ? `<span class="chip warn">другая команда${a.teamName ? ': ' + h(a.teamName) : ''}</span>` : ''}${a.refund ? '<span class="chip muted">отказ от договора ' + D.short(a.refund.date) + '</span>' : chipSub(c)}${chipMed(c.med)}</div>
     <div class="small muted" style="margin-top:4px">${c.belt ? h(c.belt) + (c.stripes ? ', ' + c.stripes + ' ' + plural(c.stripes, 'страйп', 'страйпа', 'страйпов') : '') + ' с ' + D.ru(c.beltDate) + (c.monthsSince != null ? ' (' + c.monthsSince + ' мес.)' : '') : 'Пояс не присвоен'}</div></div>
     <div class="row no-print"><button class="btn primary" data-act="sub-new" data-id="${id}">Оплата</button><button class="btn" data-act="msg" data-id="${id}">Написать</button><button class="btn" data-act="transfer-new" data-id="${id}">Перевести</button><button class="btn" data-act="person-edit" data-id="${id}">Изменить</button></div></div></div>
+  ${refundCard}
   <div class="grid2">
   <div class="card"><h2>Данные</h2><dl class="kv">
     ${kv('Дата рождения', D.ru(a.birth))}${kv('Пол', h(a.sex))}${kv('Вес', a.weight ? h(a.weight) + ' кг' : '')}
@@ -1507,14 +1666,15 @@ function vPerson(id) {
     <div class="small">Допуск к аттестации ${D.ru(S.attest.next)}: <b>${h(adm.status)}</b> <button class="btn sm no-print" data-act="manual-admit" data-id="${id}">Допуск вручную</button>${adm.pct != null ? ` — ${Math.round(adm.pct * 100)}% посещений, турниров ${adm.tourn}` : ''}</div>
     <div class="small muted" style="margin-top:10px">Последние отметки, новые слева</div><div class="row" style="gap:4px;margin-top:4px;flex-wrap:wrap">${marks.slice(0, 24).map(m => `<span title="${D.ru(m.date)} ${h(m.group)}" class="cell-m ${{ '+': 'm-plus', 'н': 'm-n', 'б': 'm-b', 'о': 'm-o', 'с': 'm-s' }[m.mark] || ''}">${h(m.mark)}</span>`).join('') || '<span class="muted">Отметок нет</span>'}</div></div>
   </div>
-  <div class="card flat"><div class="row" style="padding:14px 16px 6px"><h2 style="margin:0">Абонементы</h2><span class="spacer"></span><button class="btn sm no-print" data-act="freeze-new" data-id="${id}">Заморозка</button><button class="btn sm no-print" data-act="sub-wait" data-id="${id}">Ждём оплату</button><button class="btn sm no-print" data-act="sub-new" data-id="${id}">Добавить</button></div>
+  <div class="card flat"><div class="row" style="padding:14px 16px 6px"><h2 style="margin:0">Абонементы</h2><span class="spacer"></span>${R ? '' : `<button class="btn sm no-print" data-act="refuse" data-id="${id}">Отказ от договора</button>`}<button class="btn sm no-print" data-act="freeze-new" data-id="${id}">Заморозка</button><button class="btn sm no-print" data-act="sub-wait" data-id="${id}">Ждём оплату</button><button class="btn sm no-print" data-act="sub-new" data-id="${id}">Добавить</button></div>
   ${subs.length ? `<div class="scroll"><table class="t"><thead><tr><th>Действует с</th><th class="r">Занятий</th><th class="r">Сумма</th><th class="r">Был</th><th class="r">Не был</th><th class="r">Болел</th><th class="r">Остаток</th><th>Окончание</th><th></th></tr></thead><tbody>
   ${subs.map(p => { const r = ix.subCalc.get(p.id); return `<tr class="click" data-act="sub-edit" data-id="${p.id}"><td class="num">${startLabel(p, r)}${p.onlyGroup ? ' <span class="chip">' + h(p.onlyGroup) + '</span>' : ''}</td><td class="r num">${p.count}</td><td class="r num">${p.pending ? '<span class="small muted">не оплачен</span>' : (+p.amount || 0).toLocaleString('ru')}</td><td class="r num">${r.was}</td><td class="r num">${r.missed}</td><td class="r num">${r.sick}${r.sickCharged ? ' (спис. ' + r.sickCharged + ')' : ''}</td><td class="r num"><b>${r.remaining}</b></td><td class="num">${r.end ? D.ru(r.end) : (r.endKind === 'nosched' ? '<span class="small muted">нет расписания</span>' : '')}</td><td><span class="chip ${r.tone}">${h(r.status)}</span></td></tr>`; }).join('')}</tbody></table></div>` : '<div class="empty">Абонементов нет</div>'}
   ${freezes.length ? `<div style="padding:8px 16px 14px"><h3>Заморозки по болезни</h3><ul class="list">${freezes.map(f => { const fc = calcFreeze(ix, f); return `<li class="click" data-act="freeze-edit" data-id="${f.id}"><div class="who"><b>${D.ru(f.from)} — ${D.ru(f.to)}</b><span class="small">${h(fc.text)}</span></div><span class="chip ${fc.mode === 'lapsed' ? 'bad' : fc.mode === 'wait' ? 'warn' : 'sick'}">${{ a: 'оформлена', b: 'оформлена', wait: 'ждём', lapsed: 'прекращена', none: 'без продления', incomplete: 'не заполнена', err: 'ошибка' }[fc.mode]}</span></li>`; }).join('')}</ul></div>` : ''}</div>
   <div class="grid2"><div class="card flat"><div class="row" style="padding:14px 16px 6px"><h2 style="margin:0">Пояса</h2><span class="spacer"></span><button class="btn sm no-print" data-act="award-new" data-id="${id}">Присвоить</button></div>
   ${awards.length ? `<ul class="list">${awards.map(w => `<li class="click" data-act="award-edit" data-id="${w.id}">${beltHTML(w.belt, w.stripes)}<div class="who"><b>${h(w.belt)}${w.stripes ? ', ' + w.stripes + ' стр.' : ''}</b><span class="small">${D.ru(w.date)} · ${h(w.by)}</span></div></li>`).join('')}</ul>` : '<div class="empty">Присвоений нет</div>'}</div>
   <div class="card flat"><div style="padding:14px 16px 6px"><h2>Сдача нормативов</h2></div>
-  ${tests.length ? `<ul class="list">${tests.map(t => { const r = calcTest(ix, t); return `<li class="click" data-go="#attest/tests" data-act="set-test-date" data-date="${t.date}"><div class="who"><b>${D.ru(t.date)} — на ${h(t.target)}</b><span class="small">${h(r.track || '')}</span></div><span class="chip ${/^СДАН/.test(r.result) ? 'ok' : r.result === 'НЕ СДАН' || r.bad ? 'bad' : 'muted'}">${h(r.result)}</span></li>`; }).join('')}</ul>` : '<div class="empty">Не сдавал</div>'}</div></div>`;
+  ${tests.length ? `<ul class="list">${tests.map(t => { const r = calcTest(ix, t); return `<li class="click" data-go="#attest/tests" data-act="set-test-date" data-date="${t.date}"><div class="who"><b>${D.ru(t.date)} — на ${h(t.target)}</b><span class="small">${h(r.track || '')}</span></div><span class="chip ${/^СДАН/.test(r.result) ? 'ok' : r.result === 'НЕ СДАН' || r.bad ? 'bad' : 'muted'}">${h(r.result)}</span></li>`; }).join('')}</ul>` : '<div class="empty">Не сдавал</div>'}</div></div>
+  <div class="grid2">${docsCard}${tournCard}</div>${logCard}`;
 }
 
 /* ---------- модальные окна ---------- */
@@ -1527,8 +1687,30 @@ function modal(title, body, { submit = 'Сохранить', onSubmit, extraBtn 
   <div class="dlg-b">${body}</div><div class="dlg-f">${extraBtn}<span class="spacer"></span><button type="button" class="btn" data-act="close">Отмена</button>${onSubmit ? `<button type="submit" class="btn primary">${h(submit)}</button>` : ''}</div></form>`;
   dlgSubmit = onSubmit || null;
   d.showModal();
+  const asel = d.querySelector('.dlg-b select[name=athleteId]'); if (asel) athleteSearch(asel);
   const first = d.querySelector('.dlg-b input:not([type=hidden]),.dlg-b select,.dlg-b textarea');
   if (first && window.innerWidth > 860) first.focus();
+}
+function athleteSearch(sel) {                     // поиск по фамилии/имени вместо прокрутки длинного списка
+  const lab = sel.closest('label') || sel, norm = t => String(t).toLowerCase().replace(/ё/g, 'е');
+  const all = [...sel.options].map(o => ({ v: o.value, t: o.textContent }));
+  const box = document.createElement('div'); box.className = 'wide';
+  box.innerHTML = '<label class="f"><span>Найти спортсмена</span><input type="search" placeholder="Начните вводить фамилию или имя" autocomplete="off" enterkeyhint="search"></label><div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px"></div>';
+  lab.parentNode.insertBefore(box, lab);
+  const inp = box.querySelector('input'), hits = box.querySelector('.row');
+  const fill = list => { const cur = sel.value; sel.innerHTML = all.filter(x => !x.v || list.includes(x) || x.v === cur).map(x => opt(x.v, cur, x.t)).join(''); };
+  const pick = x => { sel.value = x.v; sel.dispatchEvent(new Event('change')); inp.value = x.t; hits.innerHTML = ''; fill(all); };
+  let found = [];
+  inp.addEventListener('input', () => {
+    const q = norm(inp.value.trim()); hits.innerHTML = '';
+    found = q ? all.filter(x => x.v && (norm(x.t).split(/\s+/).some(w => w.startsWith(q)) || norm(x.t).includes(q))) : [];
+    fill(q ? found : all);
+    if (found.length === 1) { pick(found[0]); return; }
+    found.slice(0, 8).forEach(x => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn sm'; b.textContent = x.t; b.onclick = () => pick(x); hits.appendChild(b); });
+    if (q && !found.length) hits.innerHTML = '<span class="small muted">Не найдено</span>';
+    else if (found.length > 8) hits.insertAdjacentHTML('beforeend', `<span class="small muted">и ещё ${found.length - 8} — уточните</span>`);
+  });
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); if (found.length) pick(found[0]); } });
 }
 function closeModal() { const d = document.getElementById('dlg'); if (d && d.open) d.close(); }
 document.addEventListener('submit', e => {
@@ -1594,7 +1776,7 @@ function vSubs() {
   const U = ui.subs, q = U.q.trim().toLowerCase();
   let rows = db.subs.map(p => ({ p, r: ix.subCalc.get(p.id), a: ix.ath.get(p.athleteId) })).filter(x => x.a);
   const latestIds = new Set(db.athletes.map(a => { const c = ix.athCalc.get(a.id); return c.sub && c.sub.id; }).filter(Boolean));
-  if (U.filter === 'active') rows = rows.filter(x => !x.p.pending && (latestIds.has(x.p.id) && x.r.remaining > 0 || x.r.notActive || (x.r.first && x.r.first > ix.today)));
+  if (U.filter === 'active') rows = rows.filter(x => !x.a.refund && !x.p.pending && (latestIds.has(x.p.id) && x.r.remaining > 0 || x.r.notActive || (x.r.first && x.r.first > ix.today)));
   if (U.filter === 'ending') rows = rows.filter(x => latestIds.has(x.p.id) && (x.r.remaining === 1 || x.r.remaining === 2) && !ix.athCalc.get(x.a.id).nextSub && x.a.status === 'занимается');
   if (U.filter === 'ended') rows = rows.filter(x => latestIds.has(x.p.id) && x.r.remaining === 0 && (+x.p.count || 0) > 1 && !ix.athCalc.get(x.a.id).nextSub && x.a.status === 'занимается');
   if (U.filter === 'debt') rows = rows.filter(x => x.r.remaining < 0 && !x.p.pending);
@@ -1605,7 +1787,7 @@ function vSubs() {
   if (U.filter === 'period') rows = rows.filter(x => inP(x.p));
   if (q) rows = rows.filter(x => fullName(x.a).toLowerCase().includes(q));
   const byName = (x, y) => fullName(x.a).localeCompare(fullName(y.a), 'ru');
-  const key = { name: null, start: x => x.r.first || x.p.payDate || '', rem: x => x.r.remaining, end: x => x.r.end || '' }[U.sort];
+  const key = { name: null, start: x => x.r.first || x.p.payDate || '', pay: x => x.p.pending ? '' : x.p.payDate || '', rem: x => x.r.remaining, end: x => x.r.end || '' }[U.sort];
   rows.sort((x, y) => {
     if (!key) return U.dir * byName(x, y);
     const a = key(x), b = key(y);
@@ -1631,16 +1813,16 @@ function vSubs() {
     <div class="small muted" style="margin-top:6px">С начала ведения программы (${D.ru(pStart)}): ${money(paidAll).toLocaleString('ru')} ₽ · ${paidAll.length} ${plural(paidAll.length, 'оплата', 'оплаты', 'оплат')}. Оплаты до ${D.ru(pStart)} (перенесённые из Excel) не считаются. Считается по дате оплаты; «ждём оплату» не входит.</div></div>
   <div class="card no-print"><div class="row"><div class="seg">${seg.map(([k, l]) => `<button data-act="subs-filter" data-f="${k}" class="${U.filter === k ? 'on' : ''}">${l}</button>`).join('')}</div>
   <input type="search" placeholder="Поиск по фамилии" data-change="subs-q" value="${h(U.q)}" style="flex:1;min-width:180px">
-  <select data-change="subs-sort" style="width:auto">${[['name', 'по фамилии'], ['rem', 'по остатку'], ['end', 'по окончанию'], ['start', 'по дате начала']].map(([k, l]) => opt(k, U.sort, 'Сортировка: ' + l)).join('')}</select>
+  <select data-change="subs-sort" style="width:auto">${[['name', 'по фамилии'], ['pay', 'по дате оплаты'], ['rem', 'по остатку'], ['end', 'по окончанию'], ['start', 'по дате начала']].map(([k, l]) => opt(k, U.sort, 'Сортировка: ' + l)).join('')}</select>
   <button class="btn" data-act="subs-dir" title="Обратный порядок">${U.dir > 0 ? '▲ по возрастанию' : '▼ по убыванию'}</button></div>
   <div class="legend" style="margin-top:10px"><span><i class="lg-rem1"></i>осталось 1 занятие</span><span><i class="lg-rem2"></i>осталось 2 занятия</span><span class="small opt-m">(если следующий ещё не оплачен)</span><span><i class="lg-pend"></i>ждём оплату</span></div></div>
   ${(U.filter === 'debt' || U.filter === 'all') && unpaidList().length ? `<div class="card flat"><div style="padding:12px 16px 4px"><h3>Посещения без оплаты (абонемента нет)</h3></div><ul class="list">${unpaidList().map(({ a, c }) => `<li><div class="who"><b>${h(shortName(a))}</b><span class="small">${h(a.group)} · ${c.unpaid.map(d => D.short(d)).join(', ')}</span></div><span class="chip bad">не оплачено ${c.unpaid.length}</span><button class="btn sm" data-act="sub-new" data-id="${a.id}">Оплата</button></li>`).join('')}</ul></div>` : ''}
   <div class="card flat show-m"><ul class="list sublist">${rows.map(({ p, r, a }) => { const hl = p.pending ? ' pend' : latestIds.has(p.id) && !ix.athCalc.get(a.id).nextSub && !ix.athCalc.get(a.id).pendingSub && (r.remaining === 1 || r.remaining === 2) ? ' rem' + r.remaining : '';
     return `<li class="click${hl}" data-act="sub-edit" data-id="${p.id}"><div class="who"><b class="nm">${h(shortName(a))}</b>
-      <span class="small">${h(p.onlyGroup || a.group || '')} · ${p.count} зан. · ${r.first ? 'с ' + D.short(r.first) : (p.pending ? 'с 1-го посещения' : 'не активирован' + (r.autoDate ? ', до ' + D.short(r.autoDate) : ''))}</span>
+      <span class="small">${h(p.onlyGroup || a.group || '')} · ${p.count} зан.${p.payDate && !p.pending ? ' · опл. ' + D.short(p.payDate) : ''} · ${r.first ? 'с ' + D.short(r.first) : (p.pending ? 'с 1-го посещения' : 'не активирован' + (r.autoDate ? ', до ' + D.short(r.autoDate) : ''))}</span>
       <span class="small">${r.end ? (r.endKind === 'fact' ? 'последнее ' : 'окончание ') + D.ru(r.end) : (r.endKind === 'nosched' ? 'нет расписания' : '')}</span></div>
       <div class="subside"><b class="num">${r.remaining}</b><span class="chip ${r.tone}">${h(r.status)}</span></div></li>`; }).join('') || '<li class="empty">Нет абонементов в этом списке</li>'}</ul></div>
-  <div class="card flat scroll hide-m"><table class="t"><thead><tr>${th('name', 'ФИО')}<th class="hide-m">Оплата</th>${th('start', 'С')}<th class="r">Занятий</th><th class="r hide-m">Сумма</th><th class="r hide-m">Был</th><th class="r hide-m">Не был</th><th class="r hide-m">Болел</th>${th('rem', 'Остаток', 'r')}${th('end', 'Окончание')}<th>Статус</th></tr></thead><tbody>
+  <div class="card flat scroll hide-m"><table class="t"><thead><tr>${th('name', 'ФИО')}${th('pay', 'Оплата', 'hide-m')}${th('start', 'С')}<th class="r">Занятий</th><th class="r hide-m">Сумма</th><th class="r hide-m">Был</th><th class="r hide-m">Не был</th><th class="r hide-m">Болел</th>${th('rem', 'Остаток', 'r')}${th('end', 'Окончание')}<th>Статус</th></tr></thead><tbody>
   ${rows.map(({ p, r, a }) => { const hl = p.pending ? ' pend' : latestIds.has(p.id) && !ix.athCalc.get(a.id).nextSub && !ix.athCalc.get(a.id).pendingSub && (r.remaining === 1 || r.remaining === 2) ? ' rem' + r.remaining : '';
   return `<tr class="click${hl}" data-act="sub-edit" data-id="${p.id}"><td><b class="nm">${h(shortName(a))}</b><div class="small muted">${h(p.onlyGroup || a.group)}</div></td><td class="hide-m num">${D.ru(p.payDate)}</td><td class="num">${startLabel(p, r, true)}</td>
   <td class="r num">${p.count}</td><td class="r num hide-m">${p.pending ? '<span class="small muted">не оплачен</span>' : (+p.amount || 0).toLocaleString('ru')}</td><td class="r num hide-m">${r.was}</td><td class="r num hide-m">${r.missed}</td><td class="r num hide-m">${r.sick}</td>
@@ -1659,19 +1841,24 @@ function openSub(id, athleteId) {
   <p class="small wide" id="unpaid-note" style="margin:-4px 0 0;${up.length ? '' : 'display:none'}"><b>Есть неоплаченные посещения: ${up.map(d => D.short(d)).join(', ')}.</b> Дата активации поставлена на первое из них, чтобы оплата их покрыла.</p>
   <p class="small muted wide" style="margin:-4px 0 0">Пусто: абонемент активируется сам в день первого посещения после оплаты (при оплате заранее — первого посещения после окончания текущего), а если посещений не будет — на 30-й день: считая со следующего дня после оплаты, а при оплате заранее — со следующего дня после окончания текущего абонемента (п. 9.2). Дату ставьте вручную, только если нужно иначе.</p>
   ${F('count', 'Оплачено занятий', v.count, 'number', 'min="1" inputmode="numeric" required')}${F('amount', 'Сумма, ₽', v.amount, 'number', 'inputmode="numeric"')}
+  ${F('refundPrice', 'Цена занятия для возврата, ₽', v.refundPrice || '', 'number', 'min="0" step="10" inputmode="numeric" placeholder="пусто — по п. 10.4.2"')}
+  <p class="small muted wide" style="margin:-4px 0 0">Пусто — цена считается сама: сумма ÷ число занятий, вверх до 10 ₽ (5 500 → 460, 5 000 → 420). Свою цену можно поставить только не ниже расчётной.</p>
   ${FS('onlyGroup', 'Абонемент только на группу', [['', 'все группы человека'], ...db.settings.groups.map(g => g.name)], v.onlyGroup)}
   <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:${v.pending ? 'var(--bad-bg)' : 'var(--sunk)'}"><input type="checkbox" name="pending" ${v.pending ? 'checked' : ''} style="width:20px;height:20px"><span><b>Ждём оплату</b> — человек занимается, но абонемент ещё не оплачен. Посещения списываются с него как обычно.</span></label>
   <label class="f wide"><span>Примечание</span><input type="text" name="note" value="${h(v.note)}"></label></div>
   <details style="margin-top:10px"><summary class="small">Перенос из прежнего журнала</summary><div class="fgrid" style="margin-top:8px">${F('carryWas', 'Был (перенос)', v.carryWas || 0, 'number')}${F('carryMissed', 'Не был (перенос)', v.carryMissed || 0, 'number')}</div></details>
   ${r ? `<div class="card" style="margin:12px 0 0;background:var(--sunk)"><div class="stats"><div class="stat"><b>${r.was}</b><span class="small muted">был</span></div><div class="stat"><b>${r.missed}</b><span class="small muted">не был</span></div><div class="stat"><b>${r.sick}</b><span class="small muted">болел</span></div>${r.blank ? `<div class="stat"><b>${r.blank}</b><span class="small muted">из «не был» — пустые клетки</span></div>` : ''}<div class="stat"><b>${r.remaining}</b><span class="small muted">остаток</span></div></div>
   <div class="small" style="margin-top:8px">${activationText(p, r)}</div>
-  <div class="small" style="margin-top:4px">${r.end ? (r.endKind === 'fact' ? 'Последнее списанное занятие: ' : 'Окончание по расписанию: ') + D.ru(r.end) : ''}${r.notifyBy ? ' · сообщить об окончании не позднее ' + D.ru(r.notifyBy) : ''}</div></div>` : ''}`;
+  <div class="small" style="margin-top:4px">${r.end ? (r.endKind === 'fact' ? 'Последнее списанное занятие: ' : 'Окончание по расписанию: ') + D.ru(r.end) : ''}${r.notifyBy ? ' · сообщить об окончании не позднее ' + D.ru(r.notifyBy) : ''}</div>${refundInfo(ix, p) && (+p.count || 0) > 1 ? `<div class="small" style="margin-top:4px">При отказе от договора на сегодня — к возврату <b>${refundInfo(ix, p).sum.toLocaleString('ru')} ₽</b>${refundInfo(ix, p).price ? ' (' + refundInfo(ix, p).left + ' × ' + refundInfo(ix, p).price.toLocaleString('ru') + ' ₽' + (refundInfo(ix, p).own ? ', своя цена' : '') + ')' : ' (абонемент не активирован — вся сумма)'}, п. 10.4${ix.ath.get(p.athleteId) && ix.ath.get(p.athleteId).status === 'ушёл' ? ', договор прекращён ' + D.ru(ix.ath.get(p.athleteId).endedAt) : ''}</div>` : ''}</div>` : ''}`;
   modal(p ? 'Абонемент' : 'Новая оплата', body, {
     extraBtn: p ? `<button type="button" class="btn danger" data-act="sub-del" data-id="${p.id}">Удалить</button>${p.pending ? `<button type="button" class="btn primary" data-act="sub-paid" data-id="${p.id}">Оплачено сегодня</button>` : ''}<button type="button" class="btn" data-act="msg" data-id="${aid}" data-sub="${p.id}" data-tpl="Новый абонемент оплачен">Сообщение</button>` : '',
     onSubmit(fd) {
       if (!fd.athleteId) { alert('Выберите спортсмена'); return false; }
       if (!(+fd.count >= 1)) { alert('Количество занятий должно быть не меньше 1'); return false; }
       if (+fd.amount < 0) { alert('Сумма не может быть отрицательной'); return false; }
+      { const own = +fd.refundPrice || 0, auto = refundAuto({ amount: fd.amount, count: fd.count });
+        if (own < 0) { alert('Цена занятия не может быть отрицательной'); return false; }
+        if (own && auto && own < auto) { alert(`Цена занятия для возврата не может быть ниже расчётной: ${auto} ₽ (п. 10.4.2 договора — сумма ÷ число занятий, вверх до 10 ₽). Оставьте поле пустым или укажите ${auto} ₽ и больше.`); return false; } }
       const same = !p && db.subs.find(q => q.athleteId === fd.athleteId && q.payDate && q.payDate === fd.payDate && +q.count === +fd.count && (q.onlyGroup || '') === (fd.onlyGroup || ''));
       if (same && !confirm(`У этого человека уже записана оплата ${D.ru(fd.payDate)} на ${same.count} зан. (${(+same.amount || 0).toLocaleString('ru')} ₽). Записать ещё одну?\n\nЕсли это повтор по ошибке — нажмите «Отмена».`)) return false;
       if (fd.start && !fd.pending) {                     // п. 9.3.2: новый не начинается, пока не истёк период текущего
@@ -1680,7 +1867,7 @@ function openSub(id, athleteId) {
         if (pr && pr.remaining > 0 && !confirm(`Предыдущий абонемент (с ${D.ru(pr.first)}) ещё не истёк: осталось ${pr.remaining} зан. Если новый начнётся ${D.ru(fd.start)}, период предыдущего оборвётся (п. 9.3.2).\n\nОставьте дату активации пустой — новый начнётся сам после окончания текущего.\n\nВсё равно сохранить с этой датой?`)) return false;
       }
       const t = p || { id: uid('p') };
-      Object.assign(t, { athleteId: fd.athleteId, payDate: fd.pending ? '' : fd.payDate, start: fd.start, count: +fd.count || 0, amount: +fd.amount || 0, onlyGroup: fd.onlyGroup, carryWas: +fd.carryWas || 0, carryMissed: +fd.carryMissed || 0, note: fd.note.trim(), pending: !!fd.pending });
+      Object.assign(t, { athleteId: fd.athleteId, payDate: fd.pending ? '' : fd.payDate, start: fd.start, count: +fd.count || 0, amount: +fd.amount || 0, refundPrice: +fd.refundPrice > 0 ? +fd.refundPrice : '', onlyGroup: fd.onlyGroup, carryWas: +fd.carryWas || 0, carryMissed: +fd.carryMissed || 0, note: fd.note.trim(), pending: !!fd.pending });
       if (!p) db.subs.push(t);
       persist(p ? 'Абонемент сохранён' : t.pending ? 'Записан абонемент «ждём оплату»' : 'Оплата записана');
       if (!p && !t.pending && t.count > 1) setTimeout(() => { const rr = ix.subCalc.get(t.id); openMsg(t.athleteId, rr && rr.notActive ? 'Абонемент оплачен' : 'Новый абонемент оплачен', {}, t.id); }, 50);
@@ -1953,6 +2140,7 @@ function vReport() {
   <div class="stat"><b>${cnt(sess, 'н')}</b><span class="small muted">пропусков без заморозки</span></div><div class="stat"><b>${cnt(sess, 'б')}</b><span class="small muted">по болезни</span></div>
   <div class="stat"><b>${pays.length}</b><span class="small muted">оплат</span></div><div class="stat"><b>${pays.reduce((s, p) => s + (+p.amount || 0), 0).toLocaleString('ru')} ₽</b><span class="small muted">получено</span></div></div>
   ${pStart ? `<div class="small muted" style="margin-top:8px">Оплаты считаются с начала ведения программы (${D.ru(pStart)}); перенесённые из Excel не входят.</div>` : ''}</div>
+  ${reportSummary(R)}
   <div class="grid2"><div class="card flat"><table class="t"><thead><tr><th>Группа</th><th class="r">Занятий</th><th class="r">Посещений</th><th class="r">В среднем</th><th class="r">Оплат, ₽</th></tr></thead><tbody>
   ${groups.map(g => { const gs = sess.filter(s => s.group === g), v = cnt(gs, '+'); const money = pays.filter(p => (p.onlyGroup || (ix.ath.get(p.athleteId) || {}).group) === g).reduce((s, p) => s + (+p.amount || 0), 0);
     return gs.length || money ? `<tr><td>${h(g)}</td><td class="r num">${gs.length}</td><td class="r num">${v}</td><td class="r num">${gs.length ? (v / gs.length).toFixed(1) : ''}</td><td class="r num">${money.toLocaleString('ru')}</td></tr>` : ''; }).join('')}</tbody></table></div>
@@ -1960,7 +2148,32 @@ function vReport() {
   ${groups.map(g => { const n = active.filter(a => a.group === g).length; return n ? `<tr><td>${h(g)}</td><td class="r num">${n}</td></tr>` : ''; }).join('')}<tr><td><b>Всего занимаются</b></td><td class="r num"><b>${active.length}</b></td></tr>
   ${ages.map(([l, f, t]) => { const n = active.filter(a => { const x = ix.athCalc.get(a.id).age; return x != null && x >= f && x <= t; }).length; return n ? `<tr><td class="muted">${l} лет</td><td class="r num">${n}</td></tr>` : ''; }).join('')}
   ${Object.entries(beltCount).map(([b, n]) => `<tr><td class="muted">${h(b)}</td><td class="r num">${n}</td></tr>`).join('')}</tbody></table></div></div>
-  <div class="card flat"><div style="padding:14px 16px 6px"><h2>Должники</h2></div>${debtors.length ? `<ul class="list">${debtors.map(({ a, c }) => `<li class="click" data-go="#person/${a.id}"><div class="who"><b>${h(fullName(a))}</b><span class="small">${h(a.group)}</span></div><span class="chip bad">${c.subCalc && c.subCalc.remaining < 0 ? 'долг ' + (-c.subCalc.remaining) : 'не оплачено ' + c.unpaid.length}</span></li>`).join('')}</ul>` : '<div class="empty">Должников нет</div>'}</div>`;
+  <div class="card flat"><div style="padding:14px 16px 6px"><h2>Должники</h2></div>${debtors.length ? `<ul class="list">${debtors.map(({ a, c }) => `<li class="click" data-go="#person/${a.id}"><div class="who"><b>${h(fullName(a))}</b><span class="small">${h(a.group)}</span></div><span class="chip bad">${c.subCalc && c.subCalc.remaining < 0 ? 'долг ' + (-c.subCalc.remaining) : 'не оплачено ' + c.unpaid.length}</span></li>`).join('')}</ul>` : '<div class="empty">Должников нет</div>'}</div>
+  ${(() => { const n = k => active.filter(a => (a.publish || '') === k).length;
+    return `<div class="card no-print"><h2>Фото и видео (Бланк 2.3)</h2><div class="stats"><div class="stat"><b>${n('да')}</b><span class="small muted">можно</span></div><div class="stat"><b>${n('частично')}</b><span class="small muted">частично</span></div><div class="stat"><b>${n('нет') + n('')}</b><span class="small muted">нельзя или нет бланка</span></div></div>
+    <div class="row" style="margin-top:10px"><button class="btn" data-act="print-nopublish">Печать: кого не публиковать</button></div></div>`; })()}`;
+}
+function reportSummary(R) {
+  const S = db.settings, inP = d => d && d >= R.from && d <= R.to;
+  const pStart = S.programStart || S.sickCheckFrom || '';
+  const active = db.athletes.filter(a => a.status === 'занимается');
+  const adults = active.filter(a => { const x = ix.athCalc.get(a.id).age; return x != null && x >= 18; }).length, target = +S.adultTarget || 0;
+  const newcomers = db.athletes.filter(a => inP(a.addedAt) && a.addedAt >= pStart);
+  const paidNew = newcomers.filter(a => (ix.subsByAth.get(a.id) || []).some(p => !p.pending && (+p.count || 0) > 1)).length;
+  let ended = 0, renewed = 0;
+  for (const a of db.athletes) {
+    const L = (ix.subsByAth.get(a.id) || []).filter(p => (+p.count || 0) > 1);
+    L.forEach((p, i) => { const r = ix.subCalc.get(p.id); if (p.pending || !r || r.remaining > 0 || !inP(r.end) || r.end < pStart) return;
+      ended++; if (L.slice(i + 1).some(q => !q.pending)) renewed++; });
+  }
+  const left = db.athletes.filter(a => a.status === 'ушёл' && inP(a.endedAt)).length;
+  const pct = (x, y) => y ? Math.round(x / y * 100) + '%' : '—';
+  return `<div class="card"><h2>Итоги периода</h2><div class="stats">
+  <div class="stat"><b>${adults}${target ? ' / ' + target : ''}</b><span class="small muted">взрослых (18+) занимается${target ? ', цель' : ''}</span></div>
+  <div class="stat"><b>${newcomers.length}</b><span class="small muted">новых, из них купили абонемент ${paidNew} (${pct(paidNew, newcomers.length)})</span></div>
+  <div class="stat"><b>${renewed} из ${ended}</b><span class="small muted">продлили закончившийся абонемент (${pct(renewed, ended)})</span></div>
+  <div class="stat"><b>${left}</b><span class="small muted">ушли (договор прекращён)</span></div></div>
+  <p class="small muted" style="margin-top:8px">Взрослые — на сегодня. Новые — по дате «в клубе с». Продление — после абонемента, закончившегося в периоде, оплачен следующий.</p></div>`;
 }
 
 /* ---------- НАСТРОЙКИ ---------- */
@@ -1992,7 +2205,7 @@ function vSettings() {
   <h2 style="margin-top:16px">Аттестация</h2><div class="fgrid">${L('Предыдущая аттестация', inp('attest.prev', A.prev, 'date'))}${L('Предстоящая аттестация', inp('attest.next', A.next, 'date'))}
   ${L('Порог допуска, %', inp('attest.threshold', A.threshold, 'number'))}${L('Минимум турниров', inp('attest.minTournaments', A.minTournaments, 'number'))}${L('Турниры обязательны до (лет, включительно)', inp('attest.tournamentsMaxAge', A.tournamentsMaxAge ?? 15, 'number'))}
   ${L('Порог посещаемости до (лет, включительно)', inp('attest.attendMaxAge', A.attendMaxAge ?? 15, 'number'))}${L('Переходный период: посещаемость также считать с', `<input type="date" data-change="soft" value="${h(A.softFor === A.next ? A.softFrom || '' : '')}">`)}${L('Послабление на страйп', inp('attest.reliefCoef', A.reliefCoef, 'number', 'step="0.05"'))}</div></div></div>
-  <div class="card"><h2>Клуб</h2><div class="fgrid">${L('Клуб и адрес', inp('club', S.club))}${L('Главный тренер', inp('coachMain', S.coachMain))}${L('Второй тренер', inp('coachSecond', S.coachSecond))}${L('Кем присваивается пояс', inp('awardedBy', S.awardedBy))}${L('Оператор персональных данных (ФИО полностью, для актов)', inp('operatorName', S.operatorName || S.awardedBy))}${L('Адрес оператора для актов', inp('operatorAddress', S.operatorAddress || ''))}${L('Занятий в абонементе по умолчанию', inp('defaultCount', S.defaultCount, 'number'))}${L('Начало ведения программы (суммы оплат считаются с этой даты)', inp('programStart', S.programStart || S.sickCheckFrom, 'date'))}
+  <div class="card"><h2>Клуб</h2><div class="fgrid">${L('Клуб и адрес', inp('club', S.club))}${L('Главный тренер', inp('coachMain', S.coachMain))}${L('Второй тренер', inp('coachSecond', S.coachSecond))}${L('Кем присваивается пояс', inp('awardedBy', S.awardedBy))}${L('Оператор персональных данных (ФИО полностью, для актов)', inp('operatorName', S.operatorName || S.awardedBy))}${L('Адрес оператора для актов', inp('operatorAddress', S.operatorAddress || ''))}${L('Занятий в абонементе по умолчанию', inp('defaultCount', S.defaultCount, 'number'))}${L('Начало ведения программы (суммы оплат считаются с этой даты)', inp('programStart', S.programStart || S.sickCheckFrom, 'date'))}${L('Цель: взрослых (18+) занимается', inp('adultTarget', S.adultTarget ?? 16, 'number', 'min="0"'))}
   <label class="f wide"><span>Пояса (по одному в строке, по порядку)</span><textarea data-change="belts" style="min-height:120px">${h(S.belts.join('\n'))}</textarea></label></div></div>
   <div class="card"><h2>Шаблоны сообщений</h2><p class="small muted">Подстановки: {имя}, {фи}, {фио}, {остаток}, {долг}, {занятий}, {дата_начала}, {дата_окончания}, {срок_оплаты}, {группа}.</p>
   ${S.templates.map((t, i) => `<fieldset><legend>${h(t.title)}</legend><input type="text" data-change="tpl" data-i="${i}" data-k="title" value="${h(t.title)}" style="margin-bottom:6px"><textarea data-change="tpl" data-i="${i}" data-k="text">${h(t.text)}</textarea><button class="btn sm danger" data-act="tpl-del" data-i="${i}" style="margin-top:6px">Удалить шаблон</button></fieldset>`).join('')}
@@ -2018,7 +2231,7 @@ function vData() {
     <div class="row" style="margin-top:8px"><button class="btn" data-act="pin-on">Сменить PIN</button><button class="btn danger" data-act="pin-off">Выключить PIN</button><button class="btn" data-act="export-plain">Копия без шифрования…</button></div></details>
     <p class="small muted" style="margin-top:8px">Копии с PIN открываются на другом устройстве только с этим PIN (программа спросит его при загрузке). CSV не шифруются.</p>` : `
     <p>Без PIN любой, кто получит телефон в разблокированном виде или файл копии, увидит данные детей и телефоны родителей. С PIN данные в браузере и копии-файлы хранятся зашифрованными.</p>
-    <p class="small"><b>Без PIN данные не восстановить.</b> Запишите его и храните отдельно от телефона. Лучше 6 цифр и больше.</p>
+    <p class="small"><b>Без PIN данные не восстановить.</b> Запишите его и храните отдельно от телефона. Не короче 8 символов.</p>
     <div class="fgrid"><label class="f"><span>Новый PIN</span><input type="password" id="pin-new" inputmode="numeric" autocomplete="off"></label>
     <label class="f"><span>Ещё раз</span><input type="password" id="pin-new2" inputmode="numeric" autocomplete="off"></label></div>
     <button class="btn primary" data-act="pin-on" style="margin-top:8px">Включить PIN</button>`}</div>
@@ -2042,6 +2255,8 @@ function vData() {
   ${snaps.length ? `<ul class="list">${snaps.map((s, i) => `<li><div class="who"><b>${new Date(s.at).toLocaleString('ru')}</b><span class="small">${h(s.reason)}</span></div><button class="btn sm" data-act="snap-restore" data-i="${i}">Вернуть эту версию</button></li>`).join('')}</ul>` : '<p class="muted">Пока нет.</p>'}</div>
   <div class="card"><h2>Выгрузка таблиц</h2><div class="row"><button class="btn" data-act="people-csv">Спортсмены (CSV)</button><button class="btn" data-act="subs-csv">Абонементы (CSV)</button><button class="btn" data-act="visits-csv">Посещения (CSV)</button></div>
   <p class="small muted">CSV открывается в Excel. Файлы содержат персональные данные: храните на устройстве с паролем, организаторам соревнований передавайте только объём заявки.</p></div>
+  <div class="card"><h2>Обезличенная копия</h2><p>Для проверки расчётов посторонним (разработчику, юристу, ИИ): вместо ФИО — «Спортсмен 1, 2…», без телефонов, родителей, примечаний, медсправок; от даты рождения остаётся только год. Посещения, абонементы, заморозки и суммы — как есть.</p>
+  <button class="btn" data-act="export-anon">Скачать обезличенную копию</button><p class="small muted" style="margin-top:6px">Такую копию не загружайте обратно вместо своих данных — программа предупредит.</p></div>
   ${(() => { const R = retention(), li = l => l.map(a => `<li class="click" data-go="#person/${a.id}"><div class="who"><b>${h(fullName(a))}</b><span class="small">${a.endedAt ? 'договор прекращён ' + D.ru(a.endedAt) + ', хранить до ' + D.ru(keepUntil(a.endedAt)) : 'дата прекращения договора не указана'}</span></div></li>`).join('');
     return `<div class="card"><h2>Срок хранения персональных данных</h2><p class="small muted">По п. 12.3.1 оферты данные хранятся 3 года после прекращения договора. Дата прекращения ставится сама, когда статус меняется на «ушёл».</p>
     ${R.expired.length ? `<h3>Срок истёк — удалить (кнопка «Удалить» в карточке), затем составить акт</h3><ul class="list">${li(R.expired)}</ul>` : '<p>Истёкших сроков нет.</p>'}
@@ -2145,6 +2360,7 @@ function applyImport(text, fname) {
   if (d.encSalt && d.data) return importEncrypted(d, fname);
   if ((+d.version || 1) > DATA_VERSION) { alert('Файл сохранён более новой версией программы. Обновите страницу (с интернетом) и загрузите файл снова.'); return; }
   const bad = validateDb(d); if (bad) { alert('Файл повреждён или неполный (' + bad + '). Данные не загружены.'); return; }
+  if (d.anon && !confirm('Это ОБЕЗЛИЧЕННАЯ копия: в ней нет ФИО, телефонов и родителей. Она для проверки расчётов, а не для работы.\n\nЗаменить ею данные на этом устройстве?')) return;
   if (db && db.rev) {
     const older = d.updatedAt && db.updatedAt && d.updatedAt < db.updatedAt;
     const head = `Файл: ${fname}\nДанные в файле от ${new Date(d.updatedAt).toLocaleString('ru')}\nДанные здесь от ${new Date(db.updatedAt).toLocaleString('ru')}\n\n`;
@@ -2323,6 +2539,164 @@ function retention() {
   const left = db.athletes.filter(a => a.status === 'ушёл');
   return { expired: left.filter(a => a.endedAt && keepUntil(a.endedAt) <= ix.today), noDate: left.filter(a => !a.endedAt) };
 }
+/* ---------- документы клиента (пакет «домой», Бланки 1, 2.1, 2.3, 3) ---------- */
+function docsMissing(a, c) {
+  const k = a.docs || {}, l = [];
+  if (!k.b1) l.push('Бланк 1'); if (!k.b21 && !a.healthConsent) l.push('Бланк 2.1');
+  if (c && c.age != null && c.age < 18 && !k.b3) l.push('Бланк 3');
+  return l;
+}
+function openDocs(id) {
+  const a = db.athletes.find(x => x.id === id); if (!a) return;
+  const k = a.docs || {}, c = ix.athCalc.get(id), minor = c.age != null && c.age < 18;
+  modal('Документы: ' + shortName(a), `<p class="small muted">Ставьте дату, когда бланк получен подписанным. Пусто — не получен.</p>
+  <div class="fgrid">${F('pack', 'Пакет «домой» выдан', k.pack || '', 'date')}${F('b1', 'Бланк 1 — заявление и анкета', k.b1 || '', 'date')}${F('b21', 'Бланк 2.1 — сведения о здоровье', k.b21 || '', 'date')}
+  ${F('b23', 'Бланк 2.3 — фото и распространение', k.b23 || '', 'date')}${FS('publish', 'Публиковать фото и видео', [['', 'нет бланка — не публиковать'], ['да', 'можно (всё разрешено)'], ['частично', 'частично — смотреть бланк'], ['нет', 'нельзя']], a.publish || '')}
+  ${F('b3', 'Бланк 3 — законный представитель' + (minor ? '' : ' (до 18 лет)'), k.b3 || '', 'date')}</div>
+  <p class="small muted">Дата Бланка 2.1 сама ставит галочку «Согласие на сведения о здоровье получено». Если пакет выдан, а бланки не вернулись за 2 недели, программа напомнит в «Требует внимания».</p>`, { onSubmit(fd) {
+    a.docs = { pack: fd.pack || '', b1: fd.b1 || '', b21: fd.b21 || '', b23: fd.b23 || '', b3: fd.b3 || '' };
+    a.publish = fd.publish || '';
+    if (fd.b23 && !fd.publish && !confirm('Бланк 2.3 получен, но не выбрано, что разрешено публиковать. Сохранить так (фото не публиковать)?')) return false;
+    if (fd.b21) a.healthConsent = true;
+    render.keepScroll = true; persist('Документы отмечены');
+  } });
+}
+function printNoPublish() {
+  const l = db.athletes.filter(a => a.status === 'занимается' && a.publish !== 'да').sort((x, y) => (x.group || '').localeCompare(y.group || '', 'ru') || fullName(x).localeCompare(fullName(y), 'ru'));
+  if (!l.length) { alert('Все занимающиеся разрешили публикацию.'); return; }
+  const why = a => ({ 'нет': 'отказ', 'частично': 'частично — смотреть Бланк 2.3' }[a.publish] || 'Бланка 2.3 нет');
+  openPrint('Не публиковать фото и видео', `<h1>Кого нельзя публиковать без проверки</h1><h2>Бланк № 2.3, на ${D.ru(ix.today)}. Только для тренера, не публиковать и не пересылать.</h2>
+  <table><thead><tr><th>№</th><th>Фамилия, имя</th><th>Группа</th><th>Согласие</th></tr></thead><tbody>${l.map((a, i) => `<tr><td>${i + 1}</td><td>${h(shortName(a))}</td><td>${h(a.group)}</td><td>${why(a)}</td></tr>`).join('')}</tbody></table>
+  <p style="margin-top:10px">Фото и видео, где эти люди узнаваемы, не публикуйте (ст. 10.1 Закона № 152-ФЗ, ст. 152.1 ГК РФ). «Частично» — откройте бланк и проверьте, что именно разрешено.</p>`, PRINT_CSS);
+}
+
+/* ---------- отказ от договора (раздел 10 оферты) ---------- */
+function refusePreview(a, date) {
+  const d2 = JSON.parse(JSON.stringify(db)), a2 = d2.athletes.find(x => x.id === a.id);
+  a2.status = 'ушёл'; a2.endedAt = date;
+  const ix2 = buildIndex(d2, ix.today), rows = [];
+  for (const p of ix2.subsByAth.get(a.id) || []) {
+    const r = ix2.subCalc.get(p.id), x = r && refundInfo(ix2, p); if (!x || !(x.sum > 0)) continue;
+    if ((+p.count || 0) <= 1 && !x.notActive) continue;                 // разовое посещение не пересчитывается
+    if (!x.notActive && r.end && r.end < date) continue;                // период действия истёк — возврата нет (п. 10.4.7)
+    rows.push({ pay: p.payDate || '', amount: +p.amount || 0, count: +p.count || 0, price: x.price || null, left: x.left, notActive: !!x.notActive, sum: x.sum });
+  }
+  const c2 = ix2.athCalc.get(a.id);
+  return { rows, total: rows.reduce((n, x) => n + x.sum, 0), owe: c2 && c2.pendingSub && c2.pendingCalc ? c2.pendingCalc.charged || 0 : 0 };
+}
+function refundLines(rows) { return rows.map(x => x.notActive ? `абонемент от ${D.ru(x.pay)} не активирован — ${x.sum.toLocaleString('ru')} ₽` : `${x.left} × ${x.price.toLocaleString('ru')} ₽`).join('; '); }
+function refundExtra(a) {
+  const R = a.refund || {};
+  return { 'дата_отказа': D.ru(R.date), 'сумма_возврата': (+R.sum || 0).toLocaleString('ru'), 'срок_возврата': D.ru(R.due), 'расчёт': refundLines(R.lines || []) || 'не списанных занятий нет' };
+}
+function openRefuse(id) {
+  const a = db.athletes.find(x => x.id === id); if (!a) return;
+  const calcHTML = P => P.rows.length ? `<ul class="list" style="border:1px solid var(--line);border-radius:8px">${P.rows.map(x => `<li style="padding:8px 10px"><div class="who small"><b>Абонемент ${x.count} зан., ${x.amount.toLocaleString('ru')} ₽${x.pay ? ', оплачен ' + D.ru(x.pay) : ''}</b>${x.notActive ? 'не активирован — возврат полностью (п. 10.4.5)' : `не списано ${x.left} × ${x.price.toLocaleString('ru')} ₽ (п. 10.4.2)`}</div><b class="num">${x.sum.toLocaleString('ru')} ₽</b></li>`).join('')}</ul>`
+    : '<p class="small">Не списанных занятий на эту дату нет — возврат не производится (п. 10.4.4).</p>';
+  const P0 = refusePreview(a, ix.today);
+  modal('Отказ от договора: ' + shortName(a), `<div class="fgrid">${F('date', 'Заявление получено', ix.today, 'date', 'required max="' + ix.today + '"')}${FS('how', 'Как получено (п. 10.3)', ['письменное заявление', 'сообщение в MAX', 'сообщение ВКонтакте'], 'сообщение в MAX')}</div>
+  <h3 style="margin-top:12px">Расчёт на дату заявления</h3><div id="refuse-calc">${calcHTML(P0)}</div><div id="refuse-owe" class="small" style="color:var(--bad);margin-top:6px"></div>
+  <div class="fgrid" style="margin-top:10px">${F('sum', 'К возврату, ₽', P0.total, 'number', 'min="0" step="1" inputmode="numeric" required')}</div>
+  <p class="small muted">Договор прекращается с даты получения заявления (п. 10.3): статус станет «ушёл», занятия после этой даты не списываются. Вернуть деньги — не позднее 10 календарных дней тем же способом, которым платили (п. 10.4.3). Уменьшать сумму можно только на фактические расходы, подтверждённые документами (п. 10.4.1). Заявление или переписку сохраните.</p>`, { submit: 'Записать отказ', onSubmit(fd) {
+    if (!fd.date || fd.date > ix.today) { alert('Укажите дату получения заявления (не позже сегодняшней).'); return false; }
+    const P = refusePreview(a, fd.date), sum = Math.max(0, Math.round(+fd.sum || 0));
+    if (sum < P.total && !confirm(`Сумма меньше расчётной (${P.total.toLocaleString('ru')} ₽). Удерживать можно только фактические расходы, подтверждённые документами (п. 10.4.1, 10.4.6.1). Продолжить?`)) return false;
+    if (sum > P.total && !confirm(`Сумма больше расчётной (${P.total.toLocaleString('ru')} ₽). Вернуть больше по своему решению?`)) return false;
+    a.status = 'ушёл'; a.endedAt = fd.date;
+    a.refund = { date: fd.date, how: fd.how, sum, calcSum: P.total, due: D.add(fd.date, 10), lines: P.rows, paidAt: sum > 0 ? '' : fd.date, checkAt: sum > 0 ? '' : fd.date };
+    render.keepScroll = true; persist(sum > 0 ? `Отказ записан: вернуть ${sum.toLocaleString('ru')} ₽ до ${D.ru(a.refund.due)}` : 'Отказ записан, возврата нет');
+  } });
+  const dI = $('#dlg [name=date]'), sI = $('#dlg [name=sum]'); let touched = false;
+  sI.addEventListener('input', () => { touched = true; });
+  dI.addEventListener('change', () => { if (!dI.value) return; const P = refusePreview(a, dI.value); $('#refuse-calc').innerHTML = calcHTML(P); if (!touched) sI.value = P.total;
+    $('#refuse-owe').textContent = P.owe ? `Внимание: ${P.owe} ${plural(P.owe, 'занятие', 'занятия', 'занятий')} посещено в долг — их оплачивает Заказчик (п. 10.4.1).` : ''; });
+  if (P0.owe) $('#refuse-owe').textContent = `Внимание: ${P0.owe} ${plural(P0.owe, 'занятие', 'занятия', 'занятий')} посещено в долг — их оплачивает Заказчик (п. 10.4.1).`;
+}
+function printRefund(a) {
+  const R = a.refund; if (!R) return;
+  const op = h(db.settings.operatorName || db.settings.awardedBy || '');
+  openPrint('Расчёт возврата — ' + shortName(a), `<h1>РАСЧЁТ СУММЫ ВОЗВРАТА</h1><h2>при отказе Заказчика от Договора публичной оферты (раздел 10 Договора, ред. 6)</h2>
+  <p><b>Исполнитель:</b> ${operatorLine()}</p><p><b>Потребитель:</b> ${h(fullName(a))}</p>
+  <p><b>Заявление об отказе получено:</b> ${D.ru(R.date)}${R.how ? ' (' + h(R.how) + ')' : ''}. Договор расторгнут с этой даты (п. 10.3).</p>
+  ${(R.lines || []).length ? `<table><thead><tr><th>Абонемент оплачен</th><th>Уплачено, ₽</th><th>Занятий</th><th>Цена занятия, ₽</th><th>Не списано на дату отказа</th><th>К возврату, ₽</th></tr></thead><tbody>
+  ${R.lines.map(x => `<tr><td>${D.ru(x.pay)}</td><td>${x.amount.toLocaleString('ru')}</td><td>${x.count}</td><td>${x.notActive ? '—' : x.price.toLocaleString('ru')}</td><td>${x.notActive ? 'не активирован (п. 10.4.5)' : x.left}</td><td>${x.sum.toLocaleString('ru')}</td></tr>`).join('')}</tbody></table>`
+    : '<p>Не списанных с абонемента занятий на дату отказа нет — возврат не производится (п. 10.4.4).</p>'}
+  <p style="margin-top:10px"><b>Итого к возврату: ${(+R.sum || 0).toLocaleString('ru')} руб.</b>${+R.sum !== +R.calcSum ? ` Расчётная сумма ${(+R.calcSum || 0).toLocaleString('ru')} руб. ${+R.sum < +R.calcSum ? 'уменьшена на фактически понесённые расходы, подтверждённые документами (п. 10.4.1)' : 'увеличена по решению Исполнителя'}.` : ''}</p>
+  <p>Цена занятия = уплаченная сумма ÷ число занятий в абонементе, с округлением в большую сторону до 10 руб. в пользу Заказчика (п. 10.4.2). Не списанные занятия — по учёту посещений на дату отказа (п. 9.4).</p>
+  ${+R.sum > 0 ? `<p>Срок возврата — не позднее ${D.ru(R.due)}, тем же способом, которым была произведена оплата (п. 10.4.3).${R.paidAt ? ' Возврат выплачен ' + D.ru(R.paidAt) + '.' : ''}</p>` : ''}
+  <p class="sig">Исполнитель <span class="l"></span> / ${op} /</p><p style="margin-top:14px">Дата «____» ____________ 20___ г.</p>`, PRINT_CSS);
+}
+
+/* ---------- ТУРНИРЫ ---------- */
+const PLACES = [['', 'участие'], ['1', '1 место'], ['2', '2 место'], ['3', '3 место']];
+function vTourn() {
+  const L = [...(db.tourneys || [])].sort((x, y) => (y.date || '').localeCompare(x.date || ''));
+  return `<div class="topline"><h1>Турниры</h1><div class="row no-print"><button class="btn primary" data-act="tourn-new">Добавить турнир</button><button class="btn" data-act="tourn-prize">Призёры за период</button></div></div>
+  <p class="small muted">Участие идёт в допуск к аттестации вместе с отметками «с» в журнале: одна поездка или один турнир — одно участие, даже если отмечено и там, и здесь. Места — для списка призёров.</p>
+  ${L.length ? L.map(T => { const rows = Object.entries(T.res || {}).map(([aid, pl]) => ({ a: ix.ath.get(aid), pl })).filter(x => x.a).sort((x, y) => (x.pl || '9').localeCompare(y.pl || '9') || fullName(x.a).localeCompare(fullName(y.a), 'ru'));
+    const med = ['1', '2', '3'].map(k => rows.filter(x => x.pl === k).length);
+    return `<div class="card flat"><div class="row" style="padding:14px 16px 6px;flex-wrap:wrap"><div class="who" style="flex:1 1 240px"><b style="white-space:normal">${h(T.name || 'Турнир')}</b><span class="small">${D.ru(T.date)}${T.city ? ', ' + h(T.city) : ''} · участников ${rows.length}${med.some(Boolean) ? ' · места: ' + med.map((n, i) => n ? (i + 1) + '-х — ' + n : '').filter(Boolean).join(', ') : ''}</span></div><span class="spacer"></span>
+    <button class="btn sm no-print" data-act="tourn-people" data-id="${T.id}">Участники</button><button class="btn sm ghost no-print" data-act="tourn-edit" data-id="${T.id}">Изменить</button></div>
+    ${rows.length ? `<ul class="list">${rows.map(x => `<li style="flex-wrap:wrap"><div class="who"><a href="#person/${x.a.id}"><b>${h(fullName(x.a))}</b></a><span class="small">${h(x.a.group || '')}</span></div><select data-change="tres" data-id="${T.id}" data-aid="${x.a.id}" style="width:auto">${PLACES.map(([v, l]) => opt(v, x.pl || '', l)).join('')}</select></li>`).join('')}</ul>` : '<div class="empty">Участники не отмечены — кнопка «Участники»</div>'}</div>`; }).join('')
+  : '<div class="card"><p class="muted">Турниров пока нет. Добавьте турнир, затем отметьте участников и места.</p></div>'}`;
+}
+function openTourn(id) {
+  const T = id ? (db.tourneys || []).find(x => x.id === id) : { name: db.settings.competition.name || '', date: db.settings.competition.date || ix.today, city: db.settings.competition.city || '' };
+  if (!T) return;
+  modal(id ? 'Изменить турнир' : 'Новый турнир', `<div class="fgrid">${F('name', 'Название', T.name, 'text', 'required')}${F('date', 'Дата (первый день)', T.date, 'date', 'required')}${F('city', 'Город', T.city)}</div>`, {
+    extraBtn: id ? `<button type="button" class="btn danger" data-act="tourn-del" data-id="${id}">Удалить</button>` : '',
+    onSubmit(fd) {
+      const t = id ? T : { id: uid('T'), res: {} };
+      t.name = fd.name.trim(); t.date = fd.date; t.city = (fd.city || '').trim();
+      if (!id) { db.tourneys = db.tourneys || []; db.tourneys.push(t); }
+      render.keepScroll = true; persist(id ? 'Сохранено' : 'Турнир добавлен');
+      if (!id) setTimeout(() => openTournPeople(t.id), 50);
+    } });
+}
+function openTournPeople(id) {
+  const T = (db.tourneys || []).find(x => x.id === id); if (!T) return;
+  const res = T.res || {}, norm = t => String(t).toLowerCase().replace(/ё/g, 'е');
+  const people = db.athletes.filter(a => a.status !== 'ушёл' || a.id in res).sort((x, y) => (x.group || '').localeCompare(y.group || '', 'ru') || fullName(x).localeCompare(fullName(y), 'ru'));
+  modal('Участники: ' + (T.name || 'турнир'), `<label class="f"><span>Найти</span><input type="search" id="tp-q" placeholder="Фамилия или имя" autocomplete="off"></label>
+  <div class="picklist" style="margin-top:8px">${people.map(a => `<label><input type="checkbox" name="ids[]" value="${a.id}" ${a.id in res ? 'checked' : ''}><span class="who"><b>${h(fullName(a))}</b><span class="small">${h(a.group || '')}${a.otherTeam ? ' · другая команда' : ''}</span></span></label>`).join('') || '<div class="empty">Нет спортсменов</div>'}</div>`, { onSubmit(fd) {
+    const ids = fd.__multi['ids[]'] || [], nr = {};
+    for (const aid of ids) nr[aid] = res[aid] || '';
+    T.res = nr; render.keepScroll = true; persist(`Участников: ${ids.length}`);
+  } });
+  const q = $('#tp-q');
+  q.addEventListener('input', () => { const v = norm(q.value.trim()); document.querySelectorAll('#dlg .picklist label').forEach(l => { l.style.display = !v || norm(l.textContent).includes(v) ? '' : 'none'; }); });
+  q.addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
+}
+function openPrize() {
+  modal('Призёры за период', `<div class="fgrid">${F('from', 'С', ix.today.slice(0, 4) + '-01-01', 'date', 'required')}${F('to', 'По', ix.today, 'date', 'required')}</div>`, { submit: 'Печать', onSubmit(fd) {
+    const L = (db.tourneys || []).filter(T => T.date >= fd.from && T.date <= fd.to).sort((x, y) => x.date.localeCompare(y.date));
+    const rows = []; let part = 0;
+    for (const T of L) for (const [aid, pl] of Object.entries(T.res || {})) { const a = ix.ath.get(aid); if (!a) continue; part++; if (pl) rows.push({ T, a, pl }); }
+    rows.sort((x, y) => x.T.date.localeCompare(y.T.date) || x.pl.localeCompare(y.pl));
+    const cnt = k => rows.filter(x => x.pl === k).length;
+    openPrint('Призёры', `<h1>Призёры турниров</h1><h2>${h(db.settings.club || 'Club D23')} · ${D.ru(fd.from)} — ${D.ru(fd.to)}</h2>
+    <p>Турниров: ${L.length} · участий: ${part} · призовых мест: ${rows.length} (1-х — ${cnt('1')}, 2-х — ${cnt('2')}, 3-х — ${cnt('3')})</p>
+    ${rows.length ? `<table><thead><tr><th>Дата</th><th>Турнир</th><th>Город</th><th>Фамилия, имя</th><th>Группа</th><th>Место</th></tr></thead><tbody>${rows.map(x => `<tr><td>${D.ru(x.T.date)}</td><td>${h(x.T.name)}</td><td>${h(x.T.city || '')}</td><td>${h(shortName(x.a))}</td><td>${h(x.a.group || '')}</td><td>${x.pl}</td></tr>`).join('')}</tbody></table>` : '<p>Призовых мест за период нет.</p>'}
+    <p style="margin-top:10px;font-size:9pt">Публикуйте список только с фамилиями тех, кто дал согласие на распространение (Бланк № 2.3).</p>`, PRINT_CSS);
+  } });
+}
+
+/* ---------- обезличенная копия (для проверки расчётов, без ФИО и контактов) ---------- */
+function anonDb() {
+  const d = JSON.parse(JSON.stringify(db));
+  d.athletes.forEach((a, i) => {
+    Object.assign(a, { last: 'Спортсмен', first: String(i + 1), middle: '', phone: '', motherName: '', motherPhone: '', fatherName: '', fatherPhone: '', note: '', teamName: a.teamName ? 'другая команда' : '', medUntil: '' });
+    if (a.birth) a.birth = a.birth.slice(0, 4) + '-07-01';
+    if (a.refund) a.refund.how = '';
+  });
+  d.subs.forEach(p => { p.note = ''; }); d.freezes.forEach(f => { f.note = ''; });
+  d.tests.forEach(t => { t.note = ''; });
+  d.log = []; d.destroyLog = []; d.attnDone = {};
+  d.settings.operatorName = ''; d.settings.operatorAddress = '';
+  d.anon = true;
+  return d;
+}
+
 /* ---------- журнал уничтожения персональных данных (приказ Роскомнадзора от 28.10.2022 № 179) ---------- */
 const DESTROY_REASONS = ['Истёк срок хранения (п. 12.3.1 оферты, п. 6.6 Политики)', 'Отзыв согласия на обработку персональных данных',
   'Требование субъекта (законного представителя) об уничтожении', 'Достижение целей обработки', 'Ошибочно внесённая или дублирующая запись', 'Иная причина'];
@@ -2340,6 +2714,10 @@ function pdCategories(a) {                        // перечень катег
   if (n(db.freezes, x => x.athleteId === a.id) || has('medUntil')) c.push('сведения о состоянии здоровья (срок медицинского допуска, периоды болезни, даты справок)');
   const w = n(db.awards, x => x.athleteId === a.id), t = n(db.tests, x => x.athleteId === a.id);
   if (w) c.push(`сведения о спортивной квалификации (${w})`); if (t) c.push(`результаты контрольных нормативов (${t})`);
+  const tn = n(db.tourneys || [], T => T.res && a.id in T.res);
+  if (tn) c.push(`сведения об участии в турнирах (${tn})`);
+  if (a.docs && Object.values(a.docs).some(Boolean)) c.push('отметки о получении документов (бланков)');
+  if (a.refund) c.push('сведения об отказе от договора и возврате денежных средств');
   if (has('note')) c.push('примечания');
   return c;
 }
@@ -2411,6 +2789,8 @@ function stripPerson(d, id) {                   // удалить человек
   d.athletes = d.athletes.filter(x => x.id !== id); d.subs = d.subs.filter(p => p.athleteId !== id);
   d.awards = d.awards.filter(w => w.athleteId !== id); d.freezes = d.freezes.filter(f => f.athleteId !== id);
   d.tests = d.tests.filter(t => t.athleteId !== id); d.sessions.forEach(s => { if (s.marks) delete s.marks[id]; });
+  d.log = (d.log || []).filter(x => x.aid !== id); (d.tourneys || []).forEach(T => { if (T.res) delete T.res[id]; });
+  if (d.attnDone) for (const k of Object.keys(d.attnDone)) if (k.startsWith(id + '|')) delete d.attnDone[k];   // в ключах — ФИО
 }
 function setPath(obj, path, val) { const ks = path.split('.'); let o = obj; while (ks.length > 1) o = o[ks.shift()]; o[ks[0]] = val; }
 function setGroupDay(g, d, v, from) {           // №15: изменение дня — только с даты from, прошлое не трогаем
@@ -2444,6 +2824,24 @@ const ACT = {
   'broken-download': () => { if (loadError) download(copyName(true).replace(/\.json$/, '_повреждённая.json'), loadError, 'application/json'); },
   'export': () => exportData(false), 'export-new': () => exportData(true), 'import': () => importData(), 'import-latest': () => importLatest(),
   'print': () => window.print(),
+  'refuse': el => openRefuse(el.dataset.id),
+  'refund-paid': el => { const a = db.athletes.find(x => x.id === el.dataset.id); if (!a || !a.refund) return;
+    modal('Возврат выплачен', `<p>${h(shortName(a))}: ${(+a.refund.sum).toLocaleString('ru')} ₽</p>${F('paidAt', 'Дата выплаты', ix.today, 'date', 'required max="' + ix.today + '"')}<p class="small muted">После выплаты скорректируйте чек в «Мой налог»: аннулируйте чек об оплате, при частичном возврате сформируйте новый чек на оставшуюся сумму.</p>`, { submit: 'Отметить', onSubmit(fd) {
+      if (!fd.paidAt) return false; a.refund.paidAt = fd.paidAt; render.keepScroll = true; persist('Возврат отмечен. Теперь скорректируйте чек в «Мой налог»'); } }); },
+  'refund-check': el => { const a = db.athletes.find(x => x.id === el.dataset.id); if (!a || !a.refund) return;
+    if (!confirm('Чек об оплате аннулирован в «Мой налог» (при частичном возврате — сформирован новый на оставшуюся сумму)?')) return;
+    a.refund.checkAt = ix.today; render.keepScroll = true; persist('Отмечено: чек скорректирован'); },
+  'refund-print': el => { const a = ix.ath.get(el.dataset.id); if (a) printRefund(a); },
+  'refund-del': el => { const a = db.athletes.find(x => x.id === el.dataset.id); if (!a || !a.refund) return;
+    if (!confirm('Удалить запись об отказе и возврате? Статус «ушёл» и дата прекращения договора останутся — их меняйте кнопкой «Изменить».')) return;
+    delete a.refund; render.keepScroll = true; persist('Запись об отказе удалена'); },
+  'docs-edit': el => openDocs(el.dataset.id),
+  'print-nopublish': () => printNoPublish(),
+  'tourn-new': () => openTourn(null), 'tourn-edit': el => openTourn(el.dataset.id), 'tourn-people': el => openTournPeople(el.dataset.id), 'tourn-prize': () => openPrize(),
+  'tourn-del': el => { const T = (db.tourneys || []).find(x => x.id === el.dataset.id); if (!T) return;
+    const n = Object.keys(T.res || {}).length; if (!confirm(`Удалить турнир «${T.name}»${n ? ' и отметки участия (' + n + ')' : ''}? Участие перестанет учитываться в допуске к аттестации.`)) return;
+    db.tourneys = db.tourneys.filter(x => x !== T); closeModal(); render.keepScroll = true; persist('Турнир удалён'); },
+  'export-anon': () => download(`D23_обезличенная_копия_${ix.today}.json`, JSON.stringify(anonDb(), null, 1), 'application/json'),
   'open-session': el => { const s = findOrCreateSession(el.dataset.date, el.dataset.group); location.hash = '#session/' + s.id; },
   'open-session-pick': () => { ui.journal.tab = 'session'; location.hash = '#journal'; },
   'open-session-form': () => { const d = $('#j-date').value, g = $('#j-group').value; if (!d) return; ui.journal.date = d; ui.journal.group = g; const s = findOrCreateSession(d, g); location.hash = '#session/' + s.id; },
@@ -2516,7 +2914,7 @@ const ACT = {
     if (pg === 'attest') Object.assign(ui.attest, UI_DEFAULTS.attest);
     if (pg === 'report') { ui.report.from = null; ui.report.to = null; }
     rerender(); toast('Фильтры сброшены'); },
-  'subs-sort': el => { const k = el.dataset.k; if (ui.subs.sort === k) ui.subs.dir = -ui.subs.dir; else { ui.subs.sort = k; ui.subs.dir = k === 'start' ? -1 : 1; } rerender(); },
+  'subs-sort': el => { const k = el.dataset.k; if (ui.subs.sort === k) ui.subs.dir = -ui.subs.dir; else { ui.subs.sort = k; ui.subs.dir = k === 'start' || k === 'pay' ? -1 : 1; } rerender(); },
   'subs-dir': () => { ui.subs.dir = -ui.subs.dir; rerender(); },
   'subs-filter': el => { ui.subs.filter = el.dataset.f; rerender(); },
   'freeze-new': el => openFreeze(null, el.dataset.id), 'freeze-edit': el => openFreeze(el.dataset.id),
@@ -2571,7 +2969,7 @@ const ACT = {
   'pin-lock': () => lock(),
   'pin-on': () => {
     const a = ($('#pin-new') || {}).value || '', b = ($('#pin-new2') || {}).value || '', old = ($('#pin-old') || {}).value || '';
-    if (a.length < 4) { alert('PIN — не короче 4 символов. Лучше 6 цифр и больше.'); return; }
+    if (a.length < 8) { alert('PIN — не короче 8 символов: копии на Яндекс Диске защищены только им.'); return; }
     if (a !== b) { alert('PIN и повтор не совпадают.'); return; }
     if (!confirm('ВАЖНО: без PIN данные в этом браузере и копии, сохранённые с ним, открыть будет невозможно — восстановления нет.\n\nЗапишите PIN и храните отдельно от телефона. Продолжить?')) return;
     (async () => { if (pinOn()) { try { await checkPin(old); } catch (e) { alert('Текущий PIN неверный.'); return; } }
@@ -2607,7 +3005,7 @@ function onChange(e) {
   if (k === 'session-group') { const s = db.sessions.find(x => x.id === el.dataset.id); const n = Object.keys(s.marks).length;
     if (s.group && n && !confirm(`Перенести занятие ${D.ru(s.date)} из «${s.group}» в «${v || 'без группы'}»? Все ${n} отметок перейдут вместе с ним.`)) { rerender(); return; }
     s.group = v; render.keepScroll = true; persist('Группа занятия изменена'); }
-  else if (k === 'subs-sort') { ui.subs.sort = v; ui.subs.dir = v === 'start' ? -1 : 1; rerender(); }
+  else if (k === 'subs-sort') { ui.subs.sort = v; ui.subs.dir = v === 'start' || v === 'pay' ? -1 : 1; rerender(); }
   else if (k === 'subs-pfrom') { if (v) { ui.subs.pFrom = v; rerender(); } }
   else if (k === 'subs-pto') { if (v) { ui.subs.pTo = v; rerender(); } }
   else if (k === 'jmgroup') { ui.journal.mgroup = v; rerender(); }
@@ -2616,6 +3014,7 @@ function onChange(e) {
   else if (k === 'attest-adm') { ui.attest.adm = v; rerender(); }
   else if (k === 'test-date') { ui.attest.date = v; rerender(); }
   else if (k === 'rep') { ui.report[el.dataset.k] = v; rerender(); }
+  else if (k === 'tres') { const T = (db.tourneys || []).find(x => x.id === el.dataset.id); if (!T || !T.res) return; T.res[el.dataset.aid] = v; render.keepScroll = true; persist(v ? 'Место: ' + v : 'Сохранено'); }
   else if (k === 'test-res' || k === 'test-relief' || k === 'test-place' || k === 'test-track') {
     const t = db.tests.find(x => x.id === el.dataset.id);
     if (k === 'test-res') { t.res = t.res || {}; if (v === '') delete t.res[el.dataset.k]; else t.res[el.dataset.k] = Math.round(+v); }
@@ -2625,7 +3024,7 @@ function onChange(e) {
     render.keepScroll = true; persist();
   }
   else if (k === 'norm') { const n = db.settings.norms[+el.dataset.i]; const num = !['track', 'sex', 'pullKind', 'pushKind'].includes(el.dataset.k); n[el.dataset.k] = num ? (v === '' ? null : +v) : v.trim(); render.keepScroll = true; persist(); }
-  else if (k === 'set') { const numPaths = ['attest.threshold', 'attest.minTournaments', 'attest.tournamentsMaxAge', 'attest.reliefCoef', 'defaultCount', 'copiesKeep']; setPath(db.settings, el.dataset.path, numPaths.includes(el.dataset.path) ? +v : v); render.keepScroll = true; persist('Сохранено'); }
+  else if (k === 'set') { const numPaths = ['attest.threshold', 'attest.minTournaments', 'attest.tournamentsMaxAge', 'attest.reliefCoef', 'defaultCount', 'copiesKeep', 'adultTarget']; setPath(db.settings, el.dataset.path, numPaths.includes(el.dataset.path) ? +v : v); render.keepScroll = true; persist('Сохранено'); }
   else if (k === 'soft') { const A = db.settings.attest; A.softFrom = v; A.softFor = v ? A.next : ''; render.keepScroll = true; persist('Сохранено'); }
   else if (k === 'trip') { const x = db.settings.trips[+el.dataset.i]; if (!x) return;
     if (v && v <= x.to) { alert('Дата продления должна быть позже объявленной даты возвращения.'); rerender(); return; }
