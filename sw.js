@@ -1,5 +1,5 @@
 // Club D23 — кэш программы для работы без интернета. Данных спортсменов здесь нет.
-const CACHE = 'd23-app-v10';
+const CACHE = 'd23-app-v14';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', e => {
