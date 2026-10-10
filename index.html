@@ -1175,7 +1175,7 @@ function tariffAudit(d, from, to) {                // оплаты период�
   for (const p of d.subs) {
     if (p.pending || !p.payDate || p.payDate < lo || p.payDate > to || !(+p.amount > 0)) continue;
     const a = ath.get(p.athleteId), tf = tariffFor(d, a, p.count, p.payDate); if (!tf) continue;
-    if (tf.kind === 'детский') { R.kid++; R.kidSum += Math.max(0, (+P.sub || 0) - (+p.amount || 0)); } else if (tf.kind === 'базовый') R.base++; else if (tf.kind === 'разовое') R.single++;
+    if (tf.kind === 'детский') { R.kid++; R.kidSum += Math.max(0, (+P.sub || 0) - (+P.subKid || 0)); } else if (tf.kind === 'базовый') R.base++; else if (tf.kind === 'разовое') R.single++;
     if (tf.price != null && +p.amount !== tf.price) R.off.push({ p, a, tf });
   }
   return R;
@@ -2405,9 +2405,6 @@ function openSub(id, athleteId) {
       if (!fd.athleteId) { alert('Выберите спортсмена'); return false; }
       if (!(+fd.count >= 1)) { alert('Количество занятий должно быть не меньше 1'); return false; }
       if (+fd.amount < 0) { alert('Сумма не может быть отрицательной'); return false; }
-      { const tf = tariffFor(db, ix.ath.get(fd.athleteId), fd.count, fd.payDate || ix.today), changed = !p || +p.amount !== +fd.amount || +p.count !== +fd.count || p.payDate !== fd.payDate;
-        if (!fd.pending && changed && tf && tf.price != null && +fd.amount && +fd.amount !== tf.price && (fd.payDate || ix.today) >= (db.settings.prices.from || '')
-          && !confirm(`Сумма ${rubN(fd.amount)} ₽ не совпадает с тарифом «${tf.kind}» — ${rubN(tf.price)} ₽ (Приложение № 1${tf.kind !== 'разовое' ? ', Положение о льготах' : ''}). Цена по публичному договору одинакова для всех в одной категории (ст. 426 ГК РФ).\n\nСохранить с этой суммой?`)) return false; }
       { const own = +fd.refundPrice || 0, auto = refundAuto({ amount: fd.amount, count: fd.count });
         if (own < 0) { alert('Цена занятия не может быть отрицательной'); return false; }
         if (own && auto && own < auto) { alert(`Цена занятия для возврата не может быть ниже расчётной: ${auto} ₽ (п. 10.4.2 договора — сумма ÷ число занятий, вверх до 10 ₽). Оставьте поле пустым или укажите ${auto} ₽ и больше.`); return false; } }
@@ -2806,8 +2803,8 @@ function vSettings() {
   ${L('Порог посещаемости до (лет, включительно)', inp('attest.attendMaxAge', A.attendMaxAge ?? 15, 'number'))}${L('Переходный период: посещаемость также считать с', `<input type="date" data-change="soft" value="${h(A.softFor === A.next ? A.softFrom || '' : '')}">`)}${L('Послабление на страйп', inp('attest.reliefCoef', A.reliefCoef, 'number', 'step="0.05"'))}</div></div></div>
   <div class="card"><h2>Клуб</h2><div class="fgrid">${L('Клуб и адрес', inp('club', S.club))}${L('Главный тренер', inp('coachMain', S.coachMain))}${L('Второй тренер', inp('coachSecond', S.coachSecond))}${L('Кем присваивается пояс', inp('awardedBy', S.awardedBy))}${L('Оператор персональных данных (ФИО полностью, для актов)', inp('operatorName', S.operatorName || S.awardedBy))}${L('Адрес оператора для актов', inp('operatorAddress', S.operatorAddress || ''))}${L('Занятий в абонементе по умолчанию', inp('defaultCount', S.defaultCount, 'number'))}${L('Начало ведения программы (суммы оплат считаются с этой даты)', inp('programStart', S.programStart || S.sickCheckFrom, 'date'))}${L('Цель: взрослых (18+) занимается', inp('adultTarget', S.adultTarget ?? 16, 'number', 'min="0"'))}${L('Инструктаж проверять с (раньше — только бумажный журнал)', inp('briefFrom', S.briefFrom || '', 'date'))}
   <label class="f wide"><span>Пояса (по одному в строке, по порядку)</span><textarea data-change="belts" style="min-height:120px">${h(S.belts.join('\n'))}</textarea></label></div></div>
-  <div class="card"><h2>Цены (Приложение № 1 к оферте)</h2><p class="small muted">По ним программа подставляет сумму в окне оплаты: на ${S.prices.count} занятий — детский тариф, если на дату оплаты ещё нет ${S.prices.kidUnder} лет (Положение о льготах, п. 3.1), иначе базовый; одно занятие — разовое посещение. Цены поменялись — исправьте и поставьте дату: оплаты раньше неё сверять с новыми ценами программа не будет.</p>
-  <div class="fgrid">${L('Разовое посещение, ₽', inp('prices.single', S.prices.single, 'number', 'min="0" step="10"'))}${L('Абонемент на ' + S.prices.count + ' занятий, ₽', inp('prices.sub', S.prices.sub, 'number', 'min="0" step="10"'))}${L('Детский абонемент, ₽', inp('prices.subKid', S.prices.subKid, 'number', 'min="0" step="10"'))}${L('Детский — пока не исполнилось, лет', inp('prices.kidUnder', S.prices.kidUnder, 'number', 'min="1" max="18"'))}${L('Сверять оплаты с ценами с', inp('prices.from', S.prices.from, 'date'))}</div></div>
+  <div class="card"><h2>Цены (Приложение № 1 к оферте)</h2><p class="small muted">По ним программа подставляет сумму в окне оплаты: на ${S.prices.count} занятий — детский тариф, если на дату оплаты ещё нет ${S.prices.kidUnder} лет (Положение о льготах, п. 3.1), иначе базовый; одно занятие — разовое посещение. Сумму в окне оплаты можно изменить — по договорённости.</p>
+  <div class="fgrid">${L('Разовое посещение, ₽', inp('prices.single', S.prices.single, 'number', 'min="0" step="10"'))}${L('Абонемент на ' + S.prices.count + ' занятий, ₽', inp('prices.sub', S.prices.sub, 'number', 'min="0" step="10"'))}${L('Детский абонемент, ₽', inp('prices.subKid', S.prices.subKid, 'number', 'min="0" step="10"'))}${L('Детский — пока не исполнилось, лет', inp('prices.kidUnder', S.prices.kidUnder, 'number', 'min="1" max="18"'))}</div></div>
   <div class="card"><h2>Заявки</h2><div class="fgrid"><label class="f wide"><span>Откуда узнают о клубе (по одному в строке)</span><textarea data-change="sources" style="min-height:110px">${h((S.sources || []).join('\n'))}</textarea></label>${L('Обезличивать заявки без договора через, мес.', inp('leadsKeep', S.leadsKeep, 'number', 'min="1" max="36"'))}</div></div>
   <div class="card"><h2>Шаблоны сообщений</h2><p class="small muted">Подстановки: {имя}, {фи}, {фио}, {остаток}, {долг}, {занятий}, {дата_начала}, {дата_окончания}, {срок_оплаты}, {группа}.</p>
   ${S.templates.map((t, i) => `<fieldset><legend>${h(t.title)}</legend><input type="text" data-change="tpl" data-i="${i}" data-k="title" value="${h(t.title)}" style="margin-bottom:6px"><textarea data-change="tpl" data-i="${i}" data-k="text">${h(t.text)}</textarea><button class="btn sm danger" data-act="tpl-del" data-i="${i}" style="margin-top:6px">Удалить шаблон</button></fieldset>`).join('')}
@@ -2964,10 +2961,9 @@ function finReport(from, to) {
     { c: ['Платили за занятия (человек)', String(payers)] }, { c: ['Оплаты занятий на одного платившего, ₽', payers ? rubN(P.subPay.sum / payers) : ''] } ],
     note: 'Бонусные и бесплатные занятия в деньгах не учитываются. Продления, новые и ушедшие — во вкладке «Сводка».' });
   { const TA = tariffAudit(db, from, to);
-    if (TA.kid || TA.base || TA.single || TA.off.length) S.push({ title: 'Тарифы и льгота', head: ['Показатель', 'Значение'], rows: [
-      { c: ['Абонементов по базовому тарифу', String(TA.base)] }, { c: ['По детскому тарифу (до ' + db.settings.prices.kidUnder + ' лет на дату оплаты)', String(TA.kid)] }, { c: ['Льгота по детскому тарифу, ₽', rubN(TA.kidSum)] },
-      { c: ['Оплат не по тарифу', String(TA.off.length)], b: TA.off.length ? 1 : 0 }, ...TA.off.slice(0, 30).map(x => ({ c: [(x.a ? shortName(x.a) : '—') + ', ' + D.ru(x.p.payDate) + ': ' + rubN(x.p.amount) + ' ₽ вместо ' + rubN(x.tf.price) + ' (' + x.tf.kind + ')', ''], i: 1 }))],
-      note: 'Сверяются оплаты с ' + D.ru(D.max(db.settings.prices.from || '', pStartOf(db))) + ' по ценам в «Настройках». Детский тариф — если на дату оплаты ещё не исполнилось ' + db.settings.prices.kidUnder + ' лет (п. 3.1–3.2 Положения о льготах).' }); }
+    if (TA.kid || TA.base || TA.single) S.push({ title: 'Тарифы и льгота', head: ['Показатель', 'Значение'], rows: [
+      { c: ['Абонементов взрослым (' + db.settings.prices.kidUnder + ' лет и старше на дату оплаты)', String(TA.base)] }, { c: ['Абонементов детям (до ' + db.settings.prices.kidUnder + ' лет на дату оплаты)', String(TA.kid)] }, { c: ['Льгота по детскому тарифу, ₽', rubN(TA.kidSum)] }, { c: ['Разовых посещений', String(TA.single)] }],
+      note: 'Льгота — разница базового и детского тарифа по Положению о льготах (п. 3.1–3.2), без учёта индивидуальных договорённостей.' }); }
   const coaches = F.coaches.filter(c => months.some(ym => coachActive(c, ym)));
   if (coaches.length) { const rr = [];
     for (const c of coaches) { let A = 0, Pd = 0; for (const ym of months) { const m = coachMonth(db, ix, c, ym, items); A += m.accrued; Pd += m.paid; } if (A || Pd) rr.push({ c: [c.name, rubN(A), rubN(Pd), rubN(A - Pd)] }); }
@@ -3336,8 +3332,8 @@ function yearReport(y) {
   const Fn = leadFunnel(db, ix, y + '-01-01', y + '-12-31');
   if (Fn.length) S.push({ title: 'Откуда приходят', head: ['Источник', 'Заявок', 'Были на пробном', 'Купили'], rows: Fn.map(r => ({ c: [r.src, String(r.leads), String(r.trial), String(r.bought)] })) });
   const TA = tariffAudit(db, y + '-01-01', y + '-12-31');
-  if (TA.kid || TA.base || TA.single) S.push({ title: 'Тарифы', head: ['', 'Значение'], rows: [{ c: ['Абонементов по базовому тарифу', String(TA.base)] }, { c: ['По детскому тарифу (льгота)', String(TA.kid)] }, { c: ['Льгота по детскому тарифу, ₽', rubN(TA.kidSum)] }, { c: ['Разовых посещений', String(TA.single)] }, { c: ['Оплат не по тарифу', String(TA.off.length)] }],
-    note: 'С ' + D.ru(D.max(db.settings.prices.from || '', ps)) + ' — с этой даты оплаты сверяются с тарифами в настройках.' });
+  if (TA.kid || TA.base || TA.single) S.push({ title: 'Тарифы', head: ['', 'Значение'], rows: [{ c: ['Абонементов взрослым (базовый тариф)', String(TA.base)] }, { c: ['Абонементов детям (детский тариф)', String(TA.kid)] }, { c: ['Льгота по детскому тарифу, ₽', rubN(TA.kidSum)] }, { c: ['Разовых посещений', String(TA.single)] }],
+    note: 'Льгота — разница базового и детского тарифа по Положению о льготах (без учёта индивидуальных договорённостей).' });
   return S;
 }
 function yearSectionsHTML(S, print) {
@@ -3366,7 +3362,7 @@ function tariffHook(p) {
     const was = prev && tariffFor(db, a, prev.count, prev.payDate);
     note.innerHTML = `Тариф: <b>${h(tf.kind)}</b> — ${rubN(tf.price)} ₽${tf.age != null ? ` (на дату оплаты ${tf.age} ${plural(tf.age, 'год', 'года', 'лет')})` : ''}.`
       + (was && was.kind === 'детский' && tf.kind === 'базовый' ? ' <b style="color:var(--warn)">С этой оплаты — тариф «Базовый»: исполнилось ' + db.settings.prices.kidUnder + ' лет. Сообщите заказчику (п. 5.4 Положения о льготах).</b>' : '')
-      + (+am.value && +am.value !== tf.price ? ` <b style="color:var(--bad)">Сумма ${rubN(am.value)} ₽ не совпадает с тарифом.</b>` : '');
+      + (+am.value && +am.value !== tf.price ? ' <span class="muted">Сумма другая — по договорённости.</span>' : '');
   };
   [am, cn, pd].forEach(x => x && x.addEventListener('input', upd)); [cn, pd, sel].forEach(x => x && x.addEventListener('change', () => setTimeout(upd, 0)));
   upd();
