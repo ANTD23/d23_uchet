@@ -58,6 +58,7 @@ main{padding:22px 28px 90px;max-width:1180px;width:100%;min-width:0}
 .side .btn{background:#fff;color:var(--nav);border:0}
 :focus-visible{outline:3px solid #7FB6A2;outline-offset:2px}
 .chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:99px;font-size:.8rem;font-weight:600;background:var(--sunk);color:var(--muted);white-space:nowrap}
+.nb{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px} .nb .chip{font-size:.74rem;padding:1px 7px;cursor:help}
 .chip.ok{background:var(--ok-bg);color:var(--ok)} .chip.bad{background:var(--bad-bg);color:var(--bad)}
 .chip.warn{background:var(--warn-bg);color:var(--warn)} .chip.sick{background:var(--sick-bg);color:var(--sick)}
 .chip.muted{background:var(--sunk);color:var(--muted)}
@@ -1885,6 +1886,8 @@ function attnMark(key, on) {
   const live = new Set(attention().map(attnKey));
   for (const k of Object.keys(db.attnDone)) if (!live.has(k)) delete db.attnDone[k];   // неактуальные — убрать
   if (on) db.attnDone[key] = ix.today; else delete db.attnDone[key];
+  if (on) { const it = attention().find(x => attnKey(x) === key), ty = it && it.tpl && NOTIFY_TPL[it.tpl];   // «Сделано» по сообщению об окончании или о сроке = сообщение отправлено
+    const sp = ty && it.a && notifySub(it.a.id, ty, it.sub); if (sp && !(notifyState(sp, ty) && !notifyState(sp, ty).stale)) markNotified(sp, ty); }
   render.keepScroll = true; persist(on ? 'Отмечено как сделанное' : 'Возвращено в список');
 }
 function alertSections(list, fn) {
@@ -2160,7 +2163,7 @@ function vPerson(id) {
   </div>
   <div class="card flat"><div class="row" style="padding:14px 16px 6px"><h2 style="margin:0">Абонементы</h2><span class="spacer"></span>${R ? '' : `<button class="btn sm no-print" data-act="refuse" data-id="${id}">Отказ от договора</button>`}<button class="btn sm no-print" data-act="freeze-new" data-id="${id}">Заморозка</button><button class="btn sm no-print" data-act="sub-wait" data-id="${id}">Ждём оплату</button><button class="btn sm no-print" data-act="sub-new" data-id="${id}">Добавить</button></div>
   ${subsCtl}${subs.length ? `<div class="scroll"><table class="t"><thead><tr><th>Действует с</th><th class="r">Занятий</th><th class="r">Сумма</th><th class="r">Был</th><th class="r">Не был</th><th class="r">Болел</th><th class="r">Остаток</th><th>Окончание</th><th></th></tr></thead><tbody>
-  ${shownSubs.map(p => { const r = ix.subCalc.get(p.id); return `<tr class="click" data-act="sub-edit" data-id="${p.id}"><td class="num">${startLabel(p, r)}${p.onlyGroup ? ' <span class="chip">' + h(p.onlyGroup) + '</span>' : ''}</td><td class="r num">${p.count}${+p.bonus > 0 ? ` <span class="chip ok" title="${h(p.bonusNote || 'решение тренера')}">+${p.bonus}</span>` : ''}</td><td class="r num">${amountCell(p)}</td><td class="r num">${r.was}</td><td class="r num">${r.missed}</td><td class="r num">${r.sick}${r.sickCharged ? ' (спис. ' + r.sickCharged + ')' : ''}</td><td class="r num"><b>${r.remaining}</b></td><td class="num">${r.end ? D.ru(r.end) + notifyIcon(p) : (r.endKind === 'nosched' ? '<span class="small muted">нет расписания</span>' : '')}</td><td><span class="chip ${r.tone}">${h(r.status)}</span></td></tr>`; }).join('')}</tbody></table></div>${subsMore}` : '<div class="empty">Абонементов нет</div>'}
+  ${shownSubs.map(p => { const r = ix.subCalc.get(p.id); return `<tr class="click" data-act="sub-edit" data-id="${p.id}"><td class="num">${startLabel(p, r)}${p.onlyGroup ? ' <span class="chip">' + h(p.onlyGroup) + '</span>' : ''}</td><td class="r num">${p.count}${+p.bonus > 0 ? ` <span class="chip ok" title="${h(p.bonusNote || 'решение тренера')}">+${p.bonus}</span>` : ''}</td><td class="r num">${amountCell(p)}</td><td class="r num">${r.was}</td><td class="r num">${r.missed}</td><td class="r num">${r.sick}${r.sickCharged ? ' (спис. ' + r.sickCharged + ')' : ''}</td><td class="r num"><b>${r.remaining}</b></td><td class="num">${r.end ? D.ru(r.end) : (r.endKind === 'nosched' ? '<span class="small muted">нет расписания</span>' : '')}</td><td><span class="chip ${r.tone}">${h(r.status)}</span>${notifyBadges(p, r)}</td></tr>`; }).join('')}</tbody></table></div>${subsMore}` : '<div class="empty">Абонементов нет</div>'}
   ${freezes.length ? `<div style="padding:8px 16px 14px"><h3>Заморозки по болезни</h3><ul class="list">${freezes.map(f => { const fc = calcFreeze(ix, f); return `<li class="click" data-act="freeze-edit" data-id="${f.id}"><div class="who"><b>${D.ru(f.from)} — ${D.ru(f.to)}</b><span class="small">${h(fc.text)}</span></div><span class="chip ${fc.mode === 'lapsed' ? 'bad' : fc.mode === 'wait' ? 'warn' : 'sick'}">${{ a: 'оформлена', b: 'оформлена', wait: 'ждём', lapsed: 'прекращена', none: 'без продления', incomplete: 'не заполнена', err: 'ошибка' }[fc.mode]}</span></li>`; }).join('')}</ul></div>` : ''}</div>
   <div class="grid2"><div class="card flat"><div class="row" style="padding:14px 16px 6px"><h2 style="margin:0">Пояса</h2><span class="spacer"></span><button class="btn sm no-print" data-act="award-new" data-id="${id}">Присвоить</button></div>
   ${awards.length ? `<ul class="list">${awards.map(w => `<li class="click" data-act="award-edit" data-id="${w.id}">${beltHTML(w.belt, w.stripes)}<div class="who"><b>${h(w.belt)}${w.stripes ? ', ' + w.stripes + ' стр.' : ''}</b><span class="small">${D.ru(w.date)} · ${h(w.by)}</span></div></li>`).join('')}</ul>` : '<div class="empty">Присвоений нет</div>'}</div>
@@ -2360,13 +2363,13 @@ function vSubs() {
   <div class="card flat show-m"><ul class="list sublist">${rows.map(({ p, r, a }) => { const hl = p.pending ? ' pend' : latestIds.has(p.id) && !ix.athCalc.get(a.id).nextSub && !ix.athCalc.get(a.id).pendingSub && !r.terminated && (r.remaining === 1 || r.remaining === 2) ? ' rem' + r.remaining : '';
     return `<li class="click${hl}" data-act="sub-edit" data-id="${p.id}"><div class="who"><b class="nm">${h(shortName(a))}</b>
       <span class="small">${h(p.onlyGroup || a.group || '')} · ${p.count} зан.${p.payDate && !p.pending ? ' · опл. ' + D.short(p.payDate) : ''}${refundBySub().get(p.id) ? ' · ' + subNet(p).toLocaleString('ru') + ' ₽ с учётом возврата' : ''} · ${r.first ? 'с ' + D.short(r.first) : (p.pending ? 'с 1-го посещения' : 'не активирован' + (r.autoDate ? ', до ' + D.short(r.autoDate) : ''))}</span>
-      <span class="small">${r.end ? (r.endKind === 'fact' ? 'последнее ' : r.endKind === 'terminated' ? 'прекращён ' : 'окончание ') + D.ru(r.end) : (r.endKind === 'nosched' ? 'нет расписания' : '')}</span></div>
+      <span class="small">${r.end ? (r.endKind === 'fact' ? 'последнее ' : r.endKind === 'terminated' ? 'прекращён ' : 'окончание ') + D.ru(r.end) : (r.endKind === 'nosched' ? 'нет расписания' : '')}</span>${notifyBadges(p, r)}</div>
       <div class="subside"><b class="num">${r.remaining}</b><span class="chip ${r.tone}">${h(r.status)}</span></div></li>`; }).join('') || '<li class="empty">Нет абонементов в этом списке</li>'}</ul></div>
   <div class="card flat scroll hide-m"><table class="t"><thead><tr>${th('name', 'ФИО')}${th('pay', 'Оплата', 'hide-m')}${th('start', 'С')}<th class="r">Занятий</th><th class="r hide-m">Сумма</th><th class="r hide-m">Был</th><th class="r hide-m">Не был</th><th class="r hide-m">Болел</th>${th('rem', 'Остаток', 'r')}${th('end', 'Окончание')}<th>Статус</th></tr></thead><tbody>
   ${rows.map(({ p, r, a }) => { const hl = p.pending ? ' pend' : latestIds.has(p.id) && !ix.athCalc.get(a.id).nextSub && !ix.athCalc.get(a.id).pendingSub && !r.terminated && (r.remaining === 1 || r.remaining === 2) ? ' rem' + r.remaining : '';
   return `<tr class="click${hl}" data-act="sub-edit" data-id="${p.id}"><td><b class="nm">${h(shortName(a))}</b><div class="small muted">${h(p.onlyGroup || a.group)}</div></td><td class="hide-m num">${D.ru(p.payDate)}</td><td class="num">${startLabel(p, r, true)}</td>
   <td class="r num">${p.count}</td><td class="r num hide-m">${amountCell(p)}</td><td class="r num hide-m">${r.was}</td><td class="r num hide-m">${r.missed}</td><td class="r num hide-m">${r.sick}</td>
-  <td class="r num"><b>${r.remaining}</b></td><td class="num">${r.end ? D.ru(r.end) + notifyIcon(p) : (r.endKind === 'nosched' ? '<span class="small muted">нет расписания</span>' : '')}</td><td><span class="chip ${r.tone}">${h(r.status)}</span></td></tr>`; }).join('') || '<tr><td colspan="11" class="empty">Нет абонементов в этом списке</td></tr>'}</tbody></table></div>
+  <td class="r num"><b>${r.remaining}</b></td><td class="num">${r.end ? D.ru(r.end) : (r.endKind === 'nosched' ? '<span class="small muted">нет расписания</span>' : '')}</td><td><span class="chip ${r.tone}">${h(r.status)}</span>${notifyBadges(p, r)}</td></tr>`; }).join('') || '<tr><td colspan="11" class="empty">Нет абонементов в этом списке</td></tr>'}</tbody></table></div>
   <p class="small muted">Списывается «был» и «не был» (п. 9.4). «Болел» не списывается, пока заморозка не прекращена (п. 9.5). Окончание — прогноз по расписанию группы и нерабочим дням (п. 9.3).</p>`;
 }
 function openSub(id, athleteId) {
@@ -2529,6 +2532,16 @@ function notifyState(p, type) {                   // null — не отмече�
   const n = p && p.notified && p.notified[type]; if (!n) return null;
   const r = ix.subCalc.get(p.id);
   return { at: n.at, end: n.end, now: (r && r.end) || '', stale: !!(r && r.end && n.end && r.end !== n.end) };
+}
+/* метки «срок сообщён» (📅) и «предупреждён об окончании» (✉): зелёная — отправлено (дата), красная — нужно отправить */
+function notifyBadges(p, r) {
+  if (!r || p.pending || r.terminated || (+p.count || 0) <= 1) return '';
+  const c = ix.athCalc.get(p.athleteId) || {}, cur = c.sub === p, next = c.nextSub === p, q = notifyState(p, 'period'), e = notifyState(p, 'end'), b = [];
+  if (q) b.push(`<span class="chip ${q.stale ? 'warn' : 'ok'}" title="${q.stale ? 'Срок сообщён ' + D.ru(q.at) + ', потом изменился — теперь до ' + D.ru(q.now) + '. Сообщите новый срок' : 'Срок действия сообщён ' + D.ru(q.at)}">📅 ${q.stale ? 'срок изменился' : D.short(q.at)}</span>`);
+  else if ((cur || next) && r.first && !r.notActive && r.first >= (db.settings.notifyFrom || '9999')) b.push('<span class="chip bad" title="Срок действия абонемента ещё не сообщён">📅 не сообщён</span>');
+  if (e) b.push(`<span class="chip ${e.stale ? 'warn' : 'ok'}" title="${e.stale ? 'Предупреждён об окончании ' + D.ru(e.at) + ', потом окончание изменилось — теперь ' + D.ru(e.now) : 'Предупреждён об окончании ' + D.ru(e.at)}">✉ ${e.stale ? 'окончание изменилось' : D.short(e.at)}</span>`);
+  else if (cur && !c.nextSub && !c.pendingSub && r.remaining != null && r.remaining <= 2) b.push(`<span class="chip bad" title="Осталось ${Math.max(0, r.remaining)} — об окончании не предупреждён">✉ не предупреждён</span>`);
+  return b.length ? `<div class="nb">${b.join('')}</div>` : '';
 }
 function notifyIcon(p) {
   const e = notifyState(p, 'end'), q = notifyState(p, 'period'); if (!e && !q) return '';
