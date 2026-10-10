@@ -2731,7 +2731,9 @@ function vReport() {
   <div class="print-only">${h(db.settings.club)} — сводка за ${D.ru(R.from)} — ${D.ru(R.to)}</div>
   <div class="card"><div class="stats"><div class="stat"><b>${sess.length}</b><span class="small muted">занятий проведено</span></div><div class="stat"><b>${cnt(sess, '+')}</b><span class="small muted">посещений</span></div>
   <div class="stat"><b>${cnt(sess, 'н')}</b><span class="small muted">пропусков без заморозки</span></div><div class="stat"><b>${cnt(sess, 'б')}</b><span class="small muted">по болезни</span></div>
-  <div class="stat"><b>${pays.length}</b><span class="small muted">оплат</span></div><div class="stat"><b>${pays.reduce((s, p) => s + subNet(p), 0).toLocaleString('ru')} ₽</b><span class="small muted">получено${(r => r ? ', за вычетом возвратов ' + r.toLocaleString('ru') + ' ₽' : '')(pays.reduce((s, p) => s + ((refundBySub().get(p.id) || {}).sum || 0), 0))}</span></div></div>
+  <div class="stat"><b>${pays.length}</b><span class="small muted">оплат</span></div>${(() => { const refOld = finItems().filter(x => x.cat === '_ref' && x.date >= R.from && x.date <= R.to).reduce((n, x) => n + x.amount, 0);   // возвраты по оплатам до начала программы — в день выплаты
+    const ref = pays.reduce((s, p) => s + ((refundBySub().get(p.id) || {}).sum || 0), 0) + refOld;
+    return `<div class="stat"><b>${(pays.reduce((s, p) => s + subNet(p), 0) - refOld).toLocaleString('ru')} ₽</b><span class="small muted">получено${ref ? ', за вычетом возвратов ' + ref.toLocaleString('ru') + ' ₽' : ''}</span></div>`; })()}</div>
   ${pStart ? `<div class="small muted" style="margin-top:8px">Оплаты считаются с начала ведения программы (${D.ru(pStart)}); перенесённые из Excel не входят.</div>` : ''}</div>
   ${reportSummary(R)}
   <div class="grid2"><div class="card flat"><table class="t"><thead><tr><th>Группа</th><th class="r">Занятий</th><th class="r">Посещений</th><th class="r">В среднем</th><th class="r">Оплат, ₽</th></tr></thead><tbody>
