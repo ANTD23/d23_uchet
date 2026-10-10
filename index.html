@@ -4049,6 +4049,8 @@ function renameGroup(oldN, newN) {
   db.tests.forEach(t => { if (t.group === oldN) t.group = newN; });
   ((db.settings.fin || {}).coaches || []).forEach(c => { c.groups = (c.groups || []).map(g => g === oldN ? newN : g); });
   (db.ops || []).forEach(o => { if (o.group === oldN) o.group = newN; });
+  (db.leads || []).forEach(L => { if (L.group === oldN) L.group = newN; });
+  if (ui.journal.mgroup === oldN) ui.journal.mgroup = newN; if (ui.attest.group === oldN) ui.attest.group = newN; if (ui.gmsg && ui.gmsg.group === oldN) ui.gmsg.group = newN;
   db.athletes.forEach(a => (a.transfers || []).forEach(t => { if (t.from === oldN) t.from = newN; if (t.to === oldN) t.to = newN; }));
 }
 const ACT = {
