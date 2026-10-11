@@ -459,6 +459,42 @@ details.legend-d .legend{padding:4px 0 6px}
 .plan-in .plan-sec > .plan-h{border-radius:var(--r) var(--r) 0 0}
 .pl-a{margin-top:8px}
 @media (max-width:860px){.attn-card .attn-sec{margin:4px 8px 10px} .qa{min-height:76px;font-size:.875rem}}
+/* ===== карточка спортсмена и форма оплаты (этап 4) ===== */
+.person-card .person-head h1{margin:0;text-wrap:balance}
+.subbox{display:grid;grid-template-columns:auto 1fr;gap:2px 16px;align-items:center;padding:14px 16px;border-radius:var(--r);background:var(--sunk);margin-top:16px}
+.subbox .big{grid-row:span 2;font-size:2.75rem;font-weight:750;line-height:1;color:var(--ink)}
+.subbox .l1{font-weight:650;font-size:1.0625rem}
+.subbox .l2{font-size:.9375rem;color:var(--ink-2)}
+.subbox .meter{grid-column:1/-1;height:6px;border-radius:3px;background:var(--surface);overflow:hidden;margin-top:8px}
+.subbox .meter i{display:block;height:100%;background:var(--accent-btn)}
+.subbox.warn .big{color:var(--warn)} .subbox.bad{background:var(--bad-bg)} .subbox.bad .big{color:var(--bad)}
+.person-acts{margin-top:14px;gap:8px}
+.person-acts > .btn,.person-acts > details > summary.btn{min-height:48px;font-size:1rem}
+.person-acts .menu-pop{left:auto;right:0}
+.contacts{margin:14px -16px -16px;border-top:1px solid var(--line)}
+.contact{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid var(--line)}
+.contact:first-child{border-top:0}
+.contact .who b{white-space:normal}
+.contact .ph{display:block;white-space:nowrap;font-size:1.0625rem;color:var(--ink);margin-top:2px}
+.contact.second .ph{font-size:.9375rem;color:var(--ink-2)}
+.btn.call{background:var(--surface);border:2px solid var(--ok-fill);color:var(--ok);flex:none}
+.btn.call:hover{background:var(--ok-bg)}
+.btn.call svg{width:20px;height:20px}
+.contact.second .btn.call{border-width:1px;min-height:40px;padding:0 12px;font-size:.9375rem}
+div.f{display:flex;flex-direction:column;gap:6px;font-size:.875rem;color:var(--ink-2)} div.f > span{font-weight:600}
+.choice{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.choice button{min-height:52px;border-radius:var(--r-s);border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font-weight:600;font-size:1rem;cursor:pointer}
+.choice button[aria-pressed="true"]{border:2px solid var(--accent-btn);background:var(--accent-soft);color:var(--ink)}
+.choice button[aria-pressed="true"]::before{content:"✓ ";color:var(--accent-btn);font-weight:800}
+.stepper{display:grid;grid-template-columns:52px 1fr 52px;gap:6px}
+.stepper button{min-height:48px;border-radius:var(--r-s);border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font-size:1.375rem;cursor:pointer}
+.stepper input{text-align:center;font-weight:700;font-size:1.125rem}
+details.more-fields{margin-top:14px;border-top:1px solid var(--line);padding-top:6px}
+details.more-fields > summary{cursor:pointer;font-weight:600;color:var(--ink);min-height:var(--tap);display:flex;align-items:center}
+.pay-res{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border-radius:var(--r);background:var(--ok-bg);color:var(--ok);margin-bottom:14px}
+.pay-res span{color:var(--ink)}
+@media (max-width:860px){.contacts{margin:14px -14px -14px} .subbox .big{font-size:2.5rem}}
+@media print{.subbox{background:none!important;border:1px solid #000}.contacts{margin:8px 0 0}}
 .toast .btn{margin-left:10px;min-height:36px;padding:0 14px;background:transparent;border-color:transparent;color:var(--bg);text-decoration:underline;text-underline-offset:3px}
 .toast .btn:hover{background:rgba(127,127,127,.2)}
 </style></head>
@@ -1856,6 +1892,7 @@ const I = {
   tourn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3"/></svg>',
   leads: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v12H8l-4 4V4z"/><path d="M8 9h8M8 12h5"/></svg>',
   money: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="6" width="19" height="13" rx="2"/><path d="M16 12.5h2.5M2.5 10h19"/><path d="M6 3.5h12"/></svg>',
+  phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>',
   more: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>',
 };
 const NAV = [
@@ -2327,6 +2364,65 @@ function planBody(P) {                                    // «План на д�
     <div class="plan-in">${secs || '<div class="empty">Всё сделано — писать и напоминать сегодня некому.</div>'}${info}</div>
     <p class="small muted no-print" style="margin:0;padding:4px 16px 16px">Квадратик — «сделано»: строка зачёркивается до конца дня. «Написать» открывает готовый текст; после отправки строка отмечается сама, а в абонементе ставится метка ✉ или 📅. Аренда напоминается за 3 дня и каждый день до оплаты; квадратик у неё — внести расход. У чека квадратик — «чек выбит».</p>`;
 }
+/* ---------- настоящий .docx без библиотек и интернета: ZIP без сжатия + разметка Word (чёрным, A4) ---------- */
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8) { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC_T[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function zipStore(files, type) {                          // files: [[имя, текст]] → Blob
+  const enc = new TextEncoder(), parts = [], cen = []; let off = 0;
+  const d = new Date(), tm = ((d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1)) & 0xFFFF, dt = (((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate()) & 0xFFFF;
+  for (const [name, text] of files) {
+    const nm = enc.encode(name), data = enc.encode(text), crc = crc32(data);
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(10, tm, true); lh.setUint16(12, dt, true);
+    lh.setUint32(14, crc, true); lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true); lh.setUint16(26, nm.length, true);
+    parts.push(new Uint8Array(lh.buffer), nm, data);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(12, tm, true); ch.setUint16(14, dt, true);
+    ch.setUint32(16, crc, true); ch.setUint32(20, data.length, true); ch.setUint32(24, data.length, true); ch.setUint16(28, nm.length, true); ch.setUint32(42, off, true);
+    cen.push(new Uint8Array(ch.buffer), nm);
+    off += 30 + nm.length + data.length;
+  }
+  const size = cen.reduce((n, x) => n + x.length, 0), end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true); end.setUint32(12, size, true); end.setUint32(16, off, true);
+  return new Blob([...parts, ...cen, new Uint8Array(end.buffer)], { type });
+}
+/* blocks: {t:'p', runs:[{text, b, strike, size, br}], before, after, keep} или {t:'table', widths:[dxa], rows:[[runs, …]]} */
+function docxBlob(blocks) {
+  const X = v => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const run = r => `<w:r><w:rPr>${r.font ? `<w:rFonts w:ascii="${r.font}" w:hAnsi="${r.font}" w:cs="${r.font}"/>` : ''}${r.b ? '<w:b/><w:bCs/>' : ''}${r.strike ? '<w:strike/>' : ''}${r.size ? `<w:sz w:val="${r.size}"/><w:szCs w:val="${r.size}"/>` : ''}<w:color w:val="000000"/></w:rPr>${r.br ? '<w:br/>' : ''}<w:t xml:space="preserve">${X(r.text || '')}</w:t></w:r>`;
+  const para = (runs, o = {}) => `<w:p><w:pPr>${o.keep ? '<w:keepNext/>' : ''}<w:spacing w:before="${o.before || 0}" w:after="${o.after ?? 60}"/></w:pPr>${(runs || []).map(run).join('')}</w:p>`;
+  const bd = '<w:tblBorders>' + ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].map(k => `<w:${k} w:val="single" w:sz="4" w:space="0" w:color="000000"/>`).join('') + '</w:tblBorders>';
+  const body = blocks.map(b => b.t !== 'table' ? para(b.runs, b)
+    : `<w:tbl><w:tblPr><w:tblW w:w="${b.widths.reduce((a, c) => a + c, 0)}" w:type="dxa"/>${bd}<w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="40" w:type="dxa"/><w:left w:w="80" w:type="dxa"/><w:bottom w:w="40" w:type="dxa"/><w:right w:w="80" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${b.widths.map(w => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>`
+      + b.rows.map(r => `<w:tr><w:trPr><w:cantSplit/></w:trPr>${r.map((c, i) => `<w:tc><w:tcPr><w:tcW w:w="${b.widths[i]}" w:type="dxa"/></w:tcPr>${para(c, { after: 0 })}</w:tc>`).join('')}</w:tr>`).join('') + '</w:tbl>').join('');
+  const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"', H = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>', R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/';
+  return zipStore([
+    ['[Content_Types].xml', `${H}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>`],
+    ['_rels/.rels', `${H}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${R}officeDocument" Target="word/document.xml"/></Relationships>`],
+    ['word/_rels/document.xml.rels', `${H}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${R}styles" Target="styles.xml"/></Relationships>`],
+    ['word/document.xml', `${H}<w:document ${W}><w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="850" w:right="850" w:bottom="850" w:left="850" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr></w:body></w:document>`],
+    ['word/styles.xml', `${H}<w:styles ${W}><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:eastAsia="Arial" w:cs="Arial"/><w:sz w:val="21"/><w:szCs w:val="21"/><w:color w:val="000000"/><w:lang w:val="ru-RU"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="60" w:line="252" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style></w:styles>`],
+  ], 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+}
+function downloadBlob(name, blob) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+function planDocx() {                                     // план на день → .docx (то же, что в печати)
+  const P = dayPlan(), t = P.t, hol = ix.holiday.get(t), B = [];
+  B.push({ t: 'p', runs: [{ text: `План на ${DOW_FULL[D.dow(t)]}, ${D.ru(t)}`, b: true, size: 28 }], after: 80 });
+  B.push({ t: 'p', runs: [{ text: `${db.settings.club || 'Club D23'}. Тренировки сегодня: ${hol ? 'нерабочий день' : P.groups.length ? P.groups.join(', ') : 'по расписанию нет'}.${P.total ? ` Дел: ${P.total}, сделано ${P.doneN}.` : ''} (!) — срочно.` }], after: 160 });
+  P.secs.forEach(([k, title, L], i) => {
+    B.push({ t: 'p', runs: [{ text: `${i + 1}. ${title}`, b: true, size: 23 }], before: 200, after: 60, keep: true });
+    B.push({ t: 'table', widths: [460, 3100, 6646], rows: L.map(it => { const x = it.x || {}, w = planWho(it), rc = x.recur;
+      return [[{ text: it.done ? '☒' : '☐', size: 24, font: 'Segoe UI Symbol' }],   // ☒ — без цветного варианта, печатается чёрным
+        [...(it.tone === 'bad' && !it.done ? [{ text: '(!) ', b: true }] : []), { text: rc ? rc.name : w.name, b: true }, ...(w.phone ? [{ br: true, text: fmtPhone(w.phone) + (w.rel ? ' (' + w.rel + ')' : '') }] : [])],
+        [{ text: rc ? planRecurText(rc) : it.text, strike: !!it.done }]]; }) });
+  });
+  if (!P.secs.length) B.push({ t: 'p', runs: [{ text: 'Дел на сегодня нет.' }] });
+  if (P.info.length) { B.push({ t: 'p', runs: [{ text: 'Для сведения', b: true, size: 23 }], before: 200, keep: true }); P.info.forEach(v => B.push({ t: 'p', runs: [{ text: '• ' + v }], after: 20 })); }
+  return docxBlob(B);
+}
 function planDoc() {                                      // для печати и Word: только суть и телефон
   const P = dayPlan(), t = P.t, hol = ix.holiday.get(t);
   const row = it => { const x = it.x || {}, w = planWho(it), rc = x.recur;
@@ -2511,6 +2607,30 @@ function vPeople() {
 }
 
 /* ---------- КАРТОЧКА ---------- */
+/* ---------- шапка карточки: абонемент крупно и телефоны (только показ) ---------- */
+function personSubBox(a, c) {
+  const s = c.subCalc; let big = '', l1 = '', l2 = '', tone = '', pct = null;
+  if (a.refund || (s && s.terminated)) return '';
+  if (c.pendingSub) { big = '—'; l1 = 'ждём оплату'; l2 = c.pendingCalc && c.pendingCalc.charged ? 'в долг ' + c.pendingCalc.charged + ' ' + plural(c.pendingCalc.charged, 'занятие', 'занятия', 'занятий') : ''; tone = 'bad'; }
+  else if (s && s.notActive) { big = String(s.remaining); l1 = 'оплачен, не активирован'; l2 = s.autoDate ? 'автоактивация ' + D.ru(s.autoDate) : 'начнётся с первого посещения'; }
+  else if (s && +c.sub.count > 0) {
+    big = s.remaining < 0 ? '−' + (-s.remaining) : String(s.remaining);
+    if (s.remaining < 0) { l1 = 'долг по занятиям'; tone = 'bad'; }
+    else { l1 = s.remaining === 0 ? 'абонемент использован' : plural(s.remaining, 'занятие осталось', 'занятия осталось', 'занятий осталось'); tone = s.remaining <= 1 ? 'warn' : '';
+      const tot = (+c.sub.count || 0) + (+c.sub.bonus || 0); if (tot > 0) pct = Math.max(0, Math.min(100, Math.round(s.remaining / tot * 100))); }
+    l2 = s.end ? (s.endKind === 'fact' ? 'последнее занятие ' : 'до ') + D.ru(s.end) : '';
+    if (c.nextSub) l2 += (l2 ? ' · ' : '') + 'следующий оплачен';
+  } else return '';
+  return `<div class="subbox${tone ? ' ' + tone : ''}"><span class="big num">${h(big)}</span><span class="l1">${h(l1)}</span><span class="l2">${h(l2)}</span>${pct != null ? `<span class="meter" aria-hidden="true"><i style="width:${pct}%"></i></span>` : ''}</div>`;
+}
+function personContacts(a, c) {
+  const L = [], main = cleanPhone(c.contact);
+  const add = (who, name, ph) => { const d = cleanPhone(ph); if (d && !L.some(x => x.d === d)) L.push({ who, name, d, main: !!main && d === main }); };
+  add('мать', a.motherName, a.motherPhone); add('отец', a.fatherName, a.fatherPhone); add('спортсмен', '', a.phone);
+  if (!L.length) return c.noParentPhone ? '<div class="contact"><span class="chip bad">нет телефона родителя</span></div>' : '';
+  L.sort((x, y) => y.main - x.main);
+  return L.map((x, i) => `<div class="contact${i ? ' second' : ''}"><div class="who"><b>${h(x.name || (x.who === 'спортсмен' ? shortName(a) : x.who))}</b><span class="small">${x.who === 'спортсмен' ? 'телефон спортсмена' : x.who}${x.main ? ' · основной контакт' : ''}</span><span class="num ph">${h(fmtPhone(x.d))}</span></div><a class="btn call no-print" href="tel:+7${x.d}" aria-label="Позвонить: ${h(x.name || x.who)}">${I.phone}<span>Позвонить</span></a></div>`).join('');
+}
 function vPerson(id) {
   const a = ix.ath.get(id);
   if (!a) return '<div class="card"><p>Спортсмен не найден.</p><a class="btn" href="#people">К списку</a></div>';
@@ -2554,13 +2674,14 @@ function vPerson(id) {
   const tournCard = `<div class="card flat"><div style="padding:14px 16px 6px"><h2>Турниры</h2></div>${myT.length ? `<ul class="list">${myT.map(T => `<li class="click" data-go="#tourn"><div class="who"><b>${h(T.name)}</b><span class="small">${D.ru(T.date)}${T.city ? ', ' + h(T.city) : ''}</span></div><span class="chip ${tBest(T.res[id]) ? 'ok' : 'muted'}">${h(tResText(T.res[id]))}</span></li>`).join('')}</ul>` : '<div class="empty">Нет записей. Турниры вносятся в разделе «Турниры».</div>'}</div>`;
   const logCard = myLog.length ? `<details class="card no-print"><summary><b>История изменений</b> <span class="small muted">${myLog.length}</span></summary><ul class="list" style="margin-top:8px">${myLog.slice(0, 150).map(x => `<li style="padding:6px 0"><span class="small num" style="min-width:110px">${new Date(x.at).toLocaleString('ru', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}</span><span class="who small">${h(x.t)}</span></li>`).join('')}</ul>${myLog.length > 150 ? '<p class="small muted">Показаны последние 150.</p>' : ''}</details>` : '';
   return `<div class="topline"><div><a href="#people" class="small no-print">← Спортсмены</a></div></div>
-  <div class="card"><div class="person-head">${beltHTML(c.belt, c.stripes, true)}
-    <div style="flex:1;min-width:220px"><h1>${h(fullName(a))}</h1>
-    <div class="row" style="gap:6px">${c.age != null ? `<span class="muted">${c.age} ${plural(c.age, 'год', 'года', 'лет')}</span>` : ''}<span class="chip">${h(a.group || 'без группы')}${a.group2 ? ' / ' + h(a.group2) : ''}</span>
-    <span class="chip ${a.status === 'занимается' ? 'ok' : 'muted'}">${h(a.status)}</span>${a.otherTeam ? `<span class="chip warn">другая команда${a.teamName ? ': ' + h(a.teamName) : ''}</span>` : ''}${a.refund ? '<span class="chip muted">отказ от договора ' + D.short(a.refund.date) + '</span>' : chipSub(c)}${chipMed(c.med)}</div>
-    <div class="small muted" style="margin-top:4px">${c.belt ? h(c.belt) + (c.stripes ? ', ' + c.stripes + ' ' + plural(c.stripes, 'страйп', 'страйпа', 'страйпов') : '') + (c.beltSet ? ' с ' + D.ru(c.beltDate) + (c.monthsSince != null ? ' (' + c.monthsSince + ' мес.)' : '') : ' — запись о присвоении не внесена') : 'Пояс не присвоен'}</div></div>
-    <div class="row no-print"><button class="btn primary" data-act="sub-new" data-id="${id}">Оплата</button><button class="btn" data-act="msg" data-id="${id}">Написать</button><button class="btn" data-act="transfer-new" data-id="${id}">Перевести</button><button class="btn" data-act="person-edit" data-id="${id}">Изменить</button>${a.status === 'приостановил' ? `<button class="btn primary" data-act="pause-return" data-id="${id}">Вернулся</button>` : ''}</div></div>
-    ${a.status === 'приостановил' || (a.pauses || []).length ? `<div class="small" style="margin-top:8px">${a.status === 'приостановил' ? `<b>На перерыве${a.pauseFrom ? ' с ' + D.ru(a.pauseFrom) : ''}</b> — в списке группы не показывается. Вернулся — нажмите «Вернулся» и укажите дату.` : ''}${(a.pauses || []).length ? `<span class="muted"> Перерывы: ${a.pauses.map(p => (p.from ? D.ru(p.from) : '…') + ' — ' + D.ru(D.add(p.to, -1))).join('; ')}.</span>` : ''}</div>` : ''}</div>
+  <div class="card person-card"><div class="person-head"><div style="flex:1;min-width:0"><h1>${h(fullName(a))}</h1>
+    <div class="row" style="gap:6px;margin-top:6px"><span class="chip ${a.status === 'занимается' ? 'ok' : 'muted'}">${h(a.status)}</span><span class="chip">${h(a.group || 'без группы')}${a.group2 ? ' / ' + h(a.group2) : ''}</span>${c.age != null ? `<span class="chip">${c.age} ${plural(c.age, 'год', 'года', 'лет')}</span>` : ''}${a.otherTeam ? `<span class="chip warn">другая команда${a.teamName ? ': ' + h(a.teamName) : ''}</span>` : ''}${a.refund ? '<span class="chip muted">отказ от договора ' + D.short(a.refund.date) + '</span>' : chipSub(c)}${chipMed(c.med)}</div>
+    <div class="row" style="gap:12px;margin-top:12px">${beltHTML(c.belt, c.stripes, true)}<span class="small muted">${c.belt ? h(c.belt) + (c.stripes ? ', ' + c.stripes + ' ' + plural(c.stripes, 'страйп', 'страйпа', 'страйпов') : '') + (c.beltSet ? ' с ' + D.ru(c.beltDate) + (c.monthsSince != null ? ' (' + c.monthsSince + ' мес.)' : '') : ' — запись о присвоении не внесена') : 'Пояс не присвоен'}</span></div></div></div>
+    ${personSubBox(a, c)}
+    <div class="row no-print person-acts">${a.status === 'приостановил' ? `<button class="btn primary" data-act="pause-return" data-id="${id}">Вернулся</button>` : ''}<button class="btn ${a.status === 'приостановил' ? '' : 'primary'}" data-act="sub-new" data-id="${id}">Оплата</button><button class="btn" data-act="msg" data-id="${id}">Написать</button>
+      <details class="menu"><summary class="btn" aria-label="Другие действия">⋯ Ещё</summary><div class="menu-pop"><button class="btn" data-act="transfer-new" data-id="${id}">Перевести в другую группу</button><button class="btn" data-act="person-edit" data-id="${id}">Изменить данные</button></div></details></div>
+    ${a.status === 'приостановил' || (a.pauses || []).length ? `<div class="small" style="margin-top:10px">${a.status === 'приостановил' ? `<b>На перерыве${a.pauseFrom ? ' с ' + D.ru(a.pauseFrom) : ''}</b> — в списке группы не показывается. Вернулся — нажмите «Вернулся» и укажите дату.` : ''}${(a.pauses || []).length ? `<span class="muted"> Перерывы: ${a.pauses.map(p => (p.from ? D.ru(p.from) : '…') + ' — ' + D.ru(D.add(p.to, -1))).join('; ')}.</span>` : ''}</div>` : ''}
+    <div class="contacts">${personContacts(a, c)}</div></div>
   ${personSummary(a, c, freezes)}
   ${refundCard}
   <div class="grid2">
@@ -2800,14 +2921,15 @@ function openSub(id, athleteId) {
   const v = p || { acc: lastAcc || FN.defAcc, athleteId: aid, payDate: ix.today, start: up.length ? up[0] : '', count: aid && ix.ath.get(aid).payPerVisit ? (up.length || 1) : last ? (+last.count || db.settings.defaultCount || 12) : (up.length || db.settings.defaultCount || 12), amount: last ? last.amount : '', onlyGroup: '', carryWas: 0, carryMissed: 0, note: '' };
   const r = p ? ix.subCalc.get(p.id) : null;
   const body = `<div class="fgrid">${aid && p ? `<input type="hidden" name="athleteId" value="${aid}"><div class="wide"><b>${h(fullName(ix.ath.get(aid)))}</b></div>` : FS('athleteId', 'Спортсмен', [['', '— выберите —'], ...athleteOptions(aid)], aid, 'required class="wide"')}
-  ${F('payDate', 'Дата оплаты', v.payDate, 'date')}${F('start', 'Дата активации (пусто — автоматически)', v.start, 'date')}
   <p class="small wide" id="unpaid-note" style="margin:-4px 0 0;${up.length ? '' : 'display:none'}"><b>Есть неоплаченные посещения: ${up.map(d => D.short(d)).join(', ')}.</b> Дата активации поставлена на первое из них, чтобы оплата их покрыла.</p>
+  ${(FN.accounts || []).length && FN.accounts.length <= 4 ? `<div class="f wide"><span>Как оплачено</span><div class="choice" role="group" aria-label="Как оплачено">${FN.accounts.map(A => `<button type="button" data-acc="${h(A.id)}" aria-pressed="${(v.acc || '') === A.id}">${h(A.name)}</button>`).join('')}</div><input type="hidden" name="acc" value="${h(v.acc || '')}">${v.acc && !FN.accounts.some(A => A.id === v.acc) ? '<p class="small muted" style="margin:4px 0 0">Прежний счёт удалён — выберите способ оплаты.</p>' : ''}</div>` : `${FS('acc', 'Как оплачено', [...(v.acc ? [] : [['', '— не указано —']]), ...FN.accounts.map(A => [A.id, A.name]), ...(v.acc && !FN.accounts.some(A => A.id === v.acc) ? [[v.acc, 'счёт удалён']] : [])], v.acc || '')}`}
+  <div class="f"><span>Оплачено занятий</span><div class="stepper"><button type="button" data-step="-1" aria-label="Меньше занятий">−</button><input type="number" name="count" value="${h(v.count)}" min="1" inputmode="numeric" required aria-label="Оплачено занятий"><button type="button" data-step="1" aria-label="Больше занятий">+</button></div></div>${F('amount', 'Сумма, ₽', v.amount, 'number', 'inputmode="numeric"')}
+  ${F('payDate', 'Дата оплаты', v.payDate, 'date')}${FN.checks !== false ? `<label class="row" style="gap:8px;align-self:end;min-height:40px"><input type="checkbox" name="check" ${v.check ? 'checked' : ''} style="width:20px;height:20px"><span>Чек в «Мой налог» выбит${v.check && v.check !== true ? ' <span class="small muted">' + h(D.short(String(v.check))) + '</span>' : ''}</span></label>` : ''}
+  <p class="small wide" id="tariff-note" style="margin:-4px 0 0"></p></div>
+  <details class="more-fields" ${p ? 'open' : ''}><summary>Дополнительно: дата активации, только группа, продление, «ждём оплату»</summary><div class="fgrid" style="margin-top:10px">
+  ${F('start', 'Дата активации (пусто — автоматически)', v.start, 'date')}
   <p class="small muted wide" style="margin:-4px 0 0">Пусто: абонемент активируется сам в день первого посещения после оплаты (при оплате заранее — первого посещения после окончания текущего), а если посещений не будет — на 30-й день: считая со следующего дня после оплаты, а при оплате заранее — со следующего дня после окончания текущего абонемента (п. 9.2). Дату ставьте вручную, только если нужно иначе.</p>
-  ${F('count', 'Оплачено занятий', v.count, 'number', 'min="1" inputmode="numeric" required')}${F('amount', 'Сумма, ₽', v.amount, 'number', 'inputmode="numeric"')}
-  ${FS('acc', 'Как оплачено', [...(v.acc ? [] : [['', '— не указано —']]), ...FN.accounts.map(A => [A.id, A.name]), ...(v.acc && !FN.accounts.some(A => A.id === v.acc) ? [[v.acc, 'счёт удалён']] : [])], v.acc || '')}
   ${FN.orgs ? FS('payer', 'Плательщик', [['', 'физическое лицо'], ['org', 'организация или ИП']], v.payer || '') : ''}
-  ${FN.checks !== false ? `<label class="row" style="gap:8px;align-self:end;min-height:40px"><input type="checkbox" name="check" ${v.check ? 'checked' : ''} style="width:20px;height:20px"><span>Чек в «Мой налог» выбит${v.check && v.check !== true ? ' <span class="small muted">' + h(D.short(String(v.check))) + '</span>' : ''}</span></label>` : ''}
-  <p class="small wide" id="tariff-note" style="margin:-4px 0 0"></p>
   ${F('refundPrice', 'Цена занятия для возврата, ₽', v.refundPrice || '', 'number', 'min="0" step="10" inputmode="numeric" placeholder="пусто — по п. 10.4.2"')}
   <p class="small muted wide" style="margin:-4px 0 0">Пусто — цена считается сама: сумма ÷ число занятий, вверх до 10 ₽ (5 500 → 460, 5 000 → 420). Свою цену можно поставить только не ниже расчётной.</p>
   ${FS('onlyGroup', 'Абонемент только на группу', [['', 'все группы человека'], ...db.settings.groups.map(g => g.name)], v.onlyGroup)}
@@ -2817,7 +2939,7 @@ function openSub(id, athleteId) {
   <p class="small muted" style="margin:6px 0 0">Добавленные занятия идут после оплаченных: срок абонемента сдвигается по расписанию. В сумму возврата при отказе они не входят.${r && r.end ? ' Дата «до» пересчитывается в число занятий по расписанию группы.' : ''}</p></details>
   <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:${v.pending ? 'var(--bad-bg)' : 'var(--sunk)'}"><input type="checkbox" name="pending" ${v.pending ? 'checked' : ''} style="width:20px;height:20px"><span><b>Ждём оплату</b> — человек занимается, но абонемент ещё не оплачен. Посещения списываются с него как обычно.</span></label>
   <label class="f wide"><span>Примечание</span><input type="text" name="note" value="${h(v.note)}"></label></div>
-  <details style="margin-top:10px"><summary class="small">Перенос из прежнего журнала</summary><div class="fgrid" style="margin-top:8px">${F('carryWas', 'Был (перенос)', v.carryWas || 0, 'number')}${F('carryMissed', 'Не был (перенос)', v.carryMissed || 0, 'number')}</div></details>
+  <details style="margin-top:10px"><summary class="small">Перенос из прежнего журнала</summary><div class="fgrid" style="margin-top:8px">${F('carryWas', 'Был (перенос)', v.carryWas || 0, 'number')}${F('carryMissed', 'Не был (перенос)', v.carryMissed || 0, 'number')}</div></details></details>
   ${r ? `<div class="card" style="margin:12px 0 0;background:var(--sunk)"><div class="stats"><div class="stat"><b>${r.was}</b><span class="small muted">был</span></div><div class="stat"><b>${r.missed}</b><span class="small muted">не был</span></div><div class="stat"><b>${r.sick}</b><span class="small muted">болел</span></div>${r.blank ? `<div class="stat"><b>${r.blank}</b><span class="small muted">из «не был» — пустые клетки</span></div>` : ''}<div class="stat"><b>${r.remaining}</b><span class="small muted">остаток</span></div></div>
   <div class="small" style="margin-top:8px">${activationText(p, r)}</div>
   <div class="small" style="margin-top:4px">${r.end ? (r.endKind === 'fact' ? 'Последнее списанное занятие: ' : r.endKind === 'terminated' ? 'Договор прекращён: ' : 'Окончание по расписанию: ') + D.ru(r.end) : ''}${r.notifyBy ? ' · сообщить об окончании не позднее ' + D.ru(r.notifyBy) : ''}</div>${refundInfo(ix, p) && (+p.count || 0) > 1 && !r.terminated ? `<div class="small" style="margin-top:4px">При отказе от договора на сегодня — к возврату <b>${refundInfo(ix, p).sum.toLocaleString('ru')} ₽</b>${refundInfo(ix, p).price ? ' (' + refundInfo(ix, p).left + ' × ' + refundInfo(ix, p).price.toLocaleString('ru') + ' ₽' + (refundInfo(ix, p).own ? ', своя цена' : '') + ')' : ' (абонемент не активирован — вся сумма)'}, п. 10.4${ix.ath.get(p.athleteId) && ix.ath.get(p.athleteId).status === 'ушёл' ? ', договор прекращён ' + D.ru(ix.ath.get(p.athleteId).endedAt) : ''}</div>` : ''}</div>` : ''}`;
@@ -2846,10 +2968,15 @@ function openSub(id, athleteId) {
       for (const k of ['acc', 'payer', 'check']) if (!t[k]) delete t[k];
       if (!p) db.subs.push(t);
       persist(p ? 'Абонемент сохранён' : t.pending ? 'Записан абонемент «ждём оплату»' : 'Оплата записана');
-      if (!p && !t.pending && t.count > 1) setTimeout(() => { const rr = ix.subCalc.get(t.id); openMsg(t.athleteId, rr && rr.notActive ? 'Абонемент оплачен' : 'Новый абонемент оплачен', {}, t.id); }, 50);
+      const term = () => { const rr = ix.subCalc.get(t.id); if (!rr) return ''; return rr.notActive ? 'не активирован — начнётся с первого посещения' + (rr.autoDate ? ', не позднее ' + D.ru(rr.autoDate) : '') : (rr.first ? 'действует с ' + D.ru(rr.first) : '') + (rr.end ? ' по ' + D.ru(rr.end) : ''); };   // показ нового срока, расчёт прежний
+      if (!p && !t.pending && t.count > 1) setTimeout(() => { const rr = ix.subCalc.get(t.id); openMsg(t.athleteId, rr && rr.notActive ? 'Абонемент оплачен' : 'Новый абонемент оплачен', {}, t.id);
+        const bx = document.querySelector('#dlg .dlg-b'); if (bx) bx.insertAdjacentHTML('afterbegin', `<div class="pay-res"><b>✓ Оплата записана: ${t.count} ${plural(t.count, 'занятие', 'занятия', 'занятий')}</b><span>${h(term())}</span></div>`); }, 50);
+      else if (!p && !t.pending) { const ts = document.querySelector('.toast'); if (ts && ts.firstChild && ts.firstChild.nodeType === 3 && term()) ts.firstChild.nodeValue = 'Оплата записана · ' + term(); }
     },
   });
   tariffHook(p);
+  document.querySelectorAll('#dlg [data-acc]').forEach(b => b.onclick = () => { document.querySelector('#dlg [name=acc]').value = b.dataset.acc; document.querySelectorAll('#dlg [data-acc]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
+  document.querySelectorAll('#dlg [data-step]').forEach(b => b.onclick = () => { const i = document.querySelector('#dlg [name=count]'); i.value = Math.max(1, (+i.value || 0) + +b.dataset.step); i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); });
   const bt = document.querySelector('#dlg [name=bonusTo]');
   if (bt && p && r && r.end) bt.onchange = () => { if (!bt.value) return;
     const cur = Math.max(0, Math.floor(+p.bonus || 0)), add = countTrainDays(ix, D.add(r.end, 1), bt.value, subGroups(ix, p));
@@ -4702,7 +4829,7 @@ const ACT = {
   'attn-done': el => attnMark(el.dataset.key, true),
   'plan-done': el => { const K = el.dataset.key.split('\n'), on = !K.every(k => (db.attnDone || {})[k] === ix.today); K.forEach(k => attnMark(k, on)); },
   'plan-print': () => openPrint('План на ' + D.ru(ix.today), planDoc(), 'h3{margin:12pt 0 3pt}table{border-collapse:collapse;width:100%}td{border:1px solid #000;padding:3pt 5pt;vertical-align:top}'),
-  'plan-word': () => download('D23_план_' + ix.today + '.doc', WORD_HEAD + planDoc() + '</body></html>', 'application/msword'),
+  'plan-word': () => { downloadBlob('D23_план_' + ix.today + '.docx', planDocx()); toast('План сохранён в Word (.docx)'); },
   'attn-undo': el => attnMark(el.dataset.key, false),
   'test-add': () => openTestAdd(), 'test-protocol': () => printProtocol(),
   'test-del': el => { if (!confirm('Удалить строку сдачи?')) return; db.tests = db.tests.filter(t => t.id !== el.dataset.id); render.keepScroll = true; persist(); },
