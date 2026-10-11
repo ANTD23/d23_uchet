@@ -122,11 +122,11 @@ main{padding:24px 32px 96px;max-width:1180px;width:100%;min-width:0}
 .btn:disabled{opacity:.5;cursor:default}
 .side .btn{background:#fff;color:#1C1F23;border:0}
 :focus-visible{outline:3px solid var(--focus);outline-offset:2px}
-.chip{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:var(--r-pill);font-size:.875rem;font-weight:600;line-height:1.45;background:var(--sunk);color:var(--ink-2);white-space:nowrap}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:var(--r-pill);font-size:.875rem;font-weight:600;line-height:1.45;background:var(--surface-2);color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line);white-space:nowrap}
 .nb{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px} .nb .chip{font-size:.8125rem;padding:1px 8px;cursor:help}
 .chip.ok{background:var(--ok-bg);color:var(--ok)} .chip.bad{background:var(--bad-bg);color:var(--bad)}
 .chip.warn{background:var(--warn-bg);color:var(--warn)} .chip.sick{background:var(--sick-bg);color:var(--sick)}
-.chip.muted{background:var(--sunk);color:var(--ink-2)}
+.chip.muted{background:var(--surface-2);color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line)}
 .chip.ok::before{content:"✓";font-weight:700}
 .chip.bad::before{content:"!";font-weight:800}
 input[type=text],input[type=date],input[type=number],input[type=tel],input[type=search],input[type=password],input[type=month],input[type=email],select,textarea{border:1px solid var(--line-strong);border-radius:var(--r-s);padding:8px 12px;background:var(--surface);color:var(--ink);min-height:var(--tap);width:100%;font-size:1rem}
@@ -211,7 +211,7 @@ table.t tr.pend:hover td,table.t tr.rem1:hover td,table.t tr.rem2:hover td{filte
 .legend b{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;color:var(--on-fill);font-size:.8125rem;margin-right:4px}
 .cell-m{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:6px;font-weight:700;font-size:.875rem}
 .cell-m.m-plus{background:var(--ok-bg);color:var(--ok)} .cell-m.m-n{background:var(--bad-bg);color:var(--bad)}
-.cell-m.m-b{background:var(--sick-bg);color:var(--sick)} .cell-m.m-o{background:var(--sunk);color:var(--cancel)} .cell-m.m-s{background:var(--comp-bg);color:var(--comp)}
+.cell-m.m-b{background:var(--sick-bg);color:var(--sick)} .cell-m.m-o{background:var(--surface-2);color:var(--cancel);box-shadow:inset 0 0 0 1px var(--line)} .cell-m.m-s{background:var(--comp-bg);color:var(--comp)}
 .month{width:auto!important;min-width:60%} .month td.off{background:repeating-linear-gradient(135deg,var(--sunk) 0 4px,var(--surface-2) 4px 8px)} .month td,.month th{text-align:center;padding:6px 4px} .month td:first-child,.month th:first-child{text-align:left;white-space:nowrap}
 
 /* «сегодня» */
@@ -365,11 +365,11 @@ dialog form{display:flex;flex-direction:column;max-height:92vh}
   body,main,.card{background:#fff!important}
   .belt{display:none!important}
   .belt-txt{display:inline;font-size:8.5pt;white-space:nowrap}
-  .chip{background:none!important;border:1px solid #000;border-radius:3px;padding:0 4px;font-weight:600;font-size:inherit}
+  .chip{background:none!important;box-shadow:none!important;border:1px solid #000;border-radius:3px;padding:0 4px;font-weight:600;font-size:inherit}
   .chip.ok::before,.chip.bad::before{content:none}
   .chip.bad{border-width:2px;font-weight:800}
   .chip.muted{border-style:dashed;font-weight:400}
-  .cell-m{background:none!important;font-weight:800;width:auto;height:auto}
+  .cell-m{background:none!important;box-shadow:none!important;font-weight:800;width:auto;height:auto}
   .cell-m.m-n{text-decoration:underline}
   table.t th{background:#fff!important;border-bottom:2px solid #000!important;font-weight:700}
   table.t td{border-color:#666!important}
@@ -593,7 +593,7 @@ function setSubStatus(ix, p, r) {
   if (r.notActive) { r.status = p.pending ? 'ждём оплату' : 'не активирован'; r.tone = p.pending ? 'bad' : 'ok'; return; }
   if (r.next && r.remaining > 0) { r.status = 'не израсходовано ' + r.remaining + ' (начат следующий)'; r.tone = 'bad'; r.burned = r.remaining; }
   else if (r.remaining < 0) { r.status = 'долг ' + (-r.remaining); r.tone = 'bad'; }
-  else if (r.remaining === 0) { r.status = 'использован'; r.tone = 'muted'; }
+  else if (r.remaining === 0) { r.status = 'использован'; r.tone = 'warn'; }
   else if (r.remaining === 1) { r.status = 'осталось 1'; r.tone = 'warn'; }
   else if (r.remaining === 2) { r.status = 'осталось 2'; r.tone = 'warn'; }
   else { r.status = 'действует'; r.tone = 'ok'; }
@@ -779,7 +779,8 @@ function calcAthlete(ix, a) {
   r.ageForEntry = comp.ageMode === 'по году рождения (на 31.12)' ? r.age3112 : r.ageComp;
   const aw = (ix.awardsByAth.get(a.id) || []).filter(w => w.date && w.date <= t);
   const last = aw[aw.length - 1];
-  r.belt = last ? last.belt : ''; r.stripes = last ? +last.stripes || 0 : 0; r.beltDate = last ? last.date : '';
+  r.belt = last ? last.belt : 'белый'; r.beltSet = !!last;   // без записи о поясе — белый пояс (решение главного тренера)
+  r.stripes = last ? +last.stripes || 0 : 0; r.beltDate = last ? last.date : '';
   r.monthsSince = r.beltDate ? D.months(r.beltDate, t) : null;
   // контакт для связи — как в журнале спортсменов
   const has = v => !!String(v || '').trim();
@@ -1814,7 +1815,7 @@ function chipSub(c) {
   const s = c.subCalc;
   if (!(+c.sub.count > 0)) return '<span class="chip bad">не указано занятий</span>';
   if (s.remaining < 0) return `<span class="chip bad">долг ${-s.remaining}</span>`;
-  if (s.remaining === 0) return c.nextSub ? '<span class="chip ok">новый оплачен</span>' : '<span class="chip muted">закончился</span>';
+  if (s.remaining === 0) return c.nextSub ? '<span class="chip ok">новый оплачен</span>' : '<span class="chip warn">закончился</span>';
   return `<span class="chip ${s.remaining === 1 ? 'warn' : 'ok'}">ост. ${s.remaining}</span>`;
 }
 function chipMed(m) {
@@ -2427,7 +2428,7 @@ function vPerson(id) {
     <div style="flex:1;min-width:220px"><h1>${h(fullName(a))}</h1>
     <div class="row" style="gap:6px">${c.age != null ? `<span class="muted">${c.age} ${plural(c.age, 'год', 'года', 'лет')}</span>` : ''}<span class="chip">${h(a.group || 'без группы')}${a.group2 ? ' / ' + h(a.group2) : ''}</span>
     <span class="chip ${a.status === 'занимается' ? 'ok' : 'muted'}">${h(a.status)}</span>${a.otherTeam ? `<span class="chip warn">другая команда${a.teamName ? ': ' + h(a.teamName) : ''}</span>` : ''}${a.refund ? '<span class="chip muted">отказ от договора ' + D.short(a.refund.date) + '</span>' : chipSub(c)}${chipMed(c.med)}</div>
-    <div class="small muted" style="margin-top:4px">${c.belt ? h(c.belt) + (c.stripes ? ', ' + c.stripes + ' ' + plural(c.stripes, 'страйп', 'страйпа', 'страйпов') : '') + ' с ' + D.ru(c.beltDate) + (c.monthsSince != null ? ' (' + c.monthsSince + ' мес.)' : '') : 'Пояс не присвоен'}</div></div>
+    <div class="small muted" style="margin-top:4px">${c.belt ? h(c.belt) + (c.stripes ? ', ' + c.stripes + ' ' + plural(c.stripes, 'страйп', 'страйпа', 'страйпов') : '') + (c.beltSet ? ' с ' + D.ru(c.beltDate) + (c.monthsSince != null ? ' (' + c.monthsSince + ' мес.)' : '') : ' — запись о присвоении не внесена') : 'Пояс не присвоен'}</div></div>
     <div class="row no-print"><button class="btn primary" data-act="sub-new" data-id="${id}">Оплата</button><button class="btn" data-act="msg" data-id="${id}">Написать</button><button class="btn" data-act="transfer-new" data-id="${id}">Перевести</button><button class="btn" data-act="person-edit" data-id="${id}">Изменить</button>${a.status === 'приостановил' ? `<button class="btn primary" data-act="pause-return" data-id="${id}">Вернулся</button>` : ''}</div></div>
     ${a.status === 'приостановил' || (a.pauses || []).length ? `<div class="small" style="margin-top:8px">${a.status === 'приостановил' ? `<b>На перерыве${a.pauseFrom ? ' с ' + D.ru(a.pauseFrom) : ''}</b> — в списке группы не показывается. Вернулся — нажмите «Вернулся» и укажите дату.` : ''}${(a.pauses || []).length ? `<span class="muted"> Перерывы: ${a.pauses.map(p => (p.from ? D.ru(p.from) : '…') + ' — ' + D.ru(D.add(p.to, -1))).join('; ')}.</span>` : ''}</div>` : ''}</div>
   ${personSummary(a, c, freezes)}
