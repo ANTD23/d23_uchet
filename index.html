@@ -387,10 +387,51 @@ dialog form{display:flex;flex-direction:column;max-height:92vh}
 }
 
 @media (max-width:440px){                             /* узкий телефон: кнопки отметок — отдельной строкой во всю ширину */
-  .list > li:has(> .marks){flex-wrap:wrap;row-gap:8px}
-  .list > li > .marks{width:100%;display:flex}
-  .list > li > .marks .mk{flex:1;height:50px}
+  .list > li:not(.mrow):has(> .marks){flex-wrap:wrap;row-gap:8px}
+  .list > li:not(.mrow) > .marks{width:100%;display:flex}
+  .list > li:not(.mrow) > .marks .mk{flex:1;height:50px}
 }
+/* ===== журнал занятия (этап 2) ===== */
+.sess-bar{position:sticky;top:0;z-index:30;background:var(--bg);padding:10px 0 0;margin-bottom:12px;border-bottom:1px solid var(--line)}
+.sess-bar .progress{height:4px;border-radius:2px;background:var(--sunk);margin-top:10px;overflow:hidden}
+.sess-bar .progress i{display:block;height:100%;background:var(--accent-btn)}
+.sess-acts{margin-bottom:12px}
+details.menu{position:relative}
+details.menu > summary{list-style:none} details.menu > summary::-webkit-details-marker{display:none}
+.menu-pop{position:absolute;right:0;top:calc(100% + 6px);max-width:calc(100vw - 24px);z-index:35;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow-2);padding:6px;display:flex;flex-direction:column;gap:2px;min-width:240px}
+.menu-pop .btn{justify-content:flex-start;border-color:transparent;background:transparent;width:100%}
+.menu-pop .btn:hover{background:var(--sunk)}
+details.legend-d{margin-bottom:12px}
+details.legend-d > summary{cursor:pointer;color:var(--ink-2);font-size:.9375rem;min-height:var(--tap);display:inline-flex;align-items:center}
+details.legend-d .legend{padding:4px 0 6px}
+.jlist > li.mrow{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:12px 16px}
+.mrow-h{display:flex;align-items:center;gap:12px;flex:1 1 280px;min-width:0}
+.mrow .mchips{gap:6px;margin-top:4px}
+.mrow .rem{display:flex;flex-direction:column;align-items:flex-end;line-height:1;flex:none;min-width:52px;text-align:right}
+.mrow .rem b{font-size:1.625rem;font-weight:750;font-variant-numeric:tabular-nums}
+.mrow .rem span{font-size:.75rem;color:var(--ink-2);margin-top:4px;white-space:nowrap}
+.mrow .rem.warn b{color:var(--warn)} .mrow .rem.hl2 b{color:var(--hl2)}
+.jlist .marks{display:grid;grid-template-columns:repeat(4,72px);gap:6px}
+.jlist .marks.m5{grid-template-columns:repeat(5,68px)}
+.jlist .mk{width:auto;height:auto;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;line-height:1.1;padding:4px 2px;margin:0}
+.jlist .mk b{font-size:1.1875rem;color:var(--ink)}
+.jlist .mk span{font-size:.75rem;font-weight:600}
+.jlist .mk.on b{color:var(--on-fill)}
+.jlist li.mrow.unmarked{box-shadow:inset 4px 0 0 var(--warn-fill)}
+.actbar{display:none}
+.month td:first-child,.month th:first-child{position:sticky;left:0;z-index:1;background:var(--surface)}
+.month th:first-child{z-index:2;background:var(--surface-2)}
+@media (max-width:860px){
+  .sess-bar{top:calc(57px + env(safe-area-inset-top,0px));margin-inline:-12px;padding:10px 12px 0}
+  .jlist > li.mrow{padding:12px}
+  .jlist .marks,.jlist .marks.m5{grid-template-columns:repeat(4,1fr);width:100%}
+  .jlist .marks.m5{grid-template-columns:repeat(5,1fr)}
+  .jlist .marks .mk:first-child{margin-right:0}
+  body:has(.actbar) .toast{bottom:136px}
+  .actbar{display:flex;position:sticky;bottom:calc(68px + env(safe-area-inset-bottom,0px));margin-top:12px;z-index:20}
+  .actbar .btn{flex:1;min-height:52px;font-size:1.0625rem;box-shadow:var(--shadow-2)}
+}
+@media print{.month td:first-child,.month th:first-child{position:static}}
 .toast .btn{margin-left:10px;min-height:36px;padding:0 14px;background:transparent;border-color:transparent;color:var(--bg);text-decoration:underline;text-underline-offset:3px}
 .toast .btn:hover{background:rgba(127,127,127,.2)}
 </style></head>
@@ -2248,8 +2289,13 @@ function vJournal() {
   const tabs = `<div class="seg no-print"><button data-act="jtab" data-tab="session" class="${J.tab === 'session' ? 'on' : ''}">Занятия</button><button data-act="jtab" data-tab="month" class="${J.tab === 'month' ? 'on' : ''}">Месяц</button></div>`;
   if (J.tab === 'month') return monthView(tabs, groups);
   const recent = [...ix.sessionsSorted].reverse().slice(0, 40);
+  const t = ix.today, todayS = ix.sessionsSorted.filter(x => x.date === t);
+  const tg = [...new Set([...db.settings.groups.filter(g => daysOn(g, t)[D.dow(t)]).map(g => g.name), ...todayS.map(x => x.group)])];
+  const tBtns = tg.map(g => { const x = todayS.find(y => y.group === g), n = x ? Object.values(x.marks).filter(m => m === '+').length : 0;
+    return `<button class="btn ${x ? '' : 'primary'}" data-act="open-session" data-date="${t}" data-group="${h(g)}">${x ? h(g || 'без группы') + ' · отмечено ' + n : 'Отметить «' + h(g) + '»'}</button>`; }).join('');
   return `<div class="topline"><h1>Посещения</h1><div class="row">${tabs}<button class="btn no-print" data-act="gmsg">Сообщение группе</button></div></div>
-  <div class="card"><h2>Открыть занятие</h2>
+  <div class="card"><h2>Сегодня, ${DOW_FULL[D.dow(t)]}</h2><div class="today-groups">${tBtns || '<span class="muted">По расписанию сегодня занятий нет. Откройте занятие на другую дату ниже.</span>'}</div></div>
+  <div class="card"><h2>Другая дата или группа</h2>
     <div class="row"><label class="f" style="min-width:160px"><span>Дата</span><input type="date" id="j-date" value="${J.date}"></label>
     <label class="f" style="min-width:180px;flex:1"><span>Группа</span><select id="j-group">${groups.map(g => opt(g, J.group || suggestGroup(J.date))).join('')}</select></label>
     <button class="btn primary" data-act="open-session-form" style="align-self:flex-end">Открыть</button></div></div>
@@ -2275,11 +2321,24 @@ function sessionOthers(s) {            // отмечены на занятии, 
     .sort((a, b) => fullName(a).localeCompare(fullName(b), 'ru'));
 }
 function trialAllowed(a, date) { return !(ix.subsByAth.get(a.id) || []).some(p => !p.pending && subKey(p) <= date); }
+function remBig(c) {                              // крупный остаток в строке журнала — только для обычного действующего абонемента (как «ост. N» в chipSub)
+  if (!c || !c.subCalc || c.pendingSub || c.perVisit || c.subCalc.terminated || !(+c.sub.count > 0)) return null;
+  return c.subCalc.remaining >= 1 ? c.subCalc.remaining : null;
+}
+const MARK_SHORT = { '+': 'был', 'н': 'не был', 'б': 'болел', 'о': 'отменено', 'с': 'соревн.' };
 function markRow(s, a, showGroup) {
   const m = s.marks[a.id] || '', ac = ix.athCalc.get(a.id);
-  const trial = !!(s.trial && s.trial[a.id]), nd = m === '+' || !m ? briefNeed(a, s.date) : null;
-  return `<li><div class="who"><b>${h(shortName(a))}</b><span class="small row" style="gap:6px">${beltHTML(ac.belt, ac.stripes)} ${chipSub(ac)} ${chipMed(ac.med)}${a.status === 'приостановил' ? ' <span class="chip warn">приостановил</span>' : ''}${sickOn(a.id, s.date) ? ' <span class="chip sick">болеет</span>' : ''}${nd ? ` <button class="chip bad" style="border:0;cursor:pointer" data-act="brief-new" data-id="${a.id}" data-date="${s.date}" title="Отметить проведённый инструктаж">нет инструктажа${nd.kind === 'внеплановый' ? ' (перерыв)' : ''}</button>` : ''}${showGroup ? ' <span class="chip muted">' + h(groupOn(a, s.date) || 'без группы') + '</span>' + (groupOn(a, s.date) && groupOn(a, s.date) !== s.group && m ? ` <button class="btn sm no-print" data-act="move-own" data-sid="${s.id}" data-aid="${a.id}">Перенести в «${h(groupOn(a, s.date))}»</button>` : '') : ''}</span></div>
-    <div class="marks">${(m === 'о' ? ['+', 'н', 'б', 'о', 'с'] : ['+', 'н', 'б', 'с']).map(k => `<button class="mk${m === k ? ' on' : ''}" data-act="mark" data-sid="${s.id}" data-aid="${a.id}" data-m="${k}" aria-label="${MARKS[k].label}">${k}</button>`).join('')}${m === '+' && (trial || trialAllowed(a, s.date)) ? `<button class="btn sm${trial ? ' primary' : ''}" data-act="trial" data-sid="${s.id}" data-aid="${a.id}" title="Пробное занятие — оплачивается как разовое посещение; отметка для статистики">пробное</button>` : ''}</div></li>`;
+  const trial = !!(s.trial && s.trial[a.id]), nd = m === '+' || !m ? briefNeed(a, s.date) : null, rb = remBig(ac);
+  const keys = m === 'о' ? ['+', 'н', 'б', 'о', 'с'] : ['+', 'н', 'б', 'с'];
+  const chips = [rb ? '' : chipSub(ac), chipMed(ac.med),
+    a.status === 'приостановил' ? '<span class="chip warn">приостановил</span>' : '',
+    sickOn(a.id, s.date) ? '<span class="chip sick">болеет</span>' : '',
+    nd ? `<button class="chip bad" style="border:0;cursor:pointer" data-act="brief-new" data-id="${a.id}" data-date="${s.date}" title="Отметить проведённый инструктаж">нет инструктажа${nd.kind === 'внеплановый' ? ' (перерыв)' : ''}</button>` : '',
+    showGroup ? '<span class="chip muted">' + h(groupOn(a, s.date) || 'без группы') + '</span>' + (groupOn(a, s.date) && groupOn(a, s.date) !== s.group && m ? ` <button class="btn sm no-print" data-act="move-own" data-sid="${s.id}" data-aid="${a.id}">Перенести в «${h(groupOn(a, s.date))}»</button>` : '') : '',
+    m === '+' && (trial || trialAllowed(a, s.date)) ? `<button class="btn sm${trial ? ' primary' : ''}" data-act="trial" data-sid="${s.id}" data-aid="${a.id}" aria-pressed="${trial}" title="Пробное занятие — оплачивается как разовое посещение; отметка для статистики">пробное</button>` : ''].filter(Boolean).join(' ');
+  return `<li class="mrow${m ? '' : ' unmarked'}"><div class="mrow-h">${beltHTML(ac.belt, ac.stripes)}<div class="who"><b>${h(shortName(a))}</b>${chips ? `<span class="row mchips">${chips}</span>` : ''}</div>
+    ${rb ? `<span class="rem${rb === 1 ? ' warn' : rb === 2 ? ' hl2' : ''}" title="Осталось занятий по абонементу"><b>${rb}</b><span>осталось</span></span>` : ''}</div>
+    <div class="marks m${keys.length}" role="group" aria-label="Отметка: ${h(shortName(a))}">${keys.map(k => `<button class="mk${m === k ? ' on' : ''}" data-act="mark" data-sid="${s.id}" data-aid="${a.id}" data-m="${k}" aria-pressed="${m === k}" aria-label="${MARKS[k].label}"><b>${k}</b><span>${MARK_SHORT[k]}</span></button>`).join('')}</div></li>`;
 }
 function vSession(sid) {
   const s = db.sessions.find(x => x.id === sid);
@@ -2289,19 +2348,25 @@ function vSession(sid) {
   const addable = db.athletes.filter(a => !people.includes(a) && !s.marks[a.id] && a.status !== 'ушёл').sort((a, b) => fullName(a).localeCompare(fullName(b), 'ru'));
   const hol = ix.holiday.get(s.date);
   const openExtra = !s.group || ui.openOthers === s.id;
-  return `<div class="topline"><div><a href="#journal" class="small no-print">← Посещения</a><h1>${D.ru(s.date)}, ${DOW_FULL[D.dow(s.date)]}</h1>
-    <div class="row"><select data-change="session-group" data-id="${s.id}" style="width:auto">${opt('', s.group, '— выберите группу —')}${db.settings.groups.map(g => opt(g.name, s.group)).join('')}</select>
-    <span class="muted num">был ${c('+')} · не был ${c('н')} · болел ${c('б')}</span></div></div>
-    <div class="row no-print"><button class="btn" data-act="mark-all" data-id="${s.id}" data-m="+">Все были</button><button class="btn" data-act="mark-rest" data-id="${s.id}" title="Тем, кто на заморозке, поставится «б»">Остальным «н»</button>${Object.values(s.marks).some(x => x === 'о') ? `<button class="btn" data-act="cancel-undo" data-id="${s.id}" title="Убрать отметки «о» у всех">Снять отмену</button>` : `<button class="btn" data-act="mark-all" data-id="${s.id}" data-m="о">Занятие отменено</button>`}<button class="btn" data-act="brief-session" data-id="${s.id}" title="Отметить инструктаж по ТБ тем, кто на занятии">Инструктаж</button><button class="btn" data-act="gmsg" data-group="${h(s.group || '')}" data-date="${s.date}">Сообщение группе</button></div></div>
+  const elig = people.filter(a => !a.payPerVisit || s.marks[a.id]), none = elig.filter(a => !s.marks[a.id]).length;   // «не отмечено» — только для показа
+  const pct = elig.length ? Math.round((elig.length - none) / elig.length * 100) : 0;
+  const cancelled = Object.values(s.marks).some(x => x === 'о');
+  return `<div class="topline"><div style="min-width:0;flex:1"><a href="#journal" class="small no-print">← Посещения</a><h1>${D.ru(s.date)}, ${DOW_FULL[D.dow(s.date)]}</h1>
+    <select data-change="session-group" data-id="${s.id}" aria-label="Группа занятия" style="width:auto;max-width:100%">${opt('', s.group, '— выберите группу —')}${db.settings.groups.map(g => opt(g.name, s.group)).join('')}</select></div></div>
+  ${s.group ? `<div class="sess-bar no-print"><div class="row" style="gap:6px"><span class="chip ok">был ${c('+')}</span><span class="chip bad">не был ${c('н')}</span><span class="chip sick">болел ${c('б')}</span>${none ? `<span class="chip warn">не отмечено ${none}</span>` : elig.length ? '<span class="chip ok">все отмечены</span>' : ''}</div><div class="progress" aria-hidden="true"><i style="width:${pct}%"></i></div></div>` : ''}
+  <div class="row no-print sess-acts"><button class="btn" data-act="mark-all" data-id="${s.id}" data-m="+">Все были</button><button class="btn" data-act="mark-rest" data-id="${s.id}" title="Тем, кто на заморозке, поставится «б»">Остальным «н»</button>
+    <details class="menu"><summary class="btn" aria-label="Другие действия с занятием">Ещё ⋯</summary><div class="menu-pop">${cancelled ? `<button class="btn" data-act="cancel-undo" data-id="${s.id}" title="Убрать отметки «о» у всех">Снять отмену занятия</button>` : `<button class="btn" data-act="mark-all" data-id="${s.id}" data-m="о">Занятие отменено</button>`}<button class="btn" data-act="brief-session" data-id="${s.id}" title="Отметить инструктаж по ТБ тем, кто на занятии">Инструктаж по ТБ</button><button class="btn" data-act="gmsg" data-group="${h(s.group || '')}" data-date="${s.date}">Сообщение группе</button></div></details></div>
   ${hol ? `<div class="banner">Этот день отмечен как нерабочий: ${h(hol)}.</div>` : ''}
   ${offSchedule(s) ? `<div class="banner">По расписанию у «${h(s.group)}» нет занятий в ${DOW_FULL[D.dow(s.date)]}. Проверьте, та ли группа выбрана.</div>` : ''}
   ${!s.group ? `<div class="banner">У занятия не выбрана группа. Выберите её в списке выше — тогда появится состав группы.</div>` : ''}
-  <div class="legend" style="margin-bottom:10px"><span><b style="background:var(--ok-fill)">+</b>был</span><span><b style="background:var(--bad-fill)">н</b>не был, списывается</span><span><b style="background:var(--sick-fill)">б</b>болел, заморозка</span><span><b style="background:var(--cancel-fill)">о</b>отменено клубом</span><span><b style="background:var(--comp-fill)">с</b>соревнования</span><span class="muted">пустая клетка на состоявшемся занятии в расчёте абонемента = «н»</span></div>
-  ${s.group ? `<div class="card flat"><ul class="list">${people.map(a => markRow(s, a, false)).join('') || '<li class="muted">В группе нет занимающихся.</li>'}</ul></div>` : ''}
-  ${extra.length ? `<details class="card flat" ${openExtra ? 'open' : ''}><summary style="padding:12px 16px;cursor:pointer"><b>${s.group ? 'Из других групп на этом занятии' : 'Отмечены на занятии'}: ${extra.length}</b>${extra.length > 1 ? ` <button class="btn sm no-print" data-act="move-own" data-sid="${s.id}" style="margin-left:8px">Перенести всех в их группы</button>` : ''}</summary>
-  <p class="small muted" style="padding:0 16px">Если отметку поставили не в ту группу, «Перенести» переставит её на занятие группы человека за эту же дату. Если человек действительно приходил в эту группу — ничего не делайте.</p><ul class="list" style="border-top:1px solid var(--line)">${extra.map(a => markRow(s, a, true)).join('')}</ul></details>` : ''}
-  <div class="card no-print"><div class="row"><select id="add-to-session" style="flex:1 1 100%;min-width:0">${opt('', '', 'Гость или из другой группы…')}${addable.map(a => opt(a.id, '', fullName(a) + (a.group ? ' — ' + a.group : ''))).join('')}</select>
-  <button class="btn" data-act="session-add" data-id="${s.id}">Добавить</button><span class="spacer"></span><button class="btn danger" data-act="session-del" data-id="${s.id}">Удалить занятие</button></div></div>`;
+  <details class="legend-d no-print"><summary>Что значат отметки</summary><div class="legend"><span><b style="background:var(--ok-fill)">+</b>был</span><span><b style="background:var(--bad-fill)">н</b>не был, списывается</span><span><b style="background:var(--sick-fill)">б</b>болел, заморозка</span><span><b style="background:var(--cancel-fill)">о</b>отменено клубом</span><span><b style="background:var(--comp-fill)">с</b>соревнования</span><span class="muted">пустая клетка на состоявшемся занятии в расчёте абонемента = «н»</span></div></details>
+  ${s.group ? `<div class="card flat"><ul class="list jlist">${people.map(a => markRow(s, a, false)).join('') || '<li class="empty">В группе нет занимающихся. Добавьте человека ниже или выберите другую группу.</li>'}</ul></div>` : ''}
+  ${extra.length ? `<details class="card flat" ${openExtra ? 'open' : ''}><summary style="padding:12px 16px;cursor:pointer;min-height:44px"><b>${s.group ? 'Из других групп на этом занятии' : 'Отмечены на занятии'}: ${extra.length}</b>${extra.length > 1 ? ` <button class="btn sm no-print" data-act="move-own" data-sid="${s.id}" style="margin-left:8px">Перенести всех в их группы</button>` : ''}</summary>
+  <p class="small muted" style="padding:0 16px">Если отметку поставили не в ту группу, «Перенести» переставит её на занятие группы человека за эту же дату. Если человек действительно приходил в эту группу — ничего не делайте.</p><ul class="list jlist" style="border-top:1px solid var(--line)">${extra.map(a => markRow(s, a, true)).join('')}</ul></details>` : ''}
+  <div class="card no-print"><h3>Гость или человек из другой группы</h3><div class="row"><select id="add-to-session" aria-label="Кого добавить на занятие" style="flex:1 1 260px;min-width:0">${opt('', '', 'Выберите спортсмена…')}${addable.map(a => opt(a.id, '', fullName(a) + (a.group ? ' — ' + a.group : ''))).join('')}</select>
+  <button class="btn" data-act="session-add" data-id="${s.id}">Добавить</button></div>
+  <div class="row" style="margin-top:12px;justify-content:flex-end"><button class="btn danger sm" data-act="session-del" data-id="${s.id}">Удалить занятие</button></div></div>
+  <div class="actbar show-m no-print"><a class="btn primary" href="#today">Готово</a></div>`;
 }
 function monthView(tabs, groups) {
   const J = ui.journal, [y, m] = J.month.split('-').map(Number);
@@ -4632,6 +4697,7 @@ const ACT = {
   'export-plain': () => { if (!confirm('Сохранить копию БЕЗ шифрования? Её откроет любой, у кого окажется файл. Храните только в надёжном месте.')) return;
     download(copyName(true).replace(/\.json$/, '_без_PIN.json'), JSON.stringify(db, null, 1), 'application/json'); },
 };
+document.addEventListener('click', e => { document.querySelectorAll('details.menu[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; }); }, true);
 document.addEventListener('click', e => {
   const act = e.target.closest('[data-act]');
   if (act && !(act.tagName === 'INPUT' || act.tagName === 'SELECT')) {
