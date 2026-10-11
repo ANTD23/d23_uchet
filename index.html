@@ -432,6 +432,33 @@ details.legend-d .legend{padding:4px 0 6px}
   .actbar .btn{flex:1;min-height:52px;font-size:1.0625rem;box-shadow:var(--shadow-2)}
 }
 @media print{.month td:first-child,.month th:first-child{position:static}}
+/* ===== «Сегодня» и «Требует внимания» (этап 3) ===== */
+.today-grid{display:grid;gap:0 16px;grid-template-areas:"a" "b" "c"}
+.tg-a{grid-area:a;min-width:0} .tg-b{grid-area:b;min-width:0} .tg-c{grid-area:c;min-width:0}
+@media (min-width:1180px){.today-grid{grid-template-columns:minmax(0,5fr) minmax(0,7fr);grid-template-areas:"a b" "c b";align-items:start}}
+.quick{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+.qa{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:80px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface);cursor:pointer;font-size:.9375rem;font-weight:600;text-align:center;padding:10px 6px;box-shadow:var(--shadow-1);color:var(--ink);line-height:1.25}
+.qa:hover{border-color:var(--line-strong);background:var(--surface-2)}
+.qa svg{width:26px;height:26px;color:var(--accent-btn)}
+.attn-card{overflow:visible}
+.attn-card .attn-sec{margin:4px 12px 12px;border:0;background:transparent;overflow:visible}
+.attn-card .attn-sec > .attn-h{background:transparent;border:0;padding:8px 4px 0}
+.it{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 12px 12px 18px;margin-top:8px;box-shadow:var(--shadow-1)}
+.it::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;border-radius:var(--r) 0 0 var(--r);background:var(--line-strong)}
+.it.bad::before{background:var(--bad-fill)} .it.warn::before{background:var(--warn-fill)} .it.sick::before{background:var(--sick-fill)} .it.is-warned::before{background:var(--ok-fill)}
+.it-h{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 12px}
+.it-h b{font-size:1.0625rem}
+.it-h .ph{font-size:.9375rem;color:var(--ink-2)}
+.it-t{margin:4px 0 10px;line-height:1.45}
+.it-a{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.done-cb{width:var(--tap);height:var(--tap);border-radius:var(--r-s);border:2px solid var(--line-strong);background:var(--surface);color:var(--ok-fill);display:inline-grid;place-items:center;cursor:pointer;font-weight:800;font-size:1.125rem;flex:none}
+.done-cb:hover{border-color:var(--ok-fill);background:var(--ok-bg)}
+.menu-pop{left:0;right:auto}
+.sess-acts .menu-pop{left:auto;right:0}
+.plan-in .plan-sec{overflow:visible}
+.plan-in .plan-sec > .plan-h{border-radius:var(--r) var(--r) 0 0}
+.pl-a{margin-top:8px}
+@media (max-width:860px){.attn-card .attn-sec{margin:4px 8px 10px} .qa{min-height:76px;font-size:.875rem}}
 .toast .btn{margin-left:10px;min-height:36px;padding:0 14px;background:transparent;border-color:transparent;color:var(--bg);text-decoration:underline;text-underline-offset:3px}
 .toast .btn:hover{background:rgba(127,127,127,.2)}
 </style></head>
@@ -2095,6 +2122,45 @@ function alertSections(list, fn) {
     + (soon.length ? `<section class="attn-sec s-warn">${head('Скоро', soon.length)}${soon.map(fn).join('')}</section>` : '')
     + (later.length ? `<details class="attn-later attn-sec s-later" data-later ${meta.laterOpen ? 'open' : ''}><summary class="attn-h">Можно позже · ${later.length}</summary>${later.map(fn).join('')}</details>` : '');
 }
+/* действия пункта: первая кнопка — главная, остальные — в меню «⋯» (команды кнопок прежние) */
+function actsHTML(list, right = '') {
+  list = list.filter(Boolean);
+  const main = list.length ? list[0].replace('class="btn sm', 'class="btn sm primary') : '';
+  const rest = list.slice(1);
+  const more = rest.length === 1 ? rest[0] : rest.length ? `<details class="menu"><summary class="btn sm" aria-label="Другие действия">⋯ Ещё</summary><div class="menu-pop">${rest.join('')}</div></details>` : '';
+  return main || right ? `<div class="it-a">${main}${more}<span class="spacer"></span>${right}</div>` : '';
+}
+function attnSplit(x) {                                   // заголовок пункта (имя) и суть без повтора имени
+  const nm = x.a ? shortName(x.a) : '';
+  let t = x.text, title = nm;
+  if (nm && t.startsWith(nm + ': ')) t = t.slice(nm.length + 2);
+  else if (!nm) { const i = t.indexOf(': '); if (i > 0 && i < 60) { title = t.slice(0, i); t = t.slice(i + 2); } }
+  return [title, t ? t[0].toUpperCase() + t.slice(1) : t];
+}
+function attnItem(x) {
+  const aid = x.a && x.a.id, c = aid ? ix.athCalc.get(aid) || {} : {}, [title, body] = attnSplit(x);
+  const B = (act, label, extra = '') => `<button class="btn sm" data-act="${act}"${extra}>${label}</button>`;
+  const acts = [
+    x.paid ? B('sub-paid', 'Оплачено', ` data-id="${x.paid}"`) : '',
+    x.unpaid ? B('sub-new', 'Оплата', ` data-id="${aid}"`) : '',
+    x.tpl && aid ? `<button class="btn sm" data-act="msg" data-id="${aid}" data-tpl="${h(x.tpl)}"${x.sub ? ` data-sub="${x.sub}"` : ''} data-key="${h(attnKey(x))}" data-extra='${h(JSON.stringify(x.extra || {}))}'>Написать</button>` : '',
+    x.freeze ? B('freeze-edit', 'Открыть заморозку', ` data-id="${x.freeze}"`) : '',
+    x.act === 'freeze-new' ? B('freeze-new', 'Оформить заморозку', ` data-id="${aid}"`) : '',
+    x.brief ? B('brief-new', 'Инструктаж проведён', ` data-id="${x.brief}"`) : '',
+    x.docs ? B('docs-edit', 'Документы', ` data-id="${x.docs}"`) : '',
+    x.session ? `<a class="btn sm" href="#session/${x.session}">Открыть занятие</a>` : '',
+    x.go ? `<a class="btn sm" href="${x.go}">Открыть</a>` : '',
+    x.ret ? B('pause-return', 'Вернулся', ` data-id="${x.ret}"`) : '',
+    x.lead ? B('lead-edit', 'Заявка', ` data-id="${h(x.lead)}"`) : '',
+    x.wait ? B('sub-wait', 'Ждём оплату', ` data-id="${aid}"`) : '',
+    x.unpaid ? B('sub-wait', 'Ждём оплату', ` data-id="${aid}"`) : '',
+    x.unpaid ? B('no-sub', 'Без абонемента', ` data-id="${aid}" title="Занимается бесплатно — больше не напоминать"`) : '',
+    aid && !x.freeze ? `<a class="btn sm ghost" href="#person/${aid}">Карточка</a>` : '',
+  ];
+  const done = `<button class="done-cb" data-act="attn-done" data-key="${h(attnKey(x))}" aria-label="Сделано — убрать из списка" title="Сделано — убрать из списка, пока ситуация не изменится">✓</button>`;
+  const ph = c.contact ? `<span class="ph">${telLink(c.contact)}${c.contactWho && c.contactWho !== 'сам' ? ' · ' + h(c.contactWho) : ''}</span>` : '';
+  return `<article class="it ${x.tone}${/ — предупреждён \d/.test(x.text) ? ' is-warned' : ''}"><div class="it-h">${title ? `<b>${h(title)}</b>` : ''}${ph}</div><p class="it-t">${attnTxt(body)}</p>${actsHTML(acts, done)}</article>`;
+}
 function vToday() {
   const t = ix.today, dw = D.dow(t);
   const mode = meta.todayMode === 'plan' ? 'plan' : 'urg', P = mode === 'plan' ? dayPlan() : null;   // «По срочности» или «План на день» (запоминается на устройстве)
@@ -2114,31 +2180,26 @@ function vToday() {
   const bdays = [];
   for (let k = 0; k < 7; k++) { const d = D.add(t, k); for (const a of db.athletes) if (a.status !== 'ушёл' && a.birth && a.birth.slice(5) === d.slice(5)) bdays.push({ a, d, k, age: D.age(a.birth, d) }); }
   const banner = dirty() && (!meta.lastExport || Date.now() - Date.parse(meta.lastExport) > 3 * 3600e3)
-    ? `<div class="banner no-print"><div class="spacer">${meta.lastExport ? 'Есть изменения после копии от ' + new Date(meta.lastExport).toLocaleString('ru', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'Копия данных ещё ни разу не сохранялась'}. Сохраните копию, прежде чем работать на другом устройстве.</div><button class="btn primary" data-act="export">Сохранить копию</button></div>` : '';
+    ? `<div class="banner no-print"><div class="spacer">${meta.lastExport ? 'Есть изменения после копии от ' + new Date(meta.lastExport).toLocaleString('ru', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'Копия данных ещё ни разу не сохранялась'}<span class="hide-m">. Сохраните копию, прежде чем работать на другом устройстве</span>.</div><button class="btn primary" data-act="export">Сохранить копию</button></div>` : '';
+  const quick = `<div class="quick no-print"><button class="qa" data-act="sub-new">${I.subs}Принять оплату</button><button class="qa" data-act="gsearch">${I.search}Найти спортсмена</button><button class="qa" data-act="gmsg">${I.leads}Сообщение группе</button></div>`;
   return `${banner}
   <div class="topline"><div><h1>${DOW_FULL[dw][0].toUpperCase() + DOW_FULL[dw].slice(1)}, ${D.ru(t)}</h1><div class="muted">Занимается: ${active}${days != null ? ' · до «' + h(comp.name) + '» ' + days + ' ' + plural(days, 'день', 'дня', 'дней') : ''}</div></div></div>
+  <div class="today-grid"><div class="tg-a">
   <div class="card"><h2>Тренировки сегодня</h2>
     ${hol ? `<p class="muted">Нерабочий день: ${h(hol)}. Занятия не идут в срок абонементов.</p>` : ''}
     <div class="today-groups">${groupsBtns || '<span class="muted">По расписанию занятий нет.</span>'}
-      <button class="btn" data-act="open-session-pick">Другая группа или дата</button><button class="btn" data-act="gmsg">Сообщение группе</button></div></div>
-  ${trialsCard()}
-  ${bdays.length ? `<div class="card flat"><div style="padding:14px 16px 4px"><h2>Дни рождения на неделе</h2></div><ul class="list">${bdays.map(x => `<li class="click" data-go="#person/${x.a.id}"><div class="who"><b>${h(fullName(x.a))}</b><span class="small">${x.k === 0 ? '<b>сегодня</b>' : x.k === 1 ? 'завтра' : DOW_FULL[D.dow(x.d)]}, ${D.ru(x.d)} · исполняется ${x.age} ${plural(x.age, 'год', 'года', 'лет')}</span></div><span class="chip">${h(x.a.group || '')}</span></li>`).join('')}</ul></div>` : ''}
-  <div class="card flat"><div class="row" style="padding:14px 16px 8px;gap:10px 12px"><h2 style="margin:0;flex:1 1 220px">Требует внимания <span class="muted small">${mode === 'plan' ? (P.total ? 'сделано ' + P.doneN + ' из ' + P.total : '') : (al.length || '') + (done.length ? ' · сделано ' + done.length : '')}</span></h2>
+      <button class="btn ghost" data-act="open-session-pick">Другая группа или дата</button></div></div>
+  ${quick}</div>
+  <div class="tg-c">${trialsCard()}
+  ${bdays.length ? `<div class="card flat"><div style="padding:14px 16px 4px"><h2>Дни рождения на неделе</h2></div><ul class="list">${bdays.map(x => `<li class="click" data-go="#person/${x.a.id}"><div class="who"><b>${h(fullName(x.a))}</b><span class="small">${x.k === 0 ? '<b>сегодня</b>' : x.k === 1 ? 'завтра' : DOW_FULL[D.dow(x.d)]}, ${D.ru(x.d)} · исполняется ${x.age} ${plural(x.age, 'год', 'года', 'лет')}</span></div><span class="chip">${h(x.a.group || '')}</span></li>`).join('')}</ul></div>` : ''}</div>
+  <div class="tg-b"><div class="card flat attn-card"><div class="row" style="padding:14px 16px 8px;gap:10px 12px"><h2 style="margin:0;flex:1 1 220px">Требует внимания <span class="muted small">${mode === 'plan' ? (P.total ? 'сделано ' + P.doneN + ' из ' + P.total : '') : (al.length || '') + (done.length ? ' · сделано ' + done.length : '')}</span></h2>
     <div class="seg no-print" role="group" aria-label="Вид списка">${[['urg', 'По срочности'], ['plan', 'План на день']].map(([m, l]) => `<button type="button" data-act="today-mode" data-m="${m}" class="${mode === m ? 'on' : ''}" aria-pressed="${mode === m}">${l}</button>`).join('')}</div></div>
-    ${mode === 'plan' ? planBody(P) + '</div>' : `
-    ${al.length ? alertSections(al, x => `<div class="alert ${x.tone}${/ — предупреждён \d/.test(x.text) ? ' is-warned' : ''}"><span class="dot"></span><div class="txt">${attnTxt(x.text)}</div>
-      <div class="row">${x.tpl ? `<button class="btn sm" data-act="msg" data-id="${x.a.id}" data-tpl="${h(x.tpl)}"${x.sub ? ` data-sub="${x.sub}"` : ''} data-key="${h(attnKey(x))}" data-extra='${h(JSON.stringify(x.extra || {}))}'>Написать</button>` : ''}
-      ${x.paid ? `<button class="btn sm" data-act="sub-paid" data-id="${x.paid}">Оплачено</button>` : ''}${x.wait ? `<button class="btn sm" data-act="sub-wait" data-id="${x.a.id}">Ждём оплату</button>` : ''}${x.unpaid ? `<button class="btn sm" data-act="sub-new" data-id="${x.a.id}">Оплата</button><button class="btn sm" data-act="sub-wait" data-id="${x.a.id}">Ждём оплату</button><button class="btn sm" data-act="no-sub" data-id="${x.a.id}" title="Занимается бесплатно — больше не напоминать">Без абонемента</button>` : ''}
-      ${x.act === 'freeze-new' ? `<button class="btn sm" data-act="freeze-new" data-id="${x.a.id}">Заморозка</button>` : ''}
-      ${x.freeze ? `<button class="btn sm" data-act="freeze-edit" data-id="${x.freeze}">Открыть</button>` : ''}
-      ${x.docs ? `<button class="btn sm" data-act="docs-edit" data-id="${x.docs}">Документы</button>` : ''}
-      ${x.brief ? `<button class="btn sm" data-act="brief-new" data-id="${x.brief}">Инструктаж проведён</button>` : ''}
-      ${x.session ? `<a class="btn sm" href="#session/${x.session}">Открыть</a>` : ''}
-      ${x.go ? `<a class="btn sm" href="${x.go}">Открыть</a>` : ''}${x.ret ? `<button class="btn sm" data-act="pause-return" data-id="${x.ret}">Вернулся</button>` : ''}${x.lead ? `<button class="btn sm" data-act="lead-edit" data-id="${h(x.lead)}">Заявка</button>` : ''}
-      ${x.a && !x.freeze ? `<a class="btn sm ghost" href="#person/${x.a.id}">Карточка</a>` : ''}<button class="btn sm attn-done" data-act="attn-done" data-key="${h(attnKey(x))}" title="Сделано — убрать из списка, пока ситуация не изменится">✓ Сделано</button></div></div>`)
+    ${mode === 'plan' ? planBody(P) : `
+    ${al.length ? alertSections(al, attnItem)
       : `<div class="empty">${done.length ? 'Всё сделано.' : 'Всё в порядке: долгов, просроченных справок и заканчивающихся абонементов нет.'}</div>`}
     ${done.length ? `<details class="attn-donelist"><summary class="small">Сделано: ${done.length}</summary>${done.map(x => `<div class="alert done"><span class="dot"></span><div class="txt">${attnTxt(x.text)}<span class="small muted"> · сделано ${D.ru(doneMap[attnKey(x)])}</span></div>
-      <div class="row">${x.a ? `<a class="btn sm ghost" href="#person/${x.a.id}">Карточка</a>` : ''}<button class="btn sm" data-act="attn-undo" data-key="${h(attnKey(x))}">Вернуть</button></div></div>`).join('')}</details>` : ''}</div>`}`;
+      <div class="row">${x.a ? `<a class="btn sm ghost" href="#person/${x.a.id}">Карточка</a>` : ''}<button class="btn sm" data-act="attn-undo" data-key="${h(attnKey(x))}">Вернуть</button></div></div>`).join('')}</details>` : ''}`}</div></div>
+  </div>`;
 }
 
 /* ---------- ПЛАН НА ДЕНЬ («секретарь») ---------- */
@@ -2240,7 +2301,7 @@ function planRow(it) {
     : it.logged ? '<span class="pl-cb on" title="Сделано">✓</span>'
     : `<button class="pl-cb${it.done ? ' on' : ''}" data-act="plan-done" data-key="${h(it.key)}" title="${it.done ? 'Вернуть' : 'Сделано'}">${it.done ? '✓' : ''}</button>`;
   const tpl = it.tpl || x.tpl, aid = it.a && it.a.id;
-  const btns = [
+  const btns = actsHTML([
     tpl && aid ? `<button class="btn sm" data-act="msg" data-id="${h(aid)}" data-tpl="${h(tpl)}"${x.sub ? ` data-sub="${h(x.sub)}"` : ''} data-key="${h(it.key)}" data-extra='${h(JSON.stringify(x.extra || {}))}'>Написать</button>` : '',
     x.paid ? `<button class="btn sm" data-act="sub-paid" data-id="${h(x.paid)}">Оплачено</button>` : '',
     x.unpaid && aid ? `<button class="btn sm" data-act="sub-new" data-id="${h(aid)}">Оплата</button>` : '',
@@ -2254,9 +2315,9 @@ function planRow(it) {
     it.chk && !it.done ? `<button class="btn sm" data-act="check-mark" data-src="${h(it.chk.src)}" data-id="${h(it.chk.id)}">Чек выбит</button>` : '',
     x.lead || it.lead ? `<button class="btn sm" data-act="lead-edit" data-id="${h(x.lead || it.lead.id)}">Заявка</button>` : '',
     aid ? `<a class="btn sm ghost" href="#person/${h(aid)}">Карточка</a>` : '',
-  ].filter(Boolean).join('');
+  ]);
   return `<li class="pl t-${it.tone || 'warn'}${it.done ? ' done' : ''}">${cb}<div class="pl-b"><div class="pl-h">${name ? `<b>${h(name)}</b>` : ''}${w.phone ? ` ${telLink(w.phone)}${w.rel ? ' <span class="small muted">' + h(w.rel) + '</span>' : ''}` : ''}${it.tone === 'bad' && !it.done ? ' <span class="chip bad">срочно</span>' : ''}</div>
-    <div class="pl-t">${attnTxt(text)}</div>${it.done || !btns ? '' : `<div class="row pl-a">${btns}</div>`}</div></li>`;
+    <div class="pl-t">${attnTxt(text)}</div>${it.done || !btns ? '' : `<div class="pl-a">${btns}</div>`}</div></li>`;
 }
 function vPlan() { meta.todayMode = 'plan'; writeMeta(); return vToday(); }   // адрес #plan — «Сегодня» с открытым планом
 function planBody(P) {                                    // «План на день» внутри карточки «Требует внимания»
