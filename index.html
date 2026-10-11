@@ -203,6 +203,9 @@ dialog form{display:flex;flex-direction:column;max-height:92vh}
 .picklist{max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:8px}
 .picklist label{display:flex;gap:10px;align-items:center;padding:8px 10px;border-top:1px solid var(--line);cursor:pointer}
 .picklist label:first-child{border-top:0}
+.tp-row{display:flex;gap:8px;align-items:center;padding:8px 10px;border-top:1px solid var(--line);flex-wrap:wrap} .tp-row:first-child{border-top:0} .tp-row .who{flex:1 1 150px;min-width:0} .tp-d{display:flex;gap:6px;flex-wrap:wrap}
+.picklist .tp-c{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:8px;padding:6px 10px;cursor:pointer;white-space:nowrap} .tp-c input{width:18px;height:18px}
+.tres{gap:10px;flex-wrap:wrap} @media(max-width:600px){.tres{width:100%}}
 .test-grid{display:grid;grid-template-columns:repeat(5,minmax(70px,1fr));gap:6px}
 .test-grid label{font-size:.78rem;color:var(--muted);display:flex;flex-direction:column;gap:2px}
 .test-grid input{min-height:34px;padding:4px 6px}
@@ -1607,9 +1610,9 @@ function logDiff(b, d) {
   for (const T of d.tourneys || []) {
     const o = T0.get(T.id) || { res: {} }, r0 = o.res || {}, r1 = T.res || {}, nm = `${T.name || 'турнир'} ${D.ru(T.date)}`;
     for (const aid of new Set([...Object.keys(r0), ...Object.keys(r1)])) {
-      if (!(aid in r0)) push(aid, `турнир: ${nm}${r1[aid] ? ', ' + r1[aid] + ' место' : ''}`);
+      if (!(aid in r0)) push(aid, `турнир: ${nm}, ${tResText(r1[aid])}`);
       else if (!(aid in r1)) push(aid, `убран из турнира: ${nm}`);
-      else if (r0[aid] !== r1[aid]) push(aid, `турнир ${nm}: место ${r0[aid] || '—'} → ${r1[aid] || '—'}`);
+      else if (JSON.stringify(r0[aid]) !== JSON.stringify(r1[aid])) push(aid, `турнир ${nm}: ${tResText(r0[aid])} → ${tResText(r1[aid])}`);
     }
   }
   const today = D.today(), M0 = new Map(), sInfo = new Map();
@@ -2296,7 +2299,7 @@ function vPerson(id) {
   const myT = (db.tourneys || []).filter(T => T.res && id in T.res).sort((x, y) => (y.date || '').localeCompare(x.date || ''));
   const myLog = (db.log || []).filter(x => x.aid === id).reverse();
   const no = t => `<span class="chip ${t ? 'bad' : 'muted'}">нет</span>`;
-  const refundCard = R ? `<div class="card sec-keep"><h2>Отказ от договора</h2><dl class="kv">${kv('Заявление получено', D.ru(R.date) + (R.how ? ' (' + h(R.how) + ')' : ''))}
+  const refundCard = R ? `<div class="card sec-keep"><h2>Отказ от договора</h2><dl class="kv">${kv('Заявление получено', D.ru(R.date) + (refundHow(R) ? ' (' + h(refundHow(R)) + ')' : ''))}
     ${kv('К возврату', (+R.sum || 0).toLocaleString('ru') + ' ₽' + (+R.calcSum !== +R.sum ? ' <span class="small muted">(расчёт ' + (+R.calcSum || 0).toLocaleString('ru') + ' ₽)</span>' : ''))}
     ${+R.sum > 0 ? kv('Вернуть до', D.ru(R.due) + (!R.paidAt && R.due < ix.today ? ' <span class="chip bad">срок прошёл</span>' : '')) + kv('Выплачено', R.paidAt ? D.ru(R.paidAt) : no(true)) + kv('Чек в «Мой налог»', R.checkAt ? 'скорректирован ' + D.ru(R.checkAt) : no(!!R.paidAt)) : ''}</dl>
     <div class="row no-print" style="margin-top:10px">${+R.sum > 0 && !R.paidAt ? `<button class="btn primary sm" data-act="refund-paid" data-id="${id}">Возврат выплачен</button>` : ''}${+R.sum > 0 && R.paidAt && !R.checkAt ? `<button class="btn primary sm" data-act="refund-check" data-id="${id}">Чек скорректирован</button>` : ''}
@@ -2309,7 +2312,7 @@ function vPerson(id) {
     ${(a.briefings || []).length ? `<ul class="list">${[...a.briefings].reverse().map(b => `<li style="padding:6px 0"><div class="who small"><b>${D.ru(b.date)} — ${h(b.kind)}</b>${b.reason ? h(b.reason) : ''}${b.by ? (b.reason ? ' · ' : '') + h(b.by) : ''}</div><button class="btn sm ghost no-print" data-act="brief-del" data-id="${id}" data-bid="${b.id}" aria-label="Удалить запись">✕</button></li>`).join('')}</ul>`
       : `<p class="small muted" style="margin:6px 0 0">${(ix.marks.get(id) || []).length && !(ix.marks.get(id) || []).some(m => m.date >= (S.briefFrom || '9999')) ? 'Записей в программе нет — смотрите бумажный журнал.' : 'Записей нет. Первичный — до первого занятия.'}</p>`}</div>`;
   const PL = { '1': '1 место', '2': '2 место', '3': '3 место' };
-  const tournCard = `<div class="card flat"><div style="padding:14px 16px 6px"><h2>Турниры</h2></div>${myT.length ? `<ul class="list">${myT.map(T => `<li class="click" data-go="#tourn"><div class="who"><b>${h(T.name)}</b><span class="small">${D.ru(T.date)}${T.city ? ', ' + h(T.city) : ''}</span></div><span class="chip ${T.res[id] ? 'ok' : 'muted'}">${PL[T.res[id]] || 'участие'}</span></li>`).join('')}</ul>` : '<div class="empty">Нет записей. Турниры вносятся в разделе «Турниры».</div>'}</div>`;
+  const tournCard = `<div class="card flat"><div style="padding:14px 16px 6px"><h2>Турниры</h2></div>${myT.length ? `<ul class="list">${myT.map(T => `<li class="click" data-go="#tourn"><div class="who"><b>${h(T.name)}</b><span class="small">${D.ru(T.date)}${T.city ? ', ' + h(T.city) : ''}</span></div><span class="chip ${tBest(T.res[id]) ? 'ok' : 'muted'}">${h(tResText(T.res[id]))}</span></li>`).join('')}</ul>` : '<div class="empty">Нет записей. Турниры вносятся в разделе «Турниры».</div>'}</div>`;
   const logCard = myLog.length ? `<details class="card no-print"><summary><b>История изменений</b> <span class="small muted">${myLog.length}</span></summary><ul class="list" style="margin-top:8px">${myLog.slice(0, 150).map(x => `<li style="padding:6px 0"><span class="small num" style="min-width:110px">${new Date(x.at).toLocaleString('ru', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}</span><span class="who small">${h(x.t)}</span></li>`).join('')}</ul>${myLog.length > 150 ? '<p class="small muted">Показаны последние 150.</p>' : ''}</details>` : '';
   return `<div class="topline"><div><a href="#people" class="small no-print">← Спортсмены</a></div></div>
   <div class="card"><div class="person-head">${beltHTML(c.belt, c.stripes, true)}
@@ -3990,21 +3993,24 @@ function refundExtra(a) {
   const R = a.refund || {};
   return { 'дата_отказа': D.ru(R.date), 'сумма_возврата': (+R.sum || 0).toLocaleString('ru'), 'срок_возврата': D.ru(R.due), 'расчёт': refundLines(R.lines || []) || 'не списанных занятий нет' };
 }
+function refundHow(R) { return R.how === 'другое' ? R.howNote || 'другое' : [R.how, R.howNote].filter(Boolean).join(': '); }   // «сообщение в MAX: …» / при «другое» — примечание
 function openRefuse(id) {
   const a = db.athletes.find(x => x.id === id); if (!a) return;
   const calcHTML = P => P.rows.length ? `<ul class="list" style="border:1px solid var(--line);border-radius:8px">${P.rows.map(x => `<li style="padding:8px 10px"><div class="who small"><b>Абонемент ${x.count} зан., ${x.amount.toLocaleString('ru')} ₽${x.pay ? ', оплачен ' + D.ru(x.pay) : ''}</b>${x.notActive ? 'не активирован — возврат полностью (п. 10.4.5)' : `не списано ${x.left} × ${x.price.toLocaleString('ru')} ₽ (п. 10.4.2)`}</div><b class="num">${x.sum.toLocaleString('ru')} ₽</b></li>`).join('')}</ul>`
     : '<p class="small">Не списанных занятий на эту дату нет — возврат не производится (п. 10.4.4).</p>';
   const P0 = refusePreview(a, ix.today);
-  modal('Отказ от договора: ' + shortName(a), `<div class="fgrid">${F('date', 'Заявление получено', ix.today, 'date', 'required max="' + ix.today + '"')}${FS('how', 'Как получено (п. 10.3)', ['письменное заявление', 'сообщение в MAX', 'сообщение ВКонтакте'], 'сообщение в MAX')}</div>
+  modal('Отказ от договора: ' + shortName(a), `<div class="fgrid">${F('date', 'Заявление получено', ix.today, 'date', 'required max="' + ix.today + '"')}${FS('how', 'Как получено (п. 10.3)', ['письменное заявление', 'сообщение в MAX', 'сообщение ВКонтакте', 'другое'], 'сообщение в MAX')}
+  <label class="f wide"><span>Примечание: где или как получено</span><input type="text" name="howNote" placeholder="например: Telegram, по e-mail, передал тренеру на занятии"></label></div>
   <h3 style="margin-top:12px">Расчёт на дату заявления</h3><div id="refuse-calc">${calcHTML(P0)}</div><div id="refuse-owe" class="small" style="color:var(--bad);margin-top:6px"></div>
   <div class="fgrid" style="margin-top:10px">${F('sum', 'К возврату, ₽', P0.total, 'number', 'min="0" step="1" inputmode="numeric" required')}</div>
   <p class="small muted">Договор прекращается с даты получения заявления (п. 10.3): статус станет «ушёл», занятия после этой даты не списываются. Вернуть деньги — не позднее 10 календарных дней тем же способом, которым платили (п. 10.4.3). Уменьшать сумму можно только на фактические расходы, подтверждённые документами (п. 10.4.1). Заявление или переписку сохраните.</p>`, { submit: 'Записать отказ', onSubmit(fd) {
     if (!fd.date || fd.date > ix.today) { alert('Укажите дату получения заявления (не позже сегодняшней).'); return false; }
+    if (fd.how === 'другое' && !String(fd.howNote || '').trim()) { alert('Выбрано «другое» — укажите в примечании, где или как получено заявление.'); return false; }
     const P = refusePreview(a, fd.date), sum = Math.max(0, Math.round(+fd.sum || 0));
     if (sum < P.total && !confirm(`Сумма меньше расчётной (${P.total.toLocaleString('ru')} ₽). Удерживать можно только фактические расходы, подтверждённые документами (п. 10.4.1, 10.4.6.1). Продолжить?`)) return false;
     if (sum > P.total && !confirm(`Сумма больше расчётной (${P.total.toLocaleString('ru')} ₽). Вернуть больше по своему решению?`)) return false;
     a.status = 'ушёл'; a.endedAt = fd.date;
-    a.refund = { date: fd.date, how: fd.how, sum, calcSum: P.total, due: D.add(fd.date, 10), lines: P.rows, paidAt: sum > 0 ? '' : fd.date, checkAt: sum > 0 ? '' : fd.date };
+    a.refund = { date: fd.date, how: fd.how, howNote: String(fd.howNote || '').trim(), sum, calcSum: P.total, due: D.add(fd.date, 10), lines: P.rows, paidAt: sum > 0 ? '' : fd.date, checkAt: sum > 0 ? '' : fd.date };
     render.keepScroll = true; persist(sum > 0 ? `Отказ записан: вернуть ${sum.toLocaleString('ru')} ₽ до ${D.ru(a.refund.due)}` : 'Отказ записан, возврата нет');
   } });
   const dI = $('#dlg [name=date]'), sI = $('#dlg [name=sum]'); let touched = false;
@@ -4018,7 +4024,7 @@ function printRefund(a) {
   const op = h(db.settings.operatorName || db.settings.awardedBy || '');
   openPrint('Расчёт возврата — ' + shortName(a), `<h1>РАСЧЁТ СУММЫ ВОЗВРАТА</h1><h2>при отказе Заказчика от Договора публичной оферты (раздел 10 Договора, ред. 6)</h2>
   <p><b>Исполнитель:</b> ${operatorLine()}</p><p><b>Потребитель:</b> ${h(fullName(a))}</p>
-  <p><b>Заявление об отказе получено:</b> ${D.ru(R.date)}${R.how ? ' (' + h(R.how) + ')' : ''}. Договор расторгнут с этой даты (п. 10.3).</p>
+  <p><b>Заявление об отказе получено:</b> ${D.ru(R.date)}${refundHow(R) ? ' (' + h(refundHow(R)) + ')' : ''}. Договор расторгнут с этой даты (п. 10.3).</p>
   ${(R.lines || []).length ? `<table><thead><tr><th>Абонемент оплачен</th><th>Уплачено, ₽</th><th>Занятий</th><th>Цена занятия, ₽</th><th>Не списано на дату отказа</th><th>К возврату, ₽</th></tr></thead><tbody>
   ${R.lines.map(x => `<tr><td>${D.ru(x.pay)}</td><td>${x.amount.toLocaleString('ru')}</td><td>${x.count}</td><td>${x.notActive ? '—' : x.price.toLocaleString('ru')}</td><td>${x.notActive ? 'не активирован (п. 10.4.5)' : x.left}</td><td>${x.sum.toLocaleString('ru')}</td></tr>`).join('')}</tbody></table>`
     : '<p>Не списанных с абонемента занятий на дату отказа нет — возврат не производится (п. 10.4.4).</p>'}
@@ -4030,25 +4036,35 @@ function printRefund(a) {
 
 /* ---------- ТУРНИРЫ ---------- */
 const PLACES = [['', 'участие'], ['1', '1 место'], ['2', '2 место'], ['3', '3 место']];
+/* разделы турнира: T.res[aid] — { gi: место, nogi: место } (ключ есть — участвует в разделе, '' — без места); старые записи — строка «место» без раздела */
+function tDivName(k) { return k === 'gi' ? 'Gi' : k === 'nogi' ? 'No-Gi' : ''; }
+function tDivs(T) { return Array.isArray(T.divs) && T.divs.length ? T.divs : ['gi', 'nogi']; }
+function tEntries(v) {
+  if (v && typeof v === 'object') return ['gi', 'nogi'].filter(k => k in v).map(k => ({ div: k, pl: v[k] || '' }));
+  return [{ div: '', pl: v || '' }];
+}
+function tBest(v) { const L = tEntries(v).map(e => e.pl).filter(Boolean).sort(); return L[0] || ''; }
+function tResText(v) { return tEntries(v).map(e => (e.div ? tDivName(e.div) + ': ' : '') + (e.pl ? e.pl + ' место' : 'участие')).join(', '); }
 function vTourn() {
   const L = [...(db.tourneys || [])].sort((x, y) => (y.date || '').localeCompare(x.date || ''));
   return `<div class="topline"><h1>Турниры</h1><div class="row no-print"><button class="btn primary" data-act="tourn-new">Добавить турнир</button><button class="btn" data-act="tourn-prize">Призёры за период</button></div></div>
-  <p class="small muted">Участие идёт в допуск к аттестации вместе с отметками «с» в журнале: одна поездка или один турнир — одно участие, даже если отмечено и там, и здесь. Места — для списка призёров.</p>
-  ${L.length ? L.map(T => { const rows = Object.entries(T.res || {}).map(([aid, pl]) => ({ a: ix.ath.get(aid), pl })).filter(x => x.a).sort((x, y) => (x.pl || '9').localeCompare(y.pl || '9') || fullName(x.a).localeCompare(fullName(y.a), 'ru'));
-    const med = ['1', '2', '3'].map(k => rows.filter(x => x.pl === k).length);
-    return `<div class="card flat"><div class="row" style="padding:14px 16px 6px;flex-wrap:wrap"><div class="who" style="flex:1 1 240px"><b style="white-space:normal">${h(T.name || 'Турнир')}</b><span class="small">${D.ru(T.date)}${T.city ? ', ' + h(T.city) : ''} · участников ${rows.length}${med.some(Boolean) ? ' · места: ' + med.map((n, i) => n ? (i + 1) + '-х — ' + n : '').filter(Boolean).join(', ') : ''}</span></div><span class="spacer"></span>
+  <p class="small muted">Участие идёт в допуск к аттестации вместе с отметками «с» в журнале: одна поездка или один турнир — одно участие, даже если отмечено и там, и здесь, и даже если человек выступал и в Gi, и в No-Gi. Места — для списка призёров, по каждому разделу отдельно.</p>
+  ${L.length ? L.map(T => { const rows = Object.entries(T.res || {}).map(([aid, v]) => ({ a: ix.ath.get(aid), v, pl: tBest(v), E: tEntries(v) })).filter(x => x.a).sort((x, y) => (x.pl || '9').localeCompare(y.pl || '9') || fullName(x.a).localeCompare(fullName(y.a), 'ru'));
+    const all = rows.flatMap(x => x.E), med = ['1', '2', '3'].map(k => all.filter(e => e.pl === k).length);
+    const byDiv = ['gi', 'nogi'].map(k => [k, all.filter(e => e.div === k).length]).filter(x => x[1]);
+    return `<div class="card flat"><div class="row" style="padding:14px 16px 6px;flex-wrap:wrap"><div class="who" style="flex:1 1 240px"><b style="white-space:normal">${h(T.name || 'Турнир')}</b><span class="small">${D.ru(T.date)}${T.city ? ', ' + h(T.city) : ''} · участников ${rows.length}${byDiv.length ? ' (' + byDiv.map(([k, n]) => tDivName(k) + ' — ' + n).join(', ') + ')' : ''}${med.some(Boolean) ? ' · места: ' + med.map((n, i) => n ? (i + 1) + '-х — ' + n : '').filter(Boolean).join(', ') : ''}</span></div><span class="spacer"></span>
     <button class="btn sm no-print" data-act="tourn-people" data-id="${T.id}">Участники</button><button class="btn sm ghost no-print" data-act="tourn-edit" data-id="${T.id}">Изменить</button></div>
-    ${rows.length ? `<ul class="list">${rows.map(x => `<li style="flex-wrap:wrap"><div class="who"><a href="#person/${x.a.id}"><b>${h(fullName(x.a))}</b></a><span class="small">${h(x.a.group || '')}</span></div><select data-change="tres" data-id="${T.id}" data-aid="${x.a.id}" style="width:auto">${PLACES.map(([v, l]) => opt(v, x.pl || '', l)).join('')}</select></li>`).join('')}</ul>` : '<div class="empty">Участники не отмечены — кнопка «Участники»</div>'}</div>`; }).join('')
+    ${rows.length ? `<ul class="list">${rows.map(x => `<li style="flex-wrap:wrap"><div class="who"><a href="#person/${x.a.id}"><b>${h(fullName(x.a))}</b></a><span class="small">${h(x.a.group || '')}</span></div><div class="row tres">${x.E.map(e => `<label class="row small" style="gap:6px">${e.div ? `<b>${tDivName(e.div)}</b>` : '<span class="muted" title="Раздел не указан — отметьте в «Участниках»">раздел?</span>'}<select data-change="tres" data-id="${T.id}" data-aid="${x.a.id}" data-div="${e.div}" style="width:auto">${PLACES.map(([v, l]) => opt(v, e.pl, l)).join('')}</select></label>`).join('')}</div></li>`).join('')}</ul>` : '<div class="empty">Участники не отмечены — кнопка «Участники»</div>'}</div>`; }).join('')
   : '<div class="card"><p class="muted">Турниров пока нет. Добавьте турнир, затем отметьте участников и места.</p></div>'}`;
 }
 function openTourn(id) {
   const T = id ? (db.tourneys || []).find(x => x.id === id) : { name: db.settings.competition.name || '', date: db.settings.competition.date || ix.today, city: db.settings.competition.city || '' };
   if (!T) return;
-  modal(id ? 'Изменить турнир' : 'Новый турнир', `<div class="fgrid">${F('name', 'Название', T.name, 'text', 'required')}${F('date', 'Дата (первый день)', T.date, 'date', 'required')}${F('city', 'Город', T.city)}</div>`, {
+  modal(id ? 'Изменить турнир' : 'Новый турнир', `<div class="fgrid">${F('name', 'Название', T.name, 'text', 'required')}${F('date', 'Дата (первый день)', T.date, 'date', 'required')}${F('city', 'Город', T.city)}${FS('divs', 'Разделы', [['both', 'Gi и No-Gi'], ['gi', 'только Gi'], ['nogi', 'только No-Gi']], tDivs(T).length === 2 ? 'both' : tDivs(T)[0])}</div>`, {
     extraBtn: id ? `<button type="button" class="btn danger" data-act="tourn-del" data-id="${id}">Удалить</button>` : '',
     onSubmit(fd) {
       const t = id ? T : { id: uid('T'), res: {} };
-      t.name = fd.name.trim(); t.date = fd.date; t.city = (fd.city || '').trim();
+      t.name = fd.name.trim(); t.date = fd.date; t.city = (fd.city || '').trim(); t.divs = fd.divs === 'both' || !fd.divs ? ['gi', 'nogi'] : [fd.divs];
       if (!id) { db.tourneys = db.tourneys || []; db.tourneys.push(t); }
       render.keepScroll = true; persist(id ? 'Сохранено' : 'Турнир добавлен');
       if (!id) setTimeout(() => openTournPeople(t.id), 50);
@@ -4056,28 +4072,34 @@ function openTourn(id) {
 }
 function openTournPeople(id) {
   const T = (db.tourneys || []).find(x => x.id === id); if (!T) return;
-  const res = T.res || {}, norm = t => String(t).toLowerCase().replace(/ё/g, 'е');
+  const res = T.res || {}, norm = t => String(t).toLowerCase().replace(/ё/g, 'е'), divs = tDivs(T);
   const people = db.athletes.filter(a => a.status !== 'ушёл' || a.id in res).sort((x, y) => (x.group || '').localeCompare(y.group || '', 'ru') || fullName(x).localeCompare(fullName(y), 'ru'));
   modal('Участники: ' + (T.name || 'турнир'), `<label class="f"><span>Найти</span><input type="search" id="tp-q" placeholder="Фамилия или имя" autocomplete="off"></label>
-  <div class="picklist" style="margin-top:8px">${people.map(a => `<label><input type="checkbox" name="ids[]" value="${a.id}" ${a.id in res ? 'checked' : ''}><span class="who"><b>${h(fullName(a))}</b><span class="small">${h(a.group || '')}${a.otherTeam ? ' · другая команда' : ''}</span></span></label>`).join('') || '<div class="empty">Нет спортсменов</div>'}</div>`, { onSubmit(fd) {
-    const ids = fd.__multi['ids[]'] || [], nr = {};
-    for (const aid of ids) nr[aid] = res[aid] || '';
-    T.res = nr; render.keepScroll = true; persist(`Участников: ${ids.length}`);
+  <div class="picklist tp-list" style="margin-top:8px">${people.map(a => { const v = res[a.id], has = k => !!v && typeof v === 'object' && k in v, old = a.id in res && !(v && typeof v === 'object');
+    return `<div class="tp-row"><span class="who"><b>${h(fullName(a))}</b><span class="small">${h(a.group || '')}${a.otherTeam ? ' · другая команда' : ''}</span></span>
+    <span class="tp-d">${old ? `<label class="tp-c" title="Записан раньше, раздел не указан"><input type="checkbox" name="old[]" value="${a.id}" checked>без раздела</label>` : ''}${divs.map(k => `<label class="tp-c"><input type="checkbox" name="${k}[]" value="${a.id}" ${has(k) ? 'checked' : ''}>${tDivName(k)}</label>`).join('')}</span></div>`; }).join('') || '<div class="empty">Нет спортсменов</div>'}</div>
+  <p class="small muted">Отметьте раздел, в котором человек выступает: ${divs.map(tDivName).join(' и/или ')}. Места ставятся в списке турнира.</p>`, { onSubmit(fd) {
+    const M = fd.__multi, sel = k => new Set(M[k + '[]'] || []), G = sel('gi'), N = sel('nogi'), O = sel('old'), nr = {};
+    for (const a of people) { const id = a.id, v = res[id], obj = v && typeof v === 'object' ? v : null, d = [];
+      if (G.has(id)) d.push('gi'); if (N.has(id)) d.push('nogi');
+      if (d.length) { const r = {}; for (const k of d) r[k] = obj ? obj[k] || '' : (d.length === 1 && typeof v === 'string' ? v : ''); nr[id] = r; }
+      else if (O.has(id)) nr[id] = v || ''; }
+    T.res = nr; const n = Object.keys(nr).length; render.keepScroll = true; persist(`Участников: ${n}`);
   } });
   const q = $('#tp-q');
-  q.addEventListener('input', () => { const v = norm(q.value.trim()); document.querySelectorAll('#dlg .picklist label').forEach(l => { l.style.display = !v || norm(l.textContent).includes(v) ? '' : 'none'; }); });
+  q.addEventListener('input', () => { const v = norm(q.value.trim()); document.querySelectorAll('#dlg .tp-row').forEach(l => { l.style.display = !v || norm(l.querySelector('.who').textContent).includes(v) ? '' : 'none'; }); });
   q.addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
 }
 function openPrize() {
   modal('Призёры за период', `<div class="fgrid">${F('from', 'С', ix.today.slice(0, 4) + '-01-01', 'date', 'required')}${F('to', 'По', ix.today, 'date', 'required')}</div>`, { submit: 'Печать', onSubmit(fd) {
     const L = (db.tourneys || []).filter(T => T.date >= fd.from && T.date <= fd.to).sort((x, y) => x.date.localeCompare(y.date));
     const rows = []; let part = 0;
-    for (const T of L) for (const [aid, pl] of Object.entries(T.res || {})) { const a = ix.ath.get(aid); if (!a) continue; part++; if (pl) rows.push({ T, a, pl }); }
-    rows.sort((x, y) => x.T.date.localeCompare(y.T.date) || x.pl.localeCompare(y.pl));
+    for (const T of L) for (const [aid, v] of Object.entries(T.res || {})) { const a = ix.ath.get(aid); if (!a) continue; part++; for (const e of tEntries(v)) if (e.pl) rows.push({ T, a, pl: e.pl, div: e.div }); }
+    rows.sort((x, y) => x.T.date.localeCompare(y.T.date) || x.pl.localeCompare(y.pl) || (x.div || '').localeCompare(y.div || ''));
     const cnt = k => rows.filter(x => x.pl === k).length;
     openPrint('Призёры', `<h1>Призёры турниров</h1><h2>${h(db.settings.club || 'Club D23')} · ${D.ru(fd.from)} — ${D.ru(fd.to)}</h2>
     <p>Турниров: ${L.length} · участий: ${part} · призовых мест: ${rows.length} (1-х — ${cnt('1')}, 2-х — ${cnt('2')}, 3-х — ${cnt('3')})</p>
-    ${rows.length ? `<table><thead><tr><th>Дата</th><th>Турнир</th><th>Город</th><th>Фамилия, имя</th><th>Группа</th><th>Место</th></tr></thead><tbody>${rows.map(x => `<tr><td>${D.ru(x.T.date)}</td><td>${h(x.T.name)}</td><td>${h(x.T.city || '')}</td><td>${h(shortName(x.a))}</td><td>${h(x.a.group || '')}</td><td>${x.pl}</td></tr>`).join('')}</tbody></table>` : '<p>Призовых мест за период нет.</p>'}
+    ${rows.length ? `<table><thead><tr><th>Дата</th><th>Турнир</th><th>Город</th><th>Фамилия, имя</th><th>Группа</th><th>Раздел</th><th>Место</th></tr></thead><tbody>${rows.map(x => `<tr><td>${D.ru(x.T.date)}</td><td>${h(x.T.name)}</td><td>${h(x.T.city || '')}</td><td>${h(shortName(x.a))}</td><td>${h(x.a.group || '')}</td><td>${tDivName(x.div) || '—'}</td><td>${x.pl}</td></tr>`).join('')}</tbody></table>` : '<p>Призовых мест за период нет.</p>'}
     <p style="margin-top:10px;font-size:9pt">Публикуйте список только с фамилиями тех, кто дал согласие на распространение (Бланк № 2.3).</p>`, PRINT_CSS);
   } });
 }
@@ -4088,7 +4110,7 @@ function anonDb() {
   d.athletes.forEach((a, i) => {
     Object.assign(a, { last: 'Спортсмен', first: String(i + 1), middle: '', phone: '', motherName: '', motherPhone: '', fatherName: '', fatherPhone: '', note: '', teamName: a.teamName ? 'другая команда' : '', medUntil: '' });
     if (a.birth) a.birth = a.birth.slice(0, 4) + '-07-01';
-    if (a.refund) a.refund.how = '';
+    if (a.refund) { a.refund.how = ''; delete a.refund.howNote; }
   });
   d.subs.forEach(p => { p.note = ''; }); d.freezes.forEach(f => { f.note = ''; }); (d.ops || []).forEach(o => { o.note = ''; }); ((d.settings.fin || {}).coaches || []).forEach((c, i) => { c.name = 'Тренер ' + (i + 1); });
   d.tests.forEach(t => { t.note = ''; });
@@ -4527,7 +4549,9 @@ function onChange(e) {
   else if (k === 'attest-adm') { ui.attest.adm = v; rerender(); }
   else if (k === 'test-date') { ui.attest.date = v; rerender(); }
   else if (k === 'rep') { ui.report[el.dataset.k] = v; rerender(); }
-  else if (k === 'tres') { const T = (db.tourneys || []).find(x => x.id === el.dataset.id); if (!T || !T.res) return; T.res[el.dataset.aid] = v; render.keepScroll = true; persist(v ? 'Место: ' + v : 'Сохранено'); }
+  else if (k === 'tres') { const T = (db.tourneys || []).find(x => x.id === el.dataset.id), aid = el.dataset.aid, dv = el.dataset.div; if (!T || !T.res || !(aid in T.res)) return;
+    if (dv) { const o = T.res[aid] && typeof T.res[aid] === 'object' ? { ...T.res[aid] } : {}; o[dv] = v; T.res[aid] = o; } else T.res[aid] = v;
+    render.keepScroll = true; persist(v ? (dv ? tDivName(dv) + ': ' : '') + 'место ' + v : 'Сохранено'); }
   else if (k === 'test-res' || k === 'test-relief' || k === 'test-place' || k === 'test-track') {
     const t = db.tests.find(x => x.id === el.dataset.id);
     if (k === 'test-res') { t.res = t.res || {}; if (v === '') delete t.res[el.dataset.k]; else t.res[el.dataset.k] = Math.round(+v); }
