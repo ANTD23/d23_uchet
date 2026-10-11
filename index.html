@@ -160,6 +160,13 @@ table.t tr.pend:hover td{background:#F6D3CE} table.t tr.rem1:hover td{background
 .attn-sec.s-warn{border-color:#D08A1C} .attn-sec.s-warn > .attn-h{background:var(--warn)}
 .attn-sec.s-later{border-color:#A9B2AD} .attn-sec.s-later > .attn-h{background:var(--sunk);color:var(--ink)}
 .attn-sec .alert:first-of-type{border-top:0}
+.plan-sec{overflow:hidden} .plan-h{padding:11px 16px;font-weight:700;font-size:1.02rem;background:var(--sunk);border-bottom:1px solid var(--line)}
+.ps-write .plan-h{background:#FBF1E2} .ps-train .plan-h{background:#E6EEF8} .ps-money .plan-h{background:#E8F2EC} .ps-later .plan-h{background:var(--sunk);color:var(--muted)}
+ul.plan{list-style:none;margin:0;padding:0} .pl{display:flex;gap:12px;align-items:flex-start;padding:11px 14px;border-top:1px solid var(--line);border-left:5px solid transparent}
+ul.plan > .pl:first-child{border-top:0} .pl.t-bad{border-left-color:var(--bad)} .pl.t-warn{border-left-color:#D08A1C} .pl.t-sick{border-left-color:var(--sick)} .pl.t-ok{border-left-color:var(--ok)} .pl.t-muted{border-left-color:#A9B2AD}
+.pl-cb{flex:none;width:28px;height:28px;border:2px solid var(--muted);border-radius:6px;background:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-weight:800;color:#fff;padding:0;margin-top:1px}
+.pl-cb.on{background:var(--ok);border-color:var(--ok)} .pl-b{flex:1;min-width:0} .pl-h{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline} .pl-t{margin-top:2px}
+.pl.done .pl-t,.pl.done .pl-h b{color:var(--muted);text-decoration:line-through} .pl-a{margin-top:6px;gap:6px} .plan-info{margin:0;padding-left:20px}
 .alert .txt{flex:1;min-width:0}
 .banner{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--warn-bg);border:1px solid #EBCF9F;color:#5B3A06;border-radius:var(--r);padding:12px 14px;margin-bottom:14px}
 .stat{display:flex;flex-direction:column}
@@ -1271,6 +1278,9 @@ const NEW_TEMPLATES_5 = [
 const NEW_TEMPLATES_6 = [
   { title: 'После пробного занятия', text: 'Здравствуйте.\n{фи}.\nСпасибо, что пришли на пробное занятие. Если готовы продолжать, подскажу по абонементу и расписанию группы «{группа}». Документы для занятий можно взять в зале или заполнить дома.' },
 ];
+const NEW_TEMPLATES_8 = [
+  { title: 'С днём рождения', text: 'Здравствуйте.\nПоздравляем {имя} с днём рождения! Здоровья, сил и новых побед на ковре. Ждём на тренировке!\nClub D23' },
+];
 const NEW_TEMPLATES_7 = [
   { title: 'Занятие отменено', text: 'Здравствуйте.\n{фи}.\nЗанятие группы «{группа}» {дата_занятия} отменено. В счёт абонемента оно не идёт: срок абонемента сдвигается на одно занятие (п. 9.7 договора).' },
   { title: 'Перенос занятия', text: 'Здравствуйте.\n{фи}.\nЗанятие группы «{группа}» {дата_занятия} переносится. Новое время: ___. ' },
@@ -1354,6 +1364,11 @@ function normalize(d) {
     const have = new Set((d.settings.templates || []).map(t => t.title));
     d.settings.templates = [...(d.settings.templates || []), ...NEW_TEMPLATES_7.filter(o => !have.has(o.title)).map(o => ({ ...o }))];
     d.settings.tplVersion = 7;
+  }
+  if ((d.settings.tplVersion || 1) === 7) {
+    const have = new Set((d.settings.templates || []).map(t => t.title));
+    d.settings.templates = [...(d.settings.templates || []), ...NEW_TEMPLATES_8.filter(o => !have.has(o.title)).map(o => ({ ...o }))];
+    d.settings.tplVersion = 8;
   }
   normFin(d); normExtra(d);
   return d;
@@ -1722,9 +1737,9 @@ function render() {
   if (logBaseFor !== db) logSetBase();
   if (undoFor !== db) { undoJson = JSON.stringify(db); undoFor = db; }
   const { v, arg } = route();
-  const views = { today: vToday, journal: vJournal, session: vSession, people: vPeople, person: vPerson, subs: vSubs, leads: vLeads, year: vYear, money: vMoney, attest: vAttest, tourn: vTourn, report: vReport, settings: vSettings, data: vData, more: vMore };
+  const views = { plan: vPlan, today: vToday, journal: vJournal, session: vSession, people: vPeople, person: vPerson, subs: vSubs, leads: vLeads, year: vYear, money: vMoney, attest: vAttest, tourn: vTourn, report: vReport, settings: vSettings, data: vData, more: vMore };
   const fn = views[v] || vToday;
-  const navKey = v === 'session' ? 'journal' : v === 'person' ? 'people' : v === 'year' ? 'report' : v;
+  const navKey = v === 'plan' ? 'today' : v === 'session' ? 'journal' : v === 'person' ? 'people' : v === 'year' ? 'report' : v;
   let body;
   try { body = fn(arg); } catch (e) { console.error(e); body = `<div class="card"><h2>Ошибка отображения</h2><p class="muted">${h(e.message)}</p></div>`; }
   const scroll = window.scrollY;
@@ -1799,7 +1814,7 @@ function attention() {
       const ne = notifyState(c.sub, 'end'), warned = ne && !ne.stale, wtxt = warned ? ' — предупреждён ' + D.short(ne.at) : '';
       if (s.remaining === 0 && !c.nextSub && !single) out.push({ tone: warned ? 'muted' : 'warn', a, text: `${nm}: абонемент использован${s.end ? ' ' + D.ru(s.end) : ''}, нового нет${wtxt}`, tpl: 'Абонемент закончился', wait: true });
       else if (s.remaining === 1 && !c.nextSub && !single) out.push({ tone: warned ? 'muted' : 'warn', a, text: `${nm}: осталось одно занятие${s.end ? ' (' + D.ru(s.end) + ')' : ''}${wtxt}`, tpl: 'Абонемент заканчивается' });
-      else if (s.remaining === 2 && !c.nextSub && !single) out.push({ tone: warned ? 'muted' : 'warn', a, text: `${nm}: осталось два занятия${s.end ? ' (последнее ' + D.ru(s.end) + ')' : ''}${wtxt}`, tpl: 'Абонемент заканчивается' });
+      else if (s.remaining === 2 && !c.nextSub && !single) out.push({ tone: warned ? 'muted' : 'warn', a, text: `${nm}: осталось два занятия${s.end ? ' (последнее ' + D.ru(s.end) + ')' : ''}${wtxt}`, tpl: 'Абонемент заканчивается', rem2: true });
     }
     if (c.debtDates.length && !c.pendingSub) {
       const n = c.debtDates.length;
@@ -1840,8 +1855,8 @@ function attention() {
   }
   for (const a of db.athletes) {                   // отказ от договора: возврат и чек (п. 10.4.3)
     const R = a.refund; if (!R || !(+R.sum > 0)) continue;
-    if (!R.paidAt) out.push({ tone: 'bad', a, text: `${shortName(a)}: отказ от договора ${D.ru(R.date)} — вернуть ${(+R.sum).toLocaleString('ru')} ₽ ${R.due < t ? '— СРОК ПРОШЁЛ ' + D.ru(R.due) : 'до ' + D.ru(R.due)} (п. 10.4.3)`, tpl: 'Возврат при отказе от договора', extra: refundExtra(a) });
-    else if (!R.checkAt) out.push({ tone: 'warn', a, text: `${shortName(a)}: возврат ${(+R.sum).toLocaleString('ru')} ₽ выплачен ${D.ru(R.paidAt)} — скорректируйте чек в «Мой налог»: аннулируйте чек об оплате, при частичном возврате сформируйте новый на оставшуюся сумму` });
+    if (!R.paidAt) out.push({ tone: 'bad', a, text: `${shortName(a)}: отказ от договора ${D.ru(R.date)} — вернуть ${(+R.sum).toLocaleString('ru')} ₽ ${R.due < t ? '— СРОК ПРОШЁЛ ' + D.ru(R.due) : 'до ' + D.ru(R.due)} (п. 10.4.3)`, tpl: 'Возврат при отказе от договора', extra: refundExtra(a), money: true });
+    else if (!R.checkAt) out.push({ tone: 'warn', a, text: `${shortName(a)}: возврат ${(+R.sum).toLocaleString('ru')} ₽ выплачен ${D.ru(R.paidAt)} — скорректируйте чек в «Мой налог»: аннулируйте чек об оплате, при частичном возврате сформируйте новый на оставшуюся сумму`, money: true });
   }
   for (const a of db.athletes) {                   // «приостановил» дольше 60 дней — перевести в «ушёл» (п. 12.3.1)
     if (a.status !== 'приостановил') continue;
@@ -1853,7 +1868,12 @@ function attention() {
   for (const p of db.subs) {                       // активация абонементов (п. 9.2.3, 9.3.7)
     const a = ix.ath.get(p.athleteId), r = ix.subCalc.get(p.id); if (!a || !r || p.pending || a.status === 'ушёл' || r.terminated || (+p.count || 0) <= 1) continue;   // разовые оплаты — без уведомлений об активации
     if (r.notActive && r.autoDate && r.autoNotifyBy && r.autoNotifyBy <= t) out.push({ tone: 'warn', a, text: `${shortName(a)}: абонемент не активирован — автоактивация ${D.ru(r.autoDate)}, сообщить до ${D.ru(r.autoNotifyBy)} (п. 9.2.3)`, tpl: 'Автоактивация абонемента', sub: p.id });
-    if (!r.notActive && (r.actKind === 'visit' || r.actKind === 'auto') && r.act <= t && D.diff(r.act, t) <= 3 && !(notifyState(p, 'period') && !notifyState(p, 'period').stale)) out.push({ tone: 'muted', a, text: `${shortName(a)}: абонемент активирован ${D.ru(r.first)}${r.actKind === 'auto' ? ' (автоматически)' : ''} — сообщите период ${D.ru(r.first)} — ${D.ru(r.end)} (п. 9.3.7)`, tpl: 'Новый абонемент оплачен', sub: p.id });
+    const q = notifyState(p, 'period'), ca = ix.athCalc.get(a.id) || {};
+    if (!r.notActive && r.first && r.end && r.end >= t && r.remaining > 1 && (ca.sub === p || ca.nextSub === p) && (q ? q.stale : r.first >= (db.settings.notifyFrom || '9999') && D.max(r.first, p.payDate || '') >= D.add(t, -14))) {   // новый — оплачен или начат за последние 2 недели
+      if (q) out.push({ tone: 'warn', a, text: `${shortName(a)}: срок абонемента изменился — теперь ${D.ru(r.first)} — ${D.ru(r.end)}, сообщите новый срок`, tpl: 'Абонемент продлён', sub: p.id });
+      else if (r.actKind === 'visit' || r.actKind === 'auto') out.push({ tone: 'warn', a, text: `${shortName(a)}: абонемент активирован ${D.ru(r.first)}${r.actKind === 'auto' ? ' (автоматически)' : ''} — сообщите период ${D.ru(r.first)} — ${D.ru(r.end)} (п. 9.3.7)`, tpl: 'Новый абонемент оплачен', sub: p.id });
+      else out.push({ tone: 'warn', a, text: `${shortName(a)}: ${p.payDate ? 'оплатил абонемент ' + D.ru(p.payDate) : 'новый абонемент'} — сообщите срок действия ${D.ru(r.first)} — ${D.ru(r.end)}`, tpl: 'Новый абонемент оплачен', sub: p.id });
+    }
   }
   for (const f of db.freezes) {
     const a = ix.ath.get(f.athleteId); if (!a) continue;
@@ -1898,9 +1918,13 @@ const attnKey = x => (x.a ? x.a.id : '') + '|' + x.text;
 function attnMark(key, on) {
   db.attnDone = db.attnDone || {};
   const live = new Set(attention().map(attnKey));
-  for (const k of Object.keys(db.attnDone)) if (!live.has(k)) delete db.attnDone[k];   // неактуальные — убрать
+  for (const k of Object.keys(db.attnDone)) { const pd = /^(bday|trial)\|.*\|(\d{4}-\d\d-\d\d)$/.exec(k);
+    if (!live.has(k) && !(pd && pd[2] >= D.add(ix.today, -7))) delete db.attnDone[k]; }   // неактуальные — убрать (пункты плана на день — через неделю)
   if (on) db.attnDone[key] = ix.today; else delete db.attnDone[key];
+  if (!db.planLog || db.planLog.d !== ix.today) db.planLog = { d: ix.today, items: {} };
+  if (!on) delete db.planLog.items[key];
   if (on) { const it = attention().find(x => attnKey(x) === key), ty = it && it.tpl && NOTIFY_TPL[it.tpl];   // «Сделано» по сообщению об окончании или о сроке = сообщение отправлено
+    if (it) db.planLog.items[key] = { aid: it.a ? it.a.id : '', text: it.text, tone: it.tone, tpl: it.tpl || '', money: !!it.money, go: it.go || '' };
     const sp = ty && it.a && notifySub(it.a.id, ty, it.sub); if (sp && !(notifyState(sp, ty) && !notifyState(sp, ty).stale)) markNotified(sp, ty); }
   render.keepScroll = true; persist(on ? 'Отмечено как сделанное' : 'Возвращено в список');
 }
@@ -1935,7 +1959,7 @@ function vToday() {
   const banner = dirty() && (!meta.lastExport || Date.now() - Date.parse(meta.lastExport) > 3 * 3600e3)
     ? `<div class="banner no-print"><div class="spacer">${meta.lastExport ? 'Есть изменения после копии от ' + new Date(meta.lastExport).toLocaleString('ru', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'Копия данных ещё ни разу не сохранялась'}. Сохраните копию, прежде чем работать на другом устройстве.</div><button class="btn primary" data-act="export">Сохранить копию</button></div>` : '';
   return `${banner}
-  <div class="topline"><div><h1>${DOW_FULL[dw][0].toUpperCase() + DOW_FULL[dw].slice(1)}, ${D.ru(t)}</h1><div class="muted">Занимается: ${active}${days != null ? ' · до «' + h(comp.name) + '» ' + days + ' ' + plural(days, 'день', 'дня', 'дней') : ''}</div></div></div>
+  <div class="topline"><div><h1>${DOW_FULL[dw][0].toUpperCase() + DOW_FULL[dw].slice(1)}, ${D.ru(t)}</h1><div class="muted">Занимается: ${active}${days != null ? ' · до «' + h(comp.name) + '» ' + days + ' ' + plural(days, 'день', 'дня', 'дней') : ''}</div></div><div class="row no-print"><a class="btn primary" href="#plan">План на день</a></div></div>
   <div class="card"><h2>Тренировки сегодня</h2>
     ${hol ? `<p class="muted">Нерабочий день: ${h(hol)}. Занятия не идут в срок абонементов.</p>` : ''}
     <div class="today-groups">${groupsBtns || '<span class="muted">По расписанию занятий нет.</span>'}
@@ -1956,6 +1980,142 @@ function vToday() {
       : `<div class="empty">${done.length ? 'Всё сделано.' : 'Всё в порядке: долгов, просроченных справок и заканчивающихся абонементов нет.'}</div>`}
     ${done.length ? `<details class="attn-donelist"><summary class="small">Сделано: ${done.length}</summary>${done.map(x => `<div class="alert done"><span class="dot"></span><div class="txt">${h(x.text)}<span class="small muted"> · сделано ${D.ru(doneMap[attnKey(x)])}</span></div>
       <div class="row">${x.a ? `<a class="btn sm ghost" href="#person/${x.a.id}">Карточка</a>` : ''}<button class="btn sm" data-act="attn-undo" data-key="${h(attnKey(x))}">Вернуть</button></div></div>`).join('')}</details>` : ''}</div>`;
+}
+
+/* ---------- ПЛАН НА ДЕНЬ («секретарь») ---------- */
+/* Из тех же данных, что «Требует внимания»: кому написать, что сказать на тренировке, что сделать, деньги, что можно позже */
+function planTrainGroups(t) {
+  if (ix.holiday.get(t)) return [];
+  const dw = D.dow(t), names = db.settings.groups.filter(g => daysOn(g, t)[dw]).map(g => g.name);
+  for (const s of ix.sessionsSorted) if (s.date === t && s.group && !names.includes(s.group)) names.push(s.group);
+  return names;
+}
+function dayPlan() {
+  const t = ix.today, done = db.attnDone || {}, groups = planTrainGroups(t);
+  const trainG = a => a && a.status === 'занимается' && !pausedOn(a, t) ? groups.find(g => inGroupOn(a, g, t)) || '' : '';
+  const P = { t, groups, write: [], train: {}, todo: [], money: [], later: [], info: [] };
+  const isDone = k => done[k] === t;                      // отмеченное сегодня — зачёркнуто; отмеченное раньше — в план не попадает
+  const strip = x => { const n = x.a ? shortName(x.a) + ': ' : ''; return n && x.text.startsWith(n) ? x.text.slice(n.length) : x.text; };
+  const toTrain = (g, it) => (P.train[g] = P.train[g] || []).push(it);
+  const place = it => { const x = it.x;
+    if (x.recur) { it.done = false; P.money.push(it); return; }   // аренда: напоминать каждый день, пока не внесён расход
+    if (x.money || (!x.a && /^#money/.test(x.go || ''))) { P.money.push(it); return; }
+    if (x.tone === 'muted') { P.later.push(it); return; }
+    const g = trainG(x.a);
+    if (g) toTrain(g, it); else if (x.a && x.tpl) P.write.push(it); else P.todo.push(it);
+  };
+  const seen = new Set();
+  for (const x of attention()) {
+    if (x.rem2 || x.checks) continue;                       // «осталось два» — порог плана одно занятие; чеки — ниже, по одному
+    const key = attnKey(x), it = { x, key, a: x.a || null, text: strip(x), tone: x.tone, done: isDone(key) }; seen.add(key);
+    if (done[key] && !it.done && !x.recur) continue;
+    place(it);
+  }
+  { const by = {};
+    P.todo = P.todo.filter(it => { const m = it.x.session && /^(\d\d\.\d\d\.\d{4}), (.+?): нет отметки у/.exec(it.text); if (!m) return true; (by[m[2]] = by[m[2]] || []).push(it); return false; });
+    for (const [g, L] of Object.entries(by)) {
+      if (L.length === 1) { P.todo.push(L[0]); continue; }
+      const who = [...new Set(L.flatMap(it => (/\((.+)\) — поставьте/.exec(it.text) || [, ''])[1].replace(/…$/, '').split(', ')).filter(Boolean))];
+      const dates = L.map(it => it.text.slice(0, 5));
+      P.todo.push({ x: { session: L[0].x.session }, key: L.map(it => it.key).join('\n'), tone: 'warn', done: L.every(it => it.done),
+        text: `${g}: нет отметок в ${L.length} занятиях (${dates.join(', ')}) у ${who.slice(0, 4).join(', ')}${who.length > 4 ? '…' : ''} — поставьте «+», «н» или «б»` });
+    } }
+  const log = db.planLog && db.planLog.d === t ? db.planLog.items || {} : {};
+  for (const [key, v] of Object.entries(log)) {           // сделано сегодня и уже не требует внимания (сообщение отправлено) — зачёркнутым
+    if (seen.has(key)) continue;
+    const a = v.aid ? ix.ath.get(v.aid) || null : null; if (v.aid && !a) continue;
+    const x = { a, text: v.text, tone: v.tone, tpl: v.tpl, money: v.money, go: v.go };
+    place({ x, key, a, text: strip(x), tone: v.tone, done: true, logged: true });
+  }
+  for (const a of db.athletes) {                          // дни рождения
+    if (a.status === 'ушёл' || !a.birth) continue;
+    for (let k = 0; k < 7; k++) { const d = D.add(t, k); if (a.birth.slice(5) !== d.slice(5)) continue;
+      const age = D.age(a.birth, d);
+      if (k === 0) { const key = 'bday|' + a.id + '|' + t, it = { key, a, kind: 'bday', text: `сегодня день рождения — ${age} ${plural(age, 'год', 'года', 'лет')}. Поздравить`, tone: 'ok', tpl: 'С днём рождения', done: isDone(key) };
+        const g = trainG(a); if (g) toTrain(g, it); else P.write.push(it); }
+      else P.info.push(`${shortName(a)} — день рождения ${k === 1 ? 'завтра' : DOW_FULL[D.dow(d)]}, ${D.ru(d)} (${age} ${plural(age, 'год', 'года', 'лет')})`);
+    }
+  }
+  for (const L of db.leads || []) {                       // пробные сегодня и завтра
+    if (L.anon || !(L.trial === t || L.trial === D.add(t, 1)) || leadStage(ix, L) !== 'пробное назначено') continue;
+    const key = 'trial|' + L.id + '|' + t, it = { key, lead: L, kind: 'trial', tone: 'warn', done: isDone(key),
+      text: L.trial === t ? `пробное занятие сегодня${L.group ? ', ' + L.group : ''} — встретить, провести инструктаж, после — «В спортсмены»` : `пробное занятие завтра${L.group ? ', ' + L.group : ''} — напомнить, подтвердить время` };
+    if (L.trial === t && L.group && groups.includes(L.group)) toTrain(L.group, it); else P.todo.push(it);
+  }
+  const F = finS(db);
+  if (F.start && F.checks !== false) {                    // чеки: каждый отдельно
+    const items = finItems();
+    for (const x of uncheckedItems(db, items, t)) P.money.push({ key: 'chk|' + x.src + '|' + x.id, chk: x, tone: x.late ? 'bad' : 'warn', a: x.aid ? ix.ath.get(x.aid) || null : null,
+      text: `чек в «Мой налог» не выбит: ${rubN(x.amount - x.refund)} ₽, оплата ${D.ru(x.date)} (${accName(x.acc)}) — ${x.late ? 'СРОК ПРОШЁЛ ' + D.ru(x.checkBy) : 'выбить до ' + D.ru(x.checkBy)}`, done: false });
+    for (const x of items) if (x.kind === 'in' && x.tax && x.check === t) P.money.push({ key: 'chk|' + x.src + '|' + x.id, chk: x, a: x.aid ? ix.ath.get(x.aid) || null : null, tone: 'ok', text: `чек выбит: ${rubN(x.amount - x.refund)} ₽, оплата ${D.ru(x.date)}`, done: true });
+  }
+  const paused = db.athletes.filter(a => a.status === 'приостановил').length;
+  if (paused) P.info.push(`На перерыве («приостановил»): ${paused} чел.`);
+  P.info.push(`Занимается: ${db.athletes.filter(a => a.status === 'занимается').length} чел.`);
+  const ord = { bad: 0, sick: 1, warn: 2, ok: 3, muted: 4 }, nm = it => it.a ? shortName(it.a) : it.lead ? leadName(it.lead) : '￿';
+  const srt = L => L.sort((x, y) => (ord[x.tone] ?? 3) - (ord[y.tone] ?? 3) || nm(x).localeCompare(nm(y), 'ru'));
+  [P.write, P.todo, P.later, ...Object.values(P.train)].forEach(srt);
+  P.money.sort((x, y) => (x.x && x.x.recur ? 0 : x.chk ? 2 : 1) - (y.x && y.x.recur ? 0 : y.chk ? 2 : 1) || (x.x && x.x.recur && y.x && y.x.recur ? x.x.recur.due.localeCompare(y.x.recur.due) : 0) || (ord[x.tone] ?? 3) - (ord[y.tone] ?? 3));
+  P.secs = [['write', 'Написать сегодня', P.write], ...groups.filter(g => P.train[g]).map(g => ['train', 'На тренировке: ' + g, P.train[g]]),
+    ['todo', 'Сделать сегодня', P.todo], ['money', 'Деньги', P.money], ['later', 'Можно позже', P.later]].filter(x => x[2].length);
+  const all = P.secs.flatMap(x => x[2]).filter(it => !(it.x && it.x.recur));
+  P.total = all.length + P.money.filter(it => it.x && it.x.recur).length; P.doneN = all.filter(it => it.done).length;
+  return P;
+}
+function planWho(it) {                                    // имя и телефон для строки плана
+  const L = it.lead || (it.x && it.x.lead ? (db.leads || []).find(l => l.id === it.x.lead) : null);
+  if (L) return { name: leadName(L), phone: L.anon ? '' : L.phone || '', rel: '' };
+  if (!it.a) return { name: '', phone: '', rel: '' };
+  const c = ix.athCalc.get(it.a.id) || {};
+  return { name: shortName(it.a), phone: c.contact || '', rel: c.contact && c.contactWho && c.contactWho !== 'сам' ? c.contactWho : '' };
+}
+function planRecurText(r) {
+  const t = ix.today, n = D.diff(t, r.due);
+  return `${rubN(r.amt)} ₽ — ${n < 0 ? 'СРОК ПРОШЁЛ ' + D.ru(r.due) : n === 0 ? 'оплатить СЕГОДНЯ' : 'оплатить через ' + n + ' ' + plural(n, 'день', 'дня', 'дней') + ', до ' + D.ru(r.due)} (${ymRu(r.ym)})`;
+}
+function planRow(it) {
+  const x = it.x || {}, w = planWho(it), rc = x.recur;
+  const name = rc ? rc.name : w.name, text = rc ? planRecurText(rc) : it.text;
+  const cb = rc ? `<button class="pl-cb" data-act="op-new" data-kind="out" data-rec="${h(rc.rec)}" data-period="${rc.ym}" data-amount="${rc.amt}" title="Оплачено — внести расход"></button>`
+    : it.chk ? (it.done ? '<span class="pl-cb on">✓</span>' : `<button class="pl-cb" data-act="check-mark" data-src="${h(it.chk.src)}" data-id="${h(it.chk.id)}" title="Чек выбит"></button>`)
+    : it.logged ? '<span class="pl-cb on" title="Сделано">✓</span>'
+    : `<button class="pl-cb${it.done ? ' on' : ''}" data-act="plan-done" data-key="${h(it.key)}" title="${it.done ? 'Вернуть' : 'Сделано'}">${it.done ? '✓' : ''}</button>`;
+  const tpl = it.tpl || x.tpl, aid = it.a && it.a.id;
+  const btns = [
+    tpl && aid ? `<button class="btn sm" data-act="msg" data-id="${h(aid)}" data-tpl="${h(tpl)}"${x.sub ? ` data-sub="${h(x.sub)}"` : ''} data-key="${h(it.key)}" data-extra='${h(JSON.stringify(x.extra || {}))}'>Написать</button>` : '',
+    x.paid ? `<button class="btn sm" data-act="sub-paid" data-id="${h(x.paid)}">Оплачено</button>` : '',
+    x.unpaid && aid ? `<button class="btn sm" data-act="sub-new" data-id="${h(aid)}">Оплата</button>` : '',
+    x.ret ? `<button class="btn sm" data-act="pause-return" data-id="${h(x.ret)}">Вернулся</button>` : '',
+    x.brief ? `<button class="btn sm" data-act="brief-new" data-id="${h(x.brief)}">Инструктаж проведён</button>` : '',
+    x.freeze ? `<button class="btn sm" data-act="freeze-edit" data-id="${h(x.freeze)}">Заморозка</button>` : '',
+    x.docs ? `<button class="btn sm" data-act="docs-edit" data-id="${h(x.docs)}">Документы</button>` : '',
+    x.session ? `<a class="btn sm" href="#session/${h(x.session)}">Открыть</a>` : '',
+    x.go && !rc && !it.chk ? `<a class="btn sm" href="${h(x.go)}">Открыть</a>` : '',
+    rc ? `<button class="btn sm" data-act="op-new" data-kind="out" data-rec="${h(rc.rec)}" data-period="${rc.ym}" data-amount="${rc.amt}">Оплачено</button>` : '',
+    it.chk && !it.done ? `<button class="btn sm" data-act="check-mark" data-src="${h(it.chk.src)}" data-id="${h(it.chk.id)}">Чек выбит</button>` : '',
+    x.lead || it.lead ? `<button class="btn sm" data-act="lead-edit" data-id="${h(x.lead || it.lead.id)}">Заявка</button>` : '',
+    aid ? `<a class="btn sm ghost" href="#person/${h(aid)}">Карточка</a>` : '',
+  ].filter(Boolean).join('');
+  return `<li class="pl t-${it.tone || 'warn'}${it.done ? ' done' : ''}">${cb}<div class="pl-b"><div class="pl-h">${name ? `<b>${h(name)}</b>` : ''}${w.phone ? ` ${telLink(w.phone)}${w.rel ? ' <span class="small muted">' + h(w.rel) + '</span>' : ''}` : ''}${it.tone === 'bad' && !it.done ? ' <span class="chip bad">срочно</span>' : ''}</div>
+    <div class="pl-t">${h(text)}</div>${it.done || !btns ? '' : `<div class="row pl-a">${btns}</div>`}</div></li>`;
+}
+function vPlan() {
+  const P = dayPlan(), t = P.t, dw = D.dow(t), hol = ix.holiday.get(t);
+  const head = `<div class="topline"><div><h1>План на ${DOW_FULL[dw]}, ${D.ru(t)}</h1><div class="muted">${P.total ? `Сделано ${P.doneN} из ${P.total}` : 'Дел на сегодня нет'}</div></div>
+    <div class="row no-print"><button class="btn" data-act="plan-print">Печать</button><button class="btn" data-act="plan-word">В Word</button><a class="btn" href="#today">Сегодня</a></div></div>
+    <div class="card"><b>Тренировки сегодня:</b> ${hol ? 'нерабочий день (' + h(hol) + ')' : P.groups.length ? P.groups.map(h).join(', ') : 'по расписанию нет'}</div>`;
+  const secs = P.secs.map(([k, title, L], i) => `<div class="card flat plan-sec ps-${k}"><div class="plan-h">${i + 1}. ${h(title)} <span class="muted small">${L.filter(it => !it.done).length}</span></div><ul class="plan">${L.map(planRow).join('')}</ul></div>`).join('');
+  const info = P.info.length ? `<div class="card"><h2>Для сведения</h2><ul class="plan-info">${P.info.map(s => `<li>${h(s)}</li>`).join('')}</ul></div>` : '';
+  return head + (secs || '<div class="card"><div class="empty">Всё сделано — писать и напоминать сегодня некому.</div></div>') + info
+    + '<p class="small muted no-print">Квадратик — «сделано»: строка зачёркивается до конца дня. «Написать» открывает готовый текст; после отправки строка отмечается сама, а в абонементе ставится метка ✉ или 📅. Аренда напоминается за 3 дня и каждый день до оплаты; квадратик у неё — внести расход. У чека квадратик — «чек выбит».</p>';
+}
+function planDoc() {                                      // для печати и Word: только суть и телефон
+  const P = dayPlan(), t = P.t, hol = ix.holiday.get(t);
+  const row = it => { const x = it.x || {}, w = planWho(it), rc = x.recur;
+    return `<tr><td style="width:14pt;text-align:center;font-size:12pt">${it.done ? '☑' : '☐'}</td><td style="width:30%">${it.tone === 'bad' && !it.done ? '<b>(!)</b> ' : ''}<b>${h(rc ? rc.name : w.name)}</b>${w.phone ? '<br>' + h(fmtPhone(w.phone)) + (w.rel ? ' (' + h(w.rel) + ')' : '') : ''}</td><td${it.done ? ' style="text-decoration:line-through"' : ''}>${h(rc ? planRecurText(rc) : it.text)}</td></tr>`; };
+  return `<h2 style="margin:0 0 4pt">План на ${DOW_FULL[D.dow(t)]}, ${D.ru(t)}</h2><p style="margin:0 0 8pt">${h(db.settings.club || 'Club D23')}. Тренировки сегодня: ${hol ? 'нерабочий день' : P.groups.length ? P.groups.map(h).join(', ') : 'по расписанию нет'}.${P.total ? ` Дел: ${P.total}, сделано ${P.doneN}.` : ''} (!) — срочно.</p>`
+    + (P.secs.map(([k, title, L], i) => `<h3>${i + 1}. ${h(title)}</h3><table>${L.map(row).join('')}</table>`).join('') || '<p>Дел на сегодня нет.</p>')
+    + (P.info.length ? `<h3>Для сведения</h3>${P.info.map(s => `<p style="margin:0 0 2pt">• ${h(s)}</p>`).join('')}` : '');
 }
 
 /* ---------- ПОСЕЩЕНИЯ ---------- */
@@ -3172,7 +3332,7 @@ function finAttention(out) {                        // пункты «Требу
   for (const x of recurOpen(db, t, items)) {
     if (x.date > D.add(t, 3)) continue;
     const amt = Math.max(0, (+x.r.amount || 0) - x.paid);
-    out.push({ tone: x.date < t ? 'bad' : 'warn', text: `${finCat(db, 'out', x.r.cat).name}${x.r.note ? ' (' + x.r.note + ')' : ''} за ${ymRu(x.ym)}: ${rubN(amt)} ₽ — оплатить до ${D.ru(x.date)}. Оплатили — внесите расход («Деньги» → «Оплачено»)`, go: '#money' });
+    out.push({ tone: x.date < t ? 'bad' : 'warn', text: `${finCat(db, 'out', x.r.cat).name}${x.r.note ? ' (' + x.r.note + ')' : ''} за ${ymRu(x.ym)}: ${rubN(amt)} ₽ — оплатить до ${D.ru(x.date)}. Оплатили — внесите расход («Деньги» → «Оплачено»)`, go: '#money', recur: { rec: x.r.id, ym: x.ym, amt, due: x.date, name: finCat(db, 'out', x.r.cat).name + (x.r.note ? ' (' + x.r.note + ')' : '') } });
   }
   for (const m of taxAll(db, items, t)) {
     if (!m.closed || m.left <= 0 || m.ym < ymOf(F.start)) continue;
@@ -3181,7 +3341,7 @@ function finAttention(out) {                        // пункты «Требу
   }
   const un = uncheckedItems(db, items, t);
   if (un.length) { const late = un.filter(x => x.late).length;
-    out.push({ tone: late ? 'bad' : 'muted', text: `Чеки в «Мой налог» не отмечены: ${un.length} ${plural(un.length, 'оплата', 'оплаты', 'оплат')} на ${rubN(un.reduce((n, x) => n + x.amount - x.refund, 0))} ₽${late ? `, срок прошёл у ${late}` : ''}`, go: '#money/tax' }); }
+    out.push({ tone: late ? 'bad' : 'muted', text: `Чеки в «Мой налог» не отмечены: ${un.length} ${plural(un.length, 'оплата', 'оплаты', 'оплат')} на ${rubN(un.reduce((n, x) => n + x.amount - x.refund, 0))} ₽${late ? `, срок прошёл у ${late}` : ''}`, go: '#money/tax', checks: true }); }
   const noAcc = items.filter(x => x.src === 'sub' && !x.acc && x.date >= F.start).length;
   if (noAcc) out.push({ tone: 'warn', text: `У ${noAcc} ${plural(noAcc, 'оплаты', 'оплат', 'оплат')} не указано, наличными или переводом — остатки по счетам неточные`, go: '#money/ops', accFix: true });
 }
@@ -4274,6 +4434,9 @@ const ACT = {
   'msg-share': () => { navigator.share({ text: $('#msg-text').value }).then(msgSent).catch(() => {}); },
   'msg-copy': () => { const t = $('#msg-text'); t.select(); (navigator.clipboard ? navigator.clipboard.writeText(t.value) : Promise.reject()).then(() => toast('Скопировано')).catch(() => { document.execCommand('copy'); toast('Скопировано'); }); msgSent(); },
   'attn-done': el => attnMark(el.dataset.key, true),
+  'plan-done': el => { const K = el.dataset.key.split('\n'), on = !K.every(k => (db.attnDone || {})[k] === ix.today); K.forEach(k => attnMark(k, on)); },
+  'plan-print': () => openPrint('План на ' + D.ru(ix.today), planDoc(), 'h3{margin:12pt 0 3pt}table{border-collapse:collapse;width:100%}td{border:1px solid #000;padding:3pt 5pt;vertical-align:top}'),
+  'plan-word': () => download('D23_план_' + ix.today + '.doc', WORD_HEAD + planDoc() + '</body></html>', 'application/msword'),
   'attn-undo': el => attnMark(el.dataset.key, false),
   'test-add': () => openTestAdd(), 'test-protocol': () => printProtocol(),
   'test-del': el => { if (!confirm('Удалить строку сдачи?')) return; db.tests = db.tests.filter(t => t.id !== el.dataset.id); render.keepScroll = true; persist(); },
