@@ -168,6 +168,8 @@ ul.plan > .pl:first-child{border-top:0} .pl.t-bad{border-left-color:var(--bad)} 
 .pl-cb.on{background:var(--ok);border-color:var(--ok)} .pl-b{flex:1;min-width:0} .pl-h{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline} .pl-t{margin-top:2px}
 .pl.done .pl-t,.pl.done .pl-h b{color:var(--muted);text-decoration:line-through} .pl-a{margin-top:6px;gap:6px} .plan-info{margin:0;padding-left:20px}
 .alert .txt{flex:1;min-width:0}
+.warned{display:inline-block;background:var(--ok);color:#fff;font-weight:700;font-size:.85rem;border-radius:6px;padding:1px 8px;margin-left:4px;white-space:nowrap}
+.alert.is-warned{border-left-color:var(--ok);background:#F1F8F3} .alert.is-warned .dot{background:var(--ok)} .alert.is-warned .dot::before{content:'✓'}
 .banner{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--warn-bg);border:1px solid #EBCF9F;color:#5B3A06;border-radius:var(--r);padding:12px 14px;margin-bottom:14px}
 .stat{display:flex;flex-direction:column}
 .stat b{font-size:1.5rem;font-variant-numeric:tabular-nums;line-height:1.1}
@@ -1917,6 +1919,8 @@ function attention() {
 
 /* ---------- СЕГОДНЯ ---------- */
 /* «Требует внимания»: отметка «сделано». Ключ — человек + текст пункта: изменилась ситуация (другой остаток, дата) — пункт появится снова */
+/* текст пункта: «— предупреждён ДД.ММ» — зелёной меткой */
+function attnTxt(t) { return h(t).replace(/ — (предупреждён \d\d\.\d\d)/, ' <span class="warned">✉ $1</span>'); }
 const attnKey = x => (x.a ? x.a.id : '') + '|' + x.text;
 function attnMark(key, on) {
   db.attnDone = db.attnDone || {};
@@ -1970,7 +1974,7 @@ function vToday() {
   ${trialsCard()}
   ${bdays.length ? `<div class="card flat"><div style="padding:14px 16px 4px"><h2>Дни рождения на неделе</h2></div><ul class="list">${bdays.map(x => `<li class="click" data-go="#person/${x.a.id}"><div class="who"><b>${h(fullName(x.a))}</b><span class="small">${x.k === 0 ? '<b>сегодня</b>' : x.k === 1 ? 'завтра' : DOW_FULL[D.dow(x.d)]}, ${D.ru(x.d)} · исполняется ${x.age} ${plural(x.age, 'год', 'года', 'лет')}</span></div><span class="chip">${h(x.a.group || '')}</span></li>`).join('')}</ul></div>` : ''}
   <div class="card flat"><div style="padding:14px 16px 6px"><h2>Требует внимания <span class="muted small">${al.length || ''}${done.length ? ' · сделано ' + done.length : ''}</span></h2></div>
-    ${al.length ? alertSections(al, x => `<div class="alert ${x.tone}"><span class="dot"></span><div class="txt">${h(x.text)}</div>
+    ${al.length ? alertSections(al, x => `<div class="alert ${x.tone}${/ — предупреждён \d/.test(x.text) ? ' is-warned' : ''}"><span class="dot"></span><div class="txt">${attnTxt(x.text)}</div>
       <div class="row">${x.tpl ? `<button class="btn sm" data-act="msg" data-id="${x.a.id}" data-tpl="${h(x.tpl)}"${x.sub ? ` data-sub="${x.sub}"` : ''} data-key="${h(attnKey(x))}" data-extra='${h(JSON.stringify(x.extra || {}))}'>Написать</button>` : ''}
       ${x.paid ? `<button class="btn sm" data-act="sub-paid" data-id="${x.paid}">Оплачено</button>` : ''}${x.wait ? `<button class="btn sm" data-act="sub-wait" data-id="${x.a.id}">Ждём оплату</button>` : ''}${x.unpaid ? `<button class="btn sm" data-act="sub-new" data-id="${x.a.id}">Оплата</button><button class="btn sm" data-act="sub-wait" data-id="${x.a.id}">Ждём оплату</button><button class="btn sm" data-act="no-sub" data-id="${x.a.id}" title="Занимается бесплатно — больше не напоминать">Без абонемента</button>` : ''}
       ${x.act === 'freeze-new' ? `<button class="btn sm" data-act="freeze-new" data-id="${x.a.id}">Заморозка</button>` : ''}
@@ -1981,7 +1985,7 @@ function vToday() {
       ${x.go ? `<a class="btn sm" href="${x.go}">Открыть</a>` : ''}${x.ret ? `<button class="btn sm" data-act="pause-return" data-id="${x.ret}">Вернулся</button>` : ''}${x.lead ? `<button class="btn sm" data-act="lead-edit" data-id="${h(x.lead)}">Заявка</button>` : ''}
       ${x.a && !x.freeze ? `<a class="btn sm ghost" href="#person/${x.a.id}">Карточка</a>` : ''}<button class="btn sm attn-done" data-act="attn-done" data-key="${h(attnKey(x))}" title="Сделано — убрать из списка, пока ситуация не изменится">✓ Сделано</button></div></div>`)
       : `<div class="empty">${done.length ? 'Всё сделано.' : 'Всё в порядке: долгов, просроченных справок и заканчивающихся абонементов нет.'}</div>`}
-    ${done.length ? `<details class="attn-donelist"><summary class="small">Сделано: ${done.length}</summary>${done.map(x => `<div class="alert done"><span class="dot"></span><div class="txt">${h(x.text)}<span class="small muted"> · сделано ${D.ru(doneMap[attnKey(x)])}</span></div>
+    ${done.length ? `<details class="attn-donelist"><summary class="small">Сделано: ${done.length}</summary>${done.map(x => `<div class="alert done"><span class="dot"></span><div class="txt">${attnTxt(x.text)}<span class="small muted"> · сделано ${D.ru(doneMap[attnKey(x)])}</span></div>
       <div class="row">${x.a ? `<a class="btn sm ghost" href="#person/${x.a.id}">Карточка</a>` : ''}<button class="btn sm" data-act="attn-undo" data-key="${h(attnKey(x))}">Вернуть</button></div></div>`).join('')}</details>` : ''}</div>`;
 }
 
@@ -2100,7 +2104,7 @@ function planRow(it) {
     aid ? `<a class="btn sm ghost" href="#person/${h(aid)}">Карточка</a>` : '',
   ].filter(Boolean).join('');
   return `<li class="pl t-${it.tone || 'warn'}${it.done ? ' done' : ''}">${cb}<div class="pl-b"><div class="pl-h">${name ? `<b>${h(name)}</b>` : ''}${w.phone ? ` ${telLink(w.phone)}${w.rel ? ' <span class="small muted">' + h(w.rel) + '</span>' : ''}` : ''}${it.tone === 'bad' && !it.done ? ' <span class="chip bad">срочно</span>' : ''}</div>
-    <div class="pl-t">${h(text)}</div>${it.done || !btns ? '' : `<div class="row pl-a">${btns}</div>`}</div></li>`;
+    <div class="pl-t">${attnTxt(text)}</div>${it.done || !btns ? '' : `<div class="row pl-a">${btns}</div>`}</div></li>`;
 }
 function vPlan() {
   const P = dayPlan(), t = P.t, dw = D.dow(t), hol = ix.holiday.get(t);
