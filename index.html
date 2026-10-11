@@ -230,7 +230,7 @@ table.t tr.pend:hover td,table.t tr.rem1:hover td,table.t tr.rem2:hover td{filte
 .attn-sec.s-warn > .attn-h::before{background:var(--warn-fill)}
 .attn-sec.s-later > .attn-h{color:var(--ink-2);cursor:pointer;min-height:var(--tap)}
 .attn-sec .alert:first-of-type{border-top:0}
-.plan-sec{overflow:hidden} .plan-h{padding:12px 16px;font-weight:700;font-size:1.0625rem;background:var(--surface-2);border-bottom:1px solid var(--line);border-left:5px solid var(--line-strong)}
+.plan-sec{overflow:hidden} .plan-in{display:flex;flex-direction:column;gap:12px;padding:4px 12px 12px} .plan-in .plan-sec{border:1px solid var(--line);border-radius:var(--r)} .plan-h{padding:12px 16px;font-weight:700;font-size:1.0625rem;background:var(--surface-2);border-bottom:1px solid var(--line);border-left:5px solid var(--line-strong)}
 .ps-write .plan-h{border-left-color:var(--warn-fill)} .ps-train .plan-h{border-left-color:var(--sick-fill)} .ps-money .plan-h{border-left-color:var(--ok-fill)} .ps-later .plan-h{color:var(--ink-2)}
 ul.plan{list-style:none;margin:0;padding:0} .pl{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-top:1px solid var(--line);border-left:5px solid transparent}
 ul.plan > .pl:first-child{border-top:0} .pl.t-bad{border-left-color:var(--bad-fill)} .pl.t-warn{border-left-color:var(--warn-fill)} .pl.t-sick{border-left-color:var(--sick-fill)} .pl.t-ok{border-left-color:var(--ok-fill)} .pl.t-muted{border-left-color:var(--line-strong)}
@@ -277,6 +277,7 @@ dialog form{display:flex;flex-direction:column;max-height:92vh}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:var(--r);z-index:100;font-size:.9375rem;font-weight:600;box-shadow:var(--shadow-2);max-width:min(560px,calc(100vw - 24px));display:flex;align-items:center;gap:8px}
 @media (prefers-reduced-motion:no-preference){.toast{animation:toast-in var(--dur) ease-out}}
 @keyframes toast-in{from{opacity:0;transform:translate(-50%,8px)}}
+@keyframes toast-in-m{from{opacity:0;transform:translateY(8px)}}
 .picklist{max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:var(--r-s)}
 .picklist label{display:flex;gap:10px;align-items:center;padding:10px 12px;border-top:1px solid var(--line);cursor:pointer;min-height:var(--tap)}
 .picklist label:first-child{border-top:0}
@@ -307,7 +308,8 @@ dialog form{display:flex;flex-direction:column;max-height:92vh}
   .tabbar a.on{color:#fff}
   .tabbar a.on::before{content:"";position:absolute;top:0;left:28%;right:28%;height:3px;border-radius:0 0 3px 3px;background:#7FD7B0}
   .tabbar svg{width:24px;height:24px}
-  .toast{bottom:76px}
+  .toast{bottom:76px;left:12px;right:12px;transform:none;max-width:none;animation-name:toast-in-m}
+  .toast .btn{margin-left:auto}
   .list > li{padding:12px}
   .mk{width:48px;height:48px}
   .marks{gap:6px}
@@ -2053,6 +2055,7 @@ function alertSections(list, fn) {
 }
 function vToday() {
   const t = ix.today, dw = D.dow(t);
+  const mode = meta.todayMode === 'plan' ? 'plan' : 'urg', P = mode === 'plan' ? dayPlan() : null;   // «По срочности» или «План на день» (запоминается на устройстве)
   const hol = ix.holiday.get(t);
   const planned = db.settings.groups.filter(g => daysOn(g, t)[dw]);
   const todaySessions = ix.sessionsSorted.filter(s => s.date === t);
@@ -2071,14 +2074,16 @@ function vToday() {
   const banner = dirty() && (!meta.lastExport || Date.now() - Date.parse(meta.lastExport) > 3 * 3600e3)
     ? `<div class="banner no-print"><div class="spacer">${meta.lastExport ? 'Есть изменения после копии от ' + new Date(meta.lastExport).toLocaleString('ru', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'Копия данных ещё ни разу не сохранялась'}. Сохраните копию, прежде чем работать на другом устройстве.</div><button class="btn primary" data-act="export">Сохранить копию</button></div>` : '';
   return `${banner}
-  <div class="topline"><div><h1>${DOW_FULL[dw][0].toUpperCase() + DOW_FULL[dw].slice(1)}, ${D.ru(t)}</h1><div class="muted">Занимается: ${active}${days != null ? ' · до «' + h(comp.name) + '» ' + days + ' ' + plural(days, 'день', 'дня', 'дней') : ''}</div></div><div class="row no-print"><a class="btn primary" href="#plan">План на день</a></div></div>
+  <div class="topline"><div><h1>${DOW_FULL[dw][0].toUpperCase() + DOW_FULL[dw].slice(1)}, ${D.ru(t)}</h1><div class="muted">Занимается: ${active}${days != null ? ' · до «' + h(comp.name) + '» ' + days + ' ' + plural(days, 'день', 'дня', 'дней') : ''}</div></div></div>
   <div class="card"><h2>Тренировки сегодня</h2>
     ${hol ? `<p class="muted">Нерабочий день: ${h(hol)}. Занятия не идут в срок абонементов.</p>` : ''}
     <div class="today-groups">${groupsBtns || '<span class="muted">По расписанию занятий нет.</span>'}
       <button class="btn" data-act="open-session-pick">Другая группа или дата</button><button class="btn" data-act="gmsg">Сообщение группе</button></div></div>
   ${trialsCard()}
   ${bdays.length ? `<div class="card flat"><div style="padding:14px 16px 4px"><h2>Дни рождения на неделе</h2></div><ul class="list">${bdays.map(x => `<li class="click" data-go="#person/${x.a.id}"><div class="who"><b>${h(fullName(x.a))}</b><span class="small">${x.k === 0 ? '<b>сегодня</b>' : x.k === 1 ? 'завтра' : DOW_FULL[D.dow(x.d)]}, ${D.ru(x.d)} · исполняется ${x.age} ${plural(x.age, 'год', 'года', 'лет')}</span></div><span class="chip">${h(x.a.group || '')}</span></li>`).join('')}</ul></div>` : ''}
-  <div class="card flat"><div style="padding:14px 16px 6px"><h2>Требует внимания <span class="muted small">${al.length || ''}${done.length ? ' · сделано ' + done.length : ''}</span></h2></div>
+  <div class="card flat"><div class="row" style="padding:14px 16px 8px;gap:10px 12px"><h2 style="margin:0;flex:1 1 220px">Требует внимания <span class="muted small">${mode === 'plan' ? (P.total ? 'сделано ' + P.doneN + ' из ' + P.total : '') : (al.length || '') + (done.length ? ' · сделано ' + done.length : '')}</span></h2>
+    <div class="seg no-print" role="group" aria-label="Вид списка">${[['urg', 'По срочности'], ['plan', 'План на день']].map(([m, l]) => `<button type="button" data-act="today-mode" data-m="${m}" class="${mode === m ? 'on' : ''}" aria-pressed="${mode === m}">${l}</button>`).join('')}</div></div>
+    ${mode === 'plan' ? planBody(P) + '</div>' : `
     ${al.length ? alertSections(al, x => `<div class="alert ${x.tone}${/ — предупреждён \d/.test(x.text) ? ' is-warned' : ''}"><span class="dot"></span><div class="txt">${attnTxt(x.text)}</div>
       <div class="row">${x.tpl ? `<button class="btn sm" data-act="msg" data-id="${x.a.id}" data-tpl="${h(x.tpl)}"${x.sub ? ` data-sub="${x.sub}"` : ''} data-key="${h(attnKey(x))}" data-extra='${h(JSON.stringify(x.extra || {}))}'>Написать</button>` : ''}
       ${x.paid ? `<button class="btn sm" data-act="sub-paid" data-id="${x.paid}">Оплачено</button>` : ''}${x.wait ? `<button class="btn sm" data-act="sub-wait" data-id="${x.a.id}">Ждём оплату</button>` : ''}${x.unpaid ? `<button class="btn sm" data-act="sub-new" data-id="${x.a.id}">Оплата</button><button class="btn sm" data-act="sub-wait" data-id="${x.a.id}">Ждём оплату</button><button class="btn sm" data-act="no-sub" data-id="${x.a.id}" title="Занимается бесплатно — больше не напоминать">Без абонемента</button>` : ''}
@@ -2091,7 +2096,7 @@ function vToday() {
       ${x.a && !x.freeze ? `<a class="btn sm ghost" href="#person/${x.a.id}">Карточка</a>` : ''}<button class="btn sm attn-done" data-act="attn-done" data-key="${h(attnKey(x))}" title="Сделано — убрать из списка, пока ситуация не изменится">✓ Сделано</button></div></div>`)
       : `<div class="empty">${done.length ? 'Всё сделано.' : 'Всё в порядке: долгов, просроченных справок и заканчивающихся абонементов нет.'}</div>`}
     ${done.length ? `<details class="attn-donelist"><summary class="small">Сделано: ${done.length}</summary>${done.map(x => `<div class="alert done"><span class="dot"></span><div class="txt">${attnTxt(x.text)}<span class="small muted"> · сделано ${D.ru(doneMap[attnKey(x)])}</span></div>
-      <div class="row">${x.a ? `<a class="btn sm ghost" href="#person/${x.a.id}">Карточка</a>` : ''}<button class="btn sm" data-act="attn-undo" data-key="${h(attnKey(x))}">Вернуть</button></div></div>`).join('')}</details>` : ''}</div>`;
+      <div class="row">${x.a ? `<a class="btn sm ghost" href="#person/${x.a.id}">Карточка</a>` : ''}<button class="btn sm" data-act="attn-undo" data-key="${h(attnKey(x))}">Вернуть</button></div></div>`).join('')}</details>` : ''}</div>`}`;
 }
 
 /* ---------- ПЛАН НА ДЕНЬ («секретарь») ---------- */
@@ -2211,15 +2216,13 @@ function planRow(it) {
   return `<li class="pl t-${it.tone || 'warn'}${it.done ? ' done' : ''}">${cb}<div class="pl-b"><div class="pl-h">${name ? `<b>${h(name)}</b>` : ''}${w.phone ? ` ${telLink(w.phone)}${w.rel ? ' <span class="small muted">' + h(w.rel) + '</span>' : ''}` : ''}${it.tone === 'bad' && !it.done ? ' <span class="chip bad">срочно</span>' : ''}</div>
     <div class="pl-t">${attnTxt(text)}</div>${it.done || !btns ? '' : `<div class="row pl-a">${btns}</div>`}</div></li>`;
 }
-function vPlan() {
-  const P = dayPlan(), t = P.t, dw = D.dow(t), hol = ix.holiday.get(t);
-  const head = `<div class="topline"><div><h1>План на ${DOW_FULL[dw]}, ${D.ru(t)}</h1><div class="muted">${P.total ? `Сделано ${P.doneN} из ${P.total}` : 'Дел на сегодня нет'}</div></div>
-    <div class="row no-print"><button class="btn" data-act="plan-print">Печать</button><button class="btn" data-act="plan-word">В Word</button><a class="btn" href="#today">Сегодня</a></div></div>
-    <div class="card"><b>Тренировки сегодня:</b> ${hol ? 'нерабочий день (' + h(hol) + ')' : P.groups.length ? P.groups.map(h).join(', ') : 'по расписанию нет'}</div>`;
-  const secs = P.secs.map(([k, title, L], i) => `<div class="card flat plan-sec ps-${k}"><div class="plan-h">${i + 1}. ${h(title)} <span class="muted small">${L.filter(it => !it.done).length}</span></div><ul class="plan">${L.map(planRow).join('')}</ul></div>`).join('');
-  const info = P.info.length ? `<div class="card"><h2>Для сведения</h2><ul class="plan-info">${P.info.map(s => `<li>${h(s)}</li>`).join('')}</ul></div>` : '';
-  return head + (secs || '<div class="card"><div class="empty">Всё сделано — писать и напоминать сегодня некому.</div></div>') + info
-    + '<p class="small muted no-print">Квадратик — «сделано»: строка зачёркивается до конца дня. «Написать» открывает готовый текст; после отправки строка отмечается сама, а в абонементе ставится метка ✉ или 📅. Аренда напоминается за 3 дня и каждый день до оплаты; квадратик у неё — внести расход. У чека квадратик — «чек выбит».</p>';
+function vPlan() { meta.todayMode = 'plan'; writeMeta(); return vToday(); }   // адрес #plan — «Сегодня» с открытым планом
+function planBody(P) {                                    // «План на день» внутри карточки «Требует внимания»
+  const secs = P.secs.map(([k, title, L], i) => `<div class="plan-sec ps-${k}"><div class="plan-h">${i + 1}. ${h(title)} <span class="muted small">${L.filter(it => !it.done).length}</span></div><ul class="plan">${L.map(planRow).join('')}</ul></div>`).join('');
+  const info = P.info.length ? `<div class="plan-sec"><div class="plan-h">Для сведения</div><ul class="plan-info" style="padding:10px 16px 12px 36px">${P.info.map(s => `<li>${h(s)}</li>`).join('')}</ul></div>` : '';
+  return `<div class="row no-print" style="padding:0 16px 4px;justify-content:flex-end"><button class="btn sm" data-act="plan-print">Печать</button><button class="btn sm" data-act="plan-word">В Word</button></div>
+    <div class="plan-in">${secs || '<div class="empty">Всё сделано — писать и напоминать сегодня некому.</div>'}${info}</div>
+    <p class="small muted no-print" style="margin:0;padding:4px 16px 16px">Квадратик — «сделано»: строка зачёркивается до конца дня. «Написать» открывает готовый текст; после отправки строка отмечается сама, а в абонементе ставится метка ✉ или 📅. Аренда напоминается за 3 дня и каждый день до оплаты; квадратик у неё — внести расход. У чека квадратик — «чек выбит».</p>`;
 }
 function planDoc() {                                      // для печати и Word: только суть и телефон
   const P = dayPlan(), t = P.t, hol = ix.holiday.get(t);
@@ -4366,6 +4369,7 @@ function renameGroup(oldN, newN) {
 }
 const ACT = {
   'close': () => closeModal(),
+  'today-mode': el => { meta.todayMode = el.dataset.m === 'plan' ? 'plan' : ''; writeMeta(); if (route().v === 'plan') location.hash = '#today'; else rerender(); },
   'theme': el => { meta.theme = el.dataset.v || ''; writeMeta(); applyTheme(); rerender(); toast(meta.theme === 'dark' ? 'Тёмная тема' : meta.theme === 'light' ? 'Светлая тема' : 'Тема как в системе'); },
   'pause-return': el => { const a = db.athletes.find(x => x.id === el.dataset.id); if (!a) return;
     modal('Вернулся: ' + shortName(a), `<div class="fgrid">${F('from', 'На перерыве с', a.pauseFrom || '', 'date', 'max="' + ix.today + '"')}${F('to', 'Вернулся с', ix.today, 'date', 'required')}</div>
