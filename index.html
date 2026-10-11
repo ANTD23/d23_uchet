@@ -495,6 +495,26 @@ details.more-fields > summary{cursor:pointer;font-weight:600;color:var(--ink);mi
 .pay-res span{color:var(--ink)}
 @media (max-width:860px){.contacts{margin:14px -14px -14px} .subbox .big{font-size:2.5rem}}
 @media print{.subbox{background:none!important;border:1px solid #000}.contacts{margin:8px 0 0}}
+/* ===== окна подтверждения и сообщений (этап 5) ===== */
+dialog.ask{border:0;border-radius:16px;padding:0;width:min(480px,94vw);background:var(--surface);color:var(--ink);box-shadow:var(--shadow-2)}
+dialog.ask::backdrop{background:rgba(8,12,16,.55)}
+.ask-b{padding:22px 22px 6px}
+.ask-t{margin:0 0 12px;white-space:pre-line;font-size:1.0625rem;line-height:1.5}
+.ask-err{color:var(--bad);font-weight:600;margin:6px 0 0}
+.ask-f{display:flex;gap:8px;justify-content:flex-end;padding:12px 22px 20px;flex-wrap:wrap}
+.ask-f .btn{min-width:120px;min-height:48px;font-size:1rem}
+.btn.danger-fill{background:var(--bad-fill);border-color:var(--bad-fill);color:var(--on-fill)}
+.btn.danger-fill:hover{filter:brightness(1.08);background:var(--bad-fill)}
+@media (max-width:860px){dialog.ask{width:100%;max-width:100%;margin:auto 0 0;border-radius:20px 20px 0 0}.ask-f{padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}.ask-f .btn{flex:1}}
+/* экран PIN */
+.pin-screen{max-width:440px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:24px 16px}
+.pin-screen .card{padding:24px}
+.pin-logo{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;margin-bottom:20px}
+.pin-logo .mark-logo{width:56px;height:56px;border-radius:14px;font-size:1.125rem}
+.pin-logo h1{margin:4px 0 0} .pin-logo p{margin:0}
+.pin-input{min-height:60px!important;font-size:1.75rem!important;text-align:center;letter-spacing:.35em}
+.pin-err{color:var(--bad);font-weight:600;margin:8px 0 0}
+.pin-go{width:100%;min-height:56px;font-size:1.125rem;margin-top:14px}
 .toast .btn{margin-left:10px;min-height:36px;padding:0 14px;background:transparent;border-color:transparent;color:var(--bg);text-decoration:underline;text-underline-offset:3px}
 .toast .btn:hover{background:rgba(127,127,127,.2)}
 </style></head>
@@ -1636,7 +1656,7 @@ function writeDbRaw(payload) {                   // №9: при нехватк�
       while (!saved && l.length) { l.pop(); localStorage.setItem(LS_SNAP, JSON.stringify(l)); try { localStorage.setItem(LS_DB, payload); saved = true; } catch (_) {} }
     } catch (_) {}
     if (saved) return 'Мало места в браузере: удалены старые «Прежние версии». Сохраните копию в файл.';
-    alert('Не удалось сохранить: в браузере закончилось место. Последнее изменение НЕ сохранено. Сразу сохраните копию в файл (раздел «Данные»).');
+    notice('Не удалось сохранить: в браузере закончилось место. Последнее изменение НЕ сохранено. Сразу сохраните копию в файл (раздел «Данные»).');
     return '';
   }
 }
@@ -1701,11 +1721,12 @@ async function pinDisable() {
 }
 function pinHTML() {
   const wait = Math.max(0, Math.ceil((pinWaitUntil - Date.now()) / 1000));
-  return `<main style="max-width:420px;margin:12vh auto;padding:0 16px"><div class="card">
-    <div class="row" style="margin-bottom:10px"><div class="mark-logo" style="background:var(--logo);color:#fff">D23</div><h1 style="margin:0">Учёт Club D23</h1></div>
-    <form id="pin-form"><label class="f"><span>PIN-код</span><input type="password" name="pin" inputmode="numeric" autocomplete="off" autofocus required ${wait ? 'disabled' : ''}></label>
-    <button class="btn primary" style="margin-top:10px;width:100%" ${wait ? 'disabled' : ''}>Открыть</button></form>
-    ${wait ? `<p class="small" style="color:var(--bad)">Слишком много неверных попыток. Подождите ${wait} с.</p>` : pinFails ? `<p class="small" style="color:var(--bad)">Неверный PIN (попыток: ${pinFails}).</p>` : ''}
+  const err = wait ? `Слишком много неверных попыток. Подождите ${wait} с.` : pinFails ? `Неверный PIN (попыток: ${pinFails}). Проверьте раскладку и попробуйте ещё раз.` : '';
+  return `<main class="pin-screen"><div class="card">
+    <div class="pin-logo"><div class="mark-logo" style="background:var(--logo);color:#fff">D23</div><h1>Учёт Club D23</h1><p class="muted">Данные защищены PIN-кодом</p></div>
+    <form id="pin-form"><label class="f"><span>PIN-код</span><input class="pin-input" type="password" name="pin" inputmode="numeric" autocomplete="off" autofocus required ${err ? 'aria-invalid="true" aria-describedby="pin-err"' : ''} ${wait ? 'disabled' : ''}></label>
+    ${err ? `<p class="pin-err" id="pin-err" role="alert">${err}</p>` : ''}
+    <button class="btn primary pin-go" ${wait ? 'disabled' : ''}>Открыть</button></form>
     <details style="margin-top:14px"><summary class="small">Забыли PIN?</summary><p class="small">Данные в этом браузере зашифрованы, восстановить их без PIN нельзя — так и задумано. Копии, сохранённые с PIN, тоже открываются только им. Если есть незашифрованная копия или вы помните PIN другой копии, удалите данные отсюда и загрузите её.</p>
     <button class="btn danger sm" data-act="wipe">Удалить все данные из этого браузера</button></details></div></main>`;
 }
@@ -1729,7 +1750,7 @@ function importEncrypted(d, fname) {            // копия-файл, сохр
     if (!txt && keyCache.has(d.encSalt)) txt = await tryKey(keyCache.get(d.encSalt));
     if (txt) return applyImport(txt, fname);
     modal('Копия защищена PIN-кодом', `<p class="small">Файл «${h(fname)}» зашифрован. Введите PIN, с которым его сохранили.</p>${F('pin', 'PIN-код', '', 'password', 'inputmode="numeric" autocomplete="off" required')}`, { submit: 'Открыть', onSubmit(fd) {
-      deriveKey(fd.pin, d.encSalt).then(async k => { const t = await tryKey(k); if (!t) { alert('PIN не подходит к этой копии.'); return; } keyCache.set(d.encSalt, k); closeModal(); applyImport(t, fname); }).catch(showError);
+      deriveKey(fd.pin, d.encSalt).then(async k => { const t = await tryKey(k); if (!t) { notice('PIN не подходит к этой копии.'); return; } keyCache.set(d.encSalt, k); closeModal(); applyImport(t, fname); }).catch(showError);
       return false;
     } });
   })().catch(showError);
@@ -1877,6 +1898,30 @@ function toast(msg) {
   setTimeout(() => t.remove(), 2600);
 }
 const dirty = () => db && db.rev > (meta.exportedRev || 0);
+
+/* ---------- окна программы вместо системных alert / confirm / prompt ---------- */
+function uiDialog(msg, o) {
+  return new Promise(res => {
+    const d = document.createElement('dialog'); d.className = 'ask'; d.setAttribute('aria-modal', 'true');
+    d.innerHTML = `<form><div class="ask-b"><p class="ask-t"></p>${o.type ? `<label class="f"><span>Для подтверждения напишите: ${h(o.type)}</span><input type="text" name="t" autocomplete="off" autocapitalize="characters"></label><p class="ask-err" hidden>Слово не совпадает.</p>` : ''}</div>
+      <div class="ask-f">${o.cancel === false ? '' : `<button type="button" class="btn" data-v="no">${h(o.cancelText || 'Отмена')}</button>`}<button type="submit" class="btn ${o.danger ? 'danger-fill' : 'primary'}" data-v="yes">${h(o.ok)}</button></div></form>`;
+    d.querySelector('.ask-t').textContent = String(msg);
+    document.body.appendChild(d);
+    const done = v => { if (d.open) d.close(); d.remove(); res(v); };
+    const no = d.querySelector('[data-v="no"]'); if (no) no.addEventListener('click', () => done(false));
+    d.querySelector('form').addEventListener('submit', e => { e.preventDefault(); e.stopPropagation();
+      if (o.type) { const t = d.querySelector('[name=t]'); if (t.value.trim().toUpperCase() !== o.type) { d.querySelector('.ask-err').hidden = false; t.focus(); return; } }
+      done(true); });
+    d.addEventListener('cancel', e => { e.preventDefault(); done(o.cancel === false); });
+    d.showModal();
+    const f = o.type ? d.querySelector('[name=t]') : o.danger && no ? no : d.querySelector('[data-v="yes"]'); if (f) f.focus();
+  });
+}
+function ask(msg, o = {}) {                               // подтверждение: Promise<true/false>; «Удалить…» — красная кнопка «Удалить»
+  const m = String(msg), v = /^(Удалить|Уничтожить|Выключить)/.exec(m);
+  return uiDialog(m, { ok: o.ok || (v ? v[1] : 'Да'), danger: o.danger ?? (!!v && v[1] !== 'Выключить'), type: o.type });
+}
+function notice(msg) { return uiDialog(msg, { ok: 'Понятно', cancel: false }); }   // сообщение с одной кнопкой
 
 /* ---------- значки ---------- */
 const I = {
@@ -2394,7 +2439,8 @@ function docxBlob(blocks) {
   const bd = '<w:tblBorders>' + ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].map(k => `<w:${k} w:val="single" w:sz="4" w:space="0" w:color="000000"/>`).join('') + '</w:tblBorders>';
   const body = blocks.map(b => b.t !== 'table' ? para(b.runs, b)
     : `<w:tbl><w:tblPr><w:tblW w:w="${b.widths.reduce((a, c) => a + c, 0)}" w:type="dxa"/>${bd}<w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="40" w:type="dxa"/><w:left w:w="80" w:type="dxa"/><w:bottom w:w="40" w:type="dxa"/><w:right w:w="80" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${b.widths.map(w => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>`
-      + b.rows.map(r => `<w:tr><w:trPr><w:cantSplit/></w:trPr>${r.map((c, i) => `<w:tc><w:tcPr><w:tcW w:w="${b.widths[i]}" w:type="dxa"/></w:tcPr>${para(c, { after: 0 })}</w:tc>`).join('')}</w:tr>`).join('') + '</w:tbl>').join('');
+      + b.rows.map(r => { let col = 0; return `<w:tr><w:trPr><w:cantSplit/></w:trPr>${r.map(c => { const runs = Array.isArray(c) ? c : c.runs, span = Array.isArray(c) ? 1 : Math.max(1, c.span || 1), w = b.widths.slice(col, col + span).reduce((a, x) => a + x, 0); col += span;
+        return `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${span > 1 ? `<w:gridSpan w:val="${span}"/>` : ''}</w:tcPr>${para(runs, { after: 0 })}</w:tc>`; }).join('')}</w:tr>`; }).join('') + '</w:tbl>').join('');
   const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"', H = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>', R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/';
   return zipStore([
     ['[Content_Types].xml', `${H}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>`],
@@ -2403,6 +2449,48 @@ function docxBlob(blocks) {
     ['word/document.xml', `${H}<w:document ${W}><w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="850" w:right="850" w:bottom="850" w:left="850" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr></w:body></w:document>`],
     ['word/styles.xml', `${H}<w:styles ${W}><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:eastAsia="Arial" w:cs="Arial"/><w:sz w:val="21"/><w:szCs w:val="21"/><w:color w:val="000000"/><w:lang w:val="ru-RU"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="60" w:line="252" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style></w:styles>`],
   ], 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+}
+function htmlDocx(html) {                                 // HTML отчёта → .docx: заголовки, абзацы, списки, таблицы (с объединением ячеек); всё чёрным
+  const root = new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html').body.firstChild, B = [];
+  const skip = n => ['SCRIPT', 'STYLE', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA'].includes(n.tagName) || (n.classList && (n.classList.contains('no-print') || n.classList.contains('screen-only')));
+  const inl = (node, st = {}) => { const out = [];
+    node.childNodes.forEach(n => {
+      if (n.nodeType === 3) { const t = n.nodeValue.replace(/\s+/g, ' '); if (t) out.push({ text: t, ...st }); return; }
+      if (n.nodeType !== 1 || skip(n)) return;
+      if (n.tagName === 'BR') { out.push({ text: '', br: true }); return; }
+      const sty = n.getAttribute('style') || '', ns = { ...st };
+      if (['B', 'STRONG', 'TH'].includes(n.tagName) || /font-weight:\s*(bold|[6-9]00)/.test(sty)) ns.b = true;
+      if (['S', 'DEL'].includes(n.tagName) || /line-through/.test(sty)) ns.strike = true;
+      if (['P', 'DIV', 'LI'].includes(n.tagName) && out.length) out.push({ text: '', br: true });
+      out.push(...inl(n, ns)); });
+    return out; };
+  const tidy = r => { r = r.filter((x, i) => x.br || x.text); if (r[0] && !r[0].br) r[0].text = r[0].text.replace(/^\s+/, ''); const l = r[r.length - 1]; if (l && !l.br) l.text = l.text.replace(/\s+$/, ''); while (r.length && r[0].br) r.shift(); return r; };
+  const isBlock = n => n.nodeType === 1 && ['H1', 'H2', 'H3', 'H4', 'P', 'DIV', 'TABLE', 'UL', 'OL', 'SECTION', 'HR'].includes(n.tagName);
+  const table = t => {
+    const trs = [...t.querySelectorAll('tr')].filter(tr => tr.closest('table') === t);
+    const rows = trs.map(tr => [...tr.children].filter(c => /^T[DH]$/.test(c.tagName) && !skip(c)).map(c => ({ runs: tidy(inl(c, c.tagName === 'TH' ? { b: true } : {})), span: +c.getAttribute('colspan') || 1 })));
+    const n = Math.max(1, ...rows.map(r => r.reduce((a, c) => a + c.span, 0))), len = Array(n).fill(4), word = Array(n).fill(3);
+    rows.forEach(r => { let col = 0; r.forEach(c => { const txt = c.runs.map(x => x.text || '').join(' ');
+      if (c.span === 1) { len[col] = Math.max(len[col], Math.min(40, txt.length)); word[col] = Math.max(word[col], ...txt.split(/\s+/).map(w => w.length)); } col += c.span; }); });
+    const minW = word.map(w => w * 118 + 240), base = minW.reduce((a, x) => a + x, 0);     // столбец не уже самого длинного слова
+    let widths; if (base >= 10206) widths = minW.map(w => Math.floor(w * 10206 / base));
+    else { const tot = len.reduce((a, x) => a + x, 0), extra = 10206 - base; widths = minW.map((w, i) => Math.floor(w + extra * len[i] / tot)); }
+    B.push({ t: 'table', widths, rows });
+  };
+  const walk = node => node.childNodes.forEach(n => {
+    if (n.nodeType === 3) { if (n.nodeValue.trim()) B.push({ t: 'p', runs: tidy([{ text: n.nodeValue }]) }); return; }
+    if (n.nodeType !== 1 || skip(n)) return;
+    const tg = n.tagName;
+    if (tg === 'H1' || tg === 'H2') B.push({ t: 'p', runs: tidy(inl(n, { b: true, size: 28 })), before: B.length ? 200 : 0, after: 80, keep: true });
+    else if (tg === 'H3' || tg === 'H4') B.push({ t: 'p', runs: tidy(inl(n, { b: true, size: 23 })), before: 200, after: 60, keep: true });
+    else if (tg === 'TABLE') table(n);
+    else if (tg === 'UL' || tg === 'OL') n.querySelectorAll(':scope > li').forEach((li, i) => B.push({ t: 'p', runs: [{ text: tg === 'OL' ? (i + 1) + '. ' : '• ' }, ...tidy(inl(li))], after: 20 }));
+    else if (tg === 'HR') B.push({ t: 'p', runs: [] });
+    else if ([...n.childNodes].some(isBlock)) walk(n);
+    else { const r = tidy(inl(n)); if (r.length) B.push({ t: 'p', runs: r, before: B.length && B[B.length - 1].t === 'table' ? 100 : 0 }); }
+  });
+  walk(root);
+  return B;
 }
 function downloadBlob(name, blob) {
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
@@ -2756,7 +2844,7 @@ function applySections() {                         // разделы карто�
 }
 
 /* ---------- модальные окна ---------- */
-let dlgSubmit = null;
+let dlgSubmit = null, dlgBusy = false;
 function modal(title, body, { submit = 'Сохранить', onSubmit, extraBtn = '', wide = false } = {}) {
   let d = document.getElementById('dlg');
   if (!d) { d = document.createElement('dialog'); d.id = 'dlg'; document.body.appendChild(d); }
@@ -2798,7 +2886,10 @@ document.addEventListener('submit', e => {
   e.target.querySelectorAll('input[type=checkbox]').forEach(cb => { if (cb.name && !cb.name.endsWith('[]')) fd[cb.name] = cb.checked; });
   fd.__multi = {};
   e.target.querySelectorAll('input[type=checkbox][name$="[]"]:checked').forEach(cb => { (fd.__multi[cb.name] = fd.__multi[cb.name] || []).push(cb.value); });
+  if (dlgBusy) return;                              // форма ждёт ответа в окне подтверждения
   let ok; try { ok = dlgSubmit && dlgSubmit(fd); } catch (err) { showError(err); return; }
+  if (ok && typeof ok.then === 'function') { const fn = dlgSubmit; dlgBusy = true;
+    ok.then(v => { dlgBusy = false; if (v !== false && dlgSubmit === fn) closeModal(); }, err => { dlgBusy = false; showError(err); }); return; }
   if (dlgSubmit && ok !== false) closeModal();
 });
 const F = (name, label, val = '', type = 'text', extra = '') => `<label class="f"><span>${label}</span><input type="${type}" name="${name}" value="${h(val)}" ${extra}></label>`;
@@ -2831,11 +2922,11 @@ function openPerson(id, pre = {}, onNew = null) {
   const a = id ? ix.ath.get(id) : { status: 'занимается', ...pre };
   modal(id ? 'Изменить данные' : 'Новый спортсмен', personForm(a), {
     extraBtn: id ? `<button type="button" class="btn danger" data-act="person-del" data-id="${id}">Удалить</button>` : '',
-    onSubmit(fd) {
-      if (fd.medUntil && !fd.healthConsent) { alert('Дата медсправки — сведения о здоровье. Отметьте, что согласие получено, или очистите дату.'); return false; }
+    async onSubmit(fd) {
+      if (fd.medUntil && !fd.healthConsent) { notice('Дата медсправки — сведения о здоровье. Отметьте, что согласие получено, или очистите дату.'); return false; }
       const norm = s => String(s || '').trim().toLowerCase().replace(/ё/g, 'е');
       const twin = db.athletes.find(x => x.id !== id && norm(x.last) === norm(fd.last) && norm(x.first) === norm(fd.first) && (!fd.birth || !x.birth || x.birth === fd.birth));
-      if (twin && !confirm(`Уже есть: ${fullName(twin)}${twin.birth ? ', ' + D.ru(twin.birth) : ''} (${twin.status}). Это другой человек?\n\nЕсли тот же — нажмите «Отмена» и откройте его карточку.`)) return false;
+      if (twin && !await ask(`Уже есть: ${fullName(twin)}${twin.birth ? ', ' + D.ru(twin.birth) : ''} (${twin.status}). Это другой человек?\n\nЕсли тот же — нажмите «Отмена» и откройте его карточку.`)) return false;
       const t = id ? db.athletes.find(x => x.id === id) : { id: uid('a') };
       const wasLeft = !!id && t.status === 'ушёл', wasPaused = !!id && t.status === 'приостановил';
       for (const k of PERSON_FIELDS) t[k] = (fd[k] || '').trim();
@@ -2945,23 +3036,23 @@ function openSub(id, athleteId) {
   <div class="small" style="margin-top:4px">${r.end ? (r.endKind === 'fact' ? 'Последнее списанное занятие: ' : r.endKind === 'terminated' ? 'Договор прекращён: ' : 'Окончание по расписанию: ') + D.ru(r.end) : ''}${r.notifyBy ? ' · сообщить об окончании не позднее ' + D.ru(r.notifyBy) : ''}</div>${refundInfo(ix, p) && (+p.count || 0) > 1 && !r.terminated ? `<div class="small" style="margin-top:4px">При отказе от договора на сегодня — к возврату <b>${refundInfo(ix, p).sum.toLocaleString('ru')} ₽</b>${refundInfo(ix, p).price ? ' (' + refundInfo(ix, p).left + ' × ' + refundInfo(ix, p).price.toLocaleString('ru') + ' ₽' + (refundInfo(ix, p).own ? ', своя цена' : '') + ')' : ' (абонемент не активирован — вся сумма)'}, п. 10.4${ix.ath.get(p.athleteId) && ix.ath.get(p.athleteId).status === 'ушёл' ? ', договор прекращён ' + D.ru(ix.ath.get(p.athleteId).endedAt) : ''}</div>` : ''}</div>` : ''}`;
   modal(p ? 'Абонемент' : 'Новая оплата', body, {
     extraBtn: p ? `<button type="button" class="btn danger" data-act="sub-del" data-id="${p.id}">Удалить</button>${p.pending ? `<button type="button" class="btn primary" data-act="sub-paid" data-id="${p.id}">Оплачено сегодня</button>` : ''}<button type="button" class="btn" data-act="msg" data-id="${aid}" data-sub="${p.id}" data-tpl="Новый абонемент оплачен">Сообщение</button>` : '',
-    onSubmit(fd) {
-      if (!fd.athleteId) { alert('Выберите спортсмена'); return false; }
-      if (!(+fd.count >= 1)) { alert('Количество занятий должно быть не меньше 1'); return false; }
-      if (+fd.amount < 0) { alert('Сумма не может быть отрицательной'); return false; }
+    async onSubmit(fd) {
+      if (!fd.athleteId) { notice('Выберите спортсмена'); return false; }
+      if (!(+fd.count >= 1)) { notice('Количество занятий должно быть не меньше 1'); return false; }
+      if (+fd.amount < 0) { notice('Сумма не может быть отрицательной'); return false; }
       { const own = +fd.refundPrice || 0, auto = refundAuto({ amount: fd.amount, count: fd.count });
-        if (own < 0) { alert('Цена занятия не может быть отрицательной'); return false; }
-        if (own && auto && own < auto) { alert(`Цена занятия для возврата не может быть ниже расчётной: ${auto} ₽ (п. 10.4.2 договора — сумма ÷ число занятий, вверх до 10 ₽). Оставьте поле пустым или укажите ${auto} ₽ и больше.`); return false; } }
+        if (own < 0) { notice('Цена занятия не может быть отрицательной'); return false; }
+        if (own && auto && own < auto) { notice(`Цена занятия для возврата не может быть ниже расчётной: ${auto} ₽ (п. 10.4.2 договора — сумма ÷ число занятий, вверх до 10 ₽). Оставьте поле пустым или укажите ${auto} ₽ и больше.`); return false; } }
       const same = !p && db.subs.find(q => q.athleteId === fd.athleteId && q.payDate && q.payDate === fd.payDate && +q.count === +fd.count && (q.onlyGroup || '') === (fd.onlyGroup || ''));
-      if (same && !confirm(`У этого человека уже записана оплата ${D.ru(fd.payDate)} на ${same.count} зан. (${(+same.amount || 0).toLocaleString('ru')} ₽). Записать ещё одну?\n\nЕсли это повтор по ошибке — нажмите «Отмена».`)) return false;
+      if (same && !await ask(`У этого человека уже записана оплата ${D.ru(fd.payDate)} на ${same.count} зан. (${(+same.amount || 0).toLocaleString('ru')} ₽). Записать ещё одну?\n\nЕсли это повтор по ошибке — нажмите «Отмена».`)) return false;
       if (fd.start && !fd.pending) {                     // п. 9.3.2: новый не начинается, пока не истёк период текущего
         const prev = (ix.subsByAth.get(fd.athleteId) || []).filter(q => q !== p && (q.onlyGroup || '') === (fd.onlyGroup || '') && subFirst(ix, q) && subFirst(ix, q) < fd.start).pop();
         const pr = prev && ix.subCalc.get(prev.id);
-        if (pr && pr.remaining > 0 && !confirm(`Предыдущий абонемент (с ${D.ru(pr.first)}) ещё не истёк: осталось ${pr.remaining} зан. Если новый начнётся ${D.ru(fd.start)}, период предыдущего оборвётся (п. 9.3.2).\n\nОставьте дату активации пустой — новый начнётся сам после окончания текущего.\n\nВсё равно сохранить с этой датой?`)) return false;
+        if (pr && pr.remaining > 0 && !await ask(`Предыдущий абонемент (с ${D.ru(pr.first)}) ещё не истёк: осталось ${pr.remaining} зан. Если новый начнётся ${D.ru(fd.start)}, период предыдущего оборвётся (п. 9.3.2).\n\nОставьте дату активации пустой — новый начнётся сам после окончания текущего.\n\nВсё равно сохранить с этой датой?`)) return false;
       }
       const t = p || { id: uid('p') };
-      if (+fd.bonus < 0 || (fd.bonus !== '' && fd.bonus != null && !Number.isInteger(+fd.bonus))) { alert('Добавить занятий — целое число не меньше 0'); return false; }
-      if (+fd.bonus > 0 && !String(fd.bonusNote || '').trim()) { alert('Укажите причину продления — она будет видна в карточке и в истории изменений.'); return false; }
+      if (+fd.bonus < 0 || (fd.bonus !== '' && fd.bonus != null && !Number.isInteger(+fd.bonus))) { notice('Добавить занятий — целое число не меньше 0'); return false; }
+      if (+fd.bonus > 0 && !String(fd.bonusNote || '').trim()) { notice('Укажите причину продления — она будет видна в карточке и в истории изменений.'); return false; }
       Object.assign(t, { athleteId: fd.athleteId, payDate: fd.pending ? '' : fd.payDate, start: fd.start, count: +fd.count || 0, bonus: +fd.bonus > 0 ? +fd.bonus : '', bonusNote: +fd.bonus > 0 ? String(fd.bonusNote || '').trim() : '', amount: +fd.amount || 0, refundPrice: +fd.refundPrice > 0 ? +fd.refundPrice : '', onlyGroup: fd.onlyGroup, carryWas: +fd.carryWas || 0, carryMissed: +fd.carryMissed || 0, note: fd.note.trim(), pending: !!fd.pending, acc: fd.acc || '' });
       if (FN.orgs) t.payer = fd.payer || '';
       if (FN.checks !== false) t.check = fd.check ? (t.check || ix.today) : '';
@@ -3013,18 +3104,18 @@ function openFreeze(id, athleteId) {
     ${fc.remindBy ? `<dt>Напомнить клиенту (п. 9.5.6)</dt><dd>не позднее ${D.ru(fc.remindBy)}</dd>` : ''}</dl></div>` : ''}`;
   modal('Заморозка по болезни', body, {
     extraBtn: f ? `<button type="button" class="btn danger" data-act="freeze-del" data-id="${f.id}">Удалить</button><button type="button" class="btn" data-act="freeze-mark" data-id="${f.id}">Проставить «б» в журнале</button><button type="button" class="btn" data-act="msg" data-id="${aid}" data-sub="${f.subId}" data-tpl="Абонемент продлён">Сообщение</button>` : '',
-    onSubmit(fd) {
-      if (fd.to < fd.from) { alert('Дата окончания болезни раньше начала'); return false; }
-      if (!a.healthConsent && !confirm('В карточке не отмечено согласие на сведения о здоровье. Период болезни и справка — сведения о здоровье (п. 12.2 оферты).\n\nСохранить заморозку всё равно? (Лучше сначала получить согласие и отметить его в карточке.)')) return false;
-      if (!f && db.freezes.some(x => x.subId === fd.subId)) { alert('По п. 9.5.1 заморозка оформляется однократно за период абонемента — для этого абонемента она уже есть.'); return false; }
+    async onSubmit(fd) {
+      if (fd.to < fd.from) { notice('Дата окончания болезни раньше начала'); return false; }
+      if (!a.healthConsent && !await ask('В карточке не отмечено согласие на сведения о здоровье. Период болезни и справка — сведения о здоровье (п. 12.2 оферты).\n\nСохранить заморозку всё равно? (Лучше сначала получить согласие и отметить его в карточке.)')) return false;
+      if (!f && db.freezes.some(x => x.subId === fd.subId)) { notice('По п. 9.5.1 заморозка оформляется однократно за период абонемента — для этого абонемента она уже есть.'); return false; }
       const t = f || { id: uid('f'), athleteId: aid };
       Object.assign(t, { subId: fd.subId, from: fd.from, to: fd.to, returned: fd.returned, certDate: fd.certDate, note: fd.note.trim() });
       if (!f) db.freezes.push(t);
       persist('Заморозка сохранена');
-      if (!f) setTimeout(() => { if (confirm('Проставить «б» на занятиях группы за период болезни?')) markFreeze(t.id); }, 50);
-      else if (t.certDate) setTimeout(() => {          // справка получена — «н» за период болезни меняем на «б»
+      if (!f) setTimeout(async () => { if (await ask('Проставить «б» на занятиях группы за период болезни?')) markFreeze(t.id); }, 50);
+      else if (t.certDate) setTimeout(async () => {          // справка получена — «н» за период болезни меняем на «б»
         const a = ix.ath.get(t.athleteId); const n = db.sessions.filter(s => inGroupOn(a, s.group, s.date) && s.date >= t.from && s.date <= t.to && s.marks[a.id] === 'н').length;
-        if (n && confirm(`Справка получена. Заменить «н» на «б» за период болезни (${n} ${plural(n, 'занятие', 'занятия', 'занятий')})? Эти занятия не будут списаны.`)) markFreeze(t.id);
+        if (n && await ask(`Справка получена. Заменить «н» на «б» за период болезни (${n} ${plural(n, 'занятие', 'занятия', 'занятий')})? Эти занятия не будут списаны.`)) markFreeze(t.id);
       }, 50);
     },
   });
@@ -3048,7 +3139,7 @@ function openAward(id, athleteId) {
   modal(w ? 'Присвоение пояса' : 'Присвоить пояс', body, {
     extraBtn: w ? `<button type="button" class="btn danger" data-act="award-del" data-id="${w.id}">Удалить</button>` : '',
     onSubmit(fd) {
-      if (!fd.athleteId) { alert('Выберите спортсмена'); return false; }
+      if (!fd.athleteId) { notice('Выберите спортсмена'); return false; }
       const t = w || { id: uid('w') };
       Object.assign(t, { athleteId: fd.athleteId, date: fd.date, belt: fd.belt, stripes: +fd.stripes || 0, by: fd.by.trim(), note: fd.note.trim() });
       if (!w) db.awards.push(t);
@@ -3133,11 +3224,11 @@ function openTransfer(aid) {
   ${F('date', 'Переведён с даты (первое занятие в новой группе)', ix.today, 'date', 'required')}</div>
   <p class="small muted">Занятия до этой даты останутся в прежней группе, с этой даты человек в новой. На абонементы перевод не влияет: посещения считаются по человеку. Если в карточке группа уже поменяна вручную, укажите в поле «Из группы» прежнюю.</p>`;
   modal('Перевод в другую группу', body, { submit: 'Перевести', onSubmit(fd) {
-    if (!fd.to) { alert('Выберите новую группу'); return false; }
-    if (fd.from === fd.to) { alert('Группы «из» и «в» совпадают'); return false; }
+    if (!fd.to) { notice('Выберите новую группу'); return false; }
+    if (fd.from === fd.to) { notice('Группы «из» и «в» совпадают'); return false; }
     const t = db.athletes.find(x => x.id === aid);
     t.transfers = t.transfers || [];
-    if (t.transfers.some(x => x.date === fd.date && x.to === fd.to)) { alert('Такой перевод уже записан: с ' + D.ru(fd.date) + ' в «' + fd.to + '».'); return false; }
+    if (t.transfers.some(x => x.date === fd.date && x.to === fd.to)) { notice('Такой перевод уже записан: с ' + D.ru(fd.date) + ' в «' + fd.to + '».'); return false; }
     t.transfers.push({ id: uid('g'), date: fd.date, from: fd.from, to: fd.to });
     const last = [...t.transfers].sort((x, y) => x.date.localeCompare(y.date)).pop();
     t.group = last.to;
@@ -3238,7 +3329,7 @@ function openTestAdd() {
   <div class="picklist">${people.map(a => { const c = ix.athCalc.get(a.id), adm = calcAdmission(ix, a);
     return `<label><input type="checkbox" name="ids[]" value="${a.id}">${beltHTML(c.belt, c.stripes)}<span class="who"><b>${h(fullName(a))}</b><span class="small">${h(a.group)} · ${c.age ?? '?'} лет · допуск: ${h(adm.status)}</span></span></label>`; }).join('') || '<div class="empty">Нет занимающихся в выбранной группе</div>'}</div>`;
   modal('Добавить участников', body, { submit: 'Добавить', onSubmit(fd) {
-    const ids = fd.__multi['ids[]'] || []; if (!ids.length) { alert('Отметьте хотя бы одного человека'); return false; }
+    const ids = fd.__multi['ids[]'] || []; if (!ids.length) { notice('Отметьте хотя бы одного человека'); return false; }
     for (const id of ids) { const a = ix.ath.get(id), c = ix.athCalc.get(id);
       db.tests.push({ id: uid('t'), date: fd.date, athleteId: id, group: a.group, belt: c.belt, target: fd.target, trackManual: '', res: {}, relief: {}, place: 'нет', note: '' }); }
     ui.attest.date = fd.date; persist(`Добавлено: ${ids.length}`);
@@ -3249,12 +3340,12 @@ function printProtocol() {
   const rows = db.tests.filter(t => t.date === U.date && (U.group === 'все' || t.group === U.group)).map(t => ({ t, a: ix.ath.get(t.athleteId), r: calcTest(ix, t) })).filter(x => x.a).sort((x, y) => fullName(x.a).localeCompare(fullName(y.a), 'ru'));
   const w = window.open('', '_blank');
   const nrm = (x, k) => { const p = x.r.per && x.r.per[k]; return p && p.norm !== '' && p.norm != null ? p.norm : '—'; };
-  w.document.write(`<html><head><meta charset="utf-8"><title>Протокол ${D.ru(U.date)}</title><style>body{font:11pt Arial,sans-serif;margin:12mm}table{border-collapse:collapse;width:100%}*{color:#000}td,th{border:1px solid #000;padding:5px 6px;text-align:center}td:nth-child(2){text-align:left}th{font-size:9pt;border-bottom:2px solid #000}.n{font-size:8pt;font-style:italic}tr{page-break-inside:avoid}</style></head><body>
+  w.document.write(`<html><head><meta charset="utf-8"><title>Протокол ${D.ru(U.date)}</title><style>body{font:11pt Arial,sans-serif;margin:12mm}table{border-collapse:collapse;width:100%}*{color:#000}td,th{border:1px solid #000;padding:5px 6px;text-align:center}td:nth-child(2){text-align:left}th{font-size:9pt;border-bottom:2px solid #000}.n{font-size:8pt;font-style:italic}tr{page-break-inside:avoid}${PRINT_NOHF}</style></head><body><table class="pp-wrap"><thead><tr><td></td></tr></thead><tbody><tr><td>
   <h2 style="margin:0">Протокол сдачи нормативов (этап 1)</h2><p>${h(db.settings.club)}<br>Дата: ${D.ru(U.date)}${U.group !== 'все' ? ' · группа: ' + h(U.group) : ''}</p>
   <table><tr><th>№</th><th>ФИО</th><th>Возр.</th><th>Цель</th><th>Прыжок, см<br>1 / 2 / 3</th><th>Подтяг.</th><th>Отжим.</th><th>Скруч.</th><th>Рукоход</th><th>Итог</th></tr>
   ${rows.map((x, i) => `<tr><td>${i + 1}</td><td>${h(fullName(x.a))}</td><td>${x.r.age ?? ''}</td><td>${h(x.t.target)}</td><td><span class="n">норма ${nrm(x, 'jump')}</span><br>&nbsp;</td><td><span class="n">${nrm(x, 'pull')}${x.r.pullKind === 'вис, сек' ? ' с вис' : ''}</span><br>&nbsp;</td><td><span class="n">${nrm(x, 'push')}${x.r.pushKind === 'с колен' ? ' с колен' : ''}</span><br>&nbsp;</td><td><span class="n">${nrm(x, 'crunch')}</span><br>&nbsp;</td><td><span class="n">${x.r.monMode === 'нет' ? 'не сдают' : nrm(x, 'mon')}</span><br>&nbsp;</td><td></td></tr>`).join('')}</table>
   <p class="n">Нормы указаны без учёта послаблений. Рукоход — только вместо одного не сданного упражнения.</p>
-  <p style="margin-top:28px">Тренер: ____________________ ${h(db.settings.coachMain)}</p><script>window.print()<\/script></body></html>`);
+  <p style="margin-top:28px">Тренер: ____________________ ${h(db.settings.coachMain)}</p></td></tr></tbody><tfoot><tr><td></td></tr></tfoot></table><script>window.print()<\/script></body></html>`);
   w.document.close();
 }
 function vBelts() {
@@ -3593,9 +3684,9 @@ function openCoach(id) {
     ${F('fixed', 'Фикс в месяц, ₽', v.fixed || '', 'number', 'min="0" step="1" inputmode="numeric"')}${F('perSession', 'За проведённое занятие, ₽', v.perSession || '', 'number', 'min="0" step="1" inputmode="numeric"')}${F('pct', 'Процент от оплат групп, %', v.pct || '', 'number', 'min="0" max="100" step="0.5" inputmode="decimal"')}
     <div class="wide"><div class="small" style="margin-bottom:4px"><b>Группы тренера</b> — для расчёта по занятиям и проценту</div><div class="row" style="gap:6px 14px">${db.settings.groups.map(g => `<label class="row small" style="gap:6px"><input type="checkbox" name="groups[]" value="${h(g.name)}" ${(v.groups || []).includes(g.name) ? 'checked' : ''} style="width:18px;height:18px">${h(g.name)}</label>`).join('')}</div></div></div>`,
   { extraBtn: c ? `<button type="button" class="btn danger" data-act="coach-del" data-id="${h(c.id)}" ${paid ? 'title="Есть выплаты — укажите дату «работал по»"' : ''}>Удалить</button>` : '', onSubmit(fd) {
-    const nm = String(fd.name || '').trim(); if (!nm) { alert('Укажите ФИО'); return false; }
-    if (+fd.pct > 100 || +fd.pct < 0 || +fd.fixed < 0 || +fd.perSession < 0) { alert('Проверьте суммы и процент'); return false; }
-    if (fd.to && fd.from && fd.to < fd.from) { alert('Дата «по» раньше даты «с»'); return false; }
+    const nm = String(fd.name || '').trim(); if (!nm) { notice('Укажите ФИО'); return false; }
+    if (+fd.pct > 100 || +fd.pct < 0 || +fd.fixed < 0 || +fd.perSession < 0) { notice('Проверьте суммы и процент'); return false; }
+    if (fd.to && fd.from && fd.to < fd.from) { notice('Дата «по» раньше даты «с»'); return false; }
     const t = c || { id: uid('c') };
     Object.assign(t, { name: nm, from: fd.from || '', to: fd.to || '', fixed: +fd.fixed || 0, perSession: +fd.perSession || 0, pct: +fd.pct || 0, groups: fd.__multi['groups[]'] || [] });
     if (!c) S.coaches.push(t);
@@ -3631,13 +3722,13 @@ function openOp(id, pre = {}) {
   ${rec ? `<p class="small muted">Регулярный платёж: ${h(finCat(db, 'out', rec.cat).name)}, ${rub(rec.amount)} до ${rec.day}-го числа.</p>` : ''}`;
   modal(o ? T[kind] : 'Новая операция: ' + T[kind].toLowerCase(), body, {
     extraBtn: o ? `<button type="button" class="btn danger" data-act="op-del" data-id="${h(o.id)}">Удалить</button>` : '',
-    onSubmit(fd) {
+    async onSubmit(fd) {
       const amount = Math.round(+fd.amount || 0);
-      if (!fd.date) { alert('Укажите дату'); return false; }
-      if (!(amount > 0)) { alert('Сумма должна быть больше нуля'); return false; }
-      if (kind === 'move' && fd.acc === fd.to) { alert('Счета «откуда» и «куда» совпадают'); return false; }
-      if (kind === 'out' && fd.cat === 'salary' && !fd.coach) { alert('Выберите тренера'); return false; }
-      if (S.start && fd.date < S.start && !confirm(`Дата раньше начала учёта денег (${D.ru(S.start)}): операция войдёт в отчёты, но не в остатки по счетам. Сохранить?`)) return false;
+      if (!fd.date) { notice('Укажите дату'); return false; }
+      if (!(amount > 0)) { notice('Сумма должна быть больше нуля'); return false; }
+      if (kind === 'move' && fd.acc === fd.to) { notice('Счета «откуда» и «куда» совпадают'); return false; }
+      if (kind === 'out' && fd.cat === 'salary' && !fd.coach) { notice('Выберите тренера'); return false; }
+      if (S.start && fd.date < S.start && !await ask(`Дата раньше начала учёта денег (${D.ru(S.start)}): операция войдёт в отчёты, но не в остатки по счетам. Сохранить?`)) return false;
       const t = o || { id: uid('o') };
       Object.assign(t, { kind, date: fd.date, amount, acc: fd.acc, note: String(fd.note || '').trim() });
       if (kind === 'move') { t.to = fd.to; delete t.cat; } else t.cat = fd.cat;
@@ -3691,8 +3782,8 @@ function vMoneySetup() {
   <label class="row small" style="gap:8px;margin-top:6px"><input type="checkbox" data-change="fin" data-path="checks" ${F.checks !== false ? 'checked' : ''} style="width:20px;height:20px">Следить за чеками в «Мой налог»</label>
   <p class="small muted" style="margin-top:8px">Налоговый вычет — 10 000 ₽ один раз: пока не израсходован, ставка 3% вместо 4% (и 4% вместо 6%). Остаток виден в приложении «Мой налог». Если вычет уже израсходован — оставьте 0.</p></div>`;
 }
-function moneyCSV() {
-  if (pinOn() && !confirm('CSV не шифруется: в файле будут фамилии плательщиков. Продолжить?')) return;
+async function moneyCSV() {
+  if (pinOn() && !await ask('CSV не шифруется: в файле будут фамилии плательщиков. Продолжить?')) return;
   const U = ui.money, rows = [['Дата', 'Вид', 'Статья', 'Описание', 'Счёт', 'Сумма', 'Возврат', 'Чек', 'Примечание']];
   const txt = v => /^[=+\-@\t\r]/.test(String(v || '')) ? "'" + v : (v || '');            // текст не должен стать формулой в Excel
   moneyRows(U.from, U.to).reverse().forEach(x => { const t = itemText(x); rows.push([D.ru(x.date), { in: 'доход', out: 'расход', move: 'перевод', refund: 'возврат' }[x.kind], txt(t.title), txt(itemWho(x)), txt(x.kind === 'move' ? accName(x.acc) + ' → ' + accName(x.to) : accName(x.acc)), (sign(x) < 0 ? -1 : 1) * x.amount, x.refund || '', x.kind === 'in' ? (x.check ? 'да' : 'нет') : '', txt(x.note)]); });
@@ -3788,8 +3879,8 @@ function openLead(id) {
   modal(L ? 'Заявка' : 'Новая заявка', body, {
     extraBtn: (L ? `<button type="button" class="btn danger" data-act="lead-del" data-id="${h(L.id)}">Удалить</button>` : '') + (L && !a && !L.anon ? `<button type="button" class="btn" data-act="lead-convert" data-id="${h(L.id)}">В спортсмены</button>` : '') + (L && L.phone && !L.anon ? `<a class="btn" href="tel:${h(L.phone)}">Позвонить</a>` : ''),
     onSubmit(fd) {
-      if (!String(fd.name || '').trim() && !String(fd.phone || '').trim() && !(L && L.anon)) { alert('Укажите имя или телефон'); return false; }
-      if (!fd.date) { alert('Укажите дату обращения'); return false; }
+      if (!String(fd.name || '').trim() && !String(fd.phone || '').trim() && !(L && L.anon)) { notice('Укажите имя или телефон'); return false; }
+      if (!fd.date) { notice('Укажите дату обращения'); return false; }
       const t = L || { id: uid('l') };
       for (const k of ['date', 'source', 'name', 'who', 'age', 'contact', 'contactName', 'phone', 'group', 'trial', 'next', 'lostReason', 'note']) { const x = String(fd[k] ?? '').trim(); if (x) t[k] = x; else delete t[k]; }
       if (!a) t.status = fd.status || 'новая';
@@ -4003,7 +4094,7 @@ async function copyDir(ask) {                  // папка для копий �
   let dir = await kvGet('copyDir');
   if (dir) { try { if ((await dir.requestPermission({ mode: 'readwrite' })) !== 'granted') dir = null; } catch (e) { dir = null; } }
   if (!dir && ask) {
-    alert('Выберите папку для копий — лучше папку Яндекс Диска. Программа запомнит её, и дальше копии будут сохраняться туда одной кнопкой.');
+    notice('Выберите папку для копий — лучше папку Яндекс Диска. Программа запомнит её, и дальше копии будут сохраняться туда одной кнопкой.');
     dir = await showDirectoryPicker({ id: 'd23copies', mode: 'readwrite', startIn: 'documents' });
     await kvSet('copyDir', dir);
   }
@@ -4051,7 +4142,7 @@ async function importLatest() {                 // компьютер: сама�
         if (!best || d.updatedAt > best.updatedAt) best = { updatedAt: d.updatedAt, text, name: n };
       } catch (e) { bad++; console.warn('Пропущен файл', n, e); }
     }
-    if (!best) { alert('В папке «' + dir.name + '» нет файлов копий.'); return; }
+    if (!best) { notice('В папке «' + dir.name + '» нет файлов копий.'); return; }
     if (bad) toast('Пропущено нечитаемых файлов: ' + bad);
     applyImport(best.text, best.name);
   } catch (e) { if (e.name !== 'AbortError') { console.warn(e); importData(); } }
@@ -4078,13 +4169,13 @@ function validateDb(d) {                         // минимальная пр�
   if (d.ops != null && (!Array.isArray(d.ops) || d.ops.some(o => !o || !o.id || !iso.test(o.date || '') || !(+o.amount >= 0)))) return 'операция с деньгами с неверными данными';
   return '';
 }
-function applyImport(text, fname) {
-  let d; try { d = JSON.parse(text); } catch (e) { alert('Файл не читается: это не копия данных D23.'); return; }
-  if (d.app !== 'D23CRM') { alert('Это не копия данных D23. Выберите файл, сохранённый этой программой.'); return; }
+async function applyImport(text, fname) {
+  let d; try { d = JSON.parse(text); } catch (e) { notice('Файл не читается: это не копия данных D23.'); return; }
+  if (d.app !== 'D23CRM') { notice('Это не копия данных D23. Выберите файл, сохранённый этой программой.'); return; }
   if (d.encSalt && d.data) return importEncrypted(d, fname);
-  if ((+d.version || 1) > DATA_VERSION) { alert('Файл сохранён более новой версией программы. Обновите страницу (с интернетом) и загрузите файл снова.'); return; }
-  const bad = validateDb(d); if (bad) { alert('Файл повреждён или неполный (' + bad + '). Данные не загружены.'); return; }
-  if (d.anon && !confirm('Это ОБЕЗЛИЧЕННАЯ копия: в ней нет ФИО, телефонов и родителей. Она для проверки расчётов, а не для работы.\n\nЗаменить ею данные на этом устройстве?')) return;
+  if ((+d.version || 1) > DATA_VERSION) { notice('Файл сохранён более новой версией программы. Обновите страницу (с интернетом) и загрузите файл снова.'); return; }
+  const bad = validateDb(d); if (bad) { notice('Файл повреждён или неполный (' + bad + '). Данные не загружены.'); return; }
+  if (d.anon && !await ask('Это ОБЕЗЛИЧЕННАЯ копия: в ней нет ФИО, телефонов и родителей. Она для проверки расчётов, а не для работы.\n\nЗаменить ею данные на этом устройстве?')) return;
   if (db && db.rev) {
     const older = d.updatedAt && db.updatedAt && d.updatedAt < db.updatedAt;
     const head = `Файл: ${fname}\nДанные в файле от ${new Date(d.updatedAt).toLocaleString('ru')}\nДанные здесь от ${new Date(db.updatedAt).toLocaleString('ru')}\n\n`;
@@ -4093,13 +4184,13 @@ function applyImport(text, fname) {
       const msg = head + `ВНИМАНИЕ: на этом устройстве ${n} ${plural(n, 'изменение', 'изменения', 'изменений')} после последней сохранённой копии (${meta.lastExport ? new Date(meta.lastExport).toLocaleString('ru') : 'копию здесь ещё не сохраняли'}). Загрузка файла их сотрёт.\n\n` +
         (older ? 'Кроме того, файл СТАРЕЕ данных на этом устройстве.\n\n' : '') +
         'Сейчас текущие данные будут скачаны отдельным файлом «…_до_загрузки.json» (в «Загрузки»), затем загрузится выбранный файл.\n\nПродолжить?';
-      if (!confirm(msg)) return;
+      if (!await ask(msg)) return;
       const nm = copyName(true).replace(/\.json$/, '_до_загрузки.json'); exportPayload().then(t => download(nm, t, 'application/json')).catch(showError);
     } else {
       const msg = older
         ? head + 'Файл СТАРЕЕ данных на этом устройстве. Заменить данные здесь более старыми? Текущая версия сохранится в «Прежних версиях».'
         : head + 'Заменить данные на этом устройстве копией из файла? Текущая версия сохранится в «Прежних версиях».';
-      if (!confirm(msg)) return;
+      if (!await ask(msg)) return;
     }
     snapshot('перед загрузкой копии');
   }
@@ -4113,10 +4204,19 @@ function applyImport(text, fname) {
 function csv(rows) { return '\ufeff' + rows.map(r => r.map(v => { v = String(v ?? ''); return /[;"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(';')).join('\r\n'); }
 
 /* ---------- печатные списки ---------- */
-function openPrint(title, html, css = '') {
+/* Колонтитулы браузера (about:blank, дата, время) печатаются в полях страницы. Поля страницы — 0,
+   а отступ 12 мм дают повторяющиеся на каждом листе пустые шапка и подвал таблицы-обёртки. */
+const PRINT_NOHF = '@page{size:A4;margin:0}html,body{margin:0!important}body{padding:0 12mm!important}table.pp-wrap{width:100%;border-collapse:collapse;border:0}table.pp-wrap>thead>tr>td,table.pp-wrap>tfoot>tr>td{height:12mm;border:0!important;padding:0!important;background:none!important}table.pp-wrap>tbody>tr>td{border:0!important;padding:0!important;text-align:left!important;vertical-align:top}table.pp-wrap>tbody>tr{page-break-inside:auto!important;break-inside:auto!important}';
+const ppWrap = html => `<table class="pp-wrap"><thead><tr><td></td></tr></thead><tbody><tr><td>${html}</td></tr></tbody><tfoot><tr><td></td></tr></tfoot></table>`;
+function printMain(title) {                               // печать текущего экрана без колонтитулов: то же содержимое и стили печати программы
+  const css = [...document.querySelectorAll('head style')].map(x => x.textContent).join('\n').replace(/@page\{margin:12mm\}/g, '');
+  const m = document.querySelector('main'); if (!m) return;
+  openPrint(title || document.title, m.innerHTML, css + 'body{font-size:11pt;background:#fff}', { app: true });
+}
+function openPrint(title, html, css = '', opt = {}) {
   const w = window.open('', '_blank');
-  if (!w) { alert('Браузер заблокировал окно печати. Разрешите всплывающие окна для этой страницы.'); return; }
-  w.document.write(`<html><head><meta charset="utf-8"><title>${h(title)}</title><style>*{color:#000}body{font:10.5pt Arial,sans-serif;margin:12mm}table{border-collapse:collapse;width:100%}td,th{border:1px solid #000;padding:4px 6px;text-align:left}th{background:#fff;font-weight:700;border-bottom:2px solid #000}h3{margin:14px 0 4px}tr{page-break-inside:avoid}${css}</style></head><body>${html}<script>window.print()<\/script></body></html>`);
+  if (!w) { notice('Браузер заблокировал окно печати. Разрешите всплывающие окна для этой страницы.'); return; }
+  w.document.write(`<html><head><meta charset="utf-8"><title>${h(title)}</title><style>*{color:#000}body{font:10.5pt Arial,sans-serif;margin:12mm}table{border-collapse:collapse;width:100%}td,th{border:1px solid #000;padding:4px 6px;text-align:left}th{background:#fff;font-weight:700;border-bottom:2px solid #000}h3{margin:14px 0 4px}tr{page-break-inside:avoid}${css}${opt.pages ? '' : PRINT_NOHF}</style></head><body${opt.app ? ' class="print-win"' : ''}>${opt.pages ? html : ppWrap(html)}<script>window.print()<\/script></body></html>`);
   w.document.close();
 }
 /* ---------- бланк для печати (как в книге учёта посещений) ---------- */
@@ -4151,7 +4251,7 @@ function printBlank(g, ym, fromNo, perPage, filled, rightPad = 4) {
   const sess = db.sessions.filter(s => s.group === g && s.date >= first && s.date <= last);
   sess.forEach(s => dates.add(s.date));
   const cols = [...dates].sort();
-  if (!cols.length) { alert(`У группы «${g}» в ${MONTHS[m - 1]} нет дней занятий: задайте расписание группы в Настройках.`); return; }
+  if (!cols.length) { notice(`У группы «${g}» в ${MONTHS[m - 1]} нет дней занятий: задайте расписание группы в Настройках.`); return; }
   const people = blankPeople(g, first, last).map((a, i) => ({ a, no: i + 1 })).filter(x => x.no >= fromNo);
   const markOf = (a, d) => { if (!filled) return ''; const s = sess.filter(x => x.date === d).find(x => x.marks[a.id]); return s ? s.marks[a.id] : ''; };
   // ширины, мм: страница А4 альбом 297, поля 25 слева и 7 справа
@@ -4181,9 +4281,9 @@ function printBlank(g, ym, fromNo, perPage, filled, rightPad = 4) {
       <div class="foot"><span>+ был · н не был · б болел · о отменено · с соревнования</span><span>Тренер: ____________________</span></div></section>`);
   }
   openPrint(`Журнал ${g} ${MONTHS[m - 1]} ${y}`, pages.join(''), `
-    @page{size:A4 landscape;margin:9mm 7mm 9mm 25mm}
+    @page{size:A4 landscape;margin:0}
     body{margin:0;font-size:9pt}
-    .page{height:${PAGE_H}mm;overflow:hidden;padding-right:1mm;box-sizing:border-box;page-break-after:always;break-after:page}.page:last-child{page-break-after:auto;break-after:auto}
+    .page{height:${(PAGE_H + 18).toFixed(1)}mm;overflow:hidden;padding:9mm 8mm 9mm 25mm;box-sizing:border-box;page-break-after:always;break-after:page}.page:last-child{page-break-after:auto;break-after:auto}
     .ttl{display:flex;justify-content:space-between;align-items:flex-end;height:${TITLE_H - 1.5}mm;margin-bottom:1.5mm}
     .h1{font-size:14pt;font-weight:700;letter-spacing:.02em}
     .meta{display:flex;gap:16px;font-size:11pt}
@@ -4199,7 +4299,7 @@ function printBlank(g, ym, fromNo, perPage, filled, rightPad = 4) {
     td.fio,th.fio{text-align:left;padding:0 4px;white-space:nowrap;font-size:10pt}
     th.b,td.b{border-left:2px solid #000}
     .foot{display:flex;justify-content:space-between;align-items:flex-end;font-size:8pt;height:${FOOT_H}mm}
-    tr{page-break-inside:avoid}`);
+    tr{page-break-inside:avoid}`, { pages: true });
 }
 
 /* ---------- посещаемость спортсмена за период ---------- */
@@ -4211,7 +4311,7 @@ function openAthleteReport(aid) {
   const fr = ix.sessionsSorted.length ? ix.sessionsSorted[0].date : '';
   if (fr) body += `<p class="small muted" style="margin-top:10px">Отметки в программе есть с ${D.ru(fr)}.</p>`;
   modal('Посещаемость за период', body, { submit: 'Распечатать', onSubmit(fd) {
-    if (fd.from > fd.to) { alert('Дата «с» позже даты «по»'); return false; }
+    if (fd.from > fd.to) { notice('Дата «с» позже даты «по»'); return false; }
     printAthleteReport(aid, fd.from, fd.to);
   } });
 }
@@ -4290,8 +4390,8 @@ function openBrief(ids, date, kindHint) {
   ${FS('reason', 'Причина внепланового', [['', '—'], ...BRIEF_REASONS], kind === 'внеплановый' && one && briefNeed(one, date || ix.today) ? BRIEF_REASONS[0] : '')}${by.length > 1 ? FS('by', 'Проводил', by, by[0]) : `<input type="hidden" name="by" value="${h(by[0] || '')}">`}</div>
   <p class="small muted">Запись в программе — для напоминаний. Подпись занимающегося (законного представителя) ставится в бумажном журнале инструктажа, без неё инструктаж не подтверждён (п. 1.3 Правил).</p>`, { submit: 'Записать', onSubmit(fd) {
     const list = one ? [one.id] : (fd.__multi['ids[]'] || []);
-    if (!list.length) { alert('Отметьте хотя бы одного человека'); return false; }
-    if (fd.kind === 'внеплановый' && !fd.reason) { alert('Укажите причину внепланового инструктажа — она пишется и в бумажный журнал.'); return false; }
+    if (!list.length) { notice('Отметьте хотя бы одного человека'); return false; }
+    if (fd.kind === 'внеплановый' && !fd.reason) { notice('Укажите причину внепланового инструктажа — она пишется и в бумажный журнал.'); return false; }
     for (const id of list) { const a = db.athletes.find(x => x.id === id); if (!a) continue;
       a.briefings = (a.briefings || []).filter(b => b.date !== fd.date);
       a.briefings.push({ id: uid('b'), date: fd.date, kind: fd.kind, reason: fd.kind === 'внеплановый' ? fd.reason : '', by: fd.by || '' });
@@ -4314,17 +4414,17 @@ function openDocs(id) {
   <div class="fgrid">${F('pack', 'Пакет «домой» выдан', k.pack || '', 'date')}${F('b1', 'Бланк 1 — заявление и анкета', k.b1 || '', 'date')}${F('b21', 'Бланк 2.1 — сведения о здоровье', k.b21 || '', 'date')}
   ${F('b23', 'Бланк 2.3 — фото и распространение', k.b23 || '', 'date')}${FS('publish', 'Публиковать фото и видео', [['', 'нет бланка — не публиковать'], ['да', 'можно (всё разрешено)'], ['частично', 'частично — смотреть бланк'], ['нет', 'нельзя']], a.publish || '')}
   ${F('b3', 'Бланк 3 — законный представитель' + (minor ? '' : ' (до 18 лет)'), k.b3 || '', 'date')}</div>
-  <p class="small muted">Дата Бланка 2.1 сама ставит галочку «Согласие на сведения о здоровье получено». Если пакет выдан, а бланки не вернулись за 2 недели, программа напомнит в «Требует внимания».</p>`, { onSubmit(fd) {
+  <p class="small muted">Дата Бланка 2.1 сама ставит галочку «Согласие на сведения о здоровье получено». Если пакет выдан, а бланки не вернулись за 2 недели, программа напомнит в «Требует внимания».</p>`, { async onSubmit(fd) {
     a.docs = { pack: fd.pack || '', b1: fd.b1 || '', b21: fd.b21 || '', b23: fd.b23 || '', b3: fd.b3 || '' };
     a.publish = fd.publish || '';
-    if (fd.b23 && !fd.publish && !confirm('Бланк 2.3 получен, но не выбрано, что разрешено публиковать. Сохранить так (фото не публиковать)?')) return false;
+    if (fd.b23 && !fd.publish && !await ask('Бланк 2.3 получен, но не выбрано, что разрешено публиковать. Сохранить так (фото не публиковать)?')) return false;
     if (fd.b21) a.healthConsent = true;
     render.keepScroll = true; persist('Документы отмечены');
   } });
 }
 function printNoPublish() {
   const l = db.athletes.filter(a => a.status === 'занимается' && a.publish !== 'да').sort((x, y) => (x.group || '').localeCompare(y.group || '', 'ru') || fullName(x).localeCompare(fullName(y), 'ru'));
-  if (!l.length) { alert('Все занимающиеся разрешили публикацию.'); return; }
+  if (!l.length) { notice('Все занимающиеся разрешили публикацию.'); return; }
   const why = a => ({ 'нет': 'отказ', 'частично': 'частично — смотреть Бланк 2.3' }[a.publish] || 'Бланка 2.3 нет');
   openPrint('Не публиковать фото и видео', `<h1>Кого нельзя публиковать без проверки</h1><h2>Бланк № 2.3, на ${D.ru(ix.today)}. Только для тренера, не публиковать и не пересылать.</h2>
   <table><thead><tr><th>№</th><th>Фамилия, имя</th><th>Группа</th><th>Согласие</th></tr></thead><tbody>${l.map((a, i) => `<tr><td>${i + 1}</td><td>${h(shortName(a))}</td><td>${h(a.group)}</td><td>${why(a)}</td></tr>`).join('')}</tbody></table>
@@ -4372,12 +4472,12 @@ function openRefuse(id) {
   <label class="f wide"><span>Примечание: где или как получено</span><input type="text" name="howNote" placeholder="например: Telegram, по e-mail, передал тренеру на занятии"></label></div>
   <h3 style="margin-top:12px">Расчёт на дату заявления</h3><div id="refuse-calc">${calcHTML(P0)}</div><div id="refuse-owe" class="small" style="color:var(--bad);margin-top:6px"></div>
   <div class="fgrid" style="margin-top:10px">${F('sum', 'К возврату, ₽', P0.total, 'number', 'min="0" step="1" inputmode="numeric" required')}</div>
-  <p class="small muted">Договор прекращается с даты получения заявления (п. 10.3): статус станет «ушёл», занятия после этой даты не списываются. Вернуть деньги — не позднее 10 календарных дней тем же способом, которым платили (п. 10.4.3). Уменьшать сумму можно только на фактические расходы, подтверждённые документами (п. 10.4.1). Заявление или переписку сохраните.</p>`, { submit: 'Записать отказ', onSubmit(fd) {
-    if (!fd.date || fd.date > ix.today) { alert('Укажите дату получения заявления (не позже сегодняшней).'); return false; }
-    if (fd.how === 'другое' && !String(fd.howNote || '').trim()) { alert('Выбрано «другое» — укажите в примечании, где или как получено заявление.'); return false; }
+  <p class="small muted">Договор прекращается с даты получения заявления (п. 10.3): статус станет «ушёл», занятия после этой даты не списываются. Вернуть деньги — не позднее 10 календарных дней тем же способом, которым платили (п. 10.4.3). Уменьшать сумму можно только на фактические расходы, подтверждённые документами (п. 10.4.1). Заявление или переписку сохраните.</p>`, { submit: 'Записать отказ', async onSubmit(fd) {
+    if (!fd.date || fd.date > ix.today) { notice('Укажите дату получения заявления (не позже сегодняшней).'); return false; }
+    if (fd.how === 'другое' && !String(fd.howNote || '').trim()) { notice('Выбрано «другое» — укажите в примечании, где или как получено заявление.'); return false; }
     const P = refusePreview(a, fd.date), sum = Math.max(0, Math.round(+fd.sum || 0));
-    if (sum < P.total && !confirm(`Сумма меньше расчётной (${P.total.toLocaleString('ru')} ₽). Удерживать можно только фактические расходы, подтверждённые документами (п. 10.4.1, 10.4.6.1). Продолжить?`)) return false;
-    if (sum > P.total && !confirm(`Сумма больше расчётной (${P.total.toLocaleString('ru')} ₽). Вернуть больше по своему решению?`)) return false;
+    if (sum < P.total && !await ask(`Сумма меньше расчётной (${P.total.toLocaleString('ru')} ₽). Удерживать можно только фактические расходы, подтверждённые документами (п. 10.4.1, 10.4.6.1). Продолжить?`)) return false;
+    if (sum > P.total && !await ask(`Сумма больше расчётной (${P.total.toLocaleString('ru')} ₽). Вернуть больше по своему решению?`)) return false;
     a.status = 'ушёл'; a.endedAt = fd.date;
     a.refund = { date: fd.date, how: fd.how, howNote: String(fd.howNote || '').trim(), sum, calcSum: P.total, due: D.add(fd.date, 10), lines: P.rows, paidAt: sum > 0 ? '' : fd.date, checkAt: sum > 0 ? '' : fd.date };
     render.keepScroll = true; persist(sum > 0 ? `Отказ записан: вернуть ${sum.toLocaleString('ru')} ₽ до ${D.ru(a.refund.due)}` : 'Отказ записан, возврата нет');
@@ -4525,9 +4625,9 @@ function openDestroy(id) {
     ${F('note', 'Уточнение (реквизиты заявления, «иная причина»)', '')}
     <p class="small"><b>Будут уничтожены:</b> ${h(cats.join('; '))}.</p>
     <p class="small muted">В журнал уничтожения запишутся ФИО, перечень категорий, причина и дата — этого требует приказ Роскомнадзора № 179. Запись хранится 3 года, из неё печатаются акт и выгрузка.</p>`,
-    { submit: 'Уничтожить', onSubmit(fd) {
-      if (fd.reason === 'Иная причина' && !String(fd.note || '').trim()) { alert('Укажите причину в поле «Уточнение».'); return false; }
-      if (!confirm('Уничтожить данные: ' + fullName(a) + '? Отменить будет нельзя.')) return false;
+    { submit: 'Уничтожить', async onSubmit(fd) {
+      if (fd.reason === 'Иная причина' && !String(fd.note || '').trim()) { notice('Укажите причину в поле «Уточнение».'); return false; }
+      if (!await ask('Уничтожить данные: ' + fullName(a) + '? Отменить будет нельзя.')) return false;
       destroyPerson(a, fd.reason, String(fd.note || '').trim(), cats); return true;
     } });
 }
@@ -4539,7 +4639,7 @@ function destroyPerson(a, reason, note, cats) {
   stripPerson(db, id);
   rewriteSnaps(d => stripPerson(d, id));           // и из «Прежних версий» в этом браузере
   location.hash = '#data'; noUndo = true; persist('Данные уничтожены, запись внесена в журнал');   // уничтожение не отменяется
-  setTimeout(() => alert('Данные удалены из программы и из «Прежних версий» в этом браузере, запись внесена в журнал уничтожения («Данные»).\n\nДальше:\n1. Сохраните новую копию данных.\n2. Удалите старые файлы копий (Яндекс Диск, «Загрузки», компьютер) и CSV с его данными.\n3. Загрузите новую копию на другое устройство.\n4. В журнале нажмите «Копии очищены», затем напечатайте акт и выгрузку.'), 50);
+  setTimeout(() => notice('Данные удалены из программы и из «Прежних версий» в этом браузере, запись внесена в журнал уничтожения («Данные»).\n\nДальше:\n1. Сохраните новую копию данных.\n2. Удалите старые файлы копий (Яндекс Диск, «Загрузки», компьютер) и CSV с его данными.\n3. Загрузите новую копию на другое устройство.\n4. В журнале нажмите «Копии очищены», затем напечатайте акт и выгрузку.'), 50);
 }
 function destroyCardHTML() {
   const log = (db.destroyLog || []).slice().reverse(), old = log.filter(x => keepUntil(x.date) <= ix.today);
@@ -4552,7 +4652,7 @@ function destroyCardHTML() {
 function operatorLine() { const S = db.settings; return `${h(S.operatorName || S.awardedBy || '')}${S.operatorAddress ? ', ' + h(S.operatorAddress) : ', адрес: ________________________________'}`; }
 const PRINT_CSS = 'h1{font-size:14pt;text-align:center;margin:0 0 4px}h2{font-size:11pt;text-align:center;font-weight:normal;margin:0 0 12px}p{margin:4px 0}.sig{margin-top:28px}.l{display:inline-block;min-width:180px;border-bottom:1px solid #000}ol li{margin:5px 0}';
 function printDestroyExtract(list) {
-  if (!list.length) { alert('Журнал пуст.'); return; }
+  if (!list.length) { notice('Журнал пуст.'); return; }
   openPrint('Выгрузка из журнала уничтожения ПДн', `<h1>Выгрузка из журнала регистрации событий</h1><h2>уничтожение персональных данных в информационной системе персональных данных</h2>
   <p><b>Оператор:</b> ${operatorLine()}</p><p><b>Информационная система:</b> ${h(PD_SYSTEM)}</p><p><b>Дата выгрузки:</b> ${D.ru(ix.today)}</p>
   <table><thead><tr><th>№</th><th>Дата уничтожения</th><th>ФИО субъекта персональных данных</th><th>Перечень категорий уничтоженных персональных данных</th><th>Информационная система</th><th>Причина уничтожения</th></tr></thead><tbody>
@@ -4629,16 +4729,16 @@ const ACT = {
     modal('Вернулся: ' + shortName(a), `<div class="fgrid">${F('from', 'На перерыве с', a.pauseFrom || '', 'date', 'max="' + ix.today + '"')}${F('to', 'Вернулся с', ix.today, 'date', 'required')}</div>
       <p class="small muted">С этой даты человек снова в списке группы и в отметках. Занятия во время перерыва по абонементу списываются, как и раньше («приостановил»).</p>`,
     { submit: 'Вернулся', onSubmit(fd) {
-      if (!fd.to) { alert('Укажите дату возвращения'); return false; }
-      if (fd.from && fd.to <= fd.from) { alert('Дата возвращения должна быть позже начала перерыва'); return false; }
+      if (!fd.to) { notice('Укажите дату возвращения'); return false; }
+      if (fd.from && fd.to <= fd.from) { notice('Дата возвращения должна быть позже начала перерыва'); return false; }
       a.pauses = [...(a.pauses || []), { from: fd.from || '', to: fd.to }]; delete a.pauseFrom; a.status = 'занимается';
       render.keepScroll = true; persist(shortName(a) + ': вернулся с ' + D.ru(fd.to) + ' — снова в списке группы'); } }); },
   'lead-new': () => openLead(null), 'lead-edit': el => openLead(el.dataset.id), 'lead-convert': el => leadToAthlete(el.dataset.id),
-  'lead-del': el => { if (!confirm('Удалить заявку? Она пропадёт и из статистики. Если просто не нужны имя и телефон — дождитесь обезличивания.')) return; db.leads = db.leads.filter(L => L.id !== el.dataset.id); closeModal(); render.keepScroll = true; persist('Заявка удалена'); },
+  'lead-del': async el => { if (!await ask('Удалить заявку? Она пропадёт и из статистики. Если просто не нужны имя и телефон — дождитесь обезличивания.')) return; db.leads = db.leads.filter(L => L.id !== el.dataset.id); closeModal(); render.keepScroll = true; persist('Заявка удалена'); },
   'leads-filter': el => { ui.leads.filter = el.dataset.f; rerender(); },
   'leads-per': el => { const U = ui.leads, t = ix.today, k = el.dataset.k; U.per = k; U.to = t;
     U.from = k === 'month' ? t.slice(0, 8) + '01' : k === 'q' ? D.add(t, -91) : k === 'year' ? t.slice(0, 4) + '-01-01' : '2000-01-01'; rerender(); },
-  'leads-anon': () => { const L = oldLeads(); if (!L.length || !confirm(`Удалить имена и телефоны в ${L.length} ${plural(L.length, 'заявке', 'заявках', 'заявках')}? В статистике они останутся (дата, источник, этап).`)) return;
+  'leads-anon': async () => { const L = oldLeads(); if (!L.length || !await ask(`Удалить имена и телефоны в ${L.length} ${plural(L.length, 'заявке', 'заявках', 'заявках')}? В статистике они останутся (дата, источник, этап).`)) return;
     for (const x of L) { for (const k of ['name', 'contactName', 'phone', 'note', 'lostReason']) delete x[k]; x.anon = true; }
     render.keepScroll = true; persist('Заявки обезличены'); },
   'gmsg': el => { if (el.dataset.date) { ui.gmsg = ui.gmsg || { sent: new Set() }; ui.gmsg.date = el.dataset.date; } openGroupMsg(el.dataset.group); },
@@ -4646,20 +4746,20 @@ const ACT = {
   'gm-copy-all': () => { const st = ui.gmsg; if (!st) return; copyText($('#gm-text').value.replace(/\{(фи|фио|имя)\}\.?\n?/gi, '').replace(/\{дата_занятия\}/g, D.ru(st.date)).replace(/\{группа\}/g, st.group), 'Общий текст скопирован'); },
   'gm-phones': () => { const st = ui.gmsg; if (!st) return; const L = st.people().map(a => { const c = ix.athCalc.get(a.id); return shortName(a) + ' — ' + (cleanPhone(c.contact) ? fmtPhone(c.contact) + ' (' + c.contactWho + ')' : 'нет телефона'); }); copyText(L.join('\n'), 'Номера скопированы: ' + L.length); },
   'year-print': el => openPrint('Итоги ' + el.dataset.y + ' года', yearDoc(el.dataset.y), 'h3{margin:12pt 0 3pt}'),
-  'year-word': el => download('D23_итоги_' + el.dataset.y + '_года.doc', WORD_HEAD + yearDoc(el.dataset.y) + '</body></html>', 'application/msword'),
+  'year-word': el => { downloadBlob('D23_итоги_' + el.dataset.y + '_года.docx', docxBlob(htmlDocx(yearDoc(el.dataset.y)))); toast('Итоги года сохранены в Word (.docx)'); },
   'op-new': el => openOp(null, { kind: el.dataset.kind, cat: el.dataset.cat, coach: el.dataset.coach, period: el.dataset.period, amount: el.dataset.amount, rec: el.dataset.rec }),
   'op-edit': el => openOp(el.dataset.id),
   'refund-acc': el => openRefundAcc(el.dataset.id),
-  'acc-bulk': el => { const U = ui.money, L = moneyFiltered(U).filter(x => (x.kind === 'in' || x.kind === 'out') && x.src !== 'ref' && !x.acc);
-    if (!L.length || !confirm(`Указать «${accName(el.dataset.acc)}» у ${L.length} ${plural(L.length, 'операции', 'операций', 'операций')} за ${D.ru(U.from)} — ${D.ru(U.to)}? Проверьте, что все они действительно так оплачены.`)) return;
+  'acc-bulk': async el => { const U = ui.money, L = moneyFiltered(U).filter(x => (x.kind === 'in' || x.kind === 'out') && x.src !== 'ref' && !x.acc);
+    if (!L.length || !await ask(`Указать «${accName(el.dataset.acc)}» у ${L.length} ${plural(L.length, 'операции', 'операций', 'операций')} за ${D.ru(U.from)} — ${D.ru(U.to)}? Проверьте, что все они действительно так оплачены.`)) return;
     for (const x of L) { const t = x.src === 'sub' ? db.subs.find(p => p.id === x.id) : db.ops.find(o => o.id === x.id); if (t) t.acc = el.dataset.acc; }
     render.keepScroll = true; persist('Способ оплаты указан'); },
   'op-kind': el => { if (el.classList.contains('on')) return;                // тот же вид — ничего не сбрасывать
     const d = document.getElementById('dlg'), g = n => (d.querySelector(`[name=${n}]`) || {}).value || '';
     openOp(null, { kind: el.dataset.k, amount: g('amount'), date: g('date'), note: g('note') }); },
-  'op-del': el => { if (!confirm('Удалить операцию?')) return; db.ops = db.ops.filter(o => o.id !== el.dataset.id); closeModal(); render.keepScroll = true; persist('Операция удалена'); },
-  'fin-setup': () => { const F = finS(db), st = ($('#fin-start') || {}).value; if (!st) { alert('Укажите дату'); return; }
-    if (st > D.add(ix.today, 1)) { alert('Дата начала учёта — не позже завтрашней'); return; }
+  'op-del': async el => { if (!await ask('Удалить операцию?')) return; db.ops = db.ops.filter(o => o.id !== el.dataset.id); closeModal(); render.keepScroll = true; persist('Операция удалена'); },
+  'fin-setup': () => { const F = finS(db), st = ($('#fin-start') || {}).value; if (!st) { notice('Укажите дату'); return; }
+    if (st > D.add(ix.today, 1)) { notice('Дата начала учёта — не позже завтрашней'); return; }
     F.start = st; F.open = {}; for (const A of F.accounts) F.open[A.id] = Math.round(+(($('#fin-open-' + A.id) || {}).value) || 0);
     render.keepScroll = true; persist('Учёт денег начат с ' + D.ru(st)); },
   'money-per': el => { const U = ui.money, t = ix.today, ym = ymOf(t), y = t.slice(0, 4), k = el.dataset.k; U.per = k;
@@ -4673,63 +4773,63 @@ const ACT = {
   'money-csv': () => moneyCSV(),
   'money-print': () => openPrint('Финансовый отчёт', finReportDoc(ui.money.from, ui.money.to), 'h3{margin:12pt 0 3pt}'),
   'money-word': () => { const U = ui.money;
-    download('D23_финансовый_отчёт_' + U.from + '_' + U.to + '.doc', `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>Финансовый отчёт</title><style>@page{size:A4;margin:15mm}body{font:10.5pt Arial,sans-serif;color:#000}table{border-collapse:collapse;width:100%}td,th{border:1px solid #000;padding:2pt 5pt;font-size:10pt}th{font-weight:bold}h2{font-size:14pt}h3{font-size:11.5pt;margin:12pt 0 3pt}</style></head><body>${finReportDoc(U.from, U.to)}</body></html>`, 'application/msword'); },
+    downloadBlob('D23_финансовый_отчёт_' + U.from + '_' + U.to + '.docx', docxBlob(htmlDocx(finReportDoc(U.from, U.to)))); toast('Финансовый отчёт сохранён в Word (.docx)'); },
   'check-mark': el => { const x = el.dataset.src === 'sub' ? db.subs.find(p => p.id === el.dataset.id) : db.ops.find(o => o.id === el.dataset.id); if (!x) return;
     x.check = ix.today; render.keepScroll = true; persist('Чек отмечен'); },
-  'checks-all': () => { const L = uncheckedItems(db, finItems(), ix.today); if (!L.length || !confirm(`Отметить чеки выбитыми у ${L.length} ${plural(L.length, 'оплаты', 'оплат', 'оплат')}? Сначала убедитесь, что они есть в «Мой налог».`)) return;
+  'checks-all': async () => { const L = uncheckedItems(db, finItems(), ix.today); if (!L.length || !await ask(`Отметить чеки выбитыми у ${L.length} ${plural(L.length, 'оплаты', 'оплат', 'оплат')}? Сначала убедитесь, что они есть в «Мой налог».`)) return;
     for (const x of L) { const t = x.src === 'sub' ? db.subs.find(p => p.id === x.id) : db.ops.find(o => o.id === x.id); if (t) t.check = ix.today; }
     render.keepScroll = true; persist('Чеки отмечены'); },
   'coach-edit': el => openCoach(el.dataset.id),
-  'coach-del': el => { const F = finS(db), c = F.coaches.find(x => x.id === el.dataset.id); if (!c) return;
-    if (finItems().some(x => x.cat === 'salary' && x.coach === c.id)) { alert('Тренеру уже были выплаты — удалить нельзя, иначе пропадёт история. Укажите дату «Работал по».'); return; }
-    if (!confirm('Удалить тренера ' + c.name + '?')) return; F.coaches = F.coaches.filter(x => x !== c); closeModal(); render.keepScroll = true; persist('Тренер удалён'); },
+  'coach-del': async el => { const F = finS(db), c = F.coaches.find(x => x.id === el.dataset.id); if (!c) return;
+    if (finItems().some(x => x.cat === 'salary' && x.coach === c.id)) { notice('Тренеру уже были выплаты — удалить нельзя, иначе пропадёт история. Укажите дату «Работал по».'); return; }
+    if (!await ask('Удалить тренера ' + c.name + '?')) return; F.coaches = F.coaches.filter(x => x !== c); closeModal(); render.keepScroll = true; persist('Тренер удалён'); },
   'finacc-add': () => { const F = finS(db); F.accounts.push({ id: uid('a'), name: 'Новый счёт' }); render.keepScroll = true; persist('Счёт добавлен — впишите название'); },
-  'finacc-del': el => { const F = finS(db), A = F.accounts[+el.dataset.i]; if (!A) return;
-    if (F.accounts.length < 2 || +(F.open || {})[A.id] || F.recur.some(r => r.acc === A.id) || finItems().some(x => [x.acc, x.to, x.refundAcc].includes(A.id))) { alert('Счёт используется (операции, остаток на начало или регулярный платёж) — удалить нельзя. Можно переименовать.'); return; }
-    if (!confirm('Удалить счёт «' + A.name + '»?')) return;
+  'finacc-del': async el => { const F = finS(db), A = F.accounts[+el.dataset.i]; if (!A) return;
+    if (F.accounts.length < 2 || +(F.open || {})[A.id] || F.recur.some(r => r.acc === A.id) || finItems().some(x => [x.acc, x.to, x.refundAcc].includes(A.id))) { notice('Счёт используется (операции, остаток на начало или регулярный платёж) — удалить нельзя. Можно переименовать.'); return; }
+    if (!await ask('Удалить счёт «' + A.name + '»?')) return;
     F.accounts.splice(+el.dataset.i, 1); delete F.open[A.id]; if (F.defAcc === A.id) F.defAcc = F.accounts[0].id; render.keepScroll = true; persist('Счёт удалён'); },
   'fincat-add': el => { const F = finS(db), L = F[el.dataset.list]; L.push(el.dataset.list === 'inCats' ? { id: uid('k'), name: 'Новая статья', tax: 1 } : { id: uid('k'), name: 'Новая статья', group: 'Прочее' });
     render.keepScroll = true; persist('Статья добавлена — впишите название'); },
-  'fincat-del': el => { const F = finS(db), L = F[el.dataset.list], c = L[+el.dataset.i]; if (!c || c.sys) return;
-    if (finItems().some(x => x.cat === c.id) || F.recur.some(r => r.cat === c.id)) { alert('Статья используется — её можно только скрыть.'); return; }
-    if (!confirm('Удалить статью «' + c.name + '»?')) return;
+  'fincat-del': async el => { const F = finS(db), L = F[el.dataset.list], c = L[+el.dataset.i]; if (!c || c.sys) return;
+    if (finItems().some(x => x.cat === c.id) || F.recur.some(r => r.cat === c.id)) { notice('Статья используется — её можно только скрыть.'); return; }
+    if (!await ask('Удалить статью «' + c.name + '»?')) return;
     L.splice(+el.dataset.i, 1); render.keepScroll = true; persist('Статья удалена'); },
   'fin-move': el => { const L = finS(db)[el.dataset.list], i = +el.dataset.i, j = i + +el.dataset.d; if (!L || j < 0 || j >= L.length) return;
     [L[i], L[j]] = [L[j], L[i]]; render.keepScroll = true; persist(); },
   'finrec-add': () => { const F = finS(db); F.recur.push({ id: uid('r'), cat: 'rent', amount: 0, day: 5, acc: F.defAcc, note: '', from: ix.today }); render.keepScroll = true; persist('Добавлено — укажите статью, сумму и число'); },
-  'finrec-del': el => { const F = finS(db); if (!confirm('Удалить регулярный платёж? Внесённые оплаты останутся.')) return; F.recur.splice(+el.dataset.i, 1); render.keepScroll = true; persist('Удалено'); },
-  'start-empty': () => { if (loadError && !confirm('Повреждённые данные будут скачаны файлом и заменены пустой базой. Продолжить?')) return; keepBroken(); db = normalize(emptyDb()); noUndo = true; persist('Пустая база создана'); },
+  'finrec-del': async el => { const F = finS(db); if (!await ask('Удалить регулярный платёж? Внесённые оплаты останутся.')) return; F.recur.splice(+el.dataset.i, 1); render.keepScroll = true; persist('Удалено'); },
+  'start-empty': async () => { if (loadError && !await ask('Повреждённые данные будут скачаны файлом и заменены пустой базой. Продолжить?')) return; keepBroken(); db = normalize(emptyDb()); noUndo = true; persist('Пустая база создана'); },
   'broken-download': () => { if (loadError) download(copyName(true).replace(/\.json$/, '_повреждённая.json'), loadError, 'application/json'); },
   'export': () => exportData(false), 'export-new': () => exportData(true), 'import': () => importData(), 'import-latest': () => importLatest(),
-  'print': () => window.print(),
+  'print': () => printMain(),
   'refuse': el => openRefuse(el.dataset.id),
   'refund-paid': el => { const a = db.athletes.find(x => x.id === el.dataset.id); if (!a || !a.refund) return;
     const FN = finS(db), sa = ((ix.subsByAth.get(a.id) || []).filter(q => q.acc).pop() || {}).acc;
     modal('Возврат выплачен', `<p>${h(shortName(a))}: ${(+a.refund.sum).toLocaleString('ru')} ₽</p>${F('paidAt', 'Дата выплаты', ix.today, 'date', 'required max="' + ix.today + '"')}${FS('acc', 'Чем вернули', FN.accounts.map(A => [A.id, A.name]), a.refund.acc || sa || FN.defAcc)}<p class="small muted">После выплаты скорректируйте чек в «Мой налог»: аннулируйте чек об оплате, при частичном возврате сформируйте новый чек на оставшуюся сумму.</p>`, { submit: 'Отметить', onSubmit(fd) {
       if (!fd.paidAt) return false; a.refund.paidAt = fd.paidAt; a.refund.acc = fd.acc || ''; render.keepScroll = true; persist('Возврат отмечен. Теперь скорректируйте чек в «Мой налог»'); } }); },
-  'refund-check': el => { const a = db.athletes.find(x => x.id === el.dataset.id); if (!a || !a.refund) return;
-    if (!confirm('Чек об оплате аннулирован в «Мой налог» (при частичном возврате — сформирован новый на оставшуюся сумму)?')) return;
+  'refund-check': async el => { const a = db.athletes.find(x => x.id === el.dataset.id); if (!a || !a.refund) return;
+    if (!await ask('Чек об оплате аннулирован в «Мой налог» (при частичном возврате — сформирован новый на оставшуюся сумму)?')) return;
     a.refund.checkAt = ix.today; render.keepScroll = true; persist('Отмечено: чек скорректирован'); },
   'refund-print': el => { const a = ix.ath.get(el.dataset.id); if (a) printRefund(a); },
-  'refund-del': el => { const a = db.athletes.find(x => x.id === el.dataset.id); if (!a || !a.refund) return;
-    if (!confirm('Удалить запись об отказе и возврате? Статус «ушёл» и дата прекращения договора останутся — их меняйте кнопкой «Изменить».')) return;
+  'refund-del': async el => { const a = db.athletes.find(x => x.id === el.dataset.id); if (!a || !a.refund) return;
+    if (!await ask('Удалить запись об отказе и возврате? Статус «ушёл» и дата прекращения договора останутся — их меняйте кнопкой «Изменить».')) return;
     delete a.refund; render.keepScroll = true; persist('Запись об отказе удалена'); },
   'docs-edit': el => openDocs(el.dataset.id),
   'mark-info': el => toast(el.dataset.txt),
   'gsearch': () => openSearch(),
   'notify-mark': el => { const p = db.subs.find(x => x.id === el.dataset.sub); if (!p) return; markNotified(p, el.dataset.type);
     render.keepScroll = true; persist(el.dataset.type === 'end' ? 'Отмечено: предупреждён об окончании' : 'Отмечено: срок действия сообщён'); },
-  'cancel-undo': el => { const s = db.sessions.find(x => x.id === el.dataset.id); if (!s) return;
-    if (!confirm('Снять отмену занятия? Отметки «о» уберутся у всех, клетки станут пустыми — поставьте «+», «н» или «б».')) return;
+  'cancel-undo': async el => { const s = db.sessions.find(x => x.id === el.dataset.id); if (!s) return;
+    if (!await ask('Снять отмену занятия? Отметки «о» уберутся у всех, клетки станут пустыми — поставьте «+», «н» или «б».')) return;
     for (const k of Object.keys(s.marks)) if (s.marks[k] === 'о') delete s.marks[k];
     render.keepScroll = true; persist('Отмена занятия снята'); },
   'subs-show-all': () => { meta.subsShow = { n: 'all', per: 'all' }; writeMeta(); rerender(); },
   'brief-new': el => { const d = el.dataset.date && el.dataset.date < ix.today ? el.dataset.date : ix.today; openBrief([el.dataset.id], d, el.dataset.date ? (briefNeed(ix.ath.get(el.dataset.id), el.dataset.date) || {}).kind : ''); },
   'brief-session': el => { const s = db.sessions.find(x => x.id === el.dataset.id); if (!s) return;
     const ids = [...new Set([...sessionMembers(s).filter(a => s.marks[a.id] === '+' || !s.marks[a.id]).map(a => a.id), ...Object.keys(s.marks).filter(id => s.marks[id] === '+')])];
-    if (!ids.length) { alert('На занятии никого нет.'); return; } openBrief(ids, s.date > ix.today ? ix.today : s.date); },
-  'brief-del': el => { const a = db.athletes.find(x => x.id === el.dataset.id); if (!a) return; const b = (a.briefings || []).find(x => x.id === el.dataset.bid);
-    if (!b || !confirm(`Удалить запись об инструктаже ${D.ru(b.date)}? Запись в бумажном журнале не меняется.`)) return;
+    if (!ids.length) { notice('На занятии никого нет.'); return; } openBrief(ids, s.date > ix.today ? ix.today : s.date); },
+  'brief-del': async el => { const a = db.athletes.find(x => x.id === el.dataset.id); if (!a) return; const b = (a.briefings || []).find(x => x.id === el.dataset.bid);
+    if (!b || !await ask(`Удалить запись об инструктаже ${D.ru(b.date)}? Запись в бумажном журнале не меняется.`)) return;
     a.briefings = a.briefings.filter(x => x !== b); render.keepScroll = true; persist('Запись удалена'); },
   'trial': el => { const s = db.sessions.find(x => x.id === el.dataset.sid); if (!s) return; const aid = el.dataset.aid;
     s.trial = s.trial || {}; if (s.trial[aid]) delete s.trial[aid]; else s.trial[aid] = true;
@@ -4737,8 +4837,8 @@ const ACT = {
     render.keepScroll = true; persist(s.trial && s.trial[aid] ? 'Отмечено пробное занятие' : 'Отметка «пробное» снята'); },
   'print-nopublish': () => printNoPublish(),
   'tourn-new': () => openTourn(null), 'tourn-edit': el => openTourn(el.dataset.id), 'tourn-people': el => openTournPeople(el.dataset.id), 'tourn-prize': () => openPrize(),
-  'tourn-del': el => { const T = (db.tourneys || []).find(x => x.id === el.dataset.id); if (!T) return;
-    const n = Object.keys(T.res || {}).length; if (!confirm(`Удалить турнир «${T.name}»${n ? ' и отметки участия (' + n + ')' : ''}? Участие перестанет учитываться в допуске к аттестации.`)) return;
+  'tourn-del': async el => { const T = (db.tourneys || []).find(x => x.id === el.dataset.id); if (!T) return;
+    const n = Object.keys(T.res || {}).length; if (!await ask(`Удалить турнир «${T.name}»${n ? ' и отметки участия (' + n + ')' : ''}? Участие перестанет учитываться в допуске к аттестации.`)) return;
     db.tourneys = db.tourneys.filter(x => x !== T); closeModal(); render.keepScroll = true; persist('Турнир удалён'); },
   'export-anon': () => download(`D23_обезличенная_копия_${ix.today}.json`, JSON.stringify(anonDb(), null, 1), 'application/json'),
   'open-session': el => { const s = findOrCreateSession(el.dataset.date, el.dataset.group); location.hash = '#session/' + s.id; },
@@ -4752,44 +4852,44 @@ const ACT = {
     if (el.dataset.m !== '+' && s.trial) delete s.trial[el.dataset.aid];
     if (el.dataset.m === 'с' && cur !== 'с' && !tripOf(s.date)) toast('Внимание: ' + D.ru(s.date) + ' не входит ни в один объявленный период выезда (п. 9.6.2.1). Внесите выезд в Настройках → Соревнования или поставьте другую отметку.');
     render.keepScroll = true; persist(); },
-  'mark-all': el => { const s = db.sessions.find(x => x.id === el.dataset.id); const m = el.dataset.m; const before = JSON.stringify(s.marks);
-    if (m === 'о' && !confirm('Отметить занятие отменённым для всех? Оно не спишется ни у кого.')) return;
+  'mark-all': async el => { const s = db.sessions.find(x => x.id === el.dataset.id); const m = el.dataset.m; const before = JSON.stringify(s.marks);
+    if (m === 'о' && !await ask('Отметить занятие отменённым для всех? Оно не спишется ни у кого.')) return;
     if (m === '+') { const n = sessionMembers(s).filter(a => !s.marks[a.id] && !a.payPerVisit && a.status !== 'приостановил').length;
       if (!n) { toast('Все уже отмечены'); return; }
-      if (!confirm(`Поставить «был» всем неотмеченным (${n} ${plural(n, 'человек', 'человека', 'человек')})?`)) return; }
+      if (!await ask(`Поставить «был» всем неотмеченным (${n} ${plural(n, 'человек', 'человека', 'человек')})?`)) return; }
     setTimeout(() => undoToast(m === 'о' ? 'Занятие отменено' : 'Отмечено', () => { s.marks = JSON.parse(before); render.keepScroll = true; persist('Отметки возвращены'); }), 0);
     sessionMembers(s).forEach(a => { if (m === 'о') s.marks[a.id] = m; else if (!s.marks[a.id] && !a.payPerVisit && !(m === '+' && a.status === 'приостановил')) s.marks[a.id] = sickOn(a.id, s.date) ? 'б' : m; }); render.keepScroll = true; persist(); },
   'mark-rest': el => { const s = db.sessions.find(x => x.id === el.dataset.id); const before = JSON.stringify(s.marks);
     setTimeout(() => undoToast('Остальным поставлено «н»', () => { s.marks = JSON.parse(before); render.keepScroll = true; persist('Отметки возвращены'); }), 0);
     sessionMembers(s).forEach(a => { if (!s.marks[a.id] && !a.payPerVisit) s.marks[a.id] = sickOn(a.id, s.date) ? 'б' : 'н'; }); render.keepScroll = true; persist(); },
   'session-add': el => { const id = $('#add-to-session').value; if (!id) return; const s = db.sessions.find(x => x.id === el.dataset.id); s.marks[id] = '+'; ui.openOthers = s.id; render.keepScroll = true; persist('Добавлен на занятие'); },
-  'session-del': el => { const s = db.sessions.find(x => x.id === el.dataset.id); const n = Object.keys(s.marks).length;
-    if (!confirm(`Удалить занятие ${D.ru(s.date)}${n ? ' и ' + n + ' отметок' : ''}?`)) return; db.sessions = db.sessions.filter(x => x !== s); location.hash = '#journal'; persist('Занятие удалено'); },
-  'move-own': el => { const s = db.sessions.find(x => x.id === el.dataset.sid);
+  'session-del': async el => { const s = db.sessions.find(x => x.id === el.dataset.id); const n = Object.keys(s.marks).length;
+    if (!await ask(`Удалить занятие ${D.ru(s.date)}${n ? ' и ' + n + ' отметок' : ''}?`)) return; db.sessions = db.sessions.filter(x => x !== s); location.hash = '#journal'; persist('Занятие удалено'); },
+  'move-own': async el => { const s = db.sessions.find(x => x.id === el.dataset.sid);
     const list = (el.dataset.aid ? [ix.ath.get(el.dataset.aid)] : sessionOthers(s)).filter(a => a && groupOn(a, s.date) && groupOn(a, s.date) !== s.group && s.marks[a.id]);
     if (!list.length) return;
-    if (list.length > 1 && !confirm(`Перенести отметки ${list.length} чел. с занятия «${s.group || 'без группы'}» ${D.ru(s.date)} на занятия их групп за ту же дату?`)) return;
+    if (list.length > 1 && !await ask(`Перенести отметки ${list.length} чел. с занятия «${s.group || 'без группы'}» ${D.ru(s.date)} на занятия их групп за ту же дату?`)) return;
     let n = 0;
     for (const a of list) { const g = groupOn(a, s.date); let t = db.sessions.find(x => x.date === s.date && x.group === g);
       if (!t) { t = { id: uid('s'), date: s.date, group: g, marks: {} }; db.sessions.push(t); }
       if (!t.marks[a.id]) t.marks[a.id] = s.marks[a.id]; delete s.marks[a.id]; n++; }
     render.keepScroll = true; persist(`Перенесено отметок: ${n}`); },
   'transfer-new': el => openTransfer(el.dataset.id),
-  'transfer-del': el => { const a = db.athletes.find(x => x.id === el.dataset.id); const t = (a.transfers || []).find(x => x.id === el.dataset.tid);
-    if (!t || !confirm(`Удалить запись о переводе с ${D.ru(t.date)} (${t.from} → ${t.to})? Текущая группа в карточке не изменится.`)) return;
+  'transfer-del': async el => { const a = db.athletes.find(x => x.id === el.dataset.id); const t = (a.transfers || []).find(x => x.id === el.dataset.tid);
+    if (!t || !await ask(`Удалить запись о переводе с ${D.ru(t.date)} (${t.from} → ${t.to})? Текущая группа в карточке не изменится.`)) return;
     a.transfers = a.transfers.filter(x => x !== t); render.keepScroll = true; persist('Перевод удалён'); },
   'person-new': () => openPerson(null), 'person-edit': el => openPerson(el.dataset.id),
   'person-del': el => openDestroy(el.dataset.id),
-  'destroy-copies': el => { const x = (db.destroyLog || []).find(y => y.id === el.dataset.id); if (!x) return;
-    if (!confirm(`Подтверждаете, что для «${x.subject}»:\n— удалены файлы копий, сохранённые до ${D.ru(x.date)}, в папке Яндекс Диска, в «Загрузках» и на компьютере;\n— удалены CSV и иные файлы с его данными;\n— на другие устройства загружена новая копия (или он удалён там вручную)?`)) return;
+  'destroy-copies': async el => { const x = (db.destroyLog || []).find(y => y.id === el.dataset.id); if (!x) return;
+    if (!await ask(`Подтверждаете, что для «${x.subject}»:\n— удалены файлы копий, сохранённые до ${D.ru(x.date)}, в папке Яндекс Диска, в «Загрузках» и на компьютере;\n— удалены CSV и иные файлы с его данными;\n— на другие устройства загружена новая копия (или он удалён там вручную)?`)) return;
     x.copiesDone = ix.today; render.keepScroll = true; persist('Отмечено: копии очищены'); },
   'destroy-act': el => { const x = (db.destroyLog || []).find(y => y.id === el.dataset.id); if (x) printDestroyAct(x); },
   'destroy-extract': el => { const l = db.destroyLog || []; printDestroyExtract(el.dataset.id ? l.filter(y => y.id === el.dataset.id) : l); },
-  'destroy-prune': () => { const old = (db.destroyLog || []).filter(x => keepUntil(x.date) <= ix.today);
-    if (!old.length || !confirm(`Удалить из журнала ${old.length} ${plural(old.length, 'запись', 'записи', 'записей')} старше 3 лет? Распечатанные акты храните отдельно.`)) return;
+  'destroy-prune': async () => { const old = (db.destroyLog || []).filter(x => keepUntil(x.date) <= ix.today);
+    if (!old.length || !await ask(`Удалить из журнала ${old.length} ${plural(old.length, 'запись', 'записи', 'записей')} старше 3 лет? Распечатанные акты храните отдельно.`)) return;
     db.destroyLog = db.destroyLog.filter(x => !old.includes(x)); render.keepScroll = true; persist('Старые записи журнала удалены'); },
   'sub-new': el => openSub(null, el.dataset.id), 'sub-edit': el => openSub(el.dataset.id),
-  'sub-del': el => { const nf = db.freezes.filter(f => f.subId === el.dataset.id).length; if (!confirm('Удалить абонемент?' + (nf ? `\n\nК нему привязана заморозка (${nf}) — её нужно будет привязать к другому абонементу.` : ''))) return; db.subs = db.subs.filter(p => p.id !== el.dataset.id); closeModal(); persist('Абонемент удалён'); },
+  'sub-del': async el => { const nf = db.freezes.filter(f => f.subId === el.dataset.id).length; if (!await ask('Удалить абонемент?' + (nf ? `\n\nК нему привязана заморозка (${nf}) — её нужно будет привязать к другому абонементу.` : ''))) return; db.subs = db.subs.filter(p => p.id !== el.dataset.id); closeModal(); persist('Абонемент удалён'); },
   'no-sub': el => { const a = db.athletes.find(x => x.id === el.dataset.id); a.noSub = true; render.keepScroll = true; persist('Статус «без абонемента»: ' + shortName(a)); },
   'sub-wait': el => { const aid = el.dataset.id; const ex = pendingSub(ix, aid);
     if (ex) { openSub(ex.id); return; }
@@ -4819,10 +4919,10 @@ const ACT = {
   'subs-dir': () => { ui.subs.dir = -ui.subs.dir; rerender(); },
   'subs-filter': el => { ui.subs.filter = el.dataset.f; rerender(); },
   'freeze-new': el => openFreeze(null, el.dataset.id), 'freeze-edit': el => openFreeze(el.dataset.id),
-  'freeze-del': el => { if (!confirm('Удалить заморозку?')) return; db.freezes = db.freezes.filter(f => f.id !== el.dataset.id); closeModal(); persist('Заморозка удалена'); },
+  'freeze-del': async el => { if (!await ask('Удалить заморозку?')) return; db.freezes = db.freezes.filter(f => f.id !== el.dataset.id); closeModal(); persist('Заморозка удалена'); },
   'freeze-mark': el => { closeModal(); markFreeze(el.dataset.id); },
   'award-new': el => openAward(null, el.dataset.id), 'award-edit': el => openAward(el.dataset.id),
-  'award-del': el => { if (!confirm('Удалить запись о присвоении?')) return; db.awards = db.awards.filter(w => w.id !== el.dataset.id); closeModal(); persist('Удалено'); },
+  'award-del': async el => { if (!await ask('Удалить запись о присвоении?')) return; db.awards = db.awards.filter(w => w.id !== el.dataset.id); closeModal(); persist('Удалено'); },
   'msg': el => openMsg(el.dataset.id, el.dataset.tpl, el.dataset.extra ? JSON.parse(el.dataset.extra) : {}, el.dataset.sub || null, el.dataset.key || ''),
   'msg-share': () => { navigator.share({ text: $('#msg-text').value }).then(msgSent).catch(() => {}); },
   'msg-copy': () => { const t = $('#msg-text'); t.select(); (navigator.clipboard ? navigator.clipboard.writeText(t.value) : Promise.reject()).then(() => toast('Скопировано')).catch(() => { document.execCommand('copy'); toast('Скопировано'); }); msgSent(); },
@@ -4832,57 +4932,57 @@ const ACT = {
   'plan-word': () => { downloadBlob('D23_план_' + ix.today + '.docx', planDocx()); toast('План сохранён в Word (.docx)'); },
   'attn-undo': el => attnMark(el.dataset.key, false),
   'test-add': () => openTestAdd(), 'test-protocol': () => printProtocol(),
-  'test-del': el => { if (!confirm('Удалить строку сдачи?')) return; db.tests = db.tests.filter(t => t.id !== el.dataset.id); render.keepScroll = true; persist(); },
+  'test-del': async el => { if (!await ask('Удалить строку сдачи?')) return; db.tests = db.tests.filter(t => t.id !== el.dataset.id); render.keepScroll = true; persist(); },
   'set-test-date': el => { ui.attest.date = el.dataset.date; ui.attest.group = 'все'; },
   'check-all': () => document.querySelectorAll('#dlg .picklist input[type=checkbox]').forEach(c => c.checked = true),
   'norm-add': () => { db.settings.norms.push({ track: '', sex: '', from: '', to: '' }); rerender(); persist(); },
-  'norm-del-last': () => { if (confirm('Удалить последнюю строку норм?')) { db.settings.norms.pop(); render.keepScroll = true; persist(); } },
-  'sched-del': el => { const g = db.settings.groups[+el.dataset.i]; if (!g || !confirm('Удалить изменение расписания «' + g.name + '» с ' + D.ru(el.dataset.from) + '? С этой даты снова будет действовать предыдущее расписание.')) return;
+  'norm-del-last': async () => { if (await ask('Удалить последнюю строку норм?')) { db.settings.norms.pop(); render.keepScroll = true; persist(); } },
+  'sched-del': async el => { const g = db.settings.groups[+el.dataset.i]; if (!g || !await ask('Удалить изменение расписания «' + g.name + '» с ' + D.ru(el.dataset.from) + '? С этой даты снова будет действовать предыдущее расписание.')) return;
     g.schedHistory = (g.schedHistory || []).filter(x => x.from !== el.dataset.from); normSched(g); render.keepScroll = true; persist('Изменение расписания удалено'); },
   'group-add': () => { db.settings.groups.push({ name: 'Новая группа', days: [false, false, false, false, false, false, false] }); render.keepScroll = true; persist(); },
-  'group-del': el => { const g = db.settings.groups[+el.dataset.i]; const used = db.athletes.filter(a => a.group === g.name || a.group2 === g.name).length + db.sessions.filter(s => s.group === g.name).length;
-    if (used && !confirm(`Группа «${g.name}» используется (${used}). Удалить её из списка? Записи в журнале и у спортсменов останутся с этим названием.`)) return; db.settings.groups.splice(+el.dataset.i, 1); render.keepScroll = true; persist(); },
+  'group-del': async el => { const g = db.settings.groups[+el.dataset.i]; const used = db.athletes.filter(a => a.group === g.name || a.group2 === g.name).length + db.sessions.filter(s => s.group === g.name).length;
+    if (used && !await ask(`Группа «${g.name}» используется (${used}). Удалить её из списка? Записи в журнале и у спортсменов останутся с этим названием.`)) return; db.settings.groups.splice(+el.dataset.i, 1); render.keepScroll = true; persist(); },
   'hol-add': () => { const d = $('#hol-date').value; if (!d) return; db.settings.holidays = db.settings.holidays.filter(x => x.date !== d); db.settings.holidays.push({ date: d, reason: $('#hol-reason').value.trim() || 'нерабочий день' }); render.keepScroll = true; persist('Добавлено'); },
-  'trip-add': () => { const from = $('#trip-from').value, to = $('#trip-to').value, ann = $('#trip-ann').value;
-    if (!from || !to) { alert('Укажите даты отъезда и возвращения.'); return; }
-    if (to < from) { alert('Дата возвращения раньше даты отъезда.'); return; }
-    if (ann && D.diff(ann, from) < 3 && !confirm('Даты объявлены меньше чем за 3 дня до отъезда (п. 9.6.3 оферты). Всё равно добавить?')) return;
+  'trip-add': async () => { const from = $('#trip-from').value, to = $('#trip-to').value, ann = $('#trip-ann').value;
+    if (!from || !to) { notice('Укажите даты отъезда и возвращения.'); return; }
+    if (to < from) { notice('Дата возвращения раньше даты отъезда.'); return; }
+    if (ann && D.diff(ann, from) < 3 && !await ask('Даты объявлены меньше чем за 3 дня до отъезда (п. 9.6.3 оферты). Всё равно добавить?')) return;
     db.settings.trips = db.settings.trips || [];
     db.settings.trips.push({ id: uid('t'), name: $('#trip-name').value.trim() || db.settings.competition.name || '', from, to, announced: ann || '', ext: '' });
     render.keepScroll = true; persist('Выезд добавлен'); },
-  'trip-del': el => { if (!confirm('Удалить выезд? Отметки «с» в эти дни станут ошибочными.')) return; db.settings.trips.splice(+el.dataset.i, 1); render.keepScroll = true; persist(); },
+  'trip-del': async el => { if (!await ask('Удалить выезд? Отметки «с» в эти дни станут ошибочными.')) return; db.settings.trips.splice(+el.dataset.i, 1); render.keepScroll = true; persist(); },
   'hol-del': el => { db.settings.holidays = db.settings.holidays.filter(x => x.date !== el.dataset.date); render.keepScroll = true; persist(); },
   'tpl-add': () => { db.settings.templates.push({ title: 'Новый шаблон', text: 'Здравствуйте! ' }); render.keepScroll = true; persist(); },
-  'tpl-del': el => { if (confirm('Удалить шаблон?')) { db.settings.templates.splice(+el.dataset.i, 1); render.keepScroll = true; persist(); } },
-  'people-print': () => window.print(), 'people-entry': () => printEntry(),
-  'people-csv': () => { if (pinOn() && !confirm('CSV не шифруется: в файле будут открытые персональные данные. Продолжить?')) return; const rows = [['ФИО', 'Пол', 'Дата рождения', 'Возраст', 'Группа', 'Вторая группа', 'Статус', 'Пояс', 'Страйпы', 'Вес', 'Телефон', 'Мать', 'Тел. матери', 'Отец', 'Тел. отца', 'Медсправка до', 'Примечание']];
+  'tpl-del': async el => { if (await ask('Удалить шаблон?')) { db.settings.templates.splice(+el.dataset.i, 1); render.keepScroll = true; persist(); } },
+  'people-print': () => printMain('Спортсмены'), 'people-entry': () => printEntry(),
+  'people-csv': async () => { if (pinOn() && !await ask('CSV не шифруется: в файле будут открытые персональные данные. Продолжить?')) return; const rows = [['ФИО', 'Пол', 'Дата рождения', 'Возраст', 'Группа', 'Вторая группа', 'Статус', 'Пояс', 'Страйпы', 'Вес', 'Телефон', 'Мать', 'Тел. матери', 'Отец', 'Тел. отца', 'Медсправка до', 'Примечание']];
     (location.hash.startsWith('#people') ? filteredPeople() : db.athletes).forEach(a => { const c = ix.athCalc.get(a.id); rows.push([fullName(a), a.sex, D.ru(a.birth), c.age ?? '', a.group, a.group2, a.status, c.belt, c.stripes || '', a.weight, a.phone, a.motherName, a.motherPhone, a.fatherName, a.fatherPhone, D.ru(a.medUntil), a.note]); });
     download('D23_спортсмены_' + ix.today + '.csv', csv(rows), 'text/csv'); },
-  'subs-csv': () => { if (pinOn() && !confirm('CSV не шифруется: в файле будут открытые персональные данные. Продолжить?')) return; const rows = [['ФИО', 'Группа', 'Только на группу', 'Дата оплаты', 'Действует с', 'Занятий', 'Сумма', 'Возврат', 'Был', 'Не был', 'Болел', 'Остаток', 'Окончание', 'Статус', 'Примечание']];
+  'subs-csv': async () => { if (pinOn() && !await ask('CSV не шифруется: в файле будут открытые персональные данные. Продолжить?')) return; const rows = [['ФИО', 'Группа', 'Только на группу', 'Дата оплаты', 'Действует с', 'Занятий', 'Сумма', 'Возврат', 'Был', 'Не был', 'Болел', 'Остаток', 'Окончание', 'Статус', 'Примечание']];
     db.subs.forEach(p => { const a = ix.ath.get(p.athleteId), r = ix.subCalc.get(p.id); if (a) rows.push([fullName(a), a.group, p.onlyGroup, p.pending ? 'ждём оплату' : D.ru(p.payDate), r.first ? D.ru(r.first) : 'не активирован', p.count, p.pending ? '' : p.amount, (refundBySub().get(p.id) || {}).sum || '', r.was, r.missed, r.sick, r.remaining, D.ru(r.end), r.status, p.note]); });
     download('D23_абонементы_' + ix.today + '.csv', csv(rows), 'text/csv'); },
-  'visits-csv': () => { if (pinOn() && !confirm('CSV не шифруется: в файле будут открытые персональные данные. Продолжить?')) return; const rows = [['Дата', 'День', 'Группа', 'ФИО', 'Отметка']];
+  'visits-csv': async () => { if (pinOn() && !await ask('CSV не шифруется: в файле будут открытые персональные данные. Продолжить?')) return; const rows = [['Дата', 'День', 'Группа', 'ФИО', 'Отметка']];
     ix.sessionsSorted.forEach(s => Object.entries(s.marks).forEach(([id, m]) => { const a = ix.ath.get(id); if (a) rows.push([D.ru(s.date), DOW[D.dow(s.date)], s.group, fullName(a), m]); }));
     download('D23_посещения_' + ix.today + '.csv', csv(rows), 'text/csv'); },
-  'snap-restore': el => { const snaps = JSON.parse(localStorage.getItem(LS_SNAP) || '[]'); const s = snaps[+el.dataset.i];
-    if (!s || !confirm('Вернуть версию от ' + new Date(s.at).toLocaleString('ru') + '? Текущие данные сохранятся как прежняя версия.')) return;
+  'snap-restore': async el => { const snaps = JSON.parse(localStorage.getItem(LS_SNAP) || '[]'); const s = snaps[+el.dataset.i];
+    if (!s || !await ask('Вернуть версию от ' + new Date(s.at).toLocaleString('ru') + '? Текущие данные сохранятся как прежняя версия.')) return;
     snapText(s).then(t => normalize(JSON.parse(t))).then(nd => { snapshot('перед возвратом версии'); keepBroken(); db = nd; persist('Версия восстановлена'); },
-      () => alert('Эта версия тоже не читается — выберите другую или загрузите копию из файла.')); },
-  'wipe': () => { if (!confirm('Удалить все данные из этого браузера? Сначала сохраните копию в файл.')) return; if (prompt('Для подтверждения напишите: УДАЛИТЬ') !== 'УДАЛИТЬ') return;
+      () => notice('Эта версия тоже не читается — выберите другую или загрузите копию из файла.')); },
+  'wipe': async () => { if (!await ask('Удалить все данные из этого браузера? Сначала сохраните копию в файл.')) return; if (!await ask('Это удалит все данные программы из этого браузера. Отменить будет нельзя.', { type: 'УДАЛИТЬ', ok: 'Удалить всё', danger: true })) return;
     localStorage.removeItem(LS_DB); localStorage.removeItem(LS_SNAP); localStorage.removeItem(LS_META); db = null; loadError = null; cryptoKey = null; locked = false; stopLockTimer(); meta = { lastExport: null, exportedRev: 0 }; render(); },
   'pin-lock': () => lock(),
-  'pin-on': () => {
+  'pin-on': async () => {
     const a = ($('#pin-new') || {}).value || '', b = ($('#pin-new2') || {}).value || '', old = ($('#pin-old') || {}).value || '';
-    if (a.length < 8) { alert('PIN — не короче 8 символов: копии на Яндекс Диске защищены только им.'); return; }
-    if (a !== b) { alert('PIN и повтор не совпадают.'); return; }
-    if (!confirm('ВАЖНО: без PIN данные в этом браузере и копии, сохранённые с ним, открыть будет невозможно — восстановления нет.\n\nЗапишите PIN и храните отдельно от телефона. Продолжить?')) return;
-    (async () => { if (pinOn()) { try { await checkPin(old); } catch (e) { alert('Текущий PIN неверный.'); return; } }
+    if (a.length < 8) { notice('PIN — не короче 8 символов: копии на Яндекс Диске защищены только им.'); return; }
+    if (a !== b) { notice('PIN и повтор не совпадают.'); return; }
+    if (!await ask('ВАЖНО: без PIN данные в этом браузере и копии, сохранённые с ним, открыть будет невозможно — восстановления нет.\n\nЗапишите PIN и храните отдельно от телефона. Продолжить?')) return;
+    (async () => { if (pinOn()) { try { await checkPin(old); } catch (e) { notice('Текущий PIN неверный.'); return; } }
       const was = pinOn(); await pinEnable(a); rerender(); toast(was ? 'PIN изменён' : 'PIN включён: данные в браузере зашифрованы'); })().catch(showError); },
-  'pin-off': () => {
+  'pin-off': async () => {
     const old = ($('#pin-old') || {}).value || '';
-    if (!confirm('Выключить PIN? Данные в браузере будут храниться незашифрованными.')) return;
-    (async () => { try { await checkPin(old); } catch (e) { alert('Введите текущий PIN в поле «Текущий PIN».'); return; } await pinDisable(); rerender(); toast('PIN выключен'); })().catch(showError); },
-  'export-plain': () => { if (!confirm('Сохранить копию БЕЗ шифрования? Её откроет любой, у кого окажется файл. Храните только в надёжном месте.')) return;
+    if (!await ask('Выключить PIN? Данные в браузере будут храниться незашифрованными.')) return;
+    (async () => { try { await checkPin(old); } catch (e) { notice('Введите текущий PIN в поле «Текущий PIN».'); return; } await pinDisable(); rerender(); toast('PIN выключен'); })().catch(showError); },
+  'export-plain': async () => { if (!await ask('Сохранить копию БЕЗ шифрования? Её откроет любой, у кого окажется файл. Храните только в надёжном месте.')) return;
     download(copyName(true).replace(/\.json$/, '_без_PIN.json'), JSON.stringify(db, null, 1), 'application/json'); },
 };
 document.addEventListener('click', e => { document.querySelectorAll('details.menu[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; }); }, true);
@@ -4890,7 +4990,7 @@ document.addEventListener('click', e => {
   const act = e.target.closest('[data-act]');
   if (act && !(act.tagName === 'INPUT' || act.tagName === 'SELECT')) {
     const fn = ACT[act.dataset.act];
-    if (fn) { e.preventDefault(); try { fn(act, e); } catch (err) { showError(err); } }
+    if (fn) { e.preventDefault(); try { const r = fn(act, e); if (r && typeof r.catch === 'function') r.catch(showError); } catch (err) { showError(err); } }
     if (act.dataset.go) location.hash = act.dataset.go;
     return;
   }
@@ -4899,7 +4999,7 @@ document.addEventListener('click', e => {
   else if (go && go.tagName === 'BUTTON') location.hash = go.dataset.go;
 });
 let typingTimer = null;
-function onChange(e) {
+async function onChange(e) {
   const el = e.target, k = el.dataset.change; if (!k) return;
   const v = el.type === 'checkbox' ? el.checked : el.value;
   const live = e.type === 'input';
@@ -4910,7 +5010,7 @@ function onChange(e) {
   if (k === 'subs-q') { ui.subs.q = v; clearTimeout(typingTimer); typingTimer = setTimeout(() => { rerender(); const n = document.querySelector('[data-change="subs-q"]'); if (n) { n.focus(); n.setSelectionRange(v.length, v.length); } }, 250); return; }
   if (live) return;
   if (k === 'session-group') { const s = db.sessions.find(x => x.id === el.dataset.id); const n = Object.keys(s.marks).length;
-    if (s.group && n && !confirm(`Перенести занятие ${D.ru(s.date)} из «${s.group}» в «${v || 'без группы'}»? Все ${n} отметок перейдут вместе с ним.`)) { rerender(); return; }
+    if (s.group && n && !await ask(`Перенести занятие ${D.ru(s.date)} из «${s.group}» в «${v || 'без группы'}»? Все ${n} отметок перейдут вместе с ним.`)) { rerender(); return; }
     s.group = v; render.keepScroll = true; persist('Группа занятия изменена'); }
   else if (k === 'subs-sort') { ui.subs.sort = v; ui.subs.dir = v === 'start' || v === 'pay' ? -1 : 1; rerender(); }
   else if (k === 'subs-pfrom') { if (v) { ui.subs.pFrom = v; rerender(); } }
@@ -4934,12 +5034,12 @@ function onChange(e) {
   }
   else if (k === 'norm') { const n = db.settings.norms[+el.dataset.i]; const num = !['track', 'sex', 'pullKind', 'pushKind'].includes(el.dataset.k); n[el.dataset.k] = num ? (v === '' ? null : +v) : v.trim(); render.keepScroll = true; persist(); }
   else if (k === 'set') { const numPaths = ['attest.threshold', 'attest.minTournaments', 'attest.tournamentsMaxAge', 'attest.reliefCoef', 'defaultCount', 'copiesKeep', 'adultTarget', 'leadsKeep']; const isNum = numPaths.includes(el.dataset.path) || (/^prices\./.test(el.dataset.path) && el.dataset.path !== 'prices.from');
-    if (isNum && !(+v >= 0)) { alert('Нужно число не меньше нуля'); rerender(); return; }
+    if (isNum && !(+v >= 0)) { notice('Нужно число не меньше нуля'); rerender(); return; }
     setPath(db.settings, el.dataset.path, isNum ? +v : v); render.keepScroll = true; persist('Сохранено'); }
   else if (k === 'soft') { const A = db.settings.attest; A.softFrom = v; A.softFor = v ? A.next : ''; render.keepScroll = true; persist('Сохранено'); }
   else if (k === 'trip') { const x = db.settings.trips[+el.dataset.i]; if (!x) return;
-    if (v && v <= x.to) { alert('Дата продления должна быть позже объявленной даты возвращения.'); rerender(); return; }
-    if (v && x.to < ix.today && !confirm('Объявленный период уже закончился. Продление действует, только если вы объявили его до ' + D.ru(x.to) + ' (п. 9.6.3). Внести?')) { rerender(); return; }
+    if (v && v <= x.to) { notice('Дата продления должна быть позже объявленной даты возвращения.'); rerender(); return; }
+    if (v && x.to < ix.today && !await ask('Объявленный период уже закончился. Продление действует, только если вы объявили его до ' + D.ru(x.to) + ' (п. 9.6.3). Внести?')) { rerender(); return; }
     x.ext = v; render.keepScroll = true; persist('Сохранено'); }
   else if (k === 'leads-from' || k === 'leads-to') { if (v) { ui.leads[k === 'leads-from' ? 'from' : 'to'] = v; ui.leads.per = ''; rerender(); } }
   else if (k === 'year-sel') { location.hash = '#year/' + v; }
@@ -4947,7 +5047,7 @@ function onChange(e) {
   else if (k === 'belts') { db.settings.belts = v.split('\n').map(x => x.trim()).filter(Boolean); render.keepScroll = true; persist('Сохранено'); }
   else if (k === 'tpl') { db.settings.templates[+el.dataset.i][el.dataset.k] = v; render.keepScroll = true; persist('Шаблон сохранён'); }
   else if (k === 'group-name') { const g = db.settings.groups[+el.dataset.i]; const nn = v.trim(); if (!nn) { rerender(); return; }
-    if (db.settings.groups.some((x, i) => i !== +el.dataset.i && x.name === nn)) { alert('Группа с таким названием уже есть'); rerender(); return; }
+    if (db.settings.groups.some((x, i) => i !== +el.dataset.i && x.name === nn)) { notice('Группа с таким названием уже есть'); rerender(); return; }
     renameGroup(g.name, nn); g.name = nn; render.keepScroll = true; persist('Группа переименована'); }
   else if (k === 'group-bysched') { db.settings.groups[+el.dataset.i].bySchedule = v; render.keepScroll = true; persist(v ? 'Посещаемость группы — по расписанию' : 'Посещаемость группы — по проведённым занятиям'); }
   else if (k === 'group-day') { const g = db.settings.groups[+el.dataset.i], from = ui.schedFrom || ix.today;
@@ -4960,9 +5060,9 @@ function onChange(e) {
   else if (k === 'money-cat') { ui.money.cat = v; rerender(); }
   else if (k === 'money-year') { ui.money.year = v; rerender(); }
   else if (k === 'fin') { const F = finS(db), path = el.dataset.path, num = /^(rate|rateOrg|limit|deduct|before\.amount|open\.)/.test(path);
-    if (path === 'start') { if (!v) { alert('Дата начала учёта нужна для остатков. Чтобы начать заново — поставьте другую дату.'); rerender(); return; } if (v > D.add(ix.today, 1)) { alert('Дата — не позже завтрашней'); rerender(); return; } }
-    let val = v; if (num) { val = Math.round((+v || 0) * 100) / 100; if (val < 0 && !path.startsWith('open.')) { alert('Значение не может быть отрицательным'); rerender(); return; } }
-    if (path === 'deduct' && val > 10000) { alert('Вычет — не больше 10 000 ₽'); rerender(); return; }
+    if (path === 'start') { if (!v) { notice('Дата начала учёта нужна для остатков. Чтобы начать заново — поставьте другую дату.'); rerender(); return; } if (v > D.add(ix.today, 1)) { notice('Дата — не позже завтрашней'); rerender(); return; } }
+    let val = v; if (num) { val = Math.round((+v || 0) * 100) / 100; if (val < 0 && !path.startsWith('open.')) { notice('Значение не может быть отрицательным'); rerender(); return; } }
+    if (path === 'deduct' && val > 10000) { notice('Вычет — не больше 10 000 ₽'); rerender(); return; }
     setPath(F, path, val); if (path === 'before.amount' && !F.before.year) F.before.year = ix.today.slice(0, 4);
     render.keepScroll = true; persist('Сохранено'); }
   else if (k === 'fincat') { const c = finS(db)[el.dataset.list][+el.dataset.i]; if (!c) return; const kk = el.dataset.k;
@@ -4973,8 +5073,8 @@ function onChange(e) {
   else if (k === 'finrec') { const r = finS(db).recur[+el.dataset.i]; if (!r) return; const kk = el.dataset.k;
     r[kk] = kk === 'amount' ? Math.max(0, Math.round(+v || 0)) : kk === 'day' ? Math.min(31, Math.max(1, Math.round(+v || 1))) : kk === 'off' ? !!v : v; render.keepScroll = true; persist('Сохранено'); }
 }
-function safeChange(e) { try { onChange(e); } catch (err) { showError(err); } }
-function showError(err) { console.error(err); alert('Ошибка: ' + (err && err.message || err) + '\nДействие не выполнено. Если повторяется — сохраните копию данных и опишите, что нажимали.'); }
+function safeChange(e) { try { const r = onChange(e); if (r && typeof r.catch === 'function') r.catch(showError); } catch (err) { showError(err); } }
+function showError(err) { console.error(err); notice('Ошибка: ' + (err && err.message || err) + '\nДействие не выполнено. Если повторяется — сохраните копию данных и опишите, что нажимали.'); }
 document.addEventListener('change', safeChange);
 document.addEventListener('toggle', e => { if (e.target.matches && e.target.matches('details[data-filt]')) ui.peopleFiltOpen = e.target.open;
   if (e.target.matches && e.target.matches('details[data-later]')) { meta.laterOpen = e.target.open; writeMeta(); } }, true);
