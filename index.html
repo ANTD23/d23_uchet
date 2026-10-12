@@ -515,6 +515,15 @@ dialog.ask::backdrop{background:rgba(8,12,16,.55)}
 .pin-input{min-height:60px!important;font-size:1.75rem!important;text-align:center;letter-spacing:.35em}
 .pin-err{color:var(--bad);font-weight:600;margin:8px 0 0}
 .pin-go{width:100%;min-height:56px;font-size:1.125rem;margin-top:14px}
+/* ===== широкие таблицы: прокрутка вбок вместо обрезки (12.10.2026) =====
+   Раньше «.card.flat» (обрезка) перебивало «.scroll» (прокрутка) — правые столбцы пропадали. Тень у края — «таблица продолжается». */
+.scroll,.card.flat.scroll,.card.flat:has(> table){overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;
+  background-color:var(--surface);
+  background-image:linear-gradient(to right,var(--surface) 30%,transparent),linear-gradient(to left,var(--surface) 30%,transparent),radial-gradient(farthest-side at 0 50%,rgba(0,0,0,.22),transparent),radial-gradient(farthest-side at 100% 50%,rgba(0,0,0,.22),transparent);
+  background-position:left center,right center,left center,right center;background-repeat:no-repeat;background-size:40px 100%,40px 100%,14px 100%,14px 100%;background-attachment:local,local,scroll,scroll}
+.scroll table.t td,.card.flat > table.t td{background-clip:padding-box}
+@media (max-width:860px){.list .who b{white-space:normal;overflow-wrap:anywhere}}
+@media print{.scroll,.card.flat.scroll,.card.flat:has(> table){background:none!important;overflow:visible!important}}
 .toast .btn{margin-left:10px;min-height:36px;padding:0 14px;background:transparent;border-color:transparent;color:var(--bg);text-decoration:underline;text-underline-offset:3px}
 .toast .btn:hover{background:rgba(127,127,127,.2)}
 </style></head>
@@ -3450,7 +3459,7 @@ function vSettings() {
   ${L('Возраст на турнире', `<select data-change="set" data-path="competition.ageMode">${['на дату соревнований', 'по году рождения (на 31.12)'].map(x => opt(x, C.ageMode)).join('')}</select>`)}</div>
   <h2 style="margin-top:16px">Выезды на соревнования (п. 9.6 оферты)</h2>
   <p class="small muted">Внесите даты, которые вы объявили в чате клуба до поездки — не позднее чем за 3 дня до отъезда, в том числе когда сами не едете. Период: день отъезда, дни соревнования, день возвращения. Границы определяют только объявленные даты: болезнь или иное отсутствие тренера после окончания периода его не продлевает. Дату продления вносите, только если объявили её до окончания периода (задержка транспорта, решение организатора). Отметка «с» допустима только внутри периода; вне его занятие списывается.</p>
-  <ul class="list" style="border:1px solid var(--line);border-radius:8px">${[...(S.trips || [])].map((x, i) => ({ x, i })).sort((p, q) => (q.x.from || '').localeCompare(p.x.from || '')).map(({ x, i }) => `<li style="flex-wrap:wrap;gap:6px"><span class="who"><b>${h(x.name || 'Соревнование')}</b><br><span class="small">${D.ru(x.from)} — ${D.ru(x.to)}${x.ext && x.ext > x.to ? ' · <b>продлён до ' + D.ru(x.ext) + '</b>' : ''}${x.announced ? ' · объявлено ' + D.ru(x.announced) : ''}</span></span><label class="small row" style="gap:4px">продление до<input type="date" data-change="trip" data-i="${i}" data-k="ext" value="${h(x.ext || '')}" style="width:auto"></label><button class="btn sm ghost" data-act="trip-del" data-i="${i}" aria-label="Удалить">✕</button></li>`).join('') || '<li class="muted">Нет</li>'}</ul>
+  <ul class="list" style="border:1px solid var(--line);border-radius:8px">${[...(S.trips || [])].map((x, i) => ({ x, i })).sort((p, q) => (q.x.from || '').localeCompare(p.x.from || '')).map(({ x, i }) => `<li style="flex-wrap:wrap;gap:6px"><span class="who" style="flex:1 1 200px"><b>${h(x.name || 'Соревнование')}</b><br><span class="small">${D.ru(x.from)} — ${D.ru(x.to)}${x.ext && x.ext > x.to ? ' · <b>продлён до ' + D.ru(x.ext) + '</b>' : ''}${x.announced ? ' · объявлено ' + D.ru(x.announced) : ''}</span></span><label class="small row" style="gap:4px">продление до<input type="date" data-change="trip" data-i="${i}" data-k="ext" value="${h(x.ext || '')}" style="width:auto"></label><button class="btn sm ghost" data-act="trip-del" data-i="${i}" aria-label="Удалить">✕</button></li>`).join('') || '<li class="muted">Нет</li>'}</ul>
   <div class="fgrid" style="margin-top:8px">${L('Соревнование', '<input type="text" id="trip-name" placeholder="' + h(C.name || '') + '">')}${L('Отъезд', '<input type="date" id="trip-from">')}${L('Возвращение', '<input type="date" id="trip-to">')}${L('Дата объявления в чате', '<input type="date" id="trip-ann">')}</div>
   <div class="row" style="margin-top:8px"><button class="btn" data-act="trip-add">Добавить выезд</button></div>
   <h2 style="margin-top:16px">Аттестация</h2><div class="fgrid">${L('Предыдущая аттестация', inp('attest.prev', A.prev, 'date'))}${L('Предстоящая аттестация', inp('attest.next', A.next, 'date'))}
