@@ -4692,6 +4692,7 @@ function tResText(v) { return tEntries(v).map(e => (e.div ? tDivName(e.div) + ':
    T.res[aid] ведётся как раньше (раздел → лучшее место): по нему считаются допуск к аттестации, призёры, история. */
 const T_LEVELS = { levels: ['без разделения на уровни', 'Beginner', 'Intermediate', 'Professional', 'Advanced'],
   belts: ['без разделения на пояса', 'белый', 'серый', 'жёлтый', 'оранжевый', 'зелёный', 'синий', 'фиолетовый', 'коричневый', 'чёрный'] };
+const MASTERS_AGE = 30;                                  // категория Masters — кому в год турнира исполняется столько лет или больше (решение главного тренера)
 const T_MASTERS = ['Masters 1', 'Masters 2', 'Masters 3', 'Masters 4', 'Masters 5'];
 function tCats(T, aid) {
   const C = T.cats && T.cats[aid]; if (Array.isArray(C) && C.length) return C;
@@ -4784,7 +4785,7 @@ function openTourn(id) {
   modal(id ? 'Изменить турнир' : 'Новый турнир', `<div class="fgrid">${F('name', 'Название', T.name, 'text', 'required')}${F('date', 'Дата (первый день)', T.date, 'date', 'required')}${F('city', 'Город', T.city)}${FS('divs', 'Разделы', [['both', 'Gi и No-Gi'], ['gi', 'только Gi'], ['nogi', 'только No-Gi']], tDivs(T).length === 2 ? 'both' : tDivs(T)[0])}
     ${FS('ageMode', 'Возрастные категории', [['age', 'по возрасту на дату соревнований (от–до, лет)'], ['year', 'по году рождения (от–до)']], T.ageMode || 'age')}
     ${FS('level', 'Уровень подготовки', [['', 'не указывать'], ['levels', 'уровни: Beginner, Intermediate, Professional, Advanced'], ['belts', 'пояса: белый … чёрный']], T.level || '')}</div>
-    <p class="small muted">Masters 1–5 выбирается у взрослых участников в окне «Категории и вес». Весовая категория — у каждого участника, цифрами.</p>`, {
+    <p class="small muted">Masters 1–5 выбирается у участников, которым в год турнира исполняется 30 лет и больше в окне «Категории и вес». Весовая категория — у каждого участника, цифрами.</p>`, {
     extraBtn: id ? `<button type="button" class="btn danger" data-act="tourn-del" data-id="${id}">Удалить</button>` : '',
     onSubmit(fd) {
       const t = id ? T : { id: uid('T'), res: {} };
@@ -4839,7 +4840,7 @@ function tCatRow(T, a, e, adult) {
 }
 function openTournCats(tid, aid) {
   const T = (db.tourneys || []).find(x => x.id === tid), a = ix.ath.get(aid); if (!T || !a) return;
-  const age = tAgeOf(T, a), adult = age != null && age >= 18, W = weighings(a);
+  const age = tAgeOf(T, a), adult = !!a.birth && +(T.date || ix.today).slice(0, 4) - +a.birth.slice(0, 4) >= MASTERS_AGE, W = weighings(a);   // Masters — по году рождения: в год турнира исполняется 30 и больше
   const C = tCats(T, aid).map(e => ({ ...e }));
   modal(shortName(a) + ': категории', `<div class="tcat-head"><div><b>${h(T.name || 'Турнир')}</b>, ${D.ru(T.date)}${T.city ? ', ' + h(T.city) : ''}</div>
       <div class="small">${age != null ? `На дату соревнований: <b>${age} ${plural(age, 'год', 'года', 'лет')}</b> · год рождения ${a.birth.slice(0, 4)}` : 'Дата рождения не внесена'}${(ix.athCalc.get(aid) || {}).belt ? ' · пояс ' + h(ix.athCalc.get(aid).belt) : ''}</div>
