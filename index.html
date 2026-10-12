@@ -2014,13 +2014,38 @@ function render() {
   const navKey = v === 'plan' ? 'today' : v === 'session' ? 'journal' : v === 'person' ? 'people' : v === 'year' ? 'report' : v;
   let body;
   try { body = fn(arg); } catch (e) { console.error(e); body = `<div class="card"><h2>Ошибка отображения</h2><p class="muted">${h(e.message)}</p></div>`; }
-  const scroll = window.scrollY;
-  document.getElementById('app').innerHTML = `<div class="shell">${navHTML(navKey)}<main>${body}</main></div>`;
+  const scroll = window.scrollY, keep = render.keep, main0 = document.querySelector('main');
+  let patched = false;
+  if (keep && main0 && main0.contains(keep)) { const t = document.createElement('main'); t.innerHTML = body; patched = patchKeep(main0, t, keep); }
+  if (!patched) document.getElementById('app').innerHTML = `<div class="shell">${navHTML(navKey)}<main>${body}</main></div>`;
   if (v === 'person') applySections();
   if (render.keepScroll) window.scrollTo(0, scroll); else window.scrollTo(0, 0);
   render.keepScroll = false;
 }
 function rerender() { render.keepScroll = true; render(); }
+/* Обновление экрана во время набора в поле поиска: поле не пересоздаётся (на телефоне иначе сбрасываются клавиатура и набор).
+   Меняется всё вокруг поля по той же разметке; если разметка вокруг поля другая — обычная перерисовка с возвратом курсора. */
+function patchKeep(oldRoot, newRoot, keep) {
+  const sel = keep.dataset.change ? `[data-change="${keep.dataset.change}"]${keep.dataset.k ? `[data-k="${keep.dataset.k}"]` : ''}` : '';
+  const twin = sel && newRoot.querySelector(sel); if (!twin) return false;
+  const oc = [], nc = [];
+  for (let x = keep; x && x !== oldRoot; x = x.parentNode) oc.unshift(x);
+  for (let x = twin; x && x !== newRoot; x = x.parentNode) nc.unshift(x);
+  if (oc.length !== nc.length || oc.some((x, i) => x.nodeName !== nc[i].nodeName)) return false;
+  let po = oldRoot, pn = newRoot;
+  oc.forEach((ko, i) => { const kn = nc[i];
+    [...po.childNodes].forEach(c => { if (c !== ko) po.removeChild(c); });
+    let before = true; [...pn.childNodes].forEach(c => { if (c === kn) { before = false; return; } if (before) po.insertBefore(c, ko); else po.appendChild(c); });
+    if (ko !== keep) for (const a of [...kn.attributes]) if (ko.getAttribute(a.name) !== a.value) ko.setAttribute(a.name, a.value);
+    po = ko; pn = kn; });
+  return true;
+}
+function liveRefresh(el) {                                // перерисовать список, не трогая поле, в котором печатают
+  const pos = el.selectionStart;
+  render.keep = el; render.keepScroll = true;
+  try { render(); } finally { render.keep = null; }
+  if (document.activeElement !== el) { const n = el.dataset.change && document.querySelector(`[data-change="${el.dataset.change}"]${el.dataset.k ? `[data-k="${el.dataset.k}"]` : ''}`); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {} } }
+}
 function purgeEmptySessions() {          // открытые по ошибке и не отмеченные занятия не храним
   if (!db) return;
   const cur = route().v === 'session' ? route().arg : '';
@@ -5012,11 +5037,11 @@ async function onChange(e) {
   const el = e.target, k = el.dataset.change; if (!k) return;
   const v = el.type === 'checkbox' ? el.checked : el.value;
   const live = e.type === 'input';
-  if (k === 'pf') { ui.people[el.dataset.k] = v; if (live && el.type !== 'number' && el.type !== 'search') return; clearTimeout(typingTimer); typingTimer = setTimeout(() => { const pos = el.selectionStart; rerender(); const n = document.querySelector(`[data-change="pf"][data-k="${el.dataset.k}"]`); if (n && live) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {} } }, live ? 250 : 0); return; }
-  if (k === 'attest-q') { ui.attest.q = v; clearTimeout(typingTimer); typingTimer = setTimeout(() => { rerender(); const n = document.querySelector('[data-change="attest-q"]'); if (n) { n.focus(); n.setSelectionRange(v.length, v.length); } }, 250); return; }
-  if (k === 'leads-q') { ui.leads.q = v; clearTimeout(typingTimer); typingTimer = setTimeout(() => { rerender(); const n = document.querySelector('[data-change="leads-q"]'); if (n) { n.focus(); n.setSelectionRange(v.length, v.length); } }, 250); return; }
-  if (k === 'money-q') { ui.money.q = v; clearTimeout(typingTimer); typingTimer = setTimeout(() => { rerender(); const n = document.querySelector('[data-change="money-q"]'); if (n) { n.focus(); n.setSelectionRange(v.length, v.length); } }, 250); return; }
-  if (k === 'subs-q') { ui.subs.q = v; clearTimeout(typingTimer); typingTimer = setTimeout(() => { rerender(); const n = document.querySelector('[data-change="subs-q"]'); if (n) { n.focus(); n.setSelectionRange(v.length, v.length); } }, 250); return; }
+  if (k === 'pf') { ui.people[el.dataset.k] = v; if (live && el.type !== 'number' && el.type !== 'search') return; clearTimeout(typingTimer); typingTimer = setTimeout(() => { if (live) liveRefresh(el); else rerender(); }, live ? 250 : 0); return; }
+  if (k === 'attest-q') { ui.attest.q = v; clearTimeout(typingTimer); typingTimer = setTimeout(() => { if (live) liveRefresh(el); else rerender(); }, live ? 250 : 0); return; }
+  if (k === 'leads-q') { ui.leads.q = v; clearTimeout(typingTimer); typingTimer = setTimeout(() => { if (live) liveRefresh(el); else rerender(); }, live ? 250 : 0); return; }
+  if (k === 'money-q') { ui.money.q = v; clearTimeout(typingTimer); typingTimer = setTimeout(() => { if (live) liveRefresh(el); else rerender(); }, live ? 250 : 0); return; }
+  if (k === 'subs-q') { ui.subs.q = v; clearTimeout(typingTimer); typingTimer = setTimeout(() => { if (live) liveRefresh(el); else rerender(); }, live ? 250 : 0); return; }
   if (live) return;
   if (k === 'session-group') { const s = db.sessions.find(x => x.id === el.dataset.id); const n = Object.keys(s.marks).length;
     if (s.group && n && !await ask(`Перенести занятие ${D.ru(s.date)} из «${s.group}» в «${v || 'без группы'}»? Все ${n} отметок перейдут вместе с ним.`)) { rerender(); return; }
