@@ -528,6 +528,8 @@ dialog.ask::backdrop{background:rgba(8,12,16,.55)}
 details.weigh-prev{margin-top:4px} details.weigh-prev > summary,details.weigh-add > summary{cursor:pointer;color:var(--sick);font-size:.9375rem;min-height:36px;display:inline-flex;align-items:center}
 details.weigh-prev > div{color:var(--ink-2);font-size:.9375rem;padding:2px 0}
 .tp-li{flex-wrap:wrap;align-items:flex-start}
+.tp-li > .who{flex:1 1 220px;min-width:0}   /* фамилия не сжимается: на телефоне — отдельной строкой над категориями */
+.tp-li > .who b{white-space:normal}
 .tcats{display:flex;flex-direction:column;gap:6px;flex:1 1 320px;min-width:0}
 .tcat{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .tcat-t{flex:1 1 180px;min-width:0}
