@@ -2810,7 +2810,7 @@ function vPeople() {
   const sel = (k, items, label) => `<label class="f"><span>${label}</span><select data-change="pf" data-k="${k}">${items.map(x => opt(x, F[k])).join('')}</select></label>`;
   const num = (k, label, ph) => `<label class="f"><span>${label}</span><input type="number" inputmode="numeric" data-change="pf" data-k="${k}" value="${h(F[k])}" placeholder="${ph}"></label>`;
   return `<div class="topline"><div><h1>Спортсмены</h1><div class="muted">${list.length} из ${db.athletes.length}</div></div>
-    <div class="row no-print"><button class="btn" data-act="reset-filters" data-page="people">Сбросить фильтры</button><button class="btn primary" data-act="person-new">Добавить</button><button class="btn" data-act="people-print">Печать списка</button><button class="btn" data-act="people-entry">Список для заявки</button><button class="btn" data-act="people-csv">В Excel (CSV)</button></div></div>
+    <div class="row no-print"><button class="btn" data-act="reset-filters" data-page="people">Сбросить фильтры</button><button class="btn primary" data-act="person-new">Добавить</button><button class="btn" data-act="people-print">Печать списка</button><button class="btn" data-act="people-entry">Список для заявки</button><button class="btn" data-act="weigh-list">Взвешивание</button><button class="btn" data-act="people-csv">В Excel (CSV)</button></div></div>
   <div class="card no-print"><input type="search" placeholder="Поиск: фамилия, имя, родитель, телефон" data-change="pf" data-k="q" value="${h(F.q)}" style="margin-bottom:10px">
   <details class="filt" ${window.innerWidth > 860 || ui.peopleFiltOpen ? 'open' : ''} data-filt><summary>Фильтры${['group', 'belt', 'sex'].some(k => F[k] !== 'все') || F.status !== 'занимается' || F.ageFrom || F.ageTo || F.yFrom || F.yTo ? ' (включены)' : ''}</summary>
   <div class="filters">${sel('status', ['все', ...S.statuses], 'Статус')}${sel('group', ['все', ...S.groups.map(g => g.name)], 'Группа')}${sel('belt', ['все', ...S.belts], 'Пояс')}${sel('sex', ['все', 'М', 'Ж'], 'Пол')}
@@ -2871,6 +2871,67 @@ function weighLine(w) { return `${h(w.kg)} кг${w.date ? ' · ' + D.ru(w.date) 
 function weighHTML(a, withBtn) {                          // текущий вес + два предыдущих по запросу
   const L = weighings(a), prev = L.slice(1);
   return `${L.length ? `<b class="num">${weighLine(L[0])}</b>` : '<span class="muted">не внесён</span>'}${prev.length ? `<details class="weigh-prev"><summary>Предыдущие взвешивания (${prev.length})</summary>${prev.map(w => `<div class="num">${weighLine(w)}</div>`).join('')}</details>` : ''}${withBtn ? ` <button class="btn sm no-print" data-act="weigh-new" data-id="${a.id}">Взвешивание</button>` : ''}`;
+}
+/* ---------- список взвешенных: печать и Word ---------- */
+const WL_SORT = [['abc', 'по алфавиту'], ['birth-old', 'по дате рождения — старшие сначала'], ['birth-young', 'по дате рождения — младшие сначала'], ['kg-up', 'по весу — от лёгких'], ['kg-down', 'по весу — от тяжёлых']];
+function wlKg(v) { const n = parseFloat(String(v || '').replace(',', '.')); return isNaN(n) ? null : n; }
+function wlCmp(k) {
+  const nm = (x, y) => fullName(x.a).localeCompare(fullName(y.a), 'ru');
+  const last = (p, q, f) => p == null && q == null ? 0 : p == null ? 1 : q == null ? -1 : f(p, q);
+  if (k === 'abc') return nm;
+  if (k === 'birth-old' || k === 'birth-young') return (x, y) => last(x.a.birth || null, y.a.birth || null, (p, q) => k === 'birth-old' ? p.localeCompare(q) : q.localeCompare(p));
+  if (k === 'kg-up' || k === 'kg-down') return (x, y) => last(wlKg(x.w.kg), wlKg(y.w.kg), (p, q) => k === 'kg-up' ? p - q : q - p);
+  return () => 0;
+}
+function wlRows(S) {                                       // по человеку — последнее взвешивание в выбранные даты
+  const out = [];
+  for (const a of db.athletes) { if (a.status === 'ушёл') continue; if (S.group && (a.group || '') !== S.group) continue;
+    const w = weighings(a).find(w => w.date && w.date >= S.from && w.date <= S.to); if (w) out.push({ a, w }); }
+  const c1 = wlCmp(S.s1), c2 = S.s2 && S.s2.split('-')[0] !== S.s1.split('-')[0] ? wlCmp(S.s2) : () => 0, c3 = wlCmp('abc');
+  return out.sort((x, y) => c1(x, y) || c2(x, y) || c3(x, y));
+}
+function wlHTML(S) {
+  const R = wlRows(S), one = S.from === S.to, sl = k => (WL_SORT.find(x => x[0] === k) || [, ''])[1];
+  const sortTxt = [sl(S.s1), S.s2 && S.s2.split('-')[0] !== S.s1.split('-')[0] ? sl(S.s2) : ''].filter(Boolean).join(', затем ');
+  return `<h2>Взвешивание</h2><p><b>Дата взвешивания: ${one ? D.ru(S.from) : D.ru(S.from) + ' — ' + D.ru(S.to)}</b></p>
+    <p>${h(db.settings.club || 'Club D23')}${S.group ? ' · группа «' + h(S.group) + '»' : ''} · взвешено: ${R.length} ${plural(R.length, 'человек', 'человека', 'человек')}. Сортировка: ${sortTxt}.</p>
+    ${R.length ? `<div class="scroll"><table class="t"><thead><tr><th>№</th><th>ФИО</th><th>Группа</th><th>Дата рождения</th><th>Вес, кг</th>${one ? '' : '<th>Дата взвешивания</th>'}</tr></thead><tbody>
+    ${R.map((x, i) => `<tr><td class="num">${i + 1}</td><td>${h(fullName(x.a))}</td><td>${h(x.a.group || '—')}</td><td class="num">${x.a.birth ? D.ru(x.a.birth) : '—'}</td><td class="num"><b>${h(x.w.kg)}</b></td>${one ? '' : `<td class="num">${D.ru(x.w.date)}</td>`}</tr>`).join('')}</tbody></table></div>`
+      : '<p>За эти даты взвешиваний нет.</p>'}`;
+}
+function openWeighList() {
+  const cnt = new Map();
+  for (const a of db.athletes) if (a.status !== 'ушёл') for (const w of weighings(a)) if (w.date) cnt.set(w.date, (cnt.get(w.date) || 0) + 1);
+  const dates = [...cnt.keys()].sort().reverse();
+  if (!dates.length) { notice('Взвешиваний с датой пока нет. Вес вносится в карточке спортсмена — кнопка «Взвешивание».'); return; }
+  const M = meta.weighList || {}, S = { day: dates.includes(M.day) ? M.day : dates[0], from: dates[dates.length - 1], to: dates[0], group: M.group || '', s1: M.s1 || 'abc', s2: M.s2 || '' };
+  if (M.day === 'period') { S.day = 'period'; S.from = M.from || S.from; S.to = M.to || S.to; }
+  const eff = () => S.day === 'period' ? { ...S, from: S.from <= S.to ? S.from : S.to, to: S.from <= S.to ? S.to : S.from } : { ...S, from: S.day, to: S.day };
+  const groups = [...new Set(db.athletes.filter(a => a.status !== 'ушёл' && weighings(a).some(w => w.date)).map(a => a.group || '').filter(Boolean))].sort((x, y) => x.localeCompare(y, 'ru'));
+  const so = (v, none) => (none ? [['', '— не нужно —']] : []).concat(WL_SORT).map(([k, l]) => opt(k, v, l)).join('');
+  modal('Взвешенные спортсмены', `<div class="fgrid">
+      <label class="f"><span>Дата взвешивания</span><select id="wl-day">${dates.map(d => opt(d, S.day, D.ru(d) + ' — ' + cnt.get(d) + ' чел.')).join('')}${opt('period', S.day, 'За период…')}</select></label>
+      <label class="f wl-per"><span>С</span><input type="date" id="wl-from" value="${S.from}"></label><label class="f wl-per"><span>По</span><input type="date" id="wl-to" value="${S.to}"></label>
+      <label class="f"><span>Группа</span><select id="wl-group">${opt('', S.group, 'Все группы')}${groups.map(g => opt(g, S.group)).join('')}</select></label></div>
+      <div class="fgrid" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));margin-top:12px"><label class="f"><span>Сортировка</span><select id="wl-s1">${so(S.s1)}</select></label>
+      <label class="f"><span>Затем</span><select id="wl-s2">${so(S.s2, true)}</select></label></div>
+    <p class="small muted">Если человек взвешивался несколько раз за период — берётся последнее взвешивание. Ушедшие не показываются.</p>
+    <div class="treport" id="wl-out"></div>`, { wide: true, extraBtn: `<button type="button" class="btn" id="wl-print">Печать</button><button type="button" class="btn primary" id="wl-word">В Word</button>` });
+  const $i = id => document.getElementById(id);
+  const upd = () => {
+    S.day = $i('wl-day').value; S.from = $i('wl-from').value || S.from; S.to = $i('wl-to').value || S.to; S.group = $i('wl-group').value; S.s1 = $i('wl-s1').value; S.s2 = $i('wl-s2').value;
+    const k1 = S.s1.split('-')[0];                                  // во «Затем» нельзя выбрать тот же признак
+    [...$i('wl-s2').options].forEach(o => { o.disabled = !!o.value && o.value.split('-')[0] === k1; });
+    if (S.s2 && S.s2.split('-')[0] === k1) { S.s2 = ''; $i('wl-s2').value = ''; }
+    document.querySelectorAll('#dlg .wl-per').forEach(el => { el.style.display = S.day === 'period' ? '' : 'none'; });
+    meta.weighList = { day: S.day, from: S.from, to: S.to, group: S.group, s1: S.s1, s2: S.s2 }; writeMeta();
+    $i('wl-out').innerHTML = wlHTML(eff());
+  };
+  ['wl-day', 'wl-from', 'wl-to', 'wl-group', 'wl-s1', 'wl-s2'].forEach(id => $i(id).addEventListener('change', upd));
+  upd();
+  const fn = () => { const E = eff(); return 'D23_взвешивание_' + (E.from === E.to ? E.from : E.from + '_' + E.to) + (E.group ? '_' + E.group.replace(/[\\/:*?"<>|]+/g, ' ').trim() : '') + '.docx'; };
+  $i('wl-print').onclick = () => openPrint('Взвешивание', wlHTML(eff()), 'h2{font-size:15pt;margin:0 0 4pt}td.num,th{white-space:nowrap}');
+  $i('wl-word').onclick = () => { downloadBlob(fn(), docxBlob(htmlDocx(wlHTML(eff())))); toast('Список взвешивания сохранён в Word (.docx)'); };
 }
 function openWeigh(id, onDone) {
   const a = db.athletes.find(x => x.id === id); if (!a) return;
@@ -5300,7 +5361,7 @@ const ACT = {
   'hol-del': el => { db.settings.holidays = db.settings.holidays.filter(x => x.date !== el.dataset.date); render.keepScroll = true; persist(); },
   'tpl-add': () => { db.settings.templates.push({ title: 'Новый шаблон', text: 'Здравствуйте! ' }); render.keepScroll = true; persist(); },
   'tpl-del': async el => { if (await ask('Удалить шаблон?')) { db.settings.templates.splice(+el.dataset.i, 1); render.keepScroll = true; persist(); } },
-  'people-print': () => printMain('Спортсмены'), 'people-entry': () => printEntry(),
+  'people-print': () => printMain('Спортсмены'), 'people-entry': () => printEntry(), 'weigh-list': () => openWeighList(),
   'people-csv': async () => { if (pinOn() && !await ask('CSV не шифруется: в файле будут открытые персональные данные. Продолжить?')) return; const rows = [['ФИО', 'Пол', 'Дата рождения', 'Возраст', 'Группа', 'Вторая группа', 'Статус', 'Пояс', 'Страйпы', 'Вес', 'Телефон', 'Мать', 'Тел. матери', 'Отец', 'Тел. отца', 'Медсправка до', 'Примечание']];
     (location.hash.startsWith('#people') ? filteredPeople() : db.athletes).forEach(a => { const c = ix.athCalc.get(a.id); rows.push([fullName(a), a.sex, D.ru(a.birth), c.age ?? '', a.group, a.group2, a.status, c.belt, c.stripes || '', a.weight, a.phone, a.motherName, a.motherPhone, a.fatherName, a.fatherPhone, D.ru(a.medUntil), a.note]); });
     download('D23_спортсмены_' + ix.today + '.csv', csv(rows), 'text/csv'); },
