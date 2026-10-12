@@ -28,6 +28,7 @@
   --hl2:#6E5303;  --hl2-bg:#FFF6D2;  --hl2-fill:#D9AE1F;    /* «осталось 2» */
   --on-fill:#FFFFFF;
   --chip-ok-bg:#E3E6EA; --chip-ok-ink:#15181B; --chip-ok-mark:#23804B;   /* «действует», «ост. N»: серый, чёрные цифры */
+  --gold:#C99A06; --silver:#8E98A3; --bronze:#B06A2E;              /* места на турнирах: полоса и бейдж */
   --belt-edge:rgba(0,0,0,.28);                      /* окантовка пояса: на светлом — тёмная */
   --shadow-1:0 1px 2px rgba(16,24,32,.06),0 1px 1px rgba(16,24,32,.04);
   --shadow-2:0 12px 32px rgba(16,24,32,.18);
@@ -49,7 +50,7 @@
   --sick:#93C2F7; --sick-bg:#213045; --sick-fill:#3570C2;
   --comp:#C7ABF3; --comp-bg:#302B44; --comp-fill:#7A58BC;
   --cancel:#AAB2BA; --cancel-fill:#66707C;
-  --hl2:#F0D67A; --hl2-bg:#38331B; --hl2-fill:#C9A227; --belt-edge:rgba(255,255,255,.34); --chip-ok-bg:#1E332C; --chip-ok-ink:#8EDBAE; --chip-ok-mark:#8EDBAE;
+  --hl2:#F0D67A; --hl2-bg:#38331B; --hl2-fill:#C9A227; --gold:#E2B93B; --silver:#B7C0CA; --bronze:#D08A52; --belt-edge:rgba(255,255,255,.34); --chip-ok-bg:#1E332C; --chip-ok-ink:#8EDBAE; --chip-ok-mark:#8EDBAE;
   --shadow-1:0 1px 2px rgba(0,0,0,.45); --shadow-2:0 12px 32px rgba(0,0,0,.55); --focus:#5FCDA4;
   color-scheme:dark}}
 @media screen{:root[data-theme="dark"]{
@@ -62,7 +63,7 @@
   --sick:#93C2F7; --sick-bg:#213045; --sick-fill:#3570C2;
   --comp:#C7ABF3; --comp-bg:#302B44; --comp-fill:#7A58BC;
   --cancel:#AAB2BA; --cancel-fill:#66707C;
-  --hl2:#F0D67A; --hl2-bg:#38331B; --hl2-fill:#C9A227; --belt-edge:rgba(255,255,255,.34); --chip-ok-bg:#1E332C; --chip-ok-ink:#8EDBAE; --chip-ok-mark:#8EDBAE;
+  --hl2:#F0D67A; --hl2-bg:#38331B; --hl2-fill:#C9A227; --gold:#E2B93B; --silver:#B7C0CA; --bronze:#D08A52; --belt-edge:rgba(255,255,255,.34); --chip-ok-bg:#1E332C; --chip-ok-ink:#8EDBAE; --chip-ok-mark:#8EDBAE;
   --shadow-1:0 1px 2px rgba(0,0,0,.45); --shadow-2:0 12px 32px rgba(0,0,0,.55); --focus:#5FCDA4;
   color-scheme:dark}}
 @media print{:root,:root[data-theme="dark"]{   /* печать — всегда светлая палитра */
@@ -528,7 +529,30 @@ dialog.ask::backdrop{background:rgba(8,12,16,.55)}
 details.weigh-prev{margin-top:4px} details.weigh-prev > summary,details.weigh-add > summary{cursor:pointer;color:var(--sick);font-size:.9375rem;min-height:36px;display:inline-flex;align-items:center}
 details.weigh-prev > div{color:var(--ink-2);font-size:.9375rem;padding:2px 0}
 .tp-li{flex-wrap:wrap;align-items:flex-start}
-.tp-li > .who{flex:1 1 220px;min-width:0}   /* фамилия не сжимается: на телефоне — отдельной строкой над категориями */
+.tp-li > .who{flex:1 1 220px;min-width:0}
+/* участники турнира — отдельные карточки */
+ul.tp-cards{list-style:none;margin:0;padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:12px;align-items:start;background:var(--bg);border-top:1px solid var(--line)}
+.tp-card{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow-1);padding:14px 14px 12px 18px;display:flex;flex-direction:column;gap:10px;overflow:hidden;min-width:0}
+.tp-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--line-strong)}
+.tp-card.m1::before{background:var(--gold)} .tp-card.m2::before{background:var(--silver)} .tp-card.m3::before{background:var(--bronze)}
+.tp-head{display:flex;align-items:flex-start;gap:10px}
+.tp-head > .belt{margin-top:6px;width:44px;height:11px}
+.tp-head > .belt .tip{width:13px;right:4px}
+.tp-head .who b{white-space:normal;font-size:1.0625rem;line-height:1.3}
+.tp-head .who a{text-decoration:none;color:var(--ink)} .tp-head .who a:hover b{text-decoration:underline}
+.tp-medal{flex:none;padding:3px 10px;border-radius:var(--r-pill);font-size:.8125rem;font-weight:700;background:var(--surface-2);color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line);white-space:nowrap}
+.tp-medal.m1,.tp-medal.m2,.tp-medal.m3{color:var(--ink);box-shadow:inset 0 0 0 2px var(--gold);background:var(--surface)}
+.tp-medal.m2{box-shadow:inset 0 0 0 2px var(--silver)} .tp-medal.m3{box-shadow:inset 0 0 0 2px var(--bronze)}
+.tp-medal.m1::before,.tp-medal.m2::before,.tp-medal.m3::before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;background:var(--gold);vertical-align:0}
+.tp-medal.m2::before{background:var(--silver)} .tp-medal.m3::before{background:var(--bronze)}
+.tp-card .tcats{flex:none;gap:8px}
+.tp-card .tcat{background:var(--sunk);border-radius:var(--r-s);padding:8px 8px 8px 12px;gap:8px;flex-wrap:nowrap}
+.tp-card .tcat-t{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto}
+.tdiv{font-weight:700;font-size:.9375rem}
+.tcat-c{font-size:.875rem;color:var(--ink-2)}
+.tp-card .tcat select{width:auto;flex:none;min-height:40px;background:var(--surface)}
+.tp-foot{display:flex;justify-content:flex-end}
+@media print{ul.tp-cards{display:block;background:none;padding:0}.tp-card{box-shadow:none;border:1px solid #000;margin-bottom:6px;break-inside:avoid}.tp-card::before{display:none}}   /* фамилия не сжимается: на телефоне — отдельной строкой над категориями */
 .tp-li > .who b{white-space:normal}
 .tcats{display:flex;flex-direction:column;gap:6px;flex:1 1 320px;min-width:0}
 .tcat{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -4665,9 +4689,12 @@ function vTourn() {
     return `<div class="card flat"><div class="row" style="padding:14px 16px 6px;flex-wrap:wrap"><div class="who" style="flex:1 1 240px"><b style="white-space:normal">${h(T.name || 'Турнир')}</b><span class="small">${D.ru(T.date)}${T.city ? ', ' + h(T.city) : ''} · участников ${rows.length}${byDiv.length ? ' (' + byDiv.map(([k, n]) => tDivName(k) + ' — ' + n).join(', ') + ')' : ''}${med.some(Boolean) ? ' · места: ' + med.map((n, i) => n ? (i + 1) + '-х — ' + n : '').filter(Boolean).join(', ') : ''}</span></div><span class="spacer"></span>
     <button class="btn sm no-print" data-act="tourn-people" data-id="${T.id}">Участники</button><button class="btn sm no-print" data-act="tourn-report" data-id="${T.id}">Отчёт</button><button class="btn sm ghost no-print" data-act="tourn-edit" data-id="${T.id}">Изменить</button></div>
     ${tSchemeText(T) ? `<div class="small muted" style="padding:0 16px 8px">${h(tSchemeText(T))}</div>` : ''}
-    ${rows.length ? `<ul class="list">${rows.map(x => `<li class="tp-li"><div class="who"><a href="#person/${x.a.id}"><b>${h(fullName(x.a))}</b></a><span class="small">${h(x.a.group || '')}${weighings(x.a).length ? ' · вес ' + weighLine(weighings(x.a)[0]) : ''}</span></div>
-      <div class="tcats">${tCats(T, x.a.id).map((e, i) => `<div class="tcat"><div class="tcat-t">${e.div ? `<b>${tDivName(e.div)}</b>` : '<span class="muted" title="Раздел не указан — отметьте в «Участниках»">раздел?</span>'}${tCatText(T, e) ? ' <span class="small">' + h(tCatText(T, e)) + '</span>' : ''}</div><select data-change="tcat" data-id="${T.id}" data-aid="${x.a.id}" data-i="${i}" aria-label="Место: ${h(shortName(x.a))}, ${tDivName(e.div) || 'категория'} ${i + 1}" style="width:auto">${PLACES.map(([v, l]) => opt(v, e.pl, l)).join('')}</select></div>`).join('')}
-      <button class="btn sm no-print" data-act="tcat-edit" data-id="${T.id}" data-aid="${x.a.id}">Категории и вес</button></div></li>`).join('')}</ul>` : '<div class="empty">Участники не отмечены — кнопка «Участники»</div>'}</div>`; }).join('')
+    ${rows.length ? `<ul class="tp-cards">${rows.map(x => { const c = ix.athCalc.get(x.a.id) || {}, W = weighings(x.a);
+      return `<li class="tp-card${x.pl ? ' m' + x.pl : ''}">
+      <div class="tp-head">${beltHTML(c.belt, c.stripes)}<div class="who"><a href="#person/${x.a.id}"><b>${h(fullName(x.a))}</b></a><span class="small">${h(x.a.group || 'без группы')}${W.length ? ' · вес ' + weighLine(W[0]) : ''}</span></div>
+        <span class="tp-medal${x.pl ? ' m' + x.pl : ''}">${x.pl ? x.pl + ' место' : 'участник'}</span></div>
+      <div class="tcats">${tCats(T, x.a.id).map((e, i) => `<div class="tcat"><div class="tcat-t">${e.div ? `<span class="tdiv">${tDivName(e.div)}</span>` : '<span class="tdiv muted" title="Раздел не указан — отметьте в «Участниках»">раздел?</span>'}${tCatText(T, e) ? '<span class="tcat-c">' + h(tCatText(T, e)) + '</span>' : ''}</div><select data-change="tcat" data-id="${T.id}" data-aid="${x.a.id}" data-i="${i}" aria-label="Место: ${h(shortName(x.a))}, ${tDivName(e.div) || 'категория'} ${i + 1}">${PLACES.map(([v, l]) => opt(v, e.pl, l)).join('')}</select></div>`).join('')}</div>
+      <div class="tp-foot no-print"><button class="btn sm" data-act="tcat-edit" data-id="${T.id}" data-aid="${x.a.id}">Категории и вес</button></div></li>`; }).join('')}</ul>` : '<div class="empty">Участники не отмечены — кнопка «Участники»</div>'}</div>`; }).join('')
   : '<div class="card"><p class="muted">Турниров пока нет. Добавьте турнир, затем отметьте участников и места.</p></div>'}`;
 }
 function openTourn(id) {
