@@ -524,6 +524,32 @@ dialog.ask::backdrop{background:rgba(8,12,16,.55)}
 .scroll table.t td,.card.flat > table.t td{background-clip:padding-box}
 @media (max-width:860px){.list .who b{white-space:normal;overflow-wrap:anywhere}}
 @media print{.scroll,.card.flat.scroll,.card.flat:has(> table){background:none!important;overflow:visible!important}}
+/* ===== взвешивания и категории турниров ===== */
+details.weigh-prev{margin-top:4px} details.weigh-prev > summary,details.weigh-add > summary{cursor:pointer;color:var(--sick);font-size:.9375rem;min-height:36px;display:inline-flex;align-items:center}
+details.weigh-prev > div{color:var(--ink-2);font-size:.9375rem;padding:2px 0}
+.tp-li{flex-wrap:wrap;align-items:flex-start}
+.tcats{display:flex;flex-direction:column;gap:6px;flex:1 1 320px;min-width:0}
+.tcat{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tcat-t{flex:1 1 180px;min-width:0}
+.tcats > .btn{align-self:flex-start}
+.tcat-head{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:var(--r);background:var(--sunk)}
+.tcat-row{border:1px solid var(--line);border-radius:var(--r);padding:12px;margin-bottom:10px;display:flex;flex-direction:column;gap:8px}
+.tcat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px 12px}
+.tcat-fixed{display:flex;align-items:center;min-height:var(--tap);font-size:1rem;color:var(--ink)}
+.tcat-del{align-self:flex-end;color:var(--bad)}
+.tlist{border-top:1px solid var(--line)}
+.grid2{align-items:start}
+details.tdet{border-bottom:1px solid var(--line)}
+details.tdet > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px 16px;min-height:56px}
+details.tdet > summary::-webkit-details-marker{display:none}
+details.tdet > summary::after{content:'';width:8px;height:8px;border-right:2px solid var(--ink-3);border-bottom:2px solid var(--ink-3);transform:rotate(45deg);flex:none;transition:transform var(--dur)}
+details.tdet[open] > summary::after{transform:rotate(-135deg)}
+.tdet-b{padding:0 16px 16px}
+.tdet-b h3{margin:0}
+.tdet-e{margin-top:10px;padding:10px 12px;border-radius:var(--r-s);background:var(--sunk)}
+.tdet-r{font-size:1.0625rem}
+.treport h2{margin:0 0 4px} .treport h3{margin:16px 0 8px} .treport table.t{margin-bottom:8px}
+@media print{details.tdet > .tdet-b{display:block}}
 .toast .btn{margin-left:10px;min-height:36px;padding:0 14px;background:transparent;border-color:transparent;color:var(--bg);text-decoration:underline;text-underline-offset:3px}
 .toast .btn:hover{background:rgba(127,127,127,.2)}
 </style></head>
@@ -1855,6 +1881,7 @@ function logDiff(b, d) {
       if (!(aid in r0)) push(aid, `турнир: ${nm}, ${tResText(r1[aid])}`);
       else if (!(aid in r1)) push(aid, `убран из турнира: ${nm}`);
       else if (JSON.stringify(r0[aid]) !== JSON.stringify(r1[aid])) push(aid, `турнир ${nm}: ${tResText(r0[aid])} → ${tResText(r1[aid])}`);
+      else if (JSON.stringify((o.cats || {})[aid] || null) !== JSON.stringify((T.cats || {})[aid] || null)) push(aid, `турнир ${nm}: категории — ${tCats(T, aid).map(e => [tDivName(e.div), tCatText(T, e)].filter(Boolean).join(' ')).join('; ') || 'не указаны'}`);
     }
   }
   const today = D.today(), M0 = new Map(), sInfo = new Map();
@@ -1966,7 +1993,13 @@ function beltHTML(belt, stripes, lg) {
   const n = Math.max(0, Math.min(4, +stripes || 0));
   return `<span class="belt${c2 ? ' two' : ''}${lg ? ' lg' : ''}" style="--bc:${bc};--bc2:${bc2};--tip:${tip}" title="${h(belt)}${n ? ', ' + n + ' ' + plural(n, 'страйп', 'страйпа', 'страйпов') : ''}"><span class="tip">${'<i></i>'.repeat(n)}</span></span><span class="belt-txt">${h(belt)}${n ? ' ' + '|'.repeat(n) : ''}</span>`;
 }
+const ATH_OF = new WeakMap();                            // расчёт спортсмена → спортсмен (для меток в списках)
+function athOf(c) { if (!c || !ix) return null; let m = ATH_OF.get(ix); if (!m) { m = new Map(); for (const [id, x] of ix.athCalc) m.set(x, ix.ath.get(id)); ATH_OF.set(ix, m); } return m.get(c) || null; }
+function leftDate(a) { return a && a.status === 'ушёл' ? (a.endedAt || (a.refund && a.refund.date) || '') : ''; }
 function chipSub(c) {
+  { const a = athOf(c);                                   // ушёл (в т. ч. отказ от договора): договор прекращён, даже если абонемент был использован полностью
+    if (a && a.status === 'ушёл') { const debt = (c.debtDates || []).length || (c.subCalc && c.subCalc.remaining < 0 ? -c.subCalc.remaining : 0);
+      return debt ? `<span class="chip bad">договор прекращён · не оплачено ${debt}</span>` : '<span class="chip muted">договор прекращён</span>'; } }
   if (c && ((c.subCalc && c.subCalc.terminated) || (!c.subCalc && c.pendingCalc && c.pendingCalc.terminated))) return '<span class="chip muted">договор прекращён</span>';
   if (c && c.noSub && !c.subCalc) return '<span class="chip muted">без абонемента</span>';
   if (c && c.perVisit && !c.pendingSub) return (c.debtDates || []).length ? `<span class="chip bad">не оплачено ${c.debtDates.length}</span>` : '<span class="chip muted">разово</span>';
@@ -2732,7 +2765,7 @@ function vPeople() {
 /* ---------- шапка карточки: абонемент крупно и телефоны (только показ) ---------- */
 function personSubBox(a, c) {
   const s = c.subCalc; let big = '', l1 = '', l2 = '', tone = '', pct = null;
-  if (a.refund || (s && s.terminated)) return '';
+  if (a.refund || a.status === 'ушёл' || (s && s.terminated)) return '';
   if (c.pendingSub) { big = '—'; l1 = 'ждём оплату'; l2 = c.pendingCalc && c.pendingCalc.charged ? 'в долг ' + c.pendingCalc.charged + ' ' + plural(c.pendingCalc.charged, 'занятие', 'занятия', 'занятий') : ''; tone = 'bad'; }
   else if (s && s.notActive) { big = String(s.remaining); l1 = 'оплачен, не активирован'; l2 = s.autoDate ? 'автоактивация ' + D.ru(s.autoDate) : 'начнётся с первого посещения'; }
   else if (s && +c.sub.count > 0) {
@@ -2752,6 +2785,37 @@ function personContacts(a, c) {
   if (!L.length) return c.noParentPhone ? '<div class="contact"><span class="chip bad">нет телефона родителя</span></div>' : '';
   L.sort((x, y) => y.main - x.main);
   return L.map((x, i) => `<div class="contact${i ? ' second' : ''}"><div class="who"><b>${h(x.name || (x.who === 'спортсмен' ? shortName(a) : x.who))}</b><span class="small">${x.who === 'спортсмен' ? 'телефон спортсмена' : x.who}${x.main ? ' · основной контакт' : ''}</span><span class="num ph">${h(fmtPhone(x.d))}</span></div><a class="btn call no-print" href="tel:+7${x.d}" aria-label="Позвонить: ${h(x.name || x.who)}">${I.phone}<span>Позвонить</span></a></div>`).join('');
+}
+/* ---------- взвешивания: a.weighings = [{ date, kg }], новые сверху, хранятся текущее и два предыдущих; a.weight = последний вес ---------- */
+function weighings(a) {
+  const L = (a.weighings || []).filter(w => w && String(w.kg || '').trim()).slice().sort((x, y) => (y.date || '').localeCompare(x.date || ''));
+  if (!L.length && String(a.weight || '').trim()) L.push({ date: '', kg: String(a.weight).trim() });
+  return L;
+}
+function addWeighing(a, kg, date) {
+  kg = String(kg || '').trim().replace('.', ','); if (!kg) return;
+  const L = weighings(a).filter(w => w.date !== date || !date);
+  L.push({ date: date || '', kg }); L.sort((x, y) => (y.date || '').localeCompare(x.date || ''));
+  a.weighings = L.slice(0, 3); a.weight = a.weighings[0].kg;
+}
+function weighLine(w) { return `${h(w.kg)} кг${w.date ? ' · ' + D.ru(w.date) : ' · дата не указана'}`; }
+function weighHTML(a, withBtn) {                          // текущий вес + два предыдущих по запросу
+  const L = weighings(a), prev = L.slice(1);
+  return `${L.length ? `<b class="num">${weighLine(L[0])}</b>` : '<span class="muted">не внесён</span>'}${prev.length ? `<details class="weigh-prev"><summary>Предыдущие взвешивания (${prev.length})</summary>${prev.map(w => `<div class="num">${weighLine(w)}</div>`).join('')}</details>` : ''}${withBtn ? ` <button class="btn sm no-print" data-act="weigh-new" data-id="${a.id}">Взвешивание</button>` : ''}`;
+}
+function openWeigh(id, onDone) {
+  const a = db.athletes.find(x => x.id === id); if (!a) return;
+  const L = weighings(a);
+  modal('Взвешивание: ' + shortName(a), `<div class="fgrid">${F('kg', 'Вес, кг', '', 'text', 'inputmode="decimal" required placeholder="например, 32,5"')}${F('date', 'Дата взвешивания', ix.today, 'date', 'required')}</div>
+    ${L.length ? `<h3 style="margin-top:14px">Сохранённые взвешивания</h3><ul class="list" style="border:1px solid var(--line);border-radius:8px">${L.map(w => `<li><div class="who"><b class="num">${weighLine(w)}</b></div>${w.date ? `<button type="button" class="btn sm ghost" data-act="weigh-del" data-id="${a.id}" data-date="${w.date}" aria-label="Удалить взвешивание ${D.ru(w.date)}">✕</button>` : ''}</li>`).join('')}</ul>` : ''}
+    <p class="small muted">Программа хранит последнее взвешивание и два предыдущих. Перед турниром обычно два: при предварительной регистрации и контрольное.</p>`, {
+    onSubmit(fd) {
+      const kg = String(fd.kg || '').trim().replace('.', ',');
+      if (!/^\d{1,3}(,\d{1,2})?$/.test(kg)) { notice('Вес — число в килограммах, например 32 или 32,5.'); return false; }
+      if (!fd.date || fd.date > ix.today) { notice('Укажите дату взвешивания (не позже сегодняшней).'); return false; }
+      addWeighing(a, kg, fd.date); render.keepScroll = true; persist(`Взвешивание: ${kg} кг, ${D.ru(fd.date)}`);
+      if (onDone) setTimeout(onDone, 50);
+    } });
 }
 function vPerson(id) {
   const a = ix.ath.get(id);
@@ -2793,22 +2857,26 @@ function vPerson(id) {
     ${(a.briefings || []).length ? `<ul class="list">${[...a.briefings].reverse().map(b => `<li style="padding:6px 0"><div class="who small"><b>${D.ru(b.date)} — ${h(b.kind)}</b>${b.reason ? h(b.reason) : ''}${b.by ? (b.reason ? ' · ' : '') + h(b.by) : ''}</div><button class="btn sm ghost no-print" data-act="brief-del" data-id="${id}" data-bid="${b.id}" aria-label="Удалить запись">✕</button></li>`).join('')}</ul>`
       : `<p class="small muted" style="margin:6px 0 0">${(ix.marks.get(id) || []).length && !(ix.marks.get(id) || []).some(m => m.date >= (S.briefFrom || '9999')) ? 'Записей в программе нет — смотрите бумажный журнал.' : 'Записей нет. Первичный — до первого занятия.'}</p>`}</div>`;
   const PL = { '1': '1 место', '2': '2 место', '3': '3 место' };
-  const tournCard = `<div class="card flat"><div style="padding:14px 16px 6px"><h2>Турниры</h2></div>${myT.length ? `<ul class="list">${myT.map(T => `<li class="click" data-go="#tourn"><div class="who"><b>${h(T.name)}</b><span class="small">${D.ru(T.date)}${T.city ? ', ' + h(T.city) : ''}</span></div><span class="chip ${tBest(T.res[id]) ? 'ok' : 'muted'}">${h(tResText(T.res[id]))}</span></li>`).join('')}</ul>` : '<div class="empty">Нет записей. Турниры вносятся в разделе «Турниры».</div>'}</div>`;
+  const tournCard = `<div class="card flat"><div style="padding:14px 16px 6px"><h2>Турниры</h2></div>${myT.length ? `<div class="tlist">${myT.map(T => { const E = tCats(T, id), best = tBest(T.res[id]);
+    return `<details class="tdet"><summary><span class="who"><b>${h(T.name || 'Турнир')}</b><span class="small">${D.ru(T.date)}${T.city ? ', ' + h(T.city) : ''}</span></span><span class="chip ${best ? 'ok' : 'muted'}">${best ? best + ' место' : 'участник'}</span></summary>
+      <div class="tdet-b"><h3>${h(T.name || 'Турнир')}</h3><div class="muted">${D.ru(T.date)}${T.city ? ', ' + h(T.city) : ''}</div>
+      ${E.map(e => `<div class="tdet-e"><div class="tdet-r"><b>${e.div ? tDivName(e.div) + ' — ' : ''}${tPlaceText(e.pl)}</b></div>${tAgeText(T, e) || e.masters ? `<div class="small">Возрастная категория: ${h([tAgeText(T, e), e.masters].filter(Boolean).join(', '))}</div>` : ''}${e.level ? `<div class="small">${tLevelName(T)}: ${h(e.level)}</div>` : ''}${tWeightText(e) ? `<div class="small">Весовая категория: ${h(tWeightText(e))}</div>` : ''}</div>`).join('')}
+      <div class="row no-print" style="margin-top:10px"><button class="btn sm" data-act="tcat-edit" data-id="${T.id}" data-aid="${id}">Категории и вес</button><a class="btn sm ghost" href="#tourn">Все турниры</a></div></div></details>`; }).join('')}</div>` : '<div class="empty">Нет записей. Турниры вносятся в разделе «Турниры».</div>'}</div>`;
   const logCard = myLog.length ? `<details class="card no-print"><summary><b>История изменений</b> <span class="small muted">${myLog.length}</span></summary><ul class="list" style="margin-top:8px">${myLog.slice(0, 150).map(x => `<li style="padding:6px 0"><span class="small num" style="min-width:110px">${new Date(x.at).toLocaleString('ru', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}</span><span class="who small">${h(x.t)}</span></li>`).join('')}</ul>${myLog.length > 150 ? '<p class="small muted">Показаны последние 150.</p>' : ''}</details>` : '';
   return `<div class="topline"><div><a href="#people" class="small no-print">← Спортсмены</a></div></div>
   <div class="card person-card"><div class="person-head"><div style="flex:1;min-width:0"><h1>${h(fullName(a))}</h1>
-    <div class="row" style="gap:6px;margin-top:6px"><span class="chip ${a.status === 'занимается' ? 'ok' : 'muted'}">${h(a.status)}</span><span class="chip">${h(a.group || 'без группы')}${a.group2 ? ' / ' + h(a.group2) : ''}</span>${c.age != null ? `<span class="chip">${c.age} ${plural(c.age, 'год', 'года', 'лет')}</span>` : ''}${a.otherTeam ? `<span class="chip warn">другая команда${a.teamName ? ': ' + h(a.teamName) : ''}</span>` : ''}${a.refund ? '<span class="chip muted">отказ от договора ' + D.short(a.refund.date) + '</span>' : chipSub(c)}${chipMed(c.med)}</div>
+    <div class="row" style="gap:6px;margin-top:6px"><span class="chip ${a.status === 'занимается' ? 'ok' : 'muted'}">${h(a.status)}</span><span class="chip">${h(a.group || 'без группы')}${a.group2 ? ' / ' + h(a.group2) : ''}</span>${c.age != null ? `<span class="chip">${c.age} ${plural(c.age, 'год', 'года', 'лет')}</span>` : ''}${a.otherTeam ? `<span class="chip warn">другая команда${a.teamName ? ': ' + h(a.teamName) : ''}</span>` : ''}${a.status === 'ушёл' ? '<span class="chip muted">договор прекращён' + (leftDate(a) ? ' ' + D.short(leftDate(a)) : '') + '</span>' : ''}${a.refund ? '<span class="chip muted">отказ от договора ' + D.short(a.refund.date) + '</span>' : a.status === 'ушёл' ? '' : chipSub(c)}${chipMed(c.med)}</div>
     <div class="row" style="gap:12px;margin-top:12px">${beltHTML(c.belt, c.stripes, true)}<span class="small muted">${c.belt ? h(c.belt) + (c.stripes ? ', ' + c.stripes + ' ' + plural(c.stripes, 'страйп', 'страйпа', 'страйпов') : '') + (c.beltSet ? ' с ' + D.ru(c.beltDate) + (c.monthsSince != null ? ' (' + c.monthsSince + ' мес.)' : '') : ' — запись о присвоении не внесена') : 'Пояс не присвоен'}</span></div></div></div>
     ${personSubBox(a, c)}
     <div class="row no-print person-acts">${a.status === 'приостановил' ? `<button class="btn primary" data-act="pause-return" data-id="${id}">Вернулся</button>` : ''}<button class="btn ${a.status === 'приостановил' ? '' : 'primary'}" data-act="sub-new" data-id="${id}">Оплата</button><button class="btn" data-act="msg" data-id="${id}">Написать</button>
-      <details class="menu"><summary class="btn" aria-label="Другие действия">⋯ Ещё</summary><div class="menu-pop"><button class="btn" data-act="transfer-new" data-id="${id}">Перевести в другую группу</button><button class="btn" data-act="person-edit" data-id="${id}">Изменить данные</button></div></details></div>
+      <details class="menu"><summary class="btn" aria-label="Другие действия">⋯ Ещё</summary><div class="menu-pop"><button class="btn" data-act="transfer-new" data-id="${id}">Перевести в другую группу</button><button class="btn" data-act="person-edit" data-id="${id}">Изменить данные</button><button class="btn" data-act="weigh-new" data-id="${id}">Записать взвешивание</button></div></details></div>
     ${a.status === 'приостановил' || (a.pauses || []).length ? `<div class="small" style="margin-top:10px">${a.status === 'приостановил' ? `<b>На перерыве${a.pauseFrom ? ' с ' + D.ru(a.pauseFrom) : ''}</b> — в списке группы не показывается. Вернулся — нажмите «Вернулся» и укажите дату.` : ''}${(a.pauses || []).length ? `<span class="muted"> Перерывы: ${a.pauses.map(p => (p.from ? D.ru(p.from) : '…') + ' — ' + D.ru(D.add(p.to, -1))).join('; ')}.</span>` : ''}</div>` : ''}
     <div class="contacts">${personContacts(a, c)}</div></div>
   ${personSummary(a, c, freezes)}
   ${refundCard}
   <div class="grid2">
   <div class="card"><h2>Данные</h2><dl class="kv">
-    ${kv('Дата рождения', D.ru(a.birth))}${kv('Пол', h(a.sex))}${kv('Вес', a.weight ? h(a.weight) + ' кг' : '')}
+    ${kv('Дата рождения', D.ru(a.birth))}${kv('Пол', h(a.sex))}${kv('Вес', weighHTML(a, true))}
     ${kv('Телефон', telLink(a.phone))}${kv('Мать', [h(a.motherName), telLink(a.motherPhone)].filter(Boolean).join(', '))}${kv('Отец', [h(a.fatherName), telLink(a.fatherPhone)].filter(Boolean).join(', '))}
     ${kv('Связь', c.contact ? telLink(c.contact) + ' (' + c.contactWho + ')' : (c.noParentPhone ? '<span class="chip bad">нет телефона родителя</span>' : ''))}
     ${kv('Медсправка', a.medUntil ? 'до ' + D.ru(a.medUntil) : '<span class="muted">не внесена</span>')}
@@ -2834,14 +2902,15 @@ function vPerson(id) {
 
 /* ---------- сводка вверху карточки ---------- */
 function personSummary(a, c, freezes) {
-  const L = [], s = c.subCalc;
+  const L = [], s = c.subCalc, left = a.status === 'ушёл';
+  if (left) L.push(['Договор', '<b>прекращён' + (leftDate(a) ? ' ' + D.ru(leftDate(a)) : '') + '</b>' + (a.refund ? ' · отказ от договора ' + D.ru(a.refund.date) : '')]);
   if (s && s.terminated) L.push(['Абонемент', 'договор прекращён ' + D.ru(s.terminated)]);
   else if (c.pendingSub) L.push(['Абонемент', '<b style="color:var(--bad)">ждём оплату</b>' + (c.pendingCalc && c.pendingCalc.charged ? ', в долг ' + c.pendingCalc.charged + ' зан.' : '')]);
   else if (s) {
     if (s.notActive) L.push(['Абонемент', 'оплачен, не активирован' + (s.autoDate ? ' (автоактивация ' + D.ru(s.autoDate) + ')' : '')]);
     else if (s.remaining < 0) L.push(['Абонемент', '<b style="color:var(--bad)">долг ' + (-s.remaining) + ' зан.</b>']);
     else L.push(['Абонемент', (s.remaining === 0 ? 'использован' : 'осталось <b>' + s.remaining + '</b> ' + plural(s.remaining, 'занятие', 'занятия', 'занятий')) + (s.end ? (s.endKind === 'fact' ? ', последнее ' : ', до ') + D.ru(s.end) : '')]);
-    if (!s.notActive && (+c.sub.count || 0) > 1) {
+    if (!left && !s.notActive && (+c.sub.count || 0) > 1) {          // ушёл — сообщать о сроке и окончании уже некому
       const q = notifyState(c.sub, 'period'), e = notifyState(c.sub, 'end'), sid = c.sub.id;
       const btns = (ty, tpl) => `<span class="row no-print" style="gap:6px;margin-top:4px"><button class="btn sm" data-act="msg" data-id="${a.id}" data-sub="${sid}" data-tpl="${tpl}">Написать</button><button class="btn sm ghost" data-act="notify-mark" data-sub="${sid}" data-type="${ty}" title="Сообщение отправлено не из программы">Уже отправил</button></span>`;
       if (q || s.first >= (db.settings.notifyFrom || '9999')) L.push(['Срок сообщён', q ? '✓ ' + D.ru(q.at) + (q.stale ? ` <span class="chip warn">срок изменился: теперь до ${D.ru(q.now)}</span>` + btns('period', 'Абонемент продлён') : '')
@@ -2879,12 +2948,12 @@ function applySections() {                         // разделы карто�
 
 /* ---------- модальные окна ---------- */
 let dlgSubmit = null, dlgBusy = false;
-function modal(title, body, { submit = 'Сохранить', onSubmit, extraBtn = '', wide = false } = {}) {
+function modal(title, body, { submit = 'Сохранить', onSubmit, extraBtn = '', wide = false, closeText = '' } = {}) {
   let d = document.getElementById('dlg');
   if (!d) { d = document.createElement('dialog'); d.id = 'dlg'; document.body.appendChild(d); }
   d.style.width = wide ? 'min(900px,96vw)' : '';
   d.innerHTML = `<form method="dialog" id="dlg-form"><div class="dlg-h"><h2>${h(title)}</h2><button type="button" class="btn ghost" data-act="close" aria-label="Закрыть">✕</button></div>
-  <div class="dlg-b">${body}</div><div class="dlg-f">${extraBtn}<span class="spacer"></span><button type="button" class="btn" data-act="close">Отмена</button>${onSubmit ? `<button type="submit" class="btn primary">${h(submit)}</button>` : ''}</div></form>`;
+  <div class="dlg-b">${body}</div><div class="dlg-f">${extraBtn}<span class="spacer"></span><button type="button" class="btn" data-act="close">${h(closeText || (onSubmit ? 'Отмена' : 'Закрыть'))}</button>${onSubmit ? `<button type="submit" class="btn primary">${h(submit)}</button>` : ''}</div></form>`;
   dlgSubmit = onSubmit || null;
   d.showModal();
   const asel = d.querySelector('.dlg-b select[name=athleteId]'); if (asel) athleteSearch(asel);
@@ -2935,7 +3004,7 @@ function athleteOptions(cur, filter = a => a.status !== 'ушёл') {
 function personForm(a) {
   const S = db.settings;
   return `<div class="fgrid">${F('last', 'Фамилия', a.last, 'text', 'required')}${F('first', 'Имя', a.first)}${F('middle', 'Отчество', a.middle)}
-  ${FS('sex', 'Пол', [['', '—'], 'М', 'Ж'], a.sex)}${F('birth', 'Дата рождения', a.birth, 'date')}${F('weight', 'Вес, кг', a.weight, 'text', 'inputmode="decimal"')}
+  ${FS('sex', 'Пол', [['', '—'], 'М', 'Ж'], a.sex)}${F('birth', 'Дата рождения', a.birth, 'date')}${F('weight', 'Вес, кг (последнее взвешивание)', a.weight, 'text', 'inputmode="decimal"')}
   ${FS('group', 'Группа', [['', '—'], ...S.groups.map(g => g.name)], a.group)}${FS('group2', 'Вторая группа', [['', '—'], ...S.groups.map(g => g.name)], a.group2)}${FS('status', 'Статус', S.statuses, a.status || 'занимается')}
   ${F('phone', 'Телефон спортсмена (с 15 лет)', a.phone, 'tel')}${F('motherName', 'ФИО матери', a.motherName)}${F('motherPhone', 'Телефон матери', a.motherPhone, 'tel')}
   ${F('fatherName', 'ФИО отца', a.fatherName)}${F('fatherPhone', 'Телефон отца', a.fatherPhone, 'tel')}${FS('mainContact', 'Основной контакт', [['', 'автоматически'], 'мать', 'отец', 'спортсмен'], a.mainContact)}
@@ -2963,7 +3032,9 @@ function openPerson(id, pre = {}, onNew = null) {
       if (twin && !await ask(`Уже есть: ${fullName(twin)}${twin.birth ? ', ' + D.ru(twin.birth) : ''} (${twin.status}). Это другой человек?\n\nЕсли тот же — нажмите «Отмена» и откройте его карточку.`)) return false;
       const t = id ? db.athletes.find(x => x.id === id) : { id: uid('a') };
       const wasLeft = !!id && t.status === 'ушёл', wasPaused = !!id && t.status === 'приостановил';
+      const w0 = id ? (weighings(t)[0] || {}).kg || '' : '';
       for (const k of PERSON_FIELDS) t[k] = (fd[k] || '').trim();
+      if (t.weight && t.weight.replace('.', ',') !== w0) { const nw = t.weight; t.weight = w0; addWeighing(t, nw, ix.today); }   // новый вес в форме — взвешивание сегодняшним днём
       if (t.status === 'ушёл' && !t.endedAt && !wasLeft) t.endedAt = ix.today;          // п. 12.3.1: от этой даты — 3 года хранения
       if (t.status !== 'ушёл') t.endedAt = '';
       if (t.status === 'приостановил' && !wasPaused) t.pauseFrom = ix.today;                           // перерыв — с сегодняшнего дня (дату можно поправить кнопкой «Вернулся»)
@@ -4548,6 +4619,40 @@ function tEntries(v) {
 }
 function tBest(v) { const L = tEntries(v).map(e => e.pl).filter(Boolean).sort(); return L[0] || ''; }
 function tResText(v) { return tEntries(v).map(e => (e.div ? tDivName(e.div) + ': ' : '') + (e.pl ? e.pl + ' место' : 'участие')).join(', '); }
+/* категории участника: T.cats[aid] = [{ id, div, ageFrom, ageTo, level, masters, weight, pl }] — несколько возрастных и весовых.
+   T.res[aid] ведётся как раньше (раздел → лучшее место): по нему считаются допуск к аттестации, призёры, история. */
+const T_LEVELS = { levels: ['без разделения на уровни', 'Beginner', 'Intermediate', 'Professional', 'Advanced'],
+  belts: ['без разделения на пояса', 'белый', 'серый', 'жёлтый', 'оранжевый', 'зелёный', 'синий', 'фиолетовый', 'коричневый', 'чёрный'] };
+const T_MASTERS = ['Masters 1', 'Masters 2', 'Masters 3', 'Masters 4', 'Masters 5'];
+function tCats(T, aid) {
+  const C = T.cats && T.cats[aid]; if (Array.isArray(C) && C.length) return C;
+  if (!T.res || !(aid in T.res)) return [];
+  return tEntries(T.res[aid]).map(e => ({ id: '', div: e.div, pl: e.pl }));
+}
+function tBetter(a, b) { return !a ? b || '' : !b ? a : (a < b ? a : b); }
+function tSync(T, aid) {                                   // категории → T.res (лучшее место по разделу)
+  const C = (T.cats || {})[aid] || [];
+  if (!C.length) { if (T.cats) delete T.cats[aid]; return; }
+  T.res = T.res || {};
+  if (C.every(e => !e.div)) { T.res[aid] = C.reduce((m, e) => tBetter(m, e.pl), ''); return; }
+  const r = {}; for (const e of C) if (e.div) r[e.div] = e.div in r ? tBetter(r[e.div], e.pl || '') : (e.pl || '');
+  T.res[aid] = r;
+}
+function tAgeOf(T, a) { return a && a.birth ? D.age(a.birth, T.date || ix.today) : null; }
+function tNewCat(T, a, div, pl) {
+  const c = ix.athCalc.get(a.id) || {}, age = tAgeOf(T, a), yr = a.birth ? a.birth.slice(0, 4) : '';
+  return { id: uid('e'), div, ageFrom: T.ageMode === 'year' ? yr : age != null ? String(age) : '', ageTo: T.ageMode === 'year' ? yr : '', level: T.level === 'belts' && c.belt ? c.belt.split('-')[0] : '', masters: '', weight: '', pl: pl || '' };
+}
+function tAgeText(T, e) {
+  const n = [e.ageFrom, e.ageTo].map(x => String(x || '').trim()).filter(Boolean).map(Number).filter(x => !isNaN(x));
+  if (!n.length) return ''; const lo = Math.min(...n), hi = Math.max(...n);
+  if (T.ageMode === 'year') return (lo === hi ? lo : lo + '–' + hi) + ' г. р.';
+  return (lo === hi ? lo : lo + '–' + hi) + ' ' + plural(hi, 'год', 'года', 'лет');
+}
+function tWeightText(e) { const w = String(e.weight || '').trim(); return w ? w.replace('.', ',') + ' кг' : ''; }
+function tCatText(T, e) { return [tAgeText(T, e), e.level || '', e.masters || '', tWeightText(e)].filter(Boolean).join(' · '); }
+function tLevelName(T) { return T.level === 'belts' ? 'Пояс' : 'Уровень'; }
+function tPlaceText(pl) { return pl ? pl + ' место' : 'участник'; }
 function vTourn() {
   const L = [...(db.tourneys || [])].sort((x, y) => (y.date || '').localeCompare(x.date || ''));
   return `<div class="topline"><h1>Турниры</h1><div class="row no-print"><button class="btn primary" data-act="tourn-new">Добавить турнир</button><button class="btn" data-act="tourn-prize">Призёры за период</button></div></div>
@@ -4556,18 +4661,25 @@ function vTourn() {
     const all = rows.flatMap(x => x.E), med = ['1', '2', '3'].map(k => all.filter(e => e.pl === k).length);
     const byDiv = ['gi', 'nogi'].map(k => [k, all.filter(e => e.div === k).length]).filter(x => x[1]);
     return `<div class="card flat"><div class="row" style="padding:14px 16px 6px;flex-wrap:wrap"><div class="who" style="flex:1 1 240px"><b style="white-space:normal">${h(T.name || 'Турнир')}</b><span class="small">${D.ru(T.date)}${T.city ? ', ' + h(T.city) : ''} · участников ${rows.length}${byDiv.length ? ' (' + byDiv.map(([k, n]) => tDivName(k) + ' — ' + n).join(', ') + ')' : ''}${med.some(Boolean) ? ' · места: ' + med.map((n, i) => n ? (i + 1) + '-х — ' + n : '').filter(Boolean).join(', ') : ''}</span></div><span class="spacer"></span>
-    <button class="btn sm no-print" data-act="tourn-people" data-id="${T.id}">Участники</button><button class="btn sm ghost no-print" data-act="tourn-edit" data-id="${T.id}">Изменить</button></div>
-    ${rows.length ? `<ul class="list">${rows.map(x => `<li style="flex-wrap:wrap"><div class="who"><a href="#person/${x.a.id}"><b>${h(fullName(x.a))}</b></a><span class="small">${h(x.a.group || '')}</span></div><div class="row tres">${x.E.map(e => `<label class="row small" style="gap:6px">${e.div ? `<b>${tDivName(e.div)}</b>` : '<span class="muted" title="Раздел не указан — отметьте в «Участниках»">раздел?</span>'}<select data-change="tres" data-id="${T.id}" data-aid="${x.a.id}" data-div="${e.div}" style="width:auto">${PLACES.map(([v, l]) => opt(v, e.pl, l)).join('')}</select></label>`).join('')}</div></li>`).join('')}</ul>` : '<div class="empty">Участники не отмечены — кнопка «Участники»</div>'}</div>`; }).join('')
+    <button class="btn sm no-print" data-act="tourn-people" data-id="${T.id}">Участники</button><button class="btn sm no-print" data-act="tourn-report" data-id="${T.id}">Отчёт</button><button class="btn sm ghost no-print" data-act="tourn-edit" data-id="${T.id}">Изменить</button></div>
+    ${tSchemeText(T) ? `<div class="small muted" style="padding:0 16px 8px">${h(tSchemeText(T))}</div>` : ''}
+    ${rows.length ? `<ul class="list">${rows.map(x => `<li class="tp-li"><div class="who"><a href="#person/${x.a.id}"><b>${h(fullName(x.a))}</b></a><span class="small">${h(x.a.group || '')}${weighings(x.a).length ? ' · вес ' + weighLine(weighings(x.a)[0]) : ''}</span></div>
+      <div class="tcats">${tCats(T, x.a.id).map((e, i) => `<div class="tcat"><div class="tcat-t">${e.div ? `<b>${tDivName(e.div)}</b>` : '<span class="muted" title="Раздел не указан — отметьте в «Участниках»">раздел?</span>'}${tCatText(T, e) ? ' <span class="small">' + h(tCatText(T, e)) + '</span>' : ''}</div><select data-change="tcat" data-id="${T.id}" data-aid="${x.a.id}" data-i="${i}" aria-label="Место: ${h(shortName(x.a))}, ${tDivName(e.div) || 'категория'} ${i + 1}" style="width:auto">${PLACES.map(([v, l]) => opt(v, e.pl, l)).join('')}</select></div>`).join('')}
+      <button class="btn sm no-print" data-act="tcat-edit" data-id="${T.id}" data-aid="${x.a.id}">Категории и вес</button></div></li>`).join('')}</ul>` : '<div class="empty">Участники не отмечены — кнопка «Участники»</div>'}</div>`; }).join('')
   : '<div class="card"><p class="muted">Турниров пока нет. Добавьте турнир, затем отметьте участников и места.</p></div>'}`;
 }
 function openTourn(id) {
   const T = id ? (db.tourneys || []).find(x => x.id === id) : { name: db.settings.competition.name || '', date: db.settings.competition.date || ix.today, city: db.settings.competition.city || '' };
   if (!T) return;
-  modal(id ? 'Изменить турнир' : 'Новый турнир', `<div class="fgrid">${F('name', 'Название', T.name, 'text', 'required')}${F('date', 'Дата (первый день)', T.date, 'date', 'required')}${F('city', 'Город', T.city)}${FS('divs', 'Разделы', [['both', 'Gi и No-Gi'], ['gi', 'только Gi'], ['nogi', 'только No-Gi']], tDivs(T).length === 2 ? 'both' : tDivs(T)[0])}</div>`, {
+  modal(id ? 'Изменить турнир' : 'Новый турнир', `<div class="fgrid">${F('name', 'Название', T.name, 'text', 'required')}${F('date', 'Дата (первый день)', T.date, 'date', 'required')}${F('city', 'Город', T.city)}${FS('divs', 'Разделы', [['both', 'Gi и No-Gi'], ['gi', 'только Gi'], ['nogi', 'только No-Gi']], tDivs(T).length === 2 ? 'both' : tDivs(T)[0])}
+    ${FS('ageMode', 'Возрастные категории', [['age', 'по возрасту на дату соревнований (от–до, лет)'], ['year', 'по году рождения (от–до)']], T.ageMode || 'age')}
+    ${FS('level', 'Уровень подготовки', [['', 'не указывать'], ['levels', 'уровни: Beginner, Intermediate, Professional, Advanced'], ['belts', 'пояса: белый … чёрный']], T.level || '')}</div>
+    <p class="small muted">Masters 1–5 выбирается у взрослых участников в окне «Категории и вес». Весовая категория — у каждого участника, цифрами.</p>`, {
     extraBtn: id ? `<button type="button" class="btn danger" data-act="tourn-del" data-id="${id}">Удалить</button>` : '',
     onSubmit(fd) {
       const t = id ? T : { id: uid('T'), res: {} };
       t.name = fd.name.trim(); t.date = fd.date; t.city = (fd.city || '').trim(); t.divs = fd.divs === 'both' || !fd.divs ? ['gi', 'nogi'] : [fd.divs];
+      t.ageMode = fd.ageMode === 'year' ? 'year' : 'age'; t.level = fd.level === 'levels' || fd.level === 'belts' ? fd.level : '';
       if (!id) { db.tourneys = db.tourneys || []; db.tourneys.push(t); }
       render.keepScroll = true; persist(id ? 'Сохранено' : 'Турнир добавлен');
       if (!id) setTimeout(() => openTournPeople(t.id), 50);
@@ -4582,16 +4694,100 @@ function openTournPeople(id) {
     return `<div class="tp-row"><span class="who"><b>${h(fullName(a))}</b><span class="small">${h(a.group || '')}${a.otherTeam ? ' · другая команда' : ''}</span></span>
     <span class="tp-d">${old ? `<label class="tp-c" title="Записан раньше, раздел не указан"><input type="checkbox" name="old[]" value="${a.id}" checked>без раздела</label>` : ''}${divs.map(k => `<label class="tp-c"><input type="checkbox" name="${k}[]" value="${a.id}" ${has(k) ? 'checked' : ''}>${tDivName(k)}</label>`).join('')}</span></div>`; }).join('') || '<div class="empty">Нет спортсменов</div>'}</div>
   <p class="small muted">Отметьте раздел, в котором человек выступает: ${divs.map(tDivName).join(' и/или ')}. Места ставятся в списке турнира.</p>`, { onSubmit(fd) {
-    const M = fd.__multi, sel = k => new Set(M[k + '[]'] || []), G = sel('gi'), N = sel('nogi'), O = sel('old'), nr = {};
-    for (const a of people) { const id = a.id, v = res[id], obj = v && typeof v === 'object' ? v : null, d = [];
+    const M = fd.__multi, sel = k => new Set(M[k + '[]'] || []), G = sel('gi'), N = sel('nogi'), O = sel('old'), nr = {}, nc = {};
+    for (const a of people) { const id = a.id, v = res[id], d = [];
       if (G.has(id)) d.push('gi'); if (N.has(id)) d.push('nogi');
-      if (d.length) { const r = {}; for (const k of d) r[k] = obj ? obj[k] || '' : (d.length === 1 && typeof v === 'string' ? v : ''); nr[id] = r; }
+      if (d.length) { const all = tCats(T, id), C = all.filter(e => d.includes(e.div)).map(e => ({ ...tNewCat(T, a, e.div), ...e, id: e.id || uid('e') }));
+        const legacy = all.find(e => !e.div);
+        for (const k of d) if (!C.some(e => e.div === k)) C.push(tNewCat(T, a, k, legacy && d.length === 1 ? legacy.pl : ''));
+        nc[id] = C; }
       else if (O.has(id)) nr[id] = v || ''; }
-    T.res = nr; const n = Object.keys(nr).length; render.keepScroll = true; persist(`Участников: ${n}`);
+    T.res = nr; T.cats = nc; for (const id of Object.keys(nc)) tSync(T, id); const n = Object.keys(nr).length; render.keepScroll = true; persist(`Участников: ${n}`);
   } });
   const q = $('#tp-q');
   q.addEventListener('input', () => { const v = norm(q.value.trim()); document.querySelectorAll('#dlg .tp-row').forEach(l => { l.style.display = !v || norm(l.querySelector('.who').textContent).includes(v) ? '' : 'none'; }); });
   q.addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
+}
+function tSchemeText(T) {
+  const L = []; if (T.ageMode === 'year') L.push('возраст — по году рождения'); else if (T.ageMode === 'age') L.push('возраст — на дату соревнований');
+  if (T.level === 'levels') L.push('уровни подготовки'); if (T.level === 'belts') L.push('по поясам');
+  return L.length ? 'Категории: ' + L.join(', ') : '';
+}
+function tCatRow(T, a, e, adult) {
+  const lv = T_LEVELS[T.level];
+  return `<div class="tcat-row" data-row data-eid="${h(e.id || '')}">
+    <div class="tcat-grid">
+      ${tDivs(T).length > 1 || !e.div ? `<label class="f"><span>Раздел</span><select data-k="div">${(e.div ? [] : [['', '— не указан —']]).concat(tDivs(T).map(k => [k, tDivName(k)])).map(([v, l]) => opt(v, e.div || '', l)).join('')}</select></label>` : `<input type="hidden" data-k="div" value="${h(e.div)}"><div class="f"><span>Раздел</span><b class="tcat-fixed">${tDivName(e.div)}</b></div>`}
+      <label class="f"><span>${T.ageMode === 'year' ? 'Год рождения от' : 'Возраст от, лет'}</span><input type="number" data-k="ageFrom" inputmode="numeric" value="${h(e.ageFrom || '')}"></label>
+      <label class="f"><span>до</span><input type="number" data-k="ageTo" inputmode="numeric" value="${h(e.ageTo || '')}"></label>
+      ${lv ? `<label class="f"><span>Уровень</span><select data-k="level">${[['', '—'], ...lv.map(x => [x, x])].map(([v, l]) => opt(v, e.level || '', l)).join('')}</select></label>` : ''}
+      ${adult || e.masters ? `<label class="f"><span>Masters</span><select data-k="masters">${[['', '—'], ...T_MASTERS.map(x => [x, x])].map(([v, l]) => opt(v, e.masters || '', l)).join('')}</select></label>` : ''}
+      <label class="f"><span>Весовая категория, кг</span><input type="text" data-k="weight" inputmode="decimal" placeholder="например, 30 или +80" value="${h(e.weight || '')}"></label>
+      <label class="f"><span>Место</span><select data-k="pl">${PLACES.map(([v, l]) => opt(v, e.pl || '', l)).join('')}</select></label>
+    </div>
+    <button type="button" class="btn sm ghost tcat-del" aria-label="Убрать категорию">Убрать категорию</button></div>`;
+}
+function openTournCats(tid, aid) {
+  const T = (db.tourneys || []).find(x => x.id === tid), a = ix.ath.get(aid); if (!T || !a) return;
+  const age = tAgeOf(T, a), adult = age != null && age >= 18, W = weighings(a);
+  const C = tCats(T, aid).map(e => ({ ...e }));
+  modal(shortName(a) + ': категории', `<div class="tcat-head"><div><b>${h(T.name || 'Турнир')}</b>, ${D.ru(T.date)}${T.city ? ', ' + h(T.city) : ''}</div>
+      <div class="small">${age != null ? `На дату соревнований: <b>${age} ${plural(age, 'год', 'года', 'лет')}</b> · год рождения ${a.birth.slice(0, 4)}` : 'Дата рождения не внесена'}${(ix.athCalc.get(aid) || {}).belt ? ' · пояс ' + h(ix.athCalc.get(aid).belt) : ''}</div>
+      <div class="tcat-weight"><span class="muted">Вес:</span> ${W.length ? `<b class="num">${weighLine(W[0])}</b>${W.slice(1).length ? `<span class="small muted"> · раньше: ${W.slice(1).map(w => h(w.kg) + ' кг' + (w.date ? ' (' + D.short(w.date) + ')' : '')).join(', ')}</span>` : ''}` : '<span class="muted">не внесён</span>'}</div>
+      <details class="weigh-add"><summary>Записать новое взвешивание</summary><div class="fgrid" style="margin-top:8px">${F('wkg', 'Вес, кг', '', 'text', 'inputmode="decimal" placeholder="например, 32,5"')}${F('wdate', 'Дата взвешивания', ix.today, 'date')}</div></details></div>
+    <h3 style="margin:16px 0 8px">Категории</h3><div id="tcat-rows">${C.map(e => tCatRow(T, a, e, adult)).join('')}</div>
+    <button type="button" class="btn" id="tcat-add">+ Добавить категорию</button>
+    <p class="small muted">Один спортсмен может выступать в нескольких возрастных и весовых категориях — добавьте строку на каждую. Место ставится по каждой категории; у кого места нет — «участник».</p>`, {
+    wide: true,
+    onSubmit(fd) {
+      const kg = String(fd.wkg || '').trim().replace('.', ',');
+      if (kg && !/^\d{1,3}(,\d{1,2})?$/.test(kg)) { notice('Вес — число в килограммах, например 32 или 32,5.'); return false; }
+      if (kg && (!fd.wdate || fd.wdate > ix.today)) { notice('Укажите дату взвешивания (не позже сегодняшней).'); return false; }
+      const rows = [...document.querySelectorAll('#dlg .tcat-row')];
+      if (!rows.length) { notice('Оставьте хотя бы одну категорию. Чтобы убрать спортсмена из турнира — кнопка «Участники».'); return false; }
+      const out = rows.map(r => { const g = k => { const el = r.querySelector(`[data-k="${k}"]`); return el ? String(el.value || '').trim() : ''; };
+        return { id: r.dataset.eid || uid('e'), div: g('div'), ageFrom: g('ageFrom'), ageTo: g('ageTo'), level: g('level'), masters: g('masters'), weight: g('weight').replace('.', ','), pl: g('pl') }; });
+      if (out.some(e => e.weight && !/^[+\-−]?\d{1,3}(,\d{1,2})?\+?$/.test(e.weight))) { notice('Весовая категория — цифрами, например 30, 32,5 или +80.'); return false; }
+      if (kg) addWeighing(a, kg, fd.wdate);
+      T.cats = T.cats || {}; T.cats[aid] = out; tSync(T, aid);
+      render.keepScroll = true; persist('Категории сохранены');
+    } });
+  const box = document.getElementById('tcat-rows');
+  box.addEventListener('click', e => { const b = e.target.closest('.tcat-del'); if (b) b.closest('.tcat-row').remove(); });
+  document.getElementById('tcat-add').onclick = () => { box.insertAdjacentHTML('beforeend', tCatRow(T, a, tNewCat(T, a, tDivs(T)[0]), adult)); box.lastElementChild.querySelector('input,select').focus(); };
+}
+function tReportRows(T, onlyConsent) {
+  const rows = [];
+  for (const aid of Object.keys(T.res || {})) { const a = ix.ath.get(aid); if (!a) continue;
+    if (onlyConsent && !['да', 'частично'].includes(a.publish)) continue;
+    for (const e of tCats(T, aid)) rows.push({ a, e }); }
+  const pk = x => x.e.pl || '9';
+  rows.sort((x, y) => pk(x).localeCompare(pk(y)) || (x.e.div || '').localeCompare(y.e.div || '') || shortName(x.a).localeCompare(shortName(y.a), 'ru'));
+  return rows;
+}
+function tReportHTML(T, onlyConsent) {
+  const rows = tReportRows(T, onlyConsent), win = rows.filter(x => x.e.pl), part = rows.filter(x => !x.e.pl);
+  const people = new Set(rows.map(x => x.a.id)).size, med = ['1', '2', '3'].map(k => win.filter(x => x.e.pl === k).length);
+  const hasLv = rows.some(x => x.e.level), hasAge = rows.some(x => tAgeText(T, x.e) || x.e.masters), hasW = rows.some(x => tWeightText(x.e)), hasDiv = rows.some(x => x.e.div);
+  const head = `<tr><th>Результат</th><th>Фамилия, имя</th>${hasDiv ? '<th>Раздел</th>' : ''}${hasAge ? '<th>Возрастная категория</th>' : ''}${hasLv ? `<th>${tLevelName(T)}</th>` : ''}${hasW ? '<th>Весовая категория</th>' : ''}</tr>`;
+  const tr = x => `<tr><td><b>${tPlaceText(x.e.pl)}</b></td><td>${h(shortName(x.a))}</td>${hasDiv ? `<td>${tDivName(x.e.div) || '—'}</td>` : ''}${hasAge ? `<td>${h([tAgeText(T, x.e), x.e.masters].filter(Boolean).join(', ') || '—')}</td>` : ''}${hasLv ? `<td>${h(x.e.level || '—')}</td>` : ''}${hasW ? `<td>${h(tWeightText(x.e) || '—')}</td>` : ''}</tr>`;
+  return `<h2>${h(T.name || 'Турнир')}</h2><p><b>${D.ru(T.date)}${T.city ? ', ' + h(T.city) : ''}</b></p>
+    <p>${h(db.settings.club || 'Club D23')}. Участников: ${people}${med.some(Boolean) ? ' · медали: ' + ['золото', 'серебро', 'бронза'].map((l, i) => med[i] ? l + ' — ' + med[i] : '').filter(Boolean).join(', ') : ''}.</p>
+    ${win.length ? `<h3>Призёры</h3><div class="scroll"><table class="t">${head}<tbody>${win.map(tr).join('')}</tbody></table></div>` : '<p>Призовых мест нет.</p>'}
+    ${part.length ? `<h3>Участники</h3><div class="scroll"><table class="t">${head}<tbody>${part.map(tr).join('')}</tbody></table></div>` : ''}`;
+}
+function openTournReport(tid) {
+  const T = (db.tourneys || []).find(x => x.id === tid); if (!T) return;
+  const all = Object.keys(T.res || {}).map(id => ix.ath.get(id)).filter(Boolean), noCons = all.filter(a => !['да', 'частично'].includes(a.publish));
+  let only = false;
+  const body = () => `${noCons.length ? `<div class="banner no-print" style="display:block"><b>Согласие на публикацию (Бланк 2.3) не отмечено у ${noCons.length} из ${all.length}:</b> ${noCons.map(a => h(shortName(a))).join(', ')}.
+      <label class="row" style="gap:10px;margin-top:8px;font-weight:600;flex-wrap:nowrap"><input type="checkbox" id="tr-only" ${only ? 'checked' : ''} style="width:22px;height:22px"> Только с согласием — для соцсетей и сайта</label></div>` : ''}
+    <div class="treport">${tReportHTML(T, only)}</div>`;
+  modal('Отчёт по турниру', body(), { wide: true, extraBtn: `<button type="button" class="btn" id="tr-print">Печать</button><button type="button" class="btn primary" id="tr-word">В Word</button>` });
+  const wire = () => { const c = document.getElementById('tr-only'); if (c) c.onchange = () => { only = c.checked; document.querySelector('#dlg .dlg-b').innerHTML = body(); wire(); }; };
+  wire();
+  document.getElementById('tr-print').onclick = () => openPrint('Турнир — ' + (T.name || ''), tReportHTML(T, only), 'h2{font-size:15pt;margin:0 0 4pt}h3{margin:14pt 0 4pt}');
+  document.getElementById('tr-word').onclick = () => { downloadBlob(`D23_турнир_${(T.name || 'турнир').replace(/[\\/:*?"<>|]+/g, ' ').trim()}_${T.date || ''}.docx`, docxBlob(htmlDocx(tReportHTML(T, only)))); toast('Отчёт сохранён в Word (.docx)'); };
 }
 function openPrize() {
   modal('Призёры за период', `<div class="fgrid">${F('from', 'С', ix.today.slice(0, 4) + '-01-01', 'date', 'required')}${F('to', 'По', ix.today, 'date', 'required')}</div>`, { submit: 'Печать', onSubmit(fd) {
@@ -4721,7 +4917,7 @@ function stripPerson(d, id) {                   // удалить человек
   d.athletes = d.athletes.filter(x => x.id !== id); d.subs = d.subs.filter(p => p.athleteId !== id);
   d.awards = d.awards.filter(w => w.athleteId !== id); d.freezes = d.freezes.filter(f => f.athleteId !== id);
   d.tests = d.tests.filter(t => t.athleteId !== id); d.sessions.forEach(s => { if (s.marks) delete s.marks[id]; });
-  d.log = (d.log || []).filter(x => x.aid !== id); (d.tourneys || []).forEach(T => { if (T.res) delete T.res[id]; });
+  d.log = (d.log || []).filter(x => x.aid !== id); (d.tourneys || []).forEach(T => { if (T.res) delete T.res[id]; if (T.cats) delete T.cats[id]; });
   d.sessions.forEach(s => { if (s.trial) { delete s.trial[id]; if (!Object.keys(s.trial).length) delete s.trial; } });
   if (d.attnDone) for (const k of Object.keys(d.attnDone)) if (k.startsWith(id + '|')) delete d.attnDone[k];   // в ключах — ФИО
 }
@@ -4870,6 +5066,10 @@ const ACT = {
     if (!Object.keys(s.trial).length) delete s.trial;
     render.keepScroll = true; persist(s.trial && s.trial[aid] ? 'Отмечено пробное занятие' : 'Отметка «пробное» снята'); },
   'print-nopublish': () => printNoPublish(),
+  'tourn-report': el => openTournReport(el.dataset.id), 'tcat-edit': el => openTournCats(el.dataset.id, el.dataset.aid),
+  'weigh-new': el => openWeigh(el.dataset.id), 'weigh-del': async el => { const a = db.athletes.find(x => x.id === el.dataset.id); if (!a) return;
+    if (!await ask('Удалить взвешивание ' + D.ru(el.dataset.date) + '?')) return;
+    a.weighings = weighings(a).filter(w => w.date !== el.dataset.date); a.weight = a.weighings.length ? a.weighings[0].kg : ''; closeModal(); render.keepScroll = true; persist('Взвешивание удалено'); openWeigh(a.id); },
   'tourn-new': () => openTourn(null), 'tourn-edit': el => openTourn(el.dataset.id), 'tourn-people': el => openTournPeople(el.dataset.id), 'tourn-prize': () => openPrize(),
   'tourn-del': async el => { const T = (db.tourneys || []).find(x => x.id === el.dataset.id); if (!T) return;
     const n = Object.keys(T.res || {}).length; if (!await ask(`Удалить турнир «${T.name}»${n ? ' и отметки участия (' + n + ')' : ''}? Участие перестанет учитываться в допуске к аттестации.`)) return;
@@ -5055,6 +5255,9 @@ async function onChange(e) {
   else if (k === 'attest-adm') { ui.attest.adm = v; rerender(); }
   else if (k === 'test-date') { ui.attest.date = v; rerender(); }
   else if (k === 'rep') { ui.report[el.dataset.k] = v; rerender(); }
+  else if (k === 'tcat') { const T = (db.tourneys || []).find(x => x.id === el.dataset.id), aid = el.dataset.aid, i = +el.dataset.i; if (!T) return;
+    const C = tCats(T, aid).map(e => ({ ...e, id: e.id || uid('e') })); if (!C[i]) return; C[i].pl = v; T.cats = T.cats || {}; T.cats[aid] = C; tSync(T, aid);
+    render.keepScroll = true; persist(v ? (C[i].div ? tDivName(C[i].div) + ': ' : '') + 'место ' + v : 'Сохранено'); }
   else if (k === 'tres') { const T = (db.tourneys || []).find(x => x.id === el.dataset.id), aid = el.dataset.aid, dv = el.dataset.div; if (!T || !T.res || !(aid in T.res)) return;
     if (dv) { const o = T.res[aid] && typeof T.res[aid] === 'object' ? { ...T.res[aid] } : {}; o[dv] = v; T.res[aid] = o; } else T.res[aid] = v;
     render.keepScroll = true; persist(v ? (dv ? tDivName(dv) + ': ' : '') + 'место ' + v : 'Сохранено'); }
