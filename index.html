@@ -535,11 +535,18 @@ ul.tp-cards{list-style:none;margin:0;padding:12px;display:grid;grid-template-col
 .tp-card{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow-1);padding:14px 14px 12px 18px;display:flex;flex-direction:column;gap:10px;overflow:hidden;min-width:0}
 .tp-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--line-strong)}
 .tp-card.m1::before{background:var(--gold)} .tp-card.m2::before{background:var(--silver)} .tp-card.m3::before{background:var(--bronze)}
-.tp-head{display:flex;align-items:flex-start;gap:10px}
+.tp-head{display:flex;align-items:flex-start;gap:8px 10px;flex-wrap:wrap}
+.tp-head > .who{flex:1 1 170px;min-width:0}
+.tp-head .who b{overflow:visible;text-overflow:clip}
+.tp-medals{margin-left:auto;max-width:100%}
+.tp-medal{max-width:100%;white-space:normal;text-align:left}
 .tp-head > .belt{margin-top:6px;width:44px;height:11px}
 .tp-head > .belt .tip{width:13px;right:4px}
 .tp-head .who b{white-space:normal;font-size:1.0625rem;line-height:1.3}
 .tp-head .who a{text-decoration:none;color:var(--ink)} .tp-head .who a:hover b{text-decoration:underline}
+.tp-medals{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.tp-medal.sm{font-size:.75rem;padding:1px 8px;font-weight:650}
+.tp-medal.sm::before{width:7px;height:7px;margin-right:5px}
 .tp-medal{flex:none;padding:3px 10px;border-radius:var(--r-pill);font-size:.8125rem;font-weight:700;background:var(--surface-2);color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line);white-space:nowrap}
 .tp-medal.m1,.tp-medal.m2,.tp-medal.m3{color:var(--ink);box-shadow:inset 0 0 0 2px var(--gold);background:var(--surface)}
 .tp-medal.m2{box-shadow:inset 0 0 0 2px var(--silver)} .tp-medal.m3{box-shadow:inset 0 0 0 2px var(--bronze)}
@@ -2884,7 +2891,7 @@ function vPerson(id) {
       : `<p class="small muted" style="margin:6px 0 0">${(ix.marks.get(id) || []).length && !(ix.marks.get(id) || []).some(m => m.date >= (S.briefFrom || '9999')) ? 'Записей в программе нет — смотрите бумажный журнал.' : 'Записей нет. Первичный — до первого занятия.'}</p>`}</div>`;
   const PL = { '1': '1 место', '2': '2 место', '3': '3 место' };
   const tournCard = `<div class="card flat"><div style="padding:14px 16px 6px"><h2>Турниры</h2></div>${myT.length ? `<div class="tlist">${myT.map(T => { const E = tCats(T, id), best = tBest(T.res[id]);
-    return `<details class="tdet"><summary><span class="who"><b>${h(T.name || 'Турнир')}</b><span class="small">${D.ru(T.date)}${T.city ? ', ' + h(T.city) : ''}</span></span><span class="chip ${best ? 'ok' : 'muted'}">${best ? best + ' место' : 'участник'}</span></summary>
+    return `<details class="tdet"><summary><span class="who"><b>${h(T.name || 'Турнир')}</b><span class="small">${D.ru(T.date)}${T.city ? ', ' + h(T.city) : ''}</span></span>${tMedals(T, id)}</summary>
       <div class="tdet-b"><h3>${h(T.name || 'Турнир')}</h3><div class="muted">${D.ru(T.date)}${T.city ? ', ' + h(T.city) : ''}</div>
       ${E.map(e => `<div class="tdet-e"><div class="tdet-r"><b>${e.div ? tDivName(e.div) + ' — ' : ''}${tPlaceText(e.pl)}</b></div>${tAgeText(T, e) || e.masters ? `<div class="small">Возрастная категория: ${h([tAgeText(T, e), e.masters].filter(Boolean).join(', '))}</div>` : ''}${e.level ? `<div class="small">${tLevelName(T)}: ${h(e.level)}</div>` : ''}${tWeightText(e) ? `<div class="small">Весовая категория: ${h(tWeightText(e))}</div>` : ''}</div>`).join('')}
       <div class="row no-print" style="margin-top:10px"><button class="btn sm" data-act="tcat-edit" data-id="${T.id}" data-aid="${id}">Категории и вес</button><a class="btn sm ghost" href="#tourn">Все турниры</a></div></div></details>`; }).join('')}</div>` : '<div class="empty">Нет записей. Турниры вносятся в разделе «Турниры».</div>'}</div>`;
@@ -4678,6 +4685,20 @@ function tAgeText(T, e) {
 function tWeightText(e) { const w = String(e.weight || '').trim(); return w ? w.replace('.', ',') + ' кг' : ''; }
 function tCatText(T, e) { return [tAgeText(T, e), e.level || '', e.masters || '', tWeightText(e)].filter(Boolean).join(' · '); }
 function tLevelName(T) { return T.level === 'belts' ? 'Пояс' : 'Уровень'; }
+function tMedals(T, aid) {                                // крупный бейдж — лучший результат; под ним поменьше — остальные призовые места
+  const P = tCats(T, aid).filter(e => ['1', '2', '3'].includes(e.pl)).sort((x, y) => x.pl.localeCompare(y.pl) || (x.div || '').localeCompare(y.div || ''));
+  if (!P.length) return '<div class="tp-medals"><span class="tp-medal">участник</span></div>';
+  const many = P.length > 1;
+  const extra = e => {                                     // уточнение — только если в одном разделе несколько медалей: вес, а если вес одинаковый — возраст
+    const same = P.filter(x => x.div === e.div); if (same.length < 2) return '';
+    const w = tWeightText(e), a = tAgeText(T, e);
+    if (w && new Set(same.map(tWeightText)).size > 1) return ' · ' + w;
+    if (a && new Set(same.map(x => tAgeText(T, x))).size > 1) return ' · ' + a;
+    return w ? ' · ' + w : '';
+  };
+  const dv = e => (e.div ? ' · ' + tDivName(e.div) : '') + extra(e);
+  return `<div class="tp-medals"><span class="tp-medal m${P[0].pl}">${P[0].pl} место${many ? dv(P[0]) : ''}</span>${P.slice(1).map(e => `<span class="tp-medal sm m${e.pl}">${e.pl} место${dv(e)}</span>`).join('')}</div>`;
+}
 function tPlaceText(pl) { return pl ? pl + ' место' : 'участник'; }
 function vTourn() {
   const L = [...(db.tourneys || [])].sort((x, y) => (y.date || '').localeCompare(x.date || ''));
@@ -4692,7 +4713,7 @@ function vTourn() {
     ${rows.length ? `<ul class="tp-cards">${rows.map(x => { const c = ix.athCalc.get(x.a.id) || {}, W = weighings(x.a);
       return `<li class="tp-card${x.pl ? ' m' + x.pl : ''}">
       <div class="tp-head">${beltHTML(c.belt, c.stripes)}<div class="who"><a href="#person/${x.a.id}"><b>${h(fullName(x.a))}</b></a><span class="small">${h(x.a.group || 'без группы')}${W.length ? ' · вес ' + weighLine(W[0]) : ''}</span></div>
-        <span class="tp-medal${x.pl ? ' m' + x.pl : ''}">${x.pl ? x.pl + ' место' : 'участник'}</span></div>
+        ${tMedals(T, x.a.id)}</div>
       <div class="tcats">${tCats(T, x.a.id).map((e, i) => `<div class="tcat"><div class="tcat-t">${e.div ? `<span class="tdiv">${tDivName(e.div)}</span>` : '<span class="tdiv muted" title="Раздел не указан — отметьте в «Участниках»">раздел?</span>'}${tCatText(T, e) ? '<span class="tcat-c">' + h(tCatText(T, e)) + '</span>' : ''}</div><select data-change="tcat" data-id="${T.id}" data-aid="${x.a.id}" data-i="${i}" aria-label="Место: ${h(shortName(x.a))}, ${tDivName(e.div) || 'категория'} ${i + 1}">${PLACES.map(([v, l]) => opt(v, e.pl, l)).join('')}</select></div>`).join('')}</div>
       <div class="tp-foot no-print"><button class="btn sm" data-act="tcat-edit" data-id="${T.id}" data-aid="${x.a.id}">Категории и вес</button></div></li>`; }).join('')}</ul>` : '<div class="empty">Участники не отмечены — кнопка «Участники»</div>'}</div>`; }).join('')
   : '<div class="card"><p class="muted">Турниров пока нет. Добавьте турнир, затем отметьте участников и места.</p></div>'}`;
