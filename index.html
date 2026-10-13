@@ -7,7 +7,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23143C30'/><text x='16' y='21' font-size='13' font-family='Arial' font-weight='700' fill='white' text-anchor='middle'>D23</text></svg>">
 <style>
 /* ===== Club D23 — дизайн-система (октябрь 2026) =====
-   Цвета: графит + изумрудные кнопки. Все цвета — переменные; тёмная тема переопределяет только их.
+   Цвета: графит + изумрудные кнопки; тёмная тема — «Лёд туман» (мягкий монохром, светлые кнопки). Все цвета — переменные; тёмная тема переопределяет только их.
    Тема: по настройке системы, или вручную — «Настройки» → «Оформление» (атрибут data-theme на <html>). */
 :root{
   /* бренд и акцент */
@@ -15,6 +15,7 @@
   --logo:#143C30;                                   /* иконка клуба — фирменный зелёный */
   --accent:#22262B; --accent-soft:#ECEEF1;          /* выбранное, крупные цифры */
   --accent-btn:#1A7A58; --accent-btn-ink:#FFFFFF;   /* главные кнопки — изумруд */
+  --accent-btn-2:#2FA77A; --accent-btn-deep:#145F45; --tab-mark:#7FD7B0;   /* полоса и плитка ближайшего турнира, метка вкладки */
   /* нейтральные */
   --bg:#F3F4F6; --surface:#FFFFFF; --surface-2:#F8F9FA; --sunk:#ECEEF1; --line:#DDE1E5; --line-strong:#C5CBD1;
   --ink:#15181B; --ink-2:#4A525A; --ink-3:#5F6871;
@@ -41,30 +42,32 @@
   color-scheme:light;
 }
 @media screen and (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --brand:#0B0D0F; --brand-ink:#B6BEC6; --accent:#5FCDA4; --accent-soft:#1B3831; --accent-btn:#1A7A58; --accent-btn-ink:#FFFFFF;
-  --bg:#121416; --surface:#1B1E22; --surface-2:#22262B; --sunk:#0D0F11; --line:#2D3238; --line-strong:#3F464E;
-  --ink:#EDEFF1; --ink-2:#AAB2BA; --ink-3:#9099A2;
-  --ok:#8EDBAE; --ok-bg:#1E332C; --ok-fill:#287F4E;
-  --warn:#F3C06E; --warn-bg:#413621; --warn-fill:#C98A1E;
-  --bad:#FF9E94; --bad-bg:#402627; --bad-fill:#C2433A;
-  --sick:#93C2F7; --sick-bg:#213045; --sick-fill:#3570C2;
-  --comp:#C7ABF3; --comp-bg:#302B44; --comp-fill:#7A58BC;
-  --cancel:#AAB2BA; --cancel-fill:#66707C;
-  --hl2:#F0D67A; --hl2-bg:#38331B; --hl2-fill:#C9A227; --gold:#E2B93B; --silver:#B7C0CA; --bronze:#D08A52; --belt-edge:rgba(255,255,255,.34); --chip-ok-bg:#1E332C; --chip-ok-ink:#8EDBAE; --chip-ok-mark:#8EDBAE;
-  --shadow-1:0 1px 2px rgba(0,0,0,.45); --shadow-2:0 12px 32px rgba(0,0,0,.55); --focus:#5FCDA4;
+  --brand:#16171A; --brand-ink:#A4AAB2; --accent:#D4D8DD; --accent-soft:#32363C; --accent-btn:#C3C8CF; --accent-btn-ink:#1A1C1F;
+  --accent-btn-2:#878E98; --accent-btn-deep:#A9AFB8; --tab-mark:#C3C8CF;
+  --bg:#1C1E21; --surface:#24272B; --surface-2:#2A2D32; --sunk:#16181A; --line:#363A41; --line-strong:#4A4F57;
+  --ink:#D4D8DD; --ink-2:#A3A9B1; --ink-3:#9399A2;
+  --ok:#8CCBA4; --ok-bg:#22322A; --ok-fill:#33764F;
+  --warn:#DDBA7A; --warn-bg:#383124; --warn-fill:#B58224;
+  --bad:#E8A49E; --bad-bg:#3D2B2C; --bad-fill:#AD4A43;
+  --sick:#A2BFE2; --sick-bg:#252D3D; --sick-fill:#3F69AE;
+  --comp:#C2B1E2; --comp-bg:#2F2C42; --comp-fill:#6F57AE;
+  --cancel:#A9AEB6; --cancel-fill:#5E636C;
+  --hl2:#DDCB8E; --hl2-bg:#353022; --hl2-fill:#B5952B; --gold:#E2B93B; --silver:#B7C0CA; --bronze:#D08A52; --belt-edge:rgba(255,255,255,.34); --chip-ok-bg:#30343A; --chip-ok-ink:#D4D8DD; --chip-ok-mark:#8CCBA4;
+  --shadow-1:0 1px 2px rgba(0,0,0,.3); --shadow-2:0 16px 40px rgba(0,0,0,.45); --focus:#C3C8CF;
   color-scheme:dark}}
 @media screen{:root[data-theme="dark"]{
-  --brand:#0B0D0F; --brand-ink:#B6BEC6; --accent:#5FCDA4; --accent-soft:#1B3831; --accent-btn:#1A7A58; --accent-btn-ink:#FFFFFF;
-  --bg:#121416; --surface:#1B1E22; --surface-2:#22262B; --sunk:#0D0F11; --line:#2D3238; --line-strong:#3F464E;
-  --ink:#EDEFF1; --ink-2:#AAB2BA; --ink-3:#9099A2;
-  --ok:#8EDBAE; --ok-bg:#1E332C; --ok-fill:#287F4E;
-  --warn:#F3C06E; --warn-bg:#413621; --warn-fill:#C98A1E;
-  --bad:#FF9E94; --bad-bg:#402627; --bad-fill:#C2433A;
-  --sick:#93C2F7; --sick-bg:#213045; --sick-fill:#3570C2;
-  --comp:#C7ABF3; --comp-bg:#302B44; --comp-fill:#7A58BC;
-  --cancel:#AAB2BA; --cancel-fill:#66707C;
-  --hl2:#F0D67A; --hl2-bg:#38331B; --hl2-fill:#C9A227; --gold:#E2B93B; --silver:#B7C0CA; --bronze:#D08A52; --belt-edge:rgba(255,255,255,.34); --chip-ok-bg:#1E332C; --chip-ok-ink:#8EDBAE; --chip-ok-mark:#8EDBAE;
-  --shadow-1:0 1px 2px rgba(0,0,0,.45); --shadow-2:0 12px 32px rgba(0,0,0,.55); --focus:#5FCDA4;
+  --brand:#16171A; --brand-ink:#A4AAB2; --accent:#D4D8DD; --accent-soft:#32363C; --accent-btn:#C3C8CF; --accent-btn-ink:#1A1C1F;
+  --accent-btn-2:#878E98; --accent-btn-deep:#A9AFB8; --tab-mark:#C3C8CF;
+  --bg:#1C1E21; --surface:#24272B; --surface-2:#2A2D32; --sunk:#16181A; --line:#363A41; --line-strong:#4A4F57;
+  --ink:#D4D8DD; --ink-2:#A3A9B1; --ink-3:#9399A2;
+  --ok:#8CCBA4; --ok-bg:#22322A; --ok-fill:#33764F;
+  --warn:#DDBA7A; --warn-bg:#383124; --warn-fill:#B58224;
+  --bad:#E8A49E; --bad-bg:#3D2B2C; --bad-fill:#AD4A43;
+  --sick:#A2BFE2; --sick-bg:#252D3D; --sick-fill:#3F69AE;
+  --comp:#C2B1E2; --comp-bg:#2F2C42; --comp-fill:#6F57AE;
+  --cancel:#A9AEB6; --cancel-fill:#5E636C;
+  --hl2:#DDCB8E; --hl2-bg:#353022; --hl2-fill:#B5952B; --gold:#E2B93B; --silver:#B7C0CA; --bronze:#D08A52; --belt-edge:rgba(255,255,255,.34); --chip-ok-bg:#30343A; --chip-ok-ink:#D4D8DD; --chip-ok-mark:#8CCBA4;
+  --shadow-1:0 1px 2px rgba(0,0,0,.3); --shadow-2:0 16px 40px rgba(0,0,0,.45); --focus:#C3C8CF;
   color-scheme:dark}}
 @media print{:root,:root[data-theme="dark"]{   /* печать — всегда светлая палитра */
   --bg:#FFFFFF; --surface:#FFFFFF; --surface-2:#FFFFFF; --sunk:#FFFFFF; --line:#999999; --line-strong:#666666;
@@ -308,7 +311,7 @@ dialog form{display:flex;flex-direction:column;max-height:92vh}
   .tabbar{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;background:var(--brand);z-index:50;padding-bottom:env(safe-area-inset-bottom,0px)}
   .tabbar a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:60px;padding:6px 2px;color:var(--brand-ink);text-decoration:none;font-size:.75rem;font-weight:600;position:relative}
   .tabbar a.on{color:#fff}
-  .tabbar a.on::before{content:"";position:absolute;top:0;left:28%;right:28%;height:3px;border-radius:0 0 3px 3px;background:#7FD7B0}
+  .tabbar a.on::before{content:"";position:absolute;top:0;left:28%;right:28%;height:3px;border-radius:0 0 3px 3px;background:var(--tab-mark)}
   .tabbar svg{width:24px;height:24px}
   .toast{bottom:76px;left:12px;right:12px;transform:none;max-width:none;animation-name:toast-in-m}
   .toast .btn{margin-left:auto}
@@ -537,13 +540,13 @@ details.tcard:hover{box-shadow:var(--shadow-2)}
 details.tcard > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:16px;padding:16px;min-height:92px;position:relative}
 details.tcard > summary::-webkit-details-marker{display:none}
 details.tcard > summary::before{content:"";position:absolute;inset:0 auto 0 0;width:5px;background:linear-gradient(180deg,var(--line-strong),var(--line))}
-details.tcard.up > summary::before{background:linear-gradient(180deg,var(--accent-btn),#2FA77A)}
+details.tcard.up > summary::before{background:linear-gradient(180deg,var(--accent-btn),var(--accent-btn-2))}
 .tdate{flex:none;width:64px;height:68px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;background:var(--sunk);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
 .tdate b{font-size:1.75rem;font-weight:800;font-variant-numeric:tabular-nums}
 .tdate span{font-size:.8125rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-top:3px;color:var(--ink-2)}
 .tdate small{font-size:.6875rem;color:var(--ink-3);margin-top:2px;font-variant-numeric:tabular-nums}
-details.tcard.up .tdate{background:linear-gradient(160deg,var(--accent-btn),#145F45);color:#fff;box-shadow:none}
-details.tcard.up .tdate span,details.tcard.up .tdate small{color:rgba(255,255,255,.85)}
+details.tcard.up .tdate{background:linear-gradient(160deg,var(--accent-btn),var(--accent-btn-deep));color:var(--accent-btn-ink);box-shadow:none}
+details.tcard.up .tdate span,details.tcard.up .tdate small{color:inherit;opacity:.85}
 .tinfo{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
 .tname{font-size:1.1875rem;line-height:1.25;text-wrap:balance}
 .tmeta{display:flex;flex-wrap:wrap;gap:2px 12px;font-size:.9375rem;color:var(--ink-2)}
