@@ -431,7 +431,7 @@ details.legend-d .legend{padding:4px 0 6px}
 .month td:first-child,.month th:first-child{position:sticky;left:0;z-index:1;background:var(--surface)}
 .month th:first-child{z-index:2;background:var(--surface-2)}
 @media (max-width:860px){                         /* телефон: таблица «Месяц» прокручивается внутри экрана — строка с датами прилипает сверху, ФИО — слева */
-  .mscroll{max-height:calc(100vh - 150px);max-height:calc(100dvh - 140px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));overflow:auto;overscroll-behavior:contain}
+  .card.flat.scroll.mscroll{max-height:calc(100vh - 150px);max-height:calc(100dvh - 140px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));overflow:auto;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-x pan-y}   /* сильнее «.card.flat» (обрезка по вертикали) — иначе таблица не листается вниз */
   .mscroll .month thead th{position:sticky;top:0;z-index:3} .mscroll .month thead th:first-child{z-index:4}
 }
 @media print{.mscroll{max-height:none!important;overflow:visible!important}}
