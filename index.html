@@ -217,11 +217,11 @@ table.t tr.pend:hover td,table.t tr.rem1:hover td,table.t tr.rem2:hover td{filte
 .cell-m{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:6px;font-weight:700;font-size:.875rem}
 .cell-m.m-plus{background:var(--ok-bg);color:var(--ok)} .cell-m.m-n{background:var(--bad-bg);color:var(--bad)}
 .cell-m.m-b{background:var(--sick-bg);color:var(--sick)} .cell-m.m-o{background:var(--surface-2);color:var(--cancel);box-shadow:inset 0 0 0 1px var(--line)} .cell-m.m-s{background:var(--comp-bg);color:var(--comp)}
-.month td.last-sub .cell-m{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ok-fill)} .cell-m.m-none{background:none} .month td.next-paid .cell-m{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--next-ring)}   /* первое занятие следующего, уже оплаченного абонемента */
+.month td.last-sub,.month td.next-paid{cursor:pointer} .cell-m.ring-last{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ok-fill)} .cell-m.ring-next{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--next-ring)} .mlast .cell-m.ring-last,.mlast .cell-m.ring-next{margin:3px} .month td.last-sub .cell-m{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ok-fill)} .cell-m.m-none{background:none} .month td.next-paid .cell-m{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--next-ring)}   /* первое занятие следующего, уже оплаченного абонемента */
 .next-paid-key{display:inline-block;width:14px;height:14px;vertical-align:-2px;border-radius:5px;margin-left:14px;box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--next-ring)} .month th.fut{color:var(--ink-3);font-weight:400}
-@media print{table.month tr td.next-paid .cell-m,p span.next-paid-key{outline-style:dashed!important}}   /* на бумаге: последнее — сплошная рамка, следующий оплачен — пунктир */   /* последнее занятие абонемента — зелёное кольцо вокруг отметки */
+@media print{table.month tr td.next-paid .cell-m,p span.next-paid-key,.mlast span.cell-m.ring-next{outline-style:dashed!important}}   /* на бумаге: последнее — сплошная рамка, следующий оплачен — пунктир */   /* последнее занятие абонемента — зелёное кольцо вокруг отметки */
 .last-sub-key{display:inline-block;width:14px;height:14px;vertical-align:-2px;border-radius:5px;box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ok-fill)}
-@media print{.month td.last-sub .cell-m,.last-sub-key,.month td.next-paid .cell-m,.next-paid-key{outline:2px solid #000!important;outline-offset:2px;width:22px!important;height:20px!important;border-radius:6px}}
+@media print{.month td.last-sub .cell-m,.last-sub-key,.month td.next-paid .cell-m,.next-paid-key,.cell-m.ring-last,.cell-m.ring-next{outline:2px solid #000!important;outline-offset:2px;width:22px!important;height:20px!important;border-radius:6px}}
 .month{width:auto!important;min-width:60%} .month td.off{background:repeating-linear-gradient(135deg,var(--sunk) 0 4px,var(--surface-2) 4px 8px)} .month td,.month th{text-align:center;padding:6px 4px} .month td:first-child,.month th:first-child{text-align:left;white-space:nowrap}
 
 /* «сегодня» */
@@ -430,6 +430,11 @@ details.legend-d .legend{padding:4px 0 6px}
 .actbar{display:none}
 .month td:first-child,.month th:first-child{position:sticky;left:0;z-index:1;background:var(--surface)}
 .month th:first-child{z-index:2;background:var(--surface-2)}
+@media (max-width:860px){                         /* телефон: таблица «Месяц» прокручивается внутри экрана — строка с датами прилипает сверху, ФИО — слева */
+  .mscroll{max-height:calc(100vh - 150px);max-height:calc(100dvh - 140px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));overflow:auto;overscroll-behavior:contain}
+  .mscroll .month thead th{position:sticky;top:0;z-index:3} .mscroll .month thead th:first-child{z-index:4}
+}
+@media print{.mscroll{max-height:none!important;overflow:visible!important}}
 @media (max-width:860px){
   .sess-bar{top:calc(57px + env(safe-area-inset-top,0px));margin-inline:-12px;padding:10px 12px 0}
   .jlist > li.mrow{padding:12px}
@@ -1917,6 +1922,8 @@ function startLockTimer() {
 }
 function stopLockTimer() { if (lockTimer) clearInterval(lockTimer); lockTimer = null; }
 ['click', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, () => { lastActive = Date.now(); }, true));
+document.addEventListener('click', e => { const td = e.target.closest && e.target.closest('.month td.last-sub, .month td.next-paid'); if (!td || !td.title) return; const tr = td.parentNode, i = [...tr.children].indexOf(td), th = td.closest('table').querySelector('thead tr').children[i];
+  toast((tr.children[0].firstChild ? tr.children[0].firstChild.textContent.trim() : '') + (th ? ', ' + th.textContent.trim().slice(0, 2) + '.' + ui.journal.month.slice(5) : '') + ': ' + td.title); }, false);   // кольца в «Месяце»: подсказка и по нажатию (на телефоне всплывающей подсказки нет)
 document.addEventListener('click', e => { const l = e.target.closest && e.target.closest('a[href]'); if (l && !/^#/.test(l.getAttribute('href') || '')) extMark(); }, true);
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { hiddenAt = Date.now(); if (pinOn() && db && Date.now() - extAt > 5000) lock(); }   // №10 (О7): свернули — блокировать сразу
@@ -2915,6 +2922,24 @@ function vSession(sid) {
   <div class="row" style="margin-top:12px;justify-content:flex-end"><button class="btn danger sm" data-act="session-del" data-id="${s.id}">Удалить занятие</button></div></div>
   <div class="actbar show-m no-print"><a class="btn primary" href="#today">Готово</a></div>`;
 }
+function subRings(a) {                           // кольца: последнее занятие абонемента (факт: дата|группа, прогноз: дата) и первое занятие следующего оплаченного (дата)
+  const L = { fact: new Map(), plan: new Map() };
+  L.next = new Map();
+  const list = ix.subsByAth.get(a.id) || [];
+  list.forEach((p, i) => { if (subTotal(p) <= 1) return; const r = ix.subCalc.get(p.id); if (!r || r.terminated) return;
+    const end = r.lastPaid || (r.endKind === 'forecast' ? r.end : '');
+    if (r.lastPaid) L.fact.set(r.lastPaid + '|' + r.lastPaidGroup, p); else if (end) L.plan.set(end, p);
+    // следующий абонемент уже оплачен — кольцо на следующем занятии по расписанию после последнего занятия этого
+    const q = end && list.slice(i + 1).find(x => !x.pending && x.payDate && (x.onlyGroup || '') === (p.onlyGroup || ''));
+    if (q) {                                   // кольцо — на первом занятии нового абонемента: он активирован — день активации (первое посещение);
+      const rq = ix.subCalc.get(q.id);        // ещё нет — ближайшее занятие по расписанию, на котором человек ещё может прийти (пропуски и прошедшие дни без «+» пропускаются)
+      let nx = rq && rq.first && !rq.notActive ? rq.first : null;
+      if (!nx) { const mk = new Map((ix.marks.get(a.id) || []).map(m => [m.date, m.mark])); let d = D.add(end, 1);
+        for (let k = 0; k < 120; k++) { d = nthTrainDay(ix, d, 1, subGroups(ix, p)); if (!d) break; const m = mk.get(d);
+          if (m === '+' || (!m && d >= ix.today)) { nx = d; break; } d = D.add(d, 1); } }
+      if (nx) L.next.set(nx, q); } });
+  return L;
+}
 function monthView(tabs, groups) {
   const J = ui.journal, [y, m] = J.month.split('-').map(Number);
   const sess = ix.sessionsSorted.filter(s => s.date.startsWith(J.month) && s.group === J.mgroup);
@@ -2931,23 +2956,7 @@ function monthView(tabs, groups) {
     return t.map(x => x.to === J.mgroup ? 'с ' + D.short(x.date) : 'до ' + D.short(D.add(x.date, -1))).join(', '); };
   const guests = [...marked].map(id => ix.ath.get(id)).filter(a => a && sess.some(s => s.marks[a.id] && !inGroupOn(a, J.mgroup, s.date))).sort(byName);
   const cls = { '+': 'm-plus', 'н': 'm-n', 'б': 'm-b', 'о': 'm-o', 'с': 'm-s' };
-  const lastOf = a => {                          // последнее занятие абонемента: фактическое (дата|группа) или по прогнозу (дата)
-    const L = { fact: new Map(), plan: new Map() };
-    L.next = new Map();
-    const list = ix.subsByAth.get(a.id) || [];
-    list.forEach((p, i) => { if (subTotal(p) <= 1) return; const r = ix.subCalc.get(p.id); if (!r || r.terminated) return;
-      const end = r.lastPaid || (r.endKind === 'forecast' ? r.end : '');
-      if (r.lastPaid) L.fact.set(r.lastPaid + '|' + r.lastPaidGroup, p); else if (end) L.plan.set(end, p);
-      // следующий абонемент уже оплачен — кольцо на следующем занятии по расписанию после последнего занятия этого
-      const q = end && list.slice(i + 1).find(x => !x.pending && x.payDate && (x.onlyGroup || '') === (p.onlyGroup || ''));
-      if (q) {                                   // кольцо — на первом занятии нового абонемента: он активирован — день активации (первое посещение);
-        const rq = ix.subCalc.get(q.id);        // ещё нет — ближайшее занятие по расписанию, на котором человек ещё может прийти (пропуски и прошедшие дни без «+» пропускаются)
-        let nx = rq && rq.first && !rq.notActive ? rq.first : null;
-        if (!nx) { const mk = new Map((ix.marks.get(a.id) || []).map(m => [m.date, m.mark])); let d = D.add(end, 1);
-          for (let k = 0; k < 120; k++) { d = nthTrainDay(ix, d, 1, subGroups(ix, p)); if (!d) break; const m = mk.get(d);
-            if (m === '+' || (!m && d >= ix.today)) { nx = d; break; } d = D.add(d, 1); } }
-        if (nx) L.next.set(nx, q); } });
-    return L; };
+  const lastOf = subRings;
   const nextCell = (a, L, s) => { const q = L.next.get(s.date); return q && inGroupOn(a, s.group, s.date) ? ` next-paid" title="Следующий абонемент оплачен${q.payDate ? ' ' + D.ru(q.payDate) : ''} (${subTotal(q)} зан.) — первое занятие по нему` : ''; };
   const lastCell = (a, L, s) => { const p = L.fact.get(s.date + '|' + s.group) || (s.marks[a.id] == null && L.plan.get(s.date) && inGroupOn(a, s.group, s.date) ? L.plan.get(s.date) : null);
     return p ? ` last-sub" title="Последнее занятие абонемента на ${subTotal(p)} зан.${L.fact.get(s.date + '|' + s.group) ? '' : ' (по прогнозу)'}` : ''; };
@@ -2960,8 +2969,8 @@ function monthView(tabs, groups) {
   <div class="card no-print"><div class="row"><button class="btn" data-act="jmonth" data-m="${prev}">←</button><input type="month" id="j-month" value="${J.month}" style="width:auto" data-change="jmonth-input">
   <button class="btn" data-act="jmonth" data-m="${next}">→</button><select data-change="jmgroup" style="width:auto">${groups.map(g => opt(g, J.mgroup)).join('')}</select><span class="spacer"></span><button class="btn primary" data-act="print-blank">Бланк для печати</button></div></div>
   <div class="print-only"><b>${h(db.settings.club)}</b> — журнал посещаемости: ${h(J.mgroup)}, ${MONTHS[m - 1]} ${y}</div>
-  <div class="card flat scroll">${sess.length ? `<table class="t month">${head}<tbody>${rows(people, false) || `<tr><td colspan="${sess.length + 4}" class="muted">В группе нет занимающихся</td></tr>`}</tbody></table>`
-    : '<div class="empty">В этом месяце у группы занятий нет.</div>'}${sess.length ? '<p class="small muted" style="margin:8px 12px"><span class="last-sub-key"></span> — последнее занятие абонемента <span class="next-paid-key"></span> — следующий абонемент оплачен (первое занятие по нему); наведите — подробнее</p>' : ''}</div>
+  <div class="card flat scroll mscroll">${sess.length ? `<table class="t month">${head}<tbody>${rows(people, false) || `<tr><td colspan="${sess.length + 4}" class="muted">В группе нет занимающихся</td></tr>`}</tbody></table>`
+    : '<div class="empty">В этом месяце у группы занятий нет.</div>'}</div>${sess.length ? '<p class="small muted" style="margin:8px 12px"><span class="last-sub-key"></span> — последнее занятие абонемента <span class="next-paid-key"></span> — следующий абонемент оплачен (первое занятие по нему); нажмите на кольцо — подробнее</p>' : ''}
   ${guests.length ? `<details class="card flat no-print"><summary style="padding:12px 16px;cursor:pointer"><b>Из других групп на занятиях этой группы: ${guests.length}</b> <span class="small muted">— если человек попал сюда по ошибке, откройте занятие по дате и проверьте группу</span></summary><div class="scroll"><table class="t month">${head}<tbody>${rows(guests, true)}</tbody></table></div></details>` : ''}`;
 }
 
@@ -3158,6 +3167,12 @@ function vPerson(id) {
   const tests = db.tests.filter(t => t.athleteId === id).sort((x, y) => y.date.localeCompare(x.date));
   const freezes = (ix.freezesByAth.get(id) || []);
   const adm = calcAdmission(ix, a);
+  const RG = subRings(a), pLbl = p => `абонемента на ${subTotal(p)} зан.`, qLbl = q => `следующий абонемент оплачен${q.payDate ? ' ' + D.ru(q.payDate) : ''} (${subTotal(q)} зан.) — первое занятие по нему`;
+  const ringOf = m => { const p = RG.fact.get(m.date + '|' + (m.group || '')); if (p) return ['ring-last', 'последнее занятие ' + pLbl(p)];   // кольца, как в «Месяце»
+    const q = RG.next.get(m.date); return q && m.mark === '+' ? ['ring-next', qLbl(q)] : null; };
+  const ahead = [...[...RG.plan].filter(([d]) => d >= ix.today).map(([d, p]) => [d, 'ring-last', 'последнее занятие ' + pLbl(p) + ' (по прогнозу)']),
+    ...[...RG.next].filter(([d]) => d >= ix.today && !(ix.marks.get(a.id) || []).some(m => m.date === d)).map(([d, q]) => [d, 'ring-next', qLbl(q) + ' (по расписанию)'])].sort((x, y) => x[0].localeCompare(y[0]));
+  const ringsAhead = ahead.length ? `<div class="small muted" style="margin-top:10px">Впереди</div><div class="row" style="gap:6px 4px;margin-top:4px;flex-wrap:wrap">${ahead.map(([d, cl, t]) => `<button type="button" class="mlast" data-act="mark-info" data-txt="${h(D.ru(d) + ', ' + DOW_FULL[D.dow(d)] + ' — ' + t)}" title="${h(t)}"><span class="cell-m m-none ${cl}"></span><small>${D.short(d)}</small></button>`).join('')}</div>` : '';
   const cnt = k => marks.filter(m => m.mark === k && m.date >= D.add(ix.today, -90)).length;
   const kv = (k, v) => v ? `<dt>${k}</dt><dd>${v}</dd>` : '';
   const R = a.refund, dk = a.docs || {}, minor = c.age != null && c.age < 18;
@@ -3196,7 +3211,7 @@ function vPerson(id) {
   ${refundCard}
   <div class="grid2">
   <div class="card"><h2>Данные</h2><dl class="kv">
-    ${kv('Дата рождения', D.ru(a.birth))}${kv('Пол', h(a.sex))}${kv('Вес', weighHTML(a, true))}
+    ${kv('Дата рождения', D.ru(a.birth))}${kv('Возраст', c.age != null ? c.age + ' ' + plural(c.age, 'год', 'года', 'лет') : '')}${kv('Пол', h(a.sex))}${kv('Вес', weighHTML(a, true))}
     ${kv('Телефон', telLink(a.phone))}${kv('Мать', [h(a.motherName), telLink(a.motherPhone)].filter(Boolean).join(', '))}${kv('Отец', [h(a.fatherName), telLink(a.fatherPhone)].filter(Boolean).join(', '))}
     ${kv('Связь', c.contact ? telLink(c.contact) + ' (' + c.contactWho + ')' : (c.noParentPhone ? '<span class="chip bad">нет телефона родителя</span>' : ''))}
     ${kv('Медсправка', a.medUntil ? 'до ' + D.ru(a.medUntil) : '<span class="muted">не внесена</span>')}
@@ -3207,7 +3222,7 @@ function vPerson(id) {
     ${(a.transfers || []).length ? `<h3 style="margin-top:14px">Переводы</h3><ul class="list">${[...a.transfers].sort((x, y) => y.date.localeCompare(x.date)).map(t => `<li style="padding:6px 0"><div class="who small">с ${D.ru(t.date)}: ${h(t.from || '—')} → <b style="display:inline">${h(t.to)}</b></div><button class="btn sm ghost no-print" data-act="transfer-del" data-id="${id}" data-tid="${t.id}" aria-label="Удалить перевод">✕</button></li>`).join('')}</ul>` : ''}</div>
   <div class="card"><div class="row" style="justify-content:space-between"><h2>Посещения</h2><button class="btn sm no-print" data-act="athlete-report" data-id="${id}">Печать за период</button></div><div class="stats" style="margin-bottom:10px"><div class="stat"><b>${cnt('+')}</b><span class="small muted">был, 90 дней</span></div><div class="stat"><b>${cnt('н')}</b><span class="small muted">не был</span></div><div class="stat"><b>${cnt('б')}</b><span class="small muted">болел</span></div></div>
     <div class="small">Допуск к аттестации ${D.ru(S.attest.next)}: <b>${h(adm.status)}</b> <button class="btn sm no-print" data-act="manual-admit" data-id="${id}">Допуск вручную</button>${adm.pct != null ? ` — ${Math.round(adm.pct * 100)}% посещений, турниров ${adm.tourn}` : ''}</div>
-    <div class="small muted" style="margin-top:10px">Последние ${Math.min(24, marks.length) || ''} ${plural(Math.min(24, marks.length), 'отметка', 'отметки', 'отметок')}, новые слева · нажмите — дата и группа</div><div class="row" style="gap:6px 4px;margin-top:4px;flex-wrap:wrap">${marks.slice(0, 24).map(m => `<button type="button" class="mlast" data-act="mark-info" data-txt="${h(D.ru(m.date) + ', ' + DOW_FULL[D.dow(m.date)] + (m.group ? ' · ' + m.group : '') + ' — ' + (m.mark === 'б' && isBS(ix, id, m.date) ? 'болел, справка внесена (бс)' : MARKS[m.mark] ? MARKS[m.mark].label : m.mark) + (m.trial ? ' (пробное)' : ''))}" title="${D.ru(m.date)} ${h(m.group)}"><span class="cell-m ${{ '+': 'm-plus', 'н': 'm-n', 'б': 'm-b', 'о': 'm-o', 'с': 'm-s' }[m.mark] || ''}">${h(m.mark === 'б' && isBS(ix, id, m.date) ? 'бс' : m.mark)}</span><small>${D.short(m.date)}</small></button>`).join('') || '<span class="muted">Отметок нет</span>'}</div>${marks.length > 24 ? `<div class="small muted" style="margin-top:6px">Все отметки — «Печать за период» или «Посещения» → «Месяц».</div>` : ''}</div>
+    ${ringsAhead}<div class="small muted" style="margin-top:10px">Последние ${Math.min(24, marks.length) || ''} ${plural(Math.min(24, marks.length), 'отметка', 'отметки', 'отметок')}, новые слева · нажмите — дата и группа</div><div class="row" style="gap:6px 4px;margin-top:4px;flex-wrap:wrap">${marks.slice(0, 24).map(m => { const rg = ringOf(m); return `<button type="button" class="mlast" data-act="mark-info" data-txt="${h(D.ru(m.date) + ', ' + DOW_FULL[D.dow(m.date)] + (m.group ? ' · ' + m.group : '') + ' — ' + (m.mark === 'б' && isBS(ix, id, m.date) ? 'болел, справка внесена (бс)' : MARKS[m.mark] ? MARKS[m.mark].label : m.mark) + (m.trial ? ' (пробное)' : '') + (rg ? ' · ' + rg[1] : ''))}" title="${D.ru(m.date)} ${h(m.group)}${rg ? ' — ' + rg[1] : ''}"><span class="cell-m ${{ '+': 'm-plus', 'н': 'm-n', 'б': 'm-b', 'о': 'm-o', 'с': 'm-s' }[m.mark] || ''}${rg ? ' ' + rg[0] : ''}">${h(m.mark === 'б' && isBS(ix, id, m.date) ? 'бс' : m.mark)}</span><small>${D.short(m.date)}</small></button>`; }).join('') || '<span class="muted">Отметок нет</span>'}</div>${marks.length > 24 ? `<div class="small muted" style="margin-top:6px">Все отметки — «Печать за период» или «Посещения» → «Месяц».</div>` : ''}</div>
   </div>
   <div class="card flat"><div class="row" style="padding:14px 16px 6px"><h2 style="margin:0">Абонементы</h2><span class="spacer"></span>${R ? '' : `<button class="btn sm no-print" data-act="refuse" data-id="${id}">Отказ от договора</button>`}<button class="btn sm no-print" data-act="freeze-new" data-id="${id}">Заморозка</button><button class="btn sm no-print" data-act="sub-wait" data-id="${id}">Ждём оплату</button><button class="btn sm no-print" data-act="sub-new" data-id="${id}">Добавить</button></div>
   ${subsCtl}${subs.length ? `<div class="scroll"><table class="t"><thead><tr><th>Действует с</th><th class="r">Занятий</th><th class="r">Сумма</th><th class="r">Был</th><th class="r">Не был</th><th class="r">Болел</th><th class="r">Остаток</th><th>Окончание</th><th></th></tr></thead><tbody>
