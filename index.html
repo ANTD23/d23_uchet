@@ -20,7 +20,7 @@
   --bg:#F3F4F6; --surface:#FFFFFF; --surface-2:#F8F9FA; --sunk:#ECEEF1; --line:#DDE1E5; --line-strong:#C5CBD1;
   --ink:#15181B; --ink-2:#4A525A; --ink-3:#5F6871;
   /* смысловые: текст / фон / заливка под белым текстом */
-  --ok:#1F6B3F;   --ok-bg:#E2F2E8;   --ok-fill:#23804B;
+  --ok:#1F6B3F;   --ok-bg:#E2F2E8;   --ok-fill:#23804B;   --next-ring:#D9730D;   /* кольцо «следующий абонемент оплачен» */
   --warn:#8A4B00; --warn-bg:#FCEFD9; --warn-fill:#C77A12;
   --bad:#A4221A;  --bad-bg:#FCE6E3;  --bad-fill:#B3261E;
   --sick:#1D58A3; --sick-bg:#E3EDF9; --sick-fill:#1F5FAE;   /* синий клуба: болел, заморозка */
@@ -46,7 +46,7 @@
   --accent-btn-2:#878E98; --accent-btn-deep:#A9AFB8; --tab-mark:#C3C8CF;
   --bg:#1C1E21; --surface:#24272B; --surface-2:#2A2D32; --sunk:#16181A; --line:#363A41; --line-strong:#4A4F57;
   --ink:#D4D8DD; --ink-2:#A3A9B1; --ink-3:#9399A2;
-  --ok:#8CCBA4; --ok-bg:#22322A; --ok-fill:#33764F;
+  --ok:#8CCBA4; --ok-bg:#22322A; --ok-fill:#33764F; --next-ring:#F0A04B;
   --warn:#DDBA7A; --warn-bg:#383124; --warn-fill:#B58224;
   --bad:#E8A49E; --bad-bg:#3D2B2C; --bad-fill:#AD4A43;
   --sick:#A2BFE2; --sick-bg:#252D3D; --sick-fill:#3F69AE;
@@ -60,7 +60,7 @@
   --accent-btn-2:#878E98; --accent-btn-deep:#A9AFB8; --tab-mark:#C3C8CF;
   --bg:#1C1E21; --surface:#24272B; --surface-2:#2A2D32; --sunk:#16181A; --line:#363A41; --line-strong:#4A4F57;
   --ink:#D4D8DD; --ink-2:#A3A9B1; --ink-3:#9399A2;
-  --ok:#8CCBA4; --ok-bg:#22322A; --ok-fill:#33764F;
+  --ok:#8CCBA4; --ok-bg:#22322A; --ok-fill:#33764F; --next-ring:#F0A04B;
   --warn:#DDBA7A; --warn-bg:#383124; --warn-fill:#B58224;
   --bad:#E8A49E; --bad-bg:#3D2B2C; --bad-fill:#AD4A43;
   --sick:#A2BFE2; --sick-bg:#252D3D; --sick-fill:#3F69AE;
@@ -217,6 +217,11 @@ table.t tr.pend:hover td,table.t tr.rem1:hover td,table.t tr.rem2:hover td{filte
 .cell-m{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:6px;font-weight:700;font-size:.875rem}
 .cell-m.m-plus{background:var(--ok-bg);color:var(--ok)} .cell-m.m-n{background:var(--bad-bg);color:var(--bad)}
 .cell-m.m-b{background:var(--sick-bg);color:var(--sick)} .cell-m.m-o{background:var(--surface-2);color:var(--cancel);box-shadow:inset 0 0 0 1px var(--line)} .cell-m.m-s{background:var(--comp-bg);color:var(--comp)}
+.month td.last-sub .cell-m{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ok-fill)} .cell-m.m-none{background:none} .month td.next-paid .cell-m{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--next-ring)}   /* первое занятие следующего, уже оплаченного абонемента */
+.next-paid-key{display:inline-block;width:14px;height:14px;vertical-align:-2px;border-radius:5px;margin-left:14px;box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--next-ring)} .month th.fut{color:var(--ink-3);font-weight:400}
+@media print{table.month tr td.next-paid .cell-m,p span.next-paid-key{outline-style:dashed!important}}   /* на бумаге: последнее — сплошная рамка, следующий оплачен — пунктир */   /* последнее занятие абонемента — зелёное кольцо вокруг отметки */
+.last-sub-key{display:inline-block;width:14px;height:14px;vertical-align:-2px;border-radius:5px;box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ok-fill)}
+@media print{.month td.last-sub .cell-m,.last-sub-key,.month td.next-paid .cell-m,.next-paid-key{outline:2px solid #000!important;outline-offset:2px;width:22px!important;height:20px!important;border-radius:6px}}
 .month{width:auto!important;min-width:60%} .month td.off{background:repeating-linear-gradient(135deg,var(--sunk) 0 4px,var(--surface-2) 4px 8px)} .month td,.month th{text-align:center;padding:6px 4px} .month td:first-child,.month th:first-child{text-align:left;white-space:nowrap}
 
 /* «сегодня» */
@@ -908,8 +913,9 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
       if (used >= cap) break;
       m.used = true; used++; if (m.auto) r.blank = (r.blank || 0) + 1;
       if (mk === '+') r.was++; else if (mk === 'н' || mk === 'с') r.missed++; else { r.sick++; r.sickCharged++; }
-      r.lastCharged = m.date;
+      r.lastCharged = m.date; r.lastChargedGroup = m.group || '';
     }
+    if (used >= cap && used > 0) { r.lastPaid = r.lastCharged; r.lastPaidGroup = r.lastChargedGroup; }   // для показа: последнее занятие, оплаченное этим абонементом (без долга)
     r.charged = used + carry;
     r.remaining = subTotal(p) - r.charged;
     if (r.remaining <= 0) { r.end = r.lastCharged || r.first; r.endKind = 'fact'; cursor = D.add(r.end, 1); cursorForecast = false; }
@@ -2912,6 +2918,10 @@ function vSession(sid) {
 function monthView(tabs, groups) {
   const J = ui.journal, [y, m] = J.month.split('-').map(Number);
   const sess = ix.sessionsSorted.filter(s => s.date.startsWith(J.month) && s.group === J.mgroup);
+  { const G = ix.group.get(J.mgroup), have = new Set(sess.map(s => s.date));          // впереди в этом месяце — занятия по расписанию (пустые столбцы)
+    if (G) for (let d = D.max(J.month + '-01', D.add(ix.today, 1)); d.startsWith(J.month); d = D.add(d, 1))
+      if (!have.has(d) && !ix.holiday.has(d) && daysOn(G, d)[D.dow(d)]) sess.push({ id: '', date: d, group: J.mgroup, marks: {}, future: true });
+    sess.sort((x, y) => x.date.localeCompare(y.date)); }
   const byName = (a, b) => fullName(a).localeCompare(fullName(b), 'ru');
   const marked = new Set(); sess.forEach(s => Object.keys(s.marks).forEach(id => marked.add(id)));
   const mStart = J.month + '-01', mEnd = J.month + '-31';
@@ -2921,17 +2931,37 @@ function monthView(tabs, groups) {
     return t.map(x => x.to === J.mgroup ? 'с ' + D.short(x.date) : 'до ' + D.short(D.add(x.date, -1))).join(', '); };
   const guests = [...marked].map(id => ix.ath.get(id)).filter(a => a && sess.some(s => s.marks[a.id] && !inGroupOn(a, J.mgroup, s.date))).sort(byName);
   const cls = { '+': 'm-plus', 'н': 'm-n', 'б': 'm-b', 'о': 'm-o', 'с': 'm-s' };
+  const lastOf = a => {                          // последнее занятие абонемента: фактическое (дата|группа) или по прогнозу (дата)
+    const L = { fact: new Map(), plan: new Map() };
+    L.next = new Map();
+    const list = ix.subsByAth.get(a.id) || [];
+    list.forEach((p, i) => { if (subTotal(p) <= 1) return; const r = ix.subCalc.get(p.id); if (!r || r.terminated) return;
+      const end = r.lastPaid || (r.endKind === 'forecast' ? r.end : '');
+      if (r.lastPaid) L.fact.set(r.lastPaid + '|' + r.lastPaidGroup, p); else if (end) L.plan.set(end, p);
+      // следующий абонемент уже оплачен — кольцо на следующем занятии по расписанию после последнего занятия этого
+      const q = end && list.slice(i + 1).find(x => !x.pending && x.payDate && (x.onlyGroup || '') === (p.onlyGroup || ''));
+      if (q) {                                   // кольцо — на первом занятии нового абонемента: он активирован — день активации (первое посещение);
+        const rq = ix.subCalc.get(q.id);        // ещё нет — ближайшее занятие по расписанию, на котором человек ещё может прийти (пропуски и прошедшие дни без «+» пропускаются)
+        let nx = rq && rq.first && !rq.notActive ? rq.first : null;
+        if (!nx) { const mk = new Map((ix.marks.get(a.id) || []).map(m => [m.date, m.mark])); let d = D.add(end, 1);
+          for (let k = 0; k < 120; k++) { d = nthTrainDay(ix, d, 1, subGroups(ix, p)); if (!d) break; const m = mk.get(d);
+            if (m === '+' || (!m && d >= ix.today)) { nx = d; break; } d = D.add(d, 1); } }
+        if (nx) L.next.set(nx, q); } });
+    return L; };
+  const nextCell = (a, L, s) => { const q = L.next.get(s.date); return q && inGroupOn(a, s.group, s.date) ? ` next-paid" title="Следующий абонемент оплачен${q.payDate ? ' ' + D.ru(q.payDate) : ''} (${subTotal(q)} зан.) — первое занятие по нему` : ''; };
+  const lastCell = (a, L, s) => { const p = L.fact.get(s.date + '|' + s.group) || (s.marks[a.id] == null && L.plan.get(s.date) && inGroupOn(a, s.group, s.date) ? L.plan.get(s.date) : null);
+    return p ? ` last-sub" title="Последнее занятие абонемента на ${subTotal(p)} зан.${L.fact.get(s.date + '|' + s.group) ? '' : ' (по прогнозу)'}` : ''; };
   const prev = m === 1 ? (y - 1) + '-12' : y + '-' + pad(m - 1), next = m === 12 ? (y + 1) + '-01' : y + '-' + pad(m + 1);
-  const head = `<thead><tr><th>ФИО</th>${sess.map(s => `<th class="num"><a href="#session/${s.id}">${D.short(s.date).slice(0, 2)}</a><br><span class="small">${DOW[D.dow(s.date)]}</span></th>`).join('')}<th>+</th><th>н</th><th>б</th></tr></thead>`;
-  const rows = (list, showGroup) => list.map(a => { const ms = sess.map(s => s.marks[a.id] || ''); const cnt = k => ms.filter(x => x === k).length;
+  const head = `<thead><tr><th>ФИО</th>${sess.map(s => s.future ? `<th class="num fut" title="Занятие по расписанию — ещё впереди">${D.short(s.date).slice(0, 2)}<br><span class="small">${DOW[D.dow(s.date)]}</span></th>` : `<th class="num"><a href="#session/${s.id}">${D.short(s.date).slice(0, 2)}</a><br><span class="small">${DOW[D.dow(s.date)]}</span></th>`).join('')}<th>+</th><th>н</th><th>б</th></tr></thead>`;
+  const rows = (list, showGroup) => list.map(a => { const ms = sess.map(s => s.marks[a.id] || ''); const cnt = k => ms.filter(x => x === k).length; const L = lastOf(a);
     const off = sess.map(s => !showGroup && !inGroupOn(a, J.mgroup, s.date)); const per = showGroup ? '' : period(a);
-    return `<tr><td>${h(shortName(a))}${showGroup ? ' <span class="small muted">' + h(a.group || '') + '</span>' : ''}${per ? ' <span class="small muted">' + per + '</span>' : ''}</td>${ms.map((x, i) => `<td${off[i] ? ' class="off"' : ''}>${x ? `<span class="cell-m ${cls[x] || ''}">${h(x === 'б' && isBS(ix, a.id, sess[i].date) ? 'бс' : x)}</span>` : ''}</td>`).join('')}<td class="num">${cnt('+')}</td><td class="num">${cnt('н')}</td><td class="num">${cnt('б')}</td></tr>`; }).join('');
+    return `<tr><td>${h(shortName(a))}${showGroup ? ' <span class="small muted">' + h(a.group || '') + '</span>' : ''}${per ? ' <span class="small muted">' + per + '</span>' : ''}</td>${ms.map((x, i) => { const lc = lastCell(a, L, sess[i]) || nextCell(a, L, sess[i]); return `<td${off[i] || lc ? ` class="${off[i] ? 'off' : ''}${lc}"` : ''}>${x ? `<span class="cell-m ${cls[x] || ''}">${h(x === 'б' && isBS(ix, a.id, sess[i].date) ? 'бс' : x)}</span>` : lc ? '<span class="cell-m m-none"></span>' : ''}</td>`; }).join('')}<td class="num">${cnt('+')}</td><td class="num">${cnt('н')}</td><td class="num">${cnt('б')}</td></tr>`; }).join('');
   return `<div class="topline"><h1>Посещения — ${MONTHS[m - 1]} ${y}</h1>${tabs}</div>
   <div class="card no-print"><div class="row"><button class="btn" data-act="jmonth" data-m="${prev}">←</button><input type="month" id="j-month" value="${J.month}" style="width:auto" data-change="jmonth-input">
   <button class="btn" data-act="jmonth" data-m="${next}">→</button><select data-change="jmgroup" style="width:auto">${groups.map(g => opt(g, J.mgroup)).join('')}</select><span class="spacer"></span><button class="btn primary" data-act="print-blank">Бланк для печати</button></div></div>
   <div class="print-only"><b>${h(db.settings.club)}</b> — журнал посещаемости: ${h(J.mgroup)}, ${MONTHS[m - 1]} ${y}</div>
   <div class="card flat scroll">${sess.length ? `<table class="t month">${head}<tbody>${rows(people, false) || `<tr><td colspan="${sess.length + 4}" class="muted">В группе нет занимающихся</td></tr>`}</tbody></table>`
-    : '<div class="empty">В этом месяце у группы занятий нет.</div>'}</div>
+    : '<div class="empty">В этом месяце у группы занятий нет.</div>'}${sess.length ? '<p class="small muted" style="margin:8px 12px"><span class="last-sub-key"></span> — последнее занятие абонемента <span class="next-paid-key"></span> — следующий абонемент оплачен (первое занятие по нему); наведите — подробнее</p>' : ''}</div>
   ${guests.length ? `<details class="card flat no-print"><summary style="padding:12px 16px;cursor:pointer"><b>Из других групп на занятиях этой группы: ${guests.length}</b> <span class="small muted">— если человек попал сюда по ошибке, откройте занятие по дате и проверьте группу</span></summary><div class="scroll"><table class="t month">${head}<tbody>${rows(guests, true)}</tbody></table></div></details>` : ''}`;
 }
 
