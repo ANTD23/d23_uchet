@@ -573,6 +573,13 @@ details.tcard.up .tdate span,details.tcard.up .tdate small{color:inherit;opacity
 .tchev::after{content:"";width:8px;height:8px;border-right:2px solid var(--ink-2);border-bottom:2px solid var(--ink-2);transform:translateY(-2px) rotate(45deg);transition:transform var(--dur)}
 details.tcard[open] .tchev::after{transform:translateY(2px) rotate(-135deg)}
 details.tcard[open] > summary{border-bottom:1px solid var(--line)}
+/* раскрытый турнир: чёткая рамка «паспарту» и боковая полоса на всю высоту — видно, где турнир начинается и кончается */
+details.tcard[open]{position:relative;border-color:var(--ink-3);box-shadow:0 0 0 4px var(--bg),0 0 0 5px var(--line-strong),var(--shadow-2);margin:4px 5px 10px}
+details.tcard[open]:hover{box-shadow:0 0 0 4px var(--bg),0 0 0 5px var(--line-strong),var(--shadow-2)}
+details.tcard[open] > summary::before{display:none}
+details.tcard[open]::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;z-index:2;pointer-events:none;background:linear-gradient(180deg,var(--line-strong),var(--line))}
+details.tcard.up[open]::before{background:linear-gradient(180deg,var(--accent-btn),var(--accent-btn-2))}
+@media print{details.tcard[open]{box-shadow:none;margin:0 0 8pt}details.tcard[open]::before{display:none}}
 .tbody .tacts{padding:12px 16px 4px}
 .tbody .tscheme{padding:4px 16px 10px}
 .tbody ul.tp-cards{border-top:0;margin-top:4px}
@@ -2714,7 +2721,7 @@ function vPlan() { meta.todayMode = 'plan'; writeMeta(); return vToday(); }   //
 function planBody(P) {                                    // «План на день» внутри карточки «Требует внимания»
   const secs = P.secs.map(([k, title, L], i) => `<div class="plan-sec ps-${k}"><div class="plan-h">${i + 1}. ${h(title)} <span class="muted small">${L.filter(it => !it.done).length}</span></div><ul class="plan">${L.map(planRow).join('')}</ul></div>`).join('');
   const info = P.info.length ? `<div class="plan-sec"><div class="plan-h">Для сведения</div><ul class="plan-info" style="padding:10px 16px 12px 36px">${P.info.map(s => `<li>${h(s)}</li>`).join('')}</ul></div>` : '';
-  return `<div class="row no-print" style="padding:0 16px 4px;justify-content:flex-end"><button class="btn sm" data-act="plan-print">Печать</button><button class="btn sm" data-act="plan-word">В Word</button></div>
+  return `<div class="row no-print" style="padding:0 16px 4px;justify-content:flex-end"><button class="btn sm" data-act="plan-print">Печать</button><button class="btn sm" data-act="plan-word">В Word</button><button class="btn sm" data-act="plan-xlsx">В Excel</button></div>
     <div class="plan-in">${secs || '<div class="empty">Всё сделано — писать и напоминать сегодня некому.</div>'}${info}</div>
     <p class="small muted no-print" style="margin:0;padding:4px 16px 16px">Квадратик — «сделано»: строка зачёркивается до конца дня. «Написать» открывает готовый текст; после отправки строка отмечается сама, а в абонементе ставится метка ✉ или 📅. Аренда напоминается за 3 дня и каждый день до оплаты; квадратик у неё — внести расход. У чека квадратик — «чек выбит».</p>`;
 }
@@ -2758,6 +2765,90 @@ function docxBlob(blocks) {
     ['word/document.xml', `${H}<w:document ${W}><w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="850" w:right="850" w:bottom="850" w:left="850" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr></w:body></w:document>`],
     ['word/styles.xml', `${H}<w:styles ${W}><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:eastAsia="Arial" w:cs="Arial"/><w:sz w:val="21"/><w:szCs w:val="21"/><w:color w:val="000000"/><w:lang w:val="ru-RU"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="60" w:line="252" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style></w:styles>`],
   ], 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+}
+/* ---------- настоящий .xlsx (Excel) без библиотек и интернета: тот же ZIP, что у Word; один лист; числа, суммы, даты, проценты — числами ---------- */
+function xlsxBlob(blocks, sheetName) {           // blocks — как у docxBlob: абзацы и таблицы (из htmlDocx); таблицы — с рамками, заголовки — жирным
+  const X = v => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+  const col = n => { let s = ''; n++; while (n) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
+  const serial = (y, m, d) => (Date.UTC(y, m - 1, d) - Date.UTC(1899, 11, 30)) / 864e5;
+  // стили: 0 обычный; 1 заголовок; 2 подзаголовок; далее для ячеек таблиц: [текст, целое, сумма ₽, дата, %, дробное] × [обычный, жирный]
+  const KIND = { s: 0, int: 1, rub: 2, date: 3, pct: 4, num: 5 };
+  const cellStyle = (k, b) => 3 + KIND[k] * 2 + (b ? 1 : 0);
+  const val = (raw, forced) => {                 // текст ячейки → {k, v}
+    if (typeof raw === 'number' && isFinite(raw)) return { k: Number.isInteger(raw) ? 'int' : 'num', v: raw };
+    let t = String(raw ?? '').replace(/[\u00a0\u202f\u2009]/g, ' ').trim();
+    if (/^'[=+\-@]/.test(t)) t = t.slice(1);     // из CSV-выгрузки: защитный апостроф Excel-файлу не нужен
+    if (forced === 's' || !t) return { k: 's', v: t };
+    let m;
+    if ((m = t.match(/^(\d{2})\.(\d{2})\.(\d{4})$/))) return { k: 'date', v: serial(+m[3], +m[2], +m[1]) };
+    if ((m = t.match(/^(−|-)?\s?(\d{1,3}(?:[ ]\d{3})+|\d{1,9})(?:[.,](\d+))?\s?₽$/))) return { k: 'rub', v: (m[1] ? -1 : 1) * parseFloat(m[2].replace(/ /g, '') + (m[3] ? '.' + m[3] : '')) };
+    if ((m = t.match(/^(−|-)?(\d{1,3}(?:[.,]\d+)?)\s?%$/))) return { k: 'pct', v: (m[1] ? -1 : 1) * parseFloat(m[2].replace(',', '.')) / 100 };
+    if ((m = t.match(/^(−|-)?(\d{1,3}(?:[ ]\d{3})+|\d{1,9})$/))) return { k: 'int', v: (m[1] ? -1 : 1) * parseInt(m[2].replace(/ /g, ''), 10) };
+    if ((m = t.match(/^(−|-)?(\d{1,9})[.,](\d{1,4})$/))) return { k: 'num', v: (m[1] ? -1 : 1) * parseFloat(m[2] + '.' + m[3]) };
+    return { k: 's', v: t };                      // телефоны (10+ цифр), коды и прочее — текстом
+  };
+  const txt = runs => (runs || []).map(r => r.br ? '\n' + (r.text || '') : (r.text || '')).join('').replace(/^\n+/, '').replace(/☑/g, '☒');   // ☑ в Excel бывает цветным — для печати чёрным
+  const spanOf = cell => Array.isArray(cell) ? 1 : Math.max(1, cell.span || 1), runsOf = cell => Array.isArray(cell) ? cell : cell.runs;
+  const width = [];                               // проход 1: ширина столбцов — по таблицам
+  blocks.forEach(b => { if (b.t === 'table') b.rows.forEach(tr => { let c = 0; (tr || []).forEach(cell => { const s = spanOf(cell);
+    if (s === 1) { const L = Math.max(...txt(runsOf(cell)).split('\n').map(z => z.length)); width[c] = Math.max(width[c] || 6, Math.min(60, L + 2)); } c += s; }); }); });
+  if (!width.length) width[0] = 90;               // таблиц нет — текст в один широкий столбец
+  for (let i = 0; i < width.length; i++) width[i] = width[i] || 8;
+  const nc = width.length, totW = width.reduce((a, w) => a + w * 1.1, 0);
+  const rows = [], merges = [];
+  let r = 0, lastBlank = false;
+  const put = (cells, ht) => { rows.push(`<row r="${r + 1}"${ht ? ` ht="${ht}" customHeight="1"` : ''}>${cells.join('')}</row>`); r++; lastBlank = !cells.length; };
+  const cellXml = (c, ref, st) => c.k === 's' ? (c.v ? `<c r="${ref}" s="${st}" t="inlineStr"><is><t xml:space="preserve">${X(c.v)}</t></is></c>` : `<c r="${ref}" s="${st}"/>`) : `<c r="${ref}" s="${st}"><v>${c.v}</v></c>`;
+  blocks.forEach((b, i) => {                      // проход 2: строки листа
+    if (b.t !== 'table') {
+      const t = txt(b.runs), rs = b.runs || []; const head = rs.some(x => x.size >= 23) || (rs.length && rs.every(x => x.b || !x.text));
+      if (!t.trim()) { if (r && !lastBlank) put([]); return; }
+      if (head && r && !lastBlank) put([]);
+      const st = rs.some(x => x.size >= 27) ? 1 : head ? 2 : 0;
+      if (nc > 1) merges.push(`A${r + 1}:${col(nc - 1)}${r + 1}`);       // абзац — на всю ширину таблиц, с переносом строк
+      const lines = t.split('\n').reduce((n, l) => n + Math.max(1, Math.ceil(l.length * 1.08 / Math.max(20, totW))), 0);
+      put([cellXml({ k: 's', v: t }, 'A' + (r + 1), st)], lines > 1 ? Math.round(lines * 13.2 * 10) / 10 : 0);
+      return;
+    }
+    b.rows.forEach(tr => { let c = 0; const cells = [];
+      (tr || []).forEach(cell => { const runs = runsOf(cell), span = spanOf(cell);
+        const t = txt(runs), bold = (runs || []).length > 0 && runs.filter(x => x.text && x.text.trim()).every(x => x.b), v = val(t);
+        cells.push(cellXml(v, col(c) + (r + 1), cellStyle(v.k, bold)));
+        for (let k = 1; k < span; k++) cells.push(`<c r="${col(c + k)}${r + 1}" s="${cellStyle('s', bold)}"/>`);
+        if (span > 1) merges.push(`${col(c)}${r + 1}:${col(c + span - 1)}${r + 1}`);
+        c += span; });
+      put(cells); });
+    if (i < blocks.length - 1 && !lastBlank) put([]);
+  });
+  const cols = '<cols>' + width.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w * 1.1}" customWidth="1"/>`).join('') + '</cols>';
+  const H = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>', S = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"', R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  const name = String(sheetName || 'Лист1').replace(/[\[\]:*?\/\\]/g, ' ').slice(0, 31) || 'Лист1';
+  const bd = '<border><left style="thin"><color rgb="FF000000"/></left><right style="thin"><color rgb="FF000000"/></right><top style="thin"><color rgb="FF000000"/></top><bottom style="thin"><color rgb="FF000000"/></bottom><diagonal/></border>';
+  const fmts = [0, 3, 164, 165, 9, 0];             // текст, целое «1 234», сумма «1 234 ₽», дата, %, дробное (как есть: 22,7)
+  const xf = (f, b, fmt, wrap) => `<xf numFmtId="${fmt}" fontId="${f}" fillId="0" borderId="${b}" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"${wrap ? ' wrapText="1"' : ''}/></xf>`;
+  const styles = `${H}<styleSheet ${S}><numFmts count="2"><numFmt numFmtId="164" formatCode="#,##0\\ &quot;₽&quot;"/><numFmt numFmtId="165" formatCode="dd\\.mm\\.yyyy"/></numFmts>`
+    + `<fonts count="4"><font><sz val="10"/><color rgb="FF000000"/><name val="Arial"/><family val="2"/></font><font><b/><sz val="14"/><color rgb="FF000000"/><name val="Arial"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FF000000"/><name val="Arial"/><family val="2"/></font><font><b/><sz val="10"/><color rgb="FF000000"/><name val="Arial"/><family val="2"/></font></fonts>`
+    + `<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>${bd}</borders>`
+    + `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${3 + fmts.length * 2}"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>`
+    + fmts.map((f, i) => xf(0, 1, f, i === 0) + xf(3, 1, f, i === 0)).join('') + `</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  const sheet = `${H}<worksheet ${S} xmlns:r="${R}"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="13.2"/>${cols}<sheetData>${rows.join('')}</sheetData>`
+    + (merges.length ? `<mergeCells count="${merges.length}">${merges.map(m => `<mergeCell ref="${m}"/>`).join('')}</mergeCells>` : '')
+    + `<pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/><pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="0"/></worksheet>`;
+  return zipStore([
+    ['[Content_Types].xml', `${H}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`],
+    ['_rels/.rels', `${H}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${R}/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
+    ['xl/workbook.xml', `${H}<workbook ${S} xmlns:r="${R}"><sheets><sheet name="${X(name)}" sheetId="1" r:id="rId1"/></sheets></workbook>`],
+    ['xl/_rels/workbook.xml.rels', `${H}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${R}/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="${R}/styles" Target="styles.xml"/></Relationships>`],
+    ['xl/worksheets/sheet1.xml', sheet],
+    ['xl/styles.xml', styles],
+  ], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+}
+function xlsxRows(rows, sheetName) {              // таблица-выгрузка (первая строка — заголовки) → .xlsx
+  return xlsxBlob([{ t: 'table', rows: rows.map((r, i) => r.map(v => ({ runs: [{ text: typeof v === 'number' ? String(v) : String(v ?? ''), b: i === 0 }], span: 1 }))) }], sheetName);
+}
+function saveRows(name, rows, el, sheet) {          // выгрузка таблицы: «В Excel» — .xlsx, «CSV» — как раньше
+  if (el && el.dataset && el.dataset.fmt === 'xlsx') { downloadBlob(name + '.xlsx', xlsxRows(rows, sheet)); toast('Сохранено в Excel (.xlsx)'); }
+  else download(name + '.csv', csv(rows), 'text/csv');
 }
 function htmlDocx(html) {                                 // HTML отчёта → .docx: заголовки, абзацы, списки, таблицы (с объединением ячеек); всё чёрным
   const root = new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html').body.firstChild, B = [];
@@ -3010,7 +3101,7 @@ function vPeople() {
   const sel = (k, items, label) => `<label class="f"><span>${label}</span><select data-change="pf" data-k="${k}">${items.map(x => opt(x, F[k])).join('')}</select></label>`;
   const num = (k, label, ph) => `<label class="f"><span>${label}</span><input type="number" inputmode="numeric" data-change="pf" data-k="${k}" value="${h(F[k])}" placeholder="${ph}"></label>`;
   return `<div class="topline"><div><h1>Спортсмены</h1><div class="muted">${list.length} из ${db.athletes.length}</div></div>
-    <div class="row no-print"><button class="btn" data-act="reset-filters" data-page="people">Сбросить фильтры</button><button class="btn primary" data-act="person-new">Добавить</button><button class="btn" data-act="people-print">Печать списка</button><button class="btn" data-act="people-entry">Список для заявки</button><button class="btn" data-act="weigh-list">Взвешивание</button><button class="btn" data-act="people-csv">В Excel (CSV)</button></div></div>
+    <div class="row no-print"><button class="btn" data-act="reset-filters" data-page="people">Сбросить фильтры</button><button class="btn primary" data-act="person-new">Добавить</button><button class="btn" data-act="people-print">Печать списка</button><button class="btn" data-act="people-entry">Список для заявки</button><button class="btn" data-act="weigh-list">Взвешивание</button><button class="btn" data-act="people-csv" data-fmt="xlsx">В Excel</button><button class="btn" data-act="people-csv">CSV</button></div></div>
   <div class="card no-print"><input type="search" placeholder="Поиск: фамилия, имя, родитель, телефон" data-change="pf" data-k="q" value="${h(F.q)}" style="margin-bottom:10px">
   <details class="filt" ${window.innerWidth > 860 || ui.peopleFiltOpen ? 'open' : ''} data-filt><summary>Фильтры${['group', 'belt', 'sex'].some(k => F[k] !== 'все') || F.status !== 'занимается' || F.ageFrom || F.ageTo || F.yFrom || F.yTo ? ' (включены)' : ''}</summary>
   <div class="filters">${sel('status', ['все', ...S.statuses], 'Статус')}${sel('group', ['все', ...S.groups.map(g => g.name)], 'Группа')}${sel('belt', ['все', ...S.belts], 'Пояс')}${sel('sex', ['все', 'М', 'Ж'], 'Пол')}
@@ -3116,7 +3207,7 @@ function openWeighList() {
       <div class="fgrid" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));margin-top:12px"><label class="f"><span>Сортировка</span><select id="wl-s1">${so(S.s1)}</select></label>
       <label class="f"><span>Затем</span><select id="wl-s2">${so(S.s2, true)}</select></label></div>
     <p class="small muted">Если человек взвешивался несколько раз за период — берётся последнее взвешивание. Ушедшие не показываются.</p>
-    <div class="treport" id="wl-out"></div>`, { wide: true, extraBtn: `<button type="button" class="btn" id="wl-print">Печать</button><button type="button" class="btn primary" id="wl-word">В Word</button>` });
+    <div class="treport" id="wl-out"></div>`, { wide: true, extraBtn: `<button type="button" class="btn" id="wl-print">Печать</button><button type="button" class="btn" id="wl-xlsx">В Excel</button><button type="button" class="btn primary" id="wl-word">В Word</button>` });
   const $i = id => document.getElementById(id);
   const upd = () => {
     S.day = $i('wl-day').value; S.from = $i('wl-from').value || S.from; S.to = $i('wl-to').value || S.to; S.group = $i('wl-group').value; S.s1 = $i('wl-s1').value; S.s2 = $i('wl-s2').value;
@@ -3131,6 +3222,7 @@ function openWeighList() {
   upd();
   const fn = () => { const E = eff(); return 'D23_взвешивание_' + (E.from === E.to ? E.from : E.from + '_' + E.to) + (E.group ? '_' + E.group.replace(/[\\/:*?"<>|]+/g, ' ').trim() : '') + '.docx'; };
   $i('wl-print').onclick = () => openPrint('Взвешивание', wlHTML(eff()), 'h2{font-size:15pt;margin:0 0 4pt}td.num,th{white-space:nowrap}');
+  $i('wl-xlsx').onclick = () => { downloadBlob(fn().replace(/\.docx$/, '.xlsx'), xlsxBlob(htmlDocx(wlHTML(eff())), 'Взвешивание')); toast('Список взвешивания сохранён в Excel (.xlsx)'); };
   $i('wl-word').onclick = () => { downloadBlob(fn(), docxBlob(htmlDocx(wlHTML(eff())))); toast('Список взвешивания сохранён в Word (.docx)'); };
 }
 function openWeigh(id, onDone) {
@@ -3424,7 +3516,7 @@ function vSubs() {
   const pLabel = U.pAll ? 'с ' + D.ru(pStart) : U.pTo < pStart ? D.ru(U.pFrom) + ' — ' + D.ru(U.pTo) + ' (до начала программы, не считается)' : D.ru(D.max(U.pFrom, pStart)) + ' — ' + D.ru(U.pTo);
   const seg = [['active', 'Действующие'], ['ending', 'Заканчиваются'], ['ended', 'Закончились'], ['pending', 'Ждём оплату'], ['debt', 'Долги'], ['period', 'Оплаты за период'], ['all', 'Все']];
   return `<div class="topline"><div><h1>Абонементы</h1><div class="muted">В списке: ${rows.length}</div></div>
-  <div class="row no-print"><button class="btn" data-act="reset-filters" data-page="subs">Сбросить фильтры</button><button class="btn primary" data-act="sub-new">Новая оплата</button><button class="btn" data-act="subs-csv">В Excel (CSV)</button></div></div>
+  <div class="row no-print"><button class="btn" data-act="reset-filters" data-page="subs">Сбросить фильтры</button><button class="btn primary" data-act="sub-new">Новая оплата</button><button class="btn" data-act="subs-csv" data-fmt="xlsx">В Excel</button><button class="btn" data-act="subs-csv">CSV</button></div></div>
   <div class="card no-print"><div class="row" style="align-items:flex-end">
     <div class="stat" style="min-width:180px"><b>${money(paidP).toLocaleString('ru')} ₽</b><span class="small muted">оплачено ${pLabel} · ${paidP.length} ${plural(paidP.length, 'оплата', 'оплаты', 'оплат')}${refTxt(paidP)}</span></div>
     <span class="spacer"></span>
@@ -4037,7 +4129,7 @@ function vMoneyOps() {
   <div class="row" style="margin-top:10px"><div class="seg">${[['all', 'Все'], ['in', 'Доходы'], ['out', 'Расходы'], ['move', 'Переводы']].map(([k, l]) => `<button data-act="money-kind" data-k="${k}" class="${U.kind === k ? 'on' : ''}">${l}</button>`).join('')}</div>
   <select data-change="money-acc" style="width:auto">${[['all', 'Счёт: все'], ...F.accounts.map(A => [A.id, 'Счёт: ' + A.name]), ['', 'Счёт: не указано']].map(([k, l]) => opt(k, U.acc, l)).join('')}</select>
   <select data-change="money-cat" style="width:auto;max-width:100%">${uniq.map(([k, l]) => opt(k, U.cat, l)).join('')}</select>
-  <input type="search" placeholder="Поиск: фамилия, примечание" data-change="money-q" value="${h(U.q)}" style="flex:1;min-width:160px"><button class="btn" data-act="money-csv">В Excel (CSV)</button></div></div>
+  <input type="search" placeholder="Поиск: фамилия, примечание" data-change="money-q" value="${h(U.q)}" style="flex:1;min-width:160px"><button class="btn" data-act="money-csv" data-fmt="xlsx">В Excel</button><button class="btn" data-act="money-csv">CSV</button></div></div>
   ${U.acc === '' && noAcc ? `<div class="banner no-print"><div class="spacer">Без способа оплаты: ${noAcc}. Откройте каждую и выберите или укажите всем показанным сразу:</div>${F.accounts.map(A => `<button class="btn sm" data-act="acc-bulk" data-acc="${h(A.id)}">${h(A.name)}</button>`).join('')}</div>` : ''}
   <div class="card"><div class="stats"><div class="stat"><b style="color:var(--ok)">+${rubN(inn)}</b><span class="small muted">поступило</span></div><div class="stat"><b style="color:var(--bad)">−${rubN(out)}</b><span class="small muted">выплачено</span></div><div class="stat"><b>${rows.length}</b><span class="small muted">операций</span></div></div>
   <p class="small muted" style="margin-top:8px">Здесь — движение денег по дням: возврат при отказе — отдельной строкой в день выплаты. Оплаты абонементов попадают сюда сами; открываются кликом.</p></div>
@@ -4106,7 +4198,7 @@ function finReportHTML(from, to, print) {
 }
 function vMoneyReport() {
   const U = ui.money; const head = moneyPeriod(U);
-  return `<div class="card no-print">${head}<div class="row" style="margin-top:10px"><button class="btn" data-act="money-print">Печать</button><button class="btn" data-act="money-word">В Word</button></div></div>
+  return `<div class="card no-print">${head}<div class="row" style="margin-top:10px"><button class="btn" data-act="money-print">Печать</button><button class="btn" data-act="money-word">В Word</button><button class="btn" data-act="money-xlsx">В Excel</button></div></div>
   <div class="print-only"><b>${h(db.settings.club)}</b> — финансовый отчёт за ${D.ru(U.from)} — ${D.ru(U.to)}</div>${finReportHTML(U.from, U.to, false)}`;
 }
 function finReportDoc(from, to) {
@@ -4248,12 +4340,12 @@ function vMoneySetup() {
   <label class="row small" style="gap:8px;margin-top:6px"><input type="checkbox" data-change="fin" data-path="checks" ${F.checks !== false ? 'checked' : ''} style="width:20px;height:20px">Следить за чеками в «Мой налог»</label>
   <p class="small muted" style="margin-top:8px">Налоговый вычет — 10 000 ₽ один раз: пока не израсходован, ставка 3% вместо 4% (и 4% вместо 6%). Остаток виден в приложении «Мой налог». Если вычет уже израсходован — оставьте 0.</p></div>`;
 }
-async function moneyCSV() {
-  if (pinOn() && !await ask('CSV не шифруется: в файле будут фамилии плательщиков. Продолжить?')) return;
+async function moneyCSV(el) {
+  if (pinOn() && !await ask('Файл не шифруется: в файле будут фамилии плательщиков. Продолжить?')) return;
   const U = ui.money, rows = [['Дата', 'Вид', 'Статья', 'Описание', 'Счёт', 'Сумма', 'Возврат', 'Чек', 'Примечание']];
   const txt = v => /^[=+\-@\t\r]/.test(String(v || '')) ? "'" + v : (v || '');            // текст не должен стать формулой в Excel
   moneyRows(U.from, U.to).reverse().forEach(x => { const t = itemText(x); rows.push([D.ru(x.date), { in: 'доход', out: 'расход', move: 'перевод', refund: 'возврат' }[x.kind], txt(t.title), txt(itemWho(x)), txt(x.kind === 'move' ? accName(x.acc) + ' → ' + accName(x.to) : accName(x.acc)), (sign(x) < 0 ? -1 : 1) * x.amount, x.refund || '', x.kind === 'in' ? (x.check ? 'да' : 'нет') : '', txt(x.note)]); });
-  download('D23_деньги_' + U.from + '_' + U.to + '.csv', csv(rows), 'text/csv');
+  saveRows('D23_деньги_' + U.from + '_' + U.to, rows, el, 'Операции');
 }
 function finAttention(out) {                        // пункты «Требует внимания» по деньгам
   const F = finS(db), t = ix.today; if (!F.start) return;
@@ -4425,7 +4517,7 @@ function vYear(arg) {
   const t = ix.today, y = /^\d{4}$/.test(arg || '') ? arg : t.slice(0, 4);
   const first = [...db.athletes.map(a => a.addedAt), ...ix.sessionsSorted.slice(0, 1).map(s => s.date)].filter(Boolean).sort()[0] || t;
   const years = []; for (let k = +t.slice(0, 4); k >= +first.slice(0, 4); k--) years.push(String(k));
-  return `<div class="topline"><div><h1>Итоги года</h1></div><div class="row no-print"><select data-change="year-sel" style="width:auto">${years.map(k => opt(k, y, k + ' год')).join('')}</select><button class="btn" data-act="year-print" data-y="${y}">Печать</button><button class="btn" data-act="year-word" data-y="${y}">В Word</button><a class="btn" href="#report">Сводка</a></div></div>
+  return `<div class="topline"><div><h1>Итоги года</h1></div><div class="row no-print"><select data-change="year-sel" style="width:auto">${years.map(k => opt(k, y, k + ' год')).join('')}</select><button class="btn" data-act="year-print" data-y="${y}">Печать</button><button class="btn" data-act="year-word" data-y="${y}">В Word</button><button class="btn" data-act="year-xlsx" data-y="${y}">В Excel</button><a class="btn" href="#report">Сводка</a></div></div>
   <div class="print-only"><b>${h(db.settings.club)}</b> — итоги ${y} года</div>${yearSectionsHTML(yearReport(y), false)}`;
 }
 function yearReport(y) {
@@ -4532,7 +4624,7 @@ function vData() {
   <p class="small muted">Правило одно: работаете там, куда последним загрузили свежую копию. Если загрузить файл старше текущих данных, программа предупредит.</p></div>
   <div class="card"><h2>Прежние версии</h2><p class="small muted">Программа сама хранит последние 5 версий в этом браузере: на начало каждого дня работы и перед загрузкой копии.</p>
   ${snaps.length ? `<ul class="list">${snaps.map((s, i) => `<li><div class="who"><b>${new Date(s.at).toLocaleString('ru')}</b><span class="small">${h(s.reason)}</span></div><button class="btn sm" data-act="snap-restore" data-i="${i}">Вернуть эту версию</button></li>`).join('')}</ul>` : '<p class="muted">Пока нет.</p>'}</div>
-  <div class="card"><h2>Выгрузка таблиц</h2><div class="row"><button class="btn" data-act="people-csv">Спортсмены (CSV)</button><button class="btn" data-act="subs-csv">Абонементы (CSV)</button><button class="btn" data-act="visits-csv">Посещения (CSV)</button></div>
+  <div class="card"><h2>Выгрузка таблиц</h2><div class="row"><button class="btn" data-act="people-csv" data-fmt="xlsx">Спортсмены (Excel)</button><button class="btn" data-act="subs-csv" data-fmt="xlsx">Абонементы (Excel)</button><button class="btn" data-act="visits-csv" data-fmt="xlsx">Посещения (Excel)</button></div><div class="row" style="margin-top:6px"><button class="btn sm" data-act="people-csv">Спортсмены (CSV)</button><button class="btn sm" data-act="subs-csv">Абонементы (CSV)</button><button class="btn sm" data-act="visits-csv">Посещения (CSV)</button></div>
   <p class="small muted">CSV открывается в Excel. Файлы содержат персональные данные: храните на устройстве с паролем, организаторам соревнований передавайте только объём заявки.</p></div>
   <div class="card"><h2>Обезличенная копия</h2><p>Для проверки расчётов посторонним (разработчику, юристу, ИИ): вместо ФИО — «Спортсмен 1, 2…», без телефонов, родителей, примечаний, медсправок; от даты рождения остаётся только год. Посещения, абонементы, заморозки и суммы — как есть.</p>
   <button class="btn" data-act="export-anon">Скачать обезличенную копию</button><p class="small muted" style="margin-top:6px">Такую копию не загружайте обратно вместо своих данных — программа предупредит.</p></div>
@@ -5193,10 +5285,11 @@ function openTournReport(tid) {
   const body = () => `${noCons.length ? `<div class="banner no-print" style="display:block"><b>Согласие на публикацию (Бланк 2.3) не отмечено у ${noCons.length} из ${all.length}:</b> ${noCons.map(a => h(shortName(a))).join(', ')}.
       <label class="row" style="gap:10px;margin-top:8px;font-weight:600;flex-wrap:nowrap"><input type="checkbox" id="tr-only" ${only ? 'checked' : ''} style="width:22px;height:22px"> Только с согласием — для соцсетей и сайта</label></div>` : ''}
     <div class="treport">${tReportHTML(T, only)}</div>`;
-  modal('Отчёт по турниру', body(), { wide: true, extraBtn: `<button type="button" class="btn" id="tr-print">Печать</button><button type="button" class="btn primary" id="tr-word">В Word</button>` });
+  modal('Отчёт по турниру', body(), { wide: true, extraBtn: `<button type="button" class="btn" id="tr-print">Печать</button><button type="button" class="btn" id="tr-xlsx">В Excel</button><button type="button" class="btn primary" id="tr-word">В Word</button>` });
   const wire = () => { const c = document.getElementById('tr-only'); if (c) c.onchange = () => { only = c.checked; document.querySelector('#dlg .dlg-b').innerHTML = body(); wire(); }; };
   wire();
   document.getElementById('tr-print').onclick = () => openPrint('Турнир — ' + (T.name || ''), tReportHTML(T, only), 'h2{font-size:15pt;margin:0 0 4pt}h3{margin:14pt 0 4pt}');
+  document.getElementById('tr-xlsx').onclick = () => { downloadBlob(`D23_турнир_${(T.name || 'турнир').replace(/[\\/:*?"<>|]+/g, ' ').trim()}_${T.date || ''}.xlsx`, xlsxBlob(htmlDocx(tReportHTML(T, only)), 'Турнир')); toast('Отчёт сохранён в Excel (.xlsx)'); };
   document.getElementById('tr-word').onclick = () => { downloadBlob(`D23_турнир_${(T.name || 'турнир').replace(/[\\/:*?"<>|]+/g, ' ').trim()}_${T.date || ''}.docx`, docxBlob(htmlDocx(tReportHTML(T, only)))); toast('Отчёт сохранён в Word (.docx)'); };
 }
 function openPrize() {
@@ -5390,6 +5483,7 @@ const ACT = {
   'gm-copy-all': () => { const st = ui.gmsg; if (!st) return; copyText($('#gm-text').value.replace(/\{(фи|фио|имя)\}\.?\n?/gi, '').replace(/\{дата_занятия\}/g, D.ru(st.date)).replace(/\{группа\}/g, st.group), 'Общий текст скопирован'); },
   'gm-phones': () => { const st = ui.gmsg; if (!st) return; const L = st.people().map(a => { const c = ix.athCalc.get(a.id); return shortName(a) + ' — ' + (cleanPhone(c.contact) ? fmtPhone(c.contact) + ' (' + c.contactWho + ')' : 'нет телефона'); }); copyText(L.join('\n'), 'Номера скопированы: ' + L.length); },
   'year-print': el => openPrint('Итоги ' + el.dataset.y + ' года', yearDoc(el.dataset.y), 'h3{margin:12pt 0 3pt}'),
+  'year-xlsx': el => { downloadBlob('D23_итоги_' + el.dataset.y + '_года.xlsx', xlsxBlob(htmlDocx(yearDoc(el.dataset.y)), 'Итоги ' + el.dataset.y)); toast('Итоги года сохранены в Excel (.xlsx)'); },
   'year-word': el => { downloadBlob('D23_итоги_' + el.dataset.y + '_года.docx', docxBlob(htmlDocx(yearDoc(el.dataset.y)))); toast('Итоги года сохранены в Word (.docx)'); },
   'op-new': el => openOp(null, { kind: el.dataset.kind, cat: el.dataset.cat, coach: el.dataset.coach, period: el.dataset.period, amount: el.dataset.amount, rec: el.dataset.rec }),
   'op-edit': el => openOp(el.dataset.id),
@@ -5414,8 +5508,10 @@ const ACT = {
     else if (k === 'lastyear') { U.from = (+y - 1) + '-01-01'; U.to = (+y - 1) + '-12-31'; }
     rerender(); },
   'money-kind': el => { ui.money.kind = el.dataset.k; rerender(); },
-  'money-csv': () => moneyCSV(),
+  'money-csv': el => moneyCSV(el),
   'money-print': () => openPrint('Финансовый отчёт', finReportDoc(ui.money.from, ui.money.to), 'h3{margin:12pt 0 3pt}'),
+  'money-xlsx': () => { const U = ui.money;
+    downloadBlob('D23_финансовый_отчёт_' + U.from + '_' + U.to + '.xlsx', xlsxBlob(htmlDocx(finReportDoc(U.from, U.to)), 'Финансовый отчёт')); toast('Финансовый отчёт сохранён в Excel (.xlsx)'); },
   'money-word': () => { const U = ui.money;
     downloadBlob('D23_финансовый_отчёт_' + U.from + '_' + U.to + '.docx', docxBlob(htmlDocx(finReportDoc(U.from, U.to)))); toast('Финансовый отчёт сохранён в Word (.docx)'); },
   'check-mark': el => { const x = el.dataset.src === 'sub' ? db.subs.find(p => p.id === el.dataset.id) : db.ops.find(o => o.id === el.dataset.id); if (!x) return;
@@ -5578,6 +5674,7 @@ const ACT = {
   'attn-done': el => attnMark(el.dataset.key, true),
   'plan-done': el => { const K = el.dataset.key.split('\n'), on = !K.every(k => (db.attnDone || {})[k] === ix.today); K.forEach(k => attnMark(k, on)); },
   'plan-print': () => openPrint('План на ' + D.ru(ix.today), planDoc(), 'h3{margin:12pt 0 3pt}table{border-collapse:collapse;width:100%}td{border:1px solid #000;padding:3pt 5pt;vertical-align:top}'),
+  'plan-xlsx': () => { downloadBlob('D23_план_' + ix.today + '.xlsx', xlsxBlob(htmlDocx(planDoc()), 'План ' + D.ru(ix.today))); toast('План сохранён в Excel (.xlsx)'); },
   'plan-word': () => { downloadBlob('D23_план_' + ix.today + '.docx', planDocx()); toast('План сохранён в Word (.docx)'); },
   'attn-undo': el => attnMark(el.dataset.key, false),
   'test-add': () => openTestAdd(), 'test-protocol': () => printProtocol(),
@@ -5604,15 +5701,15 @@ const ACT = {
   'tpl-add': () => { db.settings.templates.push({ title: 'Новый шаблон', text: 'Здравствуйте! ' }); render.keepScroll = true; persist(); },
   'tpl-del': async el => { if (await ask('Удалить шаблон?')) { db.settings.templates.splice(+el.dataset.i, 1); render.keepScroll = true; persist(); } },
   'people-print': () => printMain('Спортсмены'), 'people-entry': () => printEntry(), 'weigh-list': () => openWeighList(),
-  'people-csv': async () => { if (pinOn() && !await ask('CSV не шифруется: в файле будут открытые персональные данные. Продолжить?')) return; const rows = [['ФИО', 'Пол', 'Дата рождения', 'Возраст', 'Группа', 'Вторая группа', 'Статус', 'Пояс', 'Страйпы', 'Вес', 'Телефон', 'Мать', 'Тел. матери', 'Отец', 'Тел. отца', 'Медсправка до', 'Примечание']];
+  'people-csv': async el => { if (pinOn() && !await ask('Файл не шифруется: в файле будут открытые персональные данные. Продолжить?')) return; const rows = [['ФИО', 'Пол', 'Дата рождения', 'Возраст', 'Группа', 'Вторая группа', 'Статус', 'Пояс', 'Страйпы', 'Вес', 'Телефон', 'Мать', 'Тел. матери', 'Отец', 'Тел. отца', 'Медсправка до', 'Примечание']];
     (location.hash.startsWith('#people') ? filteredPeople() : db.athletes).forEach(a => { const c = ix.athCalc.get(a.id); rows.push([fullName(a), a.sex, D.ru(a.birth), c.age ?? '', a.group, a.group2, a.status, c.belt, c.stripes || '', a.weight, a.phone, a.motherName, a.motherPhone, a.fatherName, a.fatherPhone, D.ru(a.medUntil), a.note]); });
-    download('D23_спортсмены_' + ix.today + '.csv', csv(rows), 'text/csv'); },
-  'subs-csv': async () => { if (pinOn() && !await ask('CSV не шифруется: в файле будут открытые персональные данные. Продолжить?')) return; const rows = [['ФИО', 'Группа', 'Только на группу', 'Дата оплаты', 'Действует с', 'Занятий', 'Сумма', 'Возврат', 'Был', 'Не был', 'Болел', 'Остаток', 'Окончание', 'Статус', 'Примечание']];
+    saveRows('D23_спортсмены_' + ix.today, rows, el, 'Спортсмены'); },
+  'subs-csv': async el => { if (pinOn() && !await ask('Файл не шифруется: в файле будут открытые персональные данные. Продолжить?')) return; const rows = [['ФИО', 'Группа', 'Только на группу', 'Дата оплаты', 'Действует с', 'Занятий', 'Сумма', 'Возврат', 'Был', 'Не был', 'Болел', 'Остаток', 'Окончание', 'Статус', 'Примечание']];
     db.subs.forEach(p => { const a = ix.ath.get(p.athleteId), r = ix.subCalc.get(p.id); if (a) rows.push([fullName(a), a.group, p.onlyGroup, p.pending ? 'ждём оплату' : D.ru(p.payDate), r.first ? D.ru(r.first) : 'не активирован', p.count, p.pending ? '' : p.amount, (refundBySub().get(p.id) || {}).sum || '', r.was, r.missed, r.sick, r.remaining, D.ru(r.end), r.status, p.note]); });
-    download('D23_абонементы_' + ix.today + '.csv', csv(rows), 'text/csv'); },
-  'visits-csv': async () => { if (pinOn() && !await ask('CSV не шифруется: в файле будут открытые персональные данные. Продолжить?')) return; const rows = [['Дата', 'День', 'Группа', 'ФИО', 'Отметка']];
+    saveRows('D23_абонементы_' + ix.today, rows, el, 'Абонементы'); },
+  'visits-csv': async el => { if (pinOn() && !await ask('Файл не шифруется: в файле будут открытые персональные данные. Продолжить?')) return; const rows = [['Дата', 'День', 'Группа', 'ФИО', 'Отметка']];
     ix.sessionsSorted.forEach(s => Object.entries(s.marks).forEach(([id, m]) => { const a = ix.ath.get(id); if (a) rows.push([D.ru(s.date), DOW[D.dow(s.date)], s.group, fullName(a), m === 'б' && isBS(ix, id, s.date) ? 'бс' : m]); }));
-    download('D23_посещения_' + ix.today + '.csv', csv(rows), 'text/csv'); },
+    saveRows('D23_посещения_' + ix.today, rows, el, 'Посещения'); },
   'snap-restore': async el => { const snaps = JSON.parse(bigGet(LS_SNAP) || '[]'); const s = snaps[+el.dataset.i];
     if (!s || !await ask('Вернуть версию от ' + new Date(s.at).toLocaleString('ru') + '? Текущие данные сохранятся как прежняя версия.')) return;
     snapText(s).then(t => normalize(JSON.parse(t))).then(nd => { snapshot('перед возвратом версии'); keepBroken(); db = nd; persist('Версия восстановлена'); },
