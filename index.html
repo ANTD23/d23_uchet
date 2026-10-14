@@ -614,6 +614,7 @@ ul.tp-cards{list-style:none;margin:0;padding:12px;display:grid;grid-template-col
 .tdiv{font-weight:700;font-size:.9375rem}
 .tcat-c{font-size:.875rem;color:var(--ink-2)}
 .tp-card .tcat select{width:auto;flex:none;min-height:40px;background:var(--surface)}
+.tp-card .tcat .tfights{width:64px;flex:none;min-height:40px;background:var(--surface);text-align:center}
 .tp-foot{display:flex;justify-content:flex-end}
 @media print{ul.tp-cards{display:block;background:none;padding:0}.tp-card{box-shadow:none;border:1px solid #000;margin-bottom:6px;break-inside:avoid}.tp-card::before{display:none}}   /* фамилия не сжимается: на телефоне — отдельной строкой над категориями */
 .tp-li > .who b{white-space:normal}
@@ -1111,31 +1112,98 @@ function bdayOn(birth, d) { const md = birth.slice(5); return (md === '02-29' &&
 /* ---------- допуск к аттестации ---------- */
 // болезнь засчитывается как посещение только при справке: в заморозке за эти дни внесена дата справки (Регламент, п. 1.2)
 function sickCert(ix, aid, date) { return isBS(ix, aid, date); }   // «бс»: справка внесена и заморозка не прекращена (О3, К6)
+/* Допуск по посещаемости (решение владельца, 14.10.2026):
+   100% — все занятия групп человека по расписанию между прошлой и следующей аттестацией, включая будущие;
+   не входят нерабочие дни и занятия, отменённые клубом («о»). Посещение — «+», «с», «бс» в любой группе.
+   Норма — порог (80%) от 100%. Дети до attendMaxAge лет включительно — плюс турниры, как раньше;
+   16 лет и старше — нехватку посещений можно заменить турниром (страйп — призовое место, пояс — 1 место). */
+function admSchedule(ix, a, from, to) {          // занятия по расписанию: [{date, group}]
+  const out = [];
+  if (!from || !to || from > to) return out;
+  const held = s => Object.values(s.marks).some(x => x === '+' || x === 'н');
+  if (!ix._admDay) {                              // по дате: группы, где занятие проведено / отменено клубом
+    ix._admDay = new Map();
+    for (const s of ix.sessionsSorted) {
+      let e = ix._admDay.get(s.date); if (!e) ix._admDay.set(s.date, e = { held: new Set(), canc: new Set() });
+      if (held(s)) e.held.add(s.group); else if (Object.values(s.marks).some(x => x === 'о')) e.canc.add(s.group);
+    }
+  }
+  const my = new Map((ix.marks.get(a.id) || []).map(m => [m.date + '|' + (m.group || ''), m.mark]));
+  const myO = new Set((ix.marks.get(a.id) || []).filter(m => m.mark === 'о').map(m => m.date));
+  for (let d = from; d <= to; d = D.add(d, 1)) {
+    if (ix.holiday.has(d)) continue;
+    const day = ix._admDay.get(d) || { held: new Set(), canc: new Set() };
+    for (const g of [...new Set([groupOn(a, d), a.group2].filter(Boolean))]) {
+      const G = ix.group.get(g); if (!G) continue;
+      const planned = everScheduled(G) ? !!daysOn(G, d)[D.dow(d)] : day.held.has(g);   // группа без расписания — дни, когда она занималась
+      if (!planned) continue;
+      if (day.canc.has(g) && !day.held.has(g)) continue;                               // отменено клубом
+      if (myO.has(d)) continue;                                                        // у человека «о» — отменено
+      if (G.bySchedule && !day.held.size && day.canc.size) continue;                  // весь клуб в этот день отменил занятия
+      out.push({ date: d, group: g, done: day.held.has(g) || my.has(d + '|' + g) });
+    }
+  }
+  return out;
+}
+function admTourn(ix, a, place) {                 // замена посещений турниром: place '1' (пояс) или '1-3' (страйп)
+  const A = ix.db.settings.attest, okPl = pl => place === '1' ? pl === '1' : ['1', '2', '3'].includes(pl);
+  const r = { ok: false, full: [], half: [], noFights: [] };
+  for (const T of (ix.db.tourneys || []).filter(T => T.date && T.date >= A.prev && T.date <= A.next).sort((x, y) => x.date.localeCompare(y.date))) {
+    if (!T.res || !(a.id in T.res)) continue;
+    const v = T.res[a.id], C0 = T.cats && Array.isArray(T.cats[a.id]) && T.cats[a.id].length ? T.cats[a.id]
+      : v && typeof v === 'object' ? Object.values(v).map(pl => ({ pl: pl || '' })) : [{ pl: v || '' }];   // старые записи — без категорий и схваток
+    const C = C0.filter(e => okPl(e.pl)); if (!C.length) continue;
+    const f = Math.max(...C.map(e => e.fights === '' || e.fights == null ? -1 : +e.fights));
+    const it = { id: T.id, name: T.name || 'турнир', date: T.date };
+    if (f >= 3) r.full.push(it); else if (f === 2) r.half.push(it); else if (f < 0) r.noFights.push(it);
+  }
+  r.ok = r.full.length >= 1 || r.half.length >= 2;
+  return r;
+}
+function admTournText(t) {
+  if (t.ok) { const x = t.full.length ? [t.full[0]] : t.half.slice(0, 2); return x.map(i => i.name + ' ' + D.ru(i.date)).join(' + '); }
+  const L = [];
+  if (t.half.length) L.push(t.half[0].name + ': 2 схватки — нужен ещё такой турнир');
+  if (t.noFights.length) L.push('внесите схватки: ' + t.noFights.map(i => i.name).join(', '));
+  return L.join('; ');
+}
+function admFinish(ix, a, r) {                    // статус по посещаемости, турнирам и возрасту
+  const A = ix.db.settings.attest, thr = (+A.threshold || 0) / 100;
+  const minT = r.needT ? (+A.minTournaments || 0) : 0;
+  r.need = r.total ? Math.ceil(r.total * thr - 1e-9) : 0;
+  r.needVisits = r.total ? Math.max(0, r.need - r.att) : null;
+  r.cantReach = r.needVisits > 0 && r.needVisits > r.left;
+  r.needTourn = Math.max(0, minT - r.tourn);
+  r.substStripe = r.substBelt = null;
+  if (!r.total) { r.status = 'нет данных'; return r; }
+  const okP = r.att >= r.need, okT = r.tourn >= minT;
+  if (r.adult) {
+    r.substStripe = admTourn(ix, a, '1-3'); r.substBelt = admTourn(ix, a, '1');
+    if (okP) r.status = 'допущен';
+    else if (r.substBelt.ok) r.status = 'допущен по турниру (пояс и страйп)';
+    else if (r.substStripe.ok) r.status = 'допущен на страйп по турниру';
+    else r.status = 'нет: посещаемость';
+    return r;
+  }
+  // дети: недобор посещений на ПОЯС заменяет 1 место на турнире (те же правила схваток); на страйп — только посещения (решение владельца 14.10.2026)
+  if (!okP) { r.substBelt = admTourn(ix, a, '1'); if (r.substBelt.ok && okT) { r.status = 'допущен на пояс по турниру'; return r; } }
+  r.status = okP && okT ? 'допущен' : !okP && !okT ? 'нет: посещаемость и турниры' : !okP ? 'нет: посещаемость' : 'нет: турниры';
+  return r;
+}
 function calcAdmissionAuto(ix, a, fromOverride) {
   const A = ix.db.settings.attest;
-  const r = { was: 0, missed: 0, sick: 0, sickCert: 0, tourn: 0, comp: 0 };
-  if (!A.prev || !A.next) return { ...r, status: 'нет данных', total: 0 };
+  const r = { was: 0, missed: 0, sick: 0, sickCert: 0, tourn: 0, comp: 0, unmarked: 0, gaps: [], gapSessions: 0, total: 0, left: 0, att: 0 };
+  if (!A.prev || !A.next) return { ...r, status: 'нет данных' };
   const all = ix.marks.get(a.id) || [];
-  // с какого дня человек занимается: первая отметка или дата «в клубе с», что раньше
-  r.since = D.min(all.length ? all[0].date : '', a.addedAt || '') || '';
-  // Отметки за период. После начала журнала в программе пустая клетка на занятии своей группы = пропуск.
-  // До этого (перенесённая история) ищем «дыры»: отрезки без единой отметки, когда группы человека
-  // провели 4 занятия и больше, — эти занятия тоже считаются пропусками.
-  r.unmarked = 0; r.gaps = []; const ev = new Set(), compDays = new Set();      // турниры: один выезд или один турнир — одно участие
-  const from = D.max(fromOverride || A.prev, r.since || '');
-  const cutoff = ix.db.settings.sickCheckFrom || '';
-  const to = D.min(A.next, ix.today);
-  const held = s => Object.values(s.marks).some(x => x === '+' || x === 'н');
-  for (const s of ix.sessionsSorted) {
-    if (s.date < from || s.date > A.next) continue;
-    let m = s.marks[a.id] || '';
-    if (perVisitOn(a, s.date) && m !== '+') m = '';                     // №13 (О11, К7): у разовика только «+» и пусто
-    if (!m) {
-      if (s.date >= cutoff && inGroupOn(a, s.group, s.date) && held(s)) r.unmarked++;
-      continue;
-    }
-    if (m === '+') r.was++; else if (m === 'н') r.missed++; else if (m === 'б') { r.sick++; if (sickCert(ix, a.id, s.date)) r.sickCert++; }
-    else if (m === 'с') { r.comp++; compDays.add(s.date); const tr = tripAt(ix, s.date); ev.add(tr ? 'trip:' + (tr.id || tr.from) : 'с:' + s.date); }   // №7 (К1): «с» — посещение
+  r.since = D.min(all.length ? all[0].date : '', a.addedAt || '') || '';   // с какого дня занимается: первая отметка или «в клубе с»
+  const from = fromOverride || A.prev, today = ix.today;
+  const ev = new Set();                                                    // турниры: один выезд или один турнир — одно участие
+  for (const m of all) {
+    if (m.date < from || m.date > A.next) continue;
+    let k = m.mark;
+    if (perVisitOn(a, m.date) && k !== '+') continue;                     // №13 (О11, К7): у разовика только «+»
+    if (k === '+') r.was++; else if (k === 'н') r.missed++; else if (k === 'б') { r.sick++; if (sickCert(ix, a.id, m.date)) r.sickCert++; }
+    else if (k === 'с') { r.comp++; const tr = tripAt(ix, m.date); ev.add(tr ? 'trip:' + (tr.id || tr.from) : 'с:' + m.date); }   // №7 (К1): «с» — посещение
   }
   for (const T of ix.db.tourneys || []) {                       // турниры из раздела «Турниры» (без задвоения с отметкой «с» той же поездки)
     if (!T.date || T.date < from || T.date > A.next || !T.res || !(a.id in T.res)) continue;
@@ -1145,70 +1213,39 @@ function calcAdmissionAuto(ix, a, fromOverride) {
     ev.add(k);
   }
   r.tourn = ev.size;
-  // дыры считаем по группе, в которой человек занимался перед дырой (или после неё, если дыра в начале)
-  const marksP = [];
-  for (const s of ix.sessionsSorted) if (s.date >= from && s.date <= A.next && s.marks[a.id] && s.marks[a.id] !== 'с') marksP.push({ date: s.date, group: s.group });
-  const gapEnd = D.min(cutoff || to, D.add(to, 1));             // после начала журнала пустые клетки уже посчитаны выше
-  const heldIn = (g, d1, d2) => {                               // ожидаемые занятия группы между датами (не включая)
-    const G = ix.group.get(g);
-    if (G && G.bySchedule) return clubOpenDays(ix).filter(d => d > d1 && d < d2 && daysOn(G, d)[D.dow(d)] && !ix.holiday.has(d));
-    return [...new Set(ix.sessionsSorted.filter(s => s.group === g && s.date > d1 && s.date < d2 && held(s)).map(s => s.date))];
-  };
-  const addGap = (g, d1, d2) => { const G = ix.group.get(g), l = heldIn(g, d1, d2).filter(d => !compDays.has(d)) /* №7: день «с» уже учтён */; if (l.length >= (G && G.bySchedule ? 1 : 4)) r.gaps.push({ from: l[0], to: l[l.length - 1], sessions: l.length, group: g }); };
-  if (marksP.length) {
-    addGap(marksP[0].group, D.add(from, -1), D.min(marksP[0].date, gapEnd));
-    for (let k = 0; k < marksP.length - 1; k++) addGap(marksP[k].group, marksP[k].date, D.min(marksP[k + 1].date, gapEnd));
-    const last = marksP[marksP.length - 1]; if (last.date < gapEnd) addGap(last.group, last.date, gapEnd);
-  } else if (a.group) addGap(a.group, D.add(from, -1), gapEnd);
-  r.gapSessions = r.gaps.reduce((n, g) => n + g.sessions, 0);
-  // группы «по расписанию»: после начала журнала пропуском считается каждый день по расписанию, когда клуб работал
-  for (const g of [a.group, a.group2].filter(Boolean)) {
-    const G = ix.group.get(g); if (!G || !G.bySchedule || !cutoff) continue;
-    const myDays = new Set((ix.marks.get(a.id) || []).map(m => m.date));
-    const sessDays = new Set(ix.sessionsSorted.filter(s => s.group === g && held(s)).map(s => s.date));
-    for (const d of clubOpenDays(ix)) {
-      if (d < D.max(from, cutoff) || d > to || !daysOn(G, d)[D.dow(d)] || ix.holiday.has(d) || myDays.has(d)) continue;
-      if (!sessDays.has(d)) r.unmarked++;                          // если занятие группы было — пустая клетка уже посчитана выше
-    }
+  // 100% — занятия по расписанию за весь период (и прошедшие, и будущие)
+  const myDays = new Set(all.map(m => m.date));
+  for (const x of admSchedule(ix, a, from, A.next)) {
+    r.total++;
+    if (x.date > today || (x.date === today && !x.done)) r.left++;
+    else if (!myDays.has(x.date)) r.unmarked++;                  // прошедшее занятие без отметки — пропуск
   }
-  r.total = r.was + r.missed + r.unmarked + r.gapSessions + r.sick + r.comp;      // болезнь со справкой — посещение, без справки — пропуск
-  const thr = (+A.threshold || 0) / 100;
-  // турниры обязательны только до 15 лет включительно (на дату аттестации)
+  r.att = r.was + r.sickCert + r.comp;                           // «+», «с», «бс»
+  r.pct = r.total ? r.att / r.total : null;
+  r.need = r.total ? Math.ceil(r.total * (+A.threshold || 0) / 100 - 1e-9) : 0;
   r.age = D.age(a.birth, A.next);
   const maxAge = A.tournamentsMaxAge == null || A.tournamentsMaxAge === '' ? 15 : +A.tournamentsMaxAge;   // №8
   r.needT = r.age == null || r.age <= maxAge;
-  const maxAgeP = A.attendMaxAge == null || A.attendMaxAge === '' ? 15 : +A.attendMaxAge;   // порог посещаемости — только до 15 лет включительно
-  r.needP = r.age == null || r.age <= maxAgeP;
-  const minT = r.needT ? (+A.minTournaments || 0) : 0;
-  r.att = r.was + r.sickCert + r.comp;                     // №7 (К1): «с» — посещение
-  r.pct = r.total ? r.att / r.total : null;
+  const maxAgeP = A.attendMaxAge == null || A.attendMaxAge === '' ? 15 : +A.attendMaxAge;   // до этого возраста включительно — детские правила
+  r.adult = r.age != null && r.age > maxAgeP;
+  r.needP = true;
   if (a.otherTeam) { r.other = true; r.status = 'нет: другая команда'; r.needVisits = null; r.needTourn = 0; return r; }
   if (r.since && r.since > A.prev) {                       // начал позже прошлой аттестации — ждёт следующую
     r.late = true; r.status = 'нет: начал ' + D.ru(r.since) + ', ждёт следующую'; r.needVisits = null; r.needTourn = 0; return r;
   }
-  if (!r.total && r.needP) r.status = 'нет данных';
-  else {
-    const okP = !r.needP || r.pct >= thr - 1e-9, okT = r.tourn >= minT;
-    r.status = okP && okT ? 'допущен' : !okP && !okT ? 'нет: посещаемость и турниры' : !okP ? 'нет: посещаемость' : 'нет: турниры';
-  }
-  r.needVisits = r.needP && r.total ? Math.max(0, Math.ceil(r.total * thr - 1e-9) - r.att) : null;
-  r.needTourn = Math.max(0, minT - r.tourn);
-  return r;
+  return admFinish(ix, a, r);
 }
 
 function calcAdmission(ix, a) {             // решение тренера («допуск вручную») важнее расчёта — на конкретную аттестацию
   const A = ix.db.settings.attest, m = a.manualAdmit;
   let r = calcAdmissionAuto(ix, a);
   // переходный период (Регламент, п. 1.7): посещаемость считается и с даты softFrom — берётся лучший для спортсмена результат
-  if (A.softFrom && A.softFor === A.next && A.softFrom > A.prev && r.needP && !r.other && !r.late && r.total) {
+  if (A.softFrom && A.softFor === A.next && A.softFrom > A.prev && !r.other && !r.late && r.total) {
     const r2 = calcAdmissionAuto(ix, a, A.softFrom);
-    r2.tourn = r.tourn; r2.needTourn = r.needTourn;                 // турниры — за весь период
-    const okT = r.tourn >= (r.needT ? (+A.minTournaments || 0) : 0);
-    if (r2.total && r2.pct > r.pct) {
-      const okP2 = r2.pct >= (+A.threshold || 0) / 100 - 1e-9;
-      r2.status = okP2 && okT ? 'допущен' : !okP2 && !okT ? 'нет: посещаемость и турниры' : !okP2 ? 'нет: посещаемость' : 'нет: турниры';
-      r2.soft = true; r2.since = r.since; r = r2;
-    }
+    r2.tourn = r.tourn;                                             // турниры — за весь период
+    if (r2.total) { r2.soft = true; r2.softFrom = A.softFrom; r2.since = r.since; admFinish(ix, a, r2);
+      const ok = x => x.status.startsWith('допущен') ? (x.status === 'допущен' ? 2 : 1) : 0;   // лучше: допущен по посещениям → по турниру → меньше не хватает посещений
+      if (ok(r2) > ok(r) || (ok(r2) === ok(r) && r2.needVisits < r.needVisits)) r = r2; }
   }
   if (m && m.status && m.for === A.next) {
     r.auto = r.status; r.manual = m;
@@ -1216,6 +1253,20 @@ function calcAdmission(ix, a) {             // решение тренера («
     r.needVisits = null; r.needTourn = 0;
   }
   return r;
+}
+/* строка «посещено X из нужных Y, осталось занятий Z» */
+function admLine(r) {
+  if (!r.total) return '';
+  return 'посещено ' + r.att + ' из нужных ' + r.need + ' (100% — ' + r.total + ' зан.' + (r.soft && r.softFrom ? ' с ' + D.ru(r.softFrom) : '') + '), осталось занятий ' + r.left + (r.needVisits ? ' · не хватает ' + r.needVisits + (r.cantReach ? ' — посещениями уже не набрать' : '') : '');
+}
+function admSubstHTML(r) {                       // замена посещений турниром: 16+ — страйп и пояс, дети — только пояс
+  const esc = x => String(x).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
+  if (!r.substBelt || r.needVisits === 0 || r.manual) return '';
+  if (!r.adult) { const t = r.substBelt; if (!t.ok && !admTournText(t)) return ''; return 'турнир (только на пояс, 1 место): ' + (t.ok ? '<span style="font-weight:700">да</span>' : 'нет') + (admTournText(t) ? ' (' + esc(admTournText(t)) + ')' : '') + '; на страйп — только посещения'; }
+  const one = (lbl, t) => `${lbl}: ${t.ok ? '<span style="font-weight:700">да</span>' : 'нет'}${admTournText(t) ? ' (' + esc(admTournText(t)) + ')' : ''}`;
+  const S = r.substStripe, B = r.substBelt;
+  if (!S.ok && !B.ok) return 'турнир: нет' + (admTournText(S) || admTournText(B) ? ' (' + esc(admTournText(S) || admTournText(B)) + ')' : '');   // одна причина для страйпа и пояса
+  return 'турнир: ' + one('страйп', S) + '; ' + one('пояс', B);
 }
 
 /* ---------- аттестация, этап 1 (физподготовка) ---------- */
@@ -3314,7 +3365,7 @@ function vPerson(id) {
     ${kv('Оплата', a.noSub ? 'без абонемента' : a.payPerVisit ? 'разово, за каждое посещение' + (a.payPerVisitFrom ? ' с ' + D.ru(a.payPerVisitFrom) : '') : '')}${kv('В клубе с', D.ru(a.addedAt))}${kv('Откуда узнали', h(a.source || '') + ((db.leads || []).some(L => L.aid === a.id) ? ` · <a href="#" data-act="lead-edit" data-id="${h((db.leads.find(L => L.aid === a.id) || {}).id)}">заявка</a>` : ''))}${kv('Пробное занятие', (ix.marks.get(id) || []).filter(m => m.trial).map(m => D.ru(m.date)).join(', '))}${kv('Примечание', h(a.note))}</dl>
     ${(a.transfers || []).length ? `<h3 style="margin-top:14px">Переводы</h3><ul class="list">${[...a.transfers].sort((x, y) => y.date.localeCompare(x.date)).map(t => `<li style="padding:6px 0"><div class="who small">с ${D.ru(t.date)}: ${h(t.from || '—')} → <b style="display:inline">${h(t.to)}</b></div><button class="btn sm ghost no-print" data-act="transfer-del" data-id="${id}" data-tid="${t.id}" aria-label="Удалить перевод">✕</button></li>`).join('')}</ul>` : ''}</div>
   <div class="card"><div class="row" style="justify-content:space-between"><h2>Посещения</h2><button class="btn sm no-print" data-act="athlete-report" data-id="${id}">Печать за период</button></div><div class="stats" style="margin-bottom:10px"><div class="stat"><b>${cnt('+')}</b><span class="small muted">был, 90 дней</span></div><div class="stat"><b>${cnt('н')}</b><span class="small muted">не был</span></div><div class="stat"><b>${cnt('б')}</b><span class="small muted">болел</span></div></div>
-    <div class="small">Допуск к аттестации ${D.ru(S.attest.next)}: <b>${h(adm.status)}</b> <button class="btn sm no-print" data-act="manual-admit" data-id="${id}">Допуск вручную</button>${adm.pct != null ? ` — ${Math.round(adm.pct * 100)}% посещений, турниров ${adm.tourn}` : ''}</div>
+    <div class="small">Допуск к аттестации ${D.ru(S.attest.next)}: <b>${h(adm.status)}</b> <button class="btn sm no-print" data-act="manual-admit" data-id="${id}">Допуск вручную</button>${adm.pct != null ? ` — ${Math.round(adm.pct * 100)}% посещений, турниров ${adm.tourn}` : ''}${adm.total && !adm.late && !adm.other ? `<br>${h(admLine(adm))}` : ''}${admSubstHTML(adm) ? `<br>${admSubstHTML(adm)}` : ''}</div>
     ${ringsAhead}<div class="small muted" style="margin-top:10px">Последние ${Math.min(24, marks.length) || ''} ${plural(Math.min(24, marks.length), 'отметка', 'отметки', 'отметок')}, новые слева · нажмите — дата и группа</div><div class="row" style="gap:6px 4px;margin-top:4px;flex-wrap:wrap">${marks.slice(0, 24).map(m => { const rg = ringOf(m); return `<button type="button" class="mlast" data-act="mark-info" data-txt="${h(D.ru(m.date) + ', ' + DOW_FULL[D.dow(m.date)] + (m.group ? ' · ' + m.group : '') + ' — ' + (m.mark === 'б' && isBS(ix, id, m.date) ? 'болел, справка внесена (бс)' : MARKS[m.mark] ? MARKS[m.mark].label : m.mark) + (m.trial ? ' (пробное)' : '') + (rg ? ' · ' + rg[1] : ''))}" title="${D.ru(m.date)} ${h(m.group)}${rg ? ' — ' + rg[1] : ''}"><span class="cell-m ${{ '+': 'm-plus', 'н': 'm-n', 'б': 'm-b', 'о': 'm-o', 'с': 'm-s' }[m.mark] || ''}${rg ? ' ' + rg[0] : ''}">${h(m.mark === 'б' && isBS(ix, id, m.date) ? 'бс' : m.mark)}</span><small>${D.short(m.date)}</small></button>`; }).join('') || '<span class="muted">Отметок нет</span>'}</div>${marks.length > 24 ? `<div class="small muted" style="margin-top:6px">Все отметки — «Печать за период» или «Посещения» → «Месяц».</div>` : ''}</div>
   </div>
   <div class="card flat"><div class="row" style="padding:14px 16px 6px"><h2 style="margin:0">Абонементы</h2><span class="spacer"></span>${R ? '' : `<button class="btn sm no-print" data-act="refuse" data-id="${id}">Отказ от договора</button>`}<button class="btn sm no-print" data-act="freeze-new" data-id="${id}">Заморозка</button><button class="btn sm no-print" data-act="sub-wait" data-id="${id}">Ждём оплату</button><button class="btn sm no-print" data-act="sub-new" data-id="${id}">Добавить</button></div>
@@ -3836,22 +3887,22 @@ function vAttest(tab) {
     .sort((a, b) => fullName(a).localeCompare(fullName(b), 'ru')).map(a => ({ a, r: calcAdmission(ix, a) }));
   const admOk = { 'все': () => true, 'допущен': r => r.status.startsWith('допущен'), 'не допущен': r => !r.status.startsWith('допущен'), 'решение вручную': r => !!r.manual,
     'нет: посещаемость': r => /посещаемость/.test(r.status), 'нет: турниры': r => /турниры/.test(r.status),
-    'ждёт следующую': r => !!r.late, 'есть занятия без отметки': r => (r.unmarked || 0) + (r.gapSessions || 0) > 0, 'другая команда': r => !!r.other, 'нет данных': r => r.status === 'нет данных' };
+    'ждёт следующую': r => !!r.late, 'есть занятия без отметки': r => (r.unmarked || 0) > 0, 'допущен по турниру': r => /по турниру/.test(r.status), 'другая команда': r => !!r.other, 'нет данных': r => r.status === 'нет данных' };
   const AF = U.adm || 'все';
   const list = all.filter(x => (!q || fullName(x.a).toLowerCase().replace(/ё/g, 'е').includes(q)) && admOk[AF](x.r));
   const ok = list.filter(x => x.r.status.startsWith('допущен')).length;
-  return head + `<div class="card no-print"><div class="row"><div class="spacer grow-m">Период: <b>${D.ru(A.prev)} — ${D.ru(A.next)}</b>, порог ${A.threshold}% посещений (до ${A.attendMaxAge ?? 15} лет включительно${A.softFrom && A.softFor === A.next ? '; лучший результат из всего периода и периода с ' + D.ru(A.softFrom) : ''}), турниров не меньше ${A.minTournaments} (до ${A.tournamentsMaxAge ?? 15} лет включительно). Кто начал заниматься после ${D.ru(A.prev)}, ждёт следующую аттестацию. Занятия без отметки тоже считаются пропусками: с ${D.ru(db.settings.sickCheckFrom)} — пустая клетка на занятии своей группы; в перенесённой истории — отрезки, где группа провела 4 занятия и больше, а у человека нет ни одной отметки (колонка «Без отм.», подробности — при наведении). Болезнь засчитывается как посещение, только если в заморозке внесена дата справки; без справки — пропуск. <a href="#settings">Изменить</a></div>
+  return head + `<div class="card no-print"><div class="row"><div class="spacer grow-m">Период: <b>${D.ru(A.prev)} — ${D.ru(A.next)}</b>, нужно ${A.threshold}% занятий по расписанию. <a href="#settings">Изменить</a><details class="small" style="margin-top:6px"><summary style="cursor:pointer">Как считается допуск</summary><div style="margin-top:6px">100% — все занятия группы по расписанию за период, включая будущие; нерабочие дни и занятия, отменённые клубом («о»), не считаются. Для допуска нужно ${A.threshold}% (посещение — «+», «с», «бс» в любой группе; у разовика — его «+» в любой группе)${A.softFrom && A.softFor === A.next ? '; переходный период: лучший результат из всего периода и периода с ' + D.ru(A.softFrom) : ''}. До ${A.attendMaxAge ?? 15} лет включительно — ещё турниров не меньше ${A.minTournaments} (до ${A.tournamentsMaxAge ?? 15} лет); нехватку посещений на пояс заменяет 1 место на турнире (схватки — как у взрослых), на страйп — только посещения, 2–3 место не заменяют. С ${(+(A.attendMaxAge ?? 15)) + 1} лет нехватку посещений заменяет турнир между аттестациями: на страйп — призовое место, на пояс — 1 место; турнир засчитывается, если в категории проведено 3 схватки и больше, при 2 схватках нужны два таких турнира. Кто начал заниматься после ${D.ru(A.prev)}, ждёт следующую аттестацию. Прошедшее занятие без отметки — пропуск. Болезнь засчитывается, только если в заморозке внесена дата справки («бс»).</div></details></div>
   <button class="btn" data-act="reset-filters" data-page="attest">Сбросить фильтры</button><button class="btn" data-act="print">Печать</button></div>
   <div class="filters" style="margin-top:10px;margin-bottom:0"><label class="f"><span>Группа</span><select data-change="attest-group">${groups.map(g => opt(g, U.group)).join('')}</select></label>
   <label class="f"><span>Фамилия</span><input type="search" data-change="attest-q" value="${h(U.q || '')}" placeholder="Поиск"></label>
   <label class="f"><span>Допуск</span><select data-change="attest-adm">${Object.keys(admOk).map(k => opt(k, AF)).join('')}</select></label></div></div>
   <div class="print-only"><b>${h(db.settings.club)}</b> — допуск к аттестации ${D.ru(A.next)}${U.group !== 'все' ? ', ' + h(U.group) : ''}${AF !== 'все' ? ', ' + h(AF) : ''}</div>
-  <div class="card flat show-m"><ul class="list sublist">${list.map(({ a, r }) => `<li class="click" data-go="#person/${a.id}"><div class="who"><b>${h(shortName(a))}</b><span class="chip st ${r.status.startsWith('допущен') ? 'ok' : r.status === 'нет данных' || r.late || r.other ? 'muted' : 'bad'}">${h(r.status.replace('нет: посещаемость и турниры', 'нет: посещ. и турниры'))}</span><span class="small">${h(a.group)} · был ${r.was}${r.comp ? ' · соревн. ' + r.comp : ''} · не был ${r.missed + (r.unmarked || 0) + (r.gapSessions || 0)}${r.sick ? ' · болел ' + r.sick + (r.sickCert ? ' (со справкой ' + r.sickCert + ')' : '') : ''}${r.soft ? ' · посещаемость с ' + D.ru(db.settings.attest.softFrom) + ' (п. 1.7)' : ''} · турниров ${r.tourn}</span>${[r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).length ? `<span class="small">не хватает: ${[r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).join(', ')}</span>` : ''}</div>
+  <div class="card flat show-m"><ul class="list sublist">${list.map(({ a, r }) => `<li class="click" data-go="#person/${a.id}"><div class="who"><b>${h(shortName(a))}</b><span class="chip st ${r.status.startsWith('допущен') ? 'ok' : r.status === 'нет данных' || r.late || r.other ? 'muted' : 'bad'}">${h(r.status.replace('нет: посещаемость и турниры', 'нет: посещ. и турниры'))}</span><span class="small">${h(a.group)}${r.total ? ' · ' + h(admLine(r)) : ''}${r.soft ? ' (п. 1.7)' : ''} · турниров ${r.tourn}${r.needTourn ? ' · не хватает ' + r.needTourn + ' турн.' : ''}</span>${admSubstHTML(r) ? `<span class="small">${admSubstHTML(r)}</span>` : ''}${r.manual ? `<span class="small">расчёт: ${h(r.auto)}</span>` : ''}</div>
     <div class="subside"><b class="num">${r.pct != null ? Math.round(r.pct * 100) + '%' : '—'}</b></div></li>`).join('')}</ul></div>
-  <div class="card flat scroll hide-m"><table class="t"><thead><tr><th>ФИО</th><th class="hide-m">Группа</th><th class="r" title="Был, включая дни соревнований («с»)">Был</th><th class="r">Не был</th><th class="r hide-m" title="Занятия своей группы без отметки — считаются пропуском">Без отм.</th><th class="r hide-m">Болел</th><th class="r">Турниров</th><th class="r">Посещ.</th><th>Допуск</th><th class="hide-m">Не хватает</th><th class="no-print"></th></tr></thead><tbody>
-  ${list.map(({ a, r }) => `<tr class="click" data-go="#person/${a.id}"><td>${h(shortName(a))}</td><td class="hide-m">${h(a.group)}</td><td class="r num"${r.comp ? ` title="в т. ч. соревнования: ${r.comp}"` : ''}>${r.was + (r.comp || 0)}</td><td class="r num">${r.missed}</td><td class="r num hide-m" title="${(r.gaps || []).map(g => 'нет отметок ' + D.ru(g.from) + '–' + D.ru(g.to) + ': ' + g.sessions + ' зан. (' + g.group + ')').join('; ')}">${(r.unmarked || 0) + (r.gapSessions || 0) || ''}</td><td class="r num hide-m">${r.sick}</td><td class="r num">${r.tourn}</td><td class="r num">${r.pct != null ? Math.round(r.pct * 100) + '%' : ''}</td>
-  <td><span class="chip ${r.status.startsWith('допущен') ? 'ok' : r.status === 'нет данных' || r.late || r.other ? 'muted' : 'bad'}" title="${r.gap ? 'В эти даты у группы было ' + r.gap.sessions + ' занятий, а у человека нет ни одной отметки' : ''}">${h(r.status)}</span></td><td class="hide-m small">${r.manual ? 'расчёт: ' + h(r.auto) + (r.manual.note ? ' · ' + h(r.manual.note) : '') : [r.needVisits ? r.needVisits + ' посещ.' : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).join(', ')}</td><td class="no-print"><button class="btn sm" data-act="manual-admit" data-id="${a.id}" title="Допуск вручную">✎</button></td></tr>`).join('')}</tbody></table></div>
-  <p class="small muted">Показано ${list.length} из ${all.length}, допущено ${ok}. Турнир — отметка «с» в журнале.</p>`;
+  <div class="card flat scroll hide-m"><table class="t"><thead><tr><th>ФИО</th><th class="hide-m">Группа</th><th class="r" title="Все занятия группы по расписанию за период, включая будущие">Занятий (100%)</th><th class="r" title="Сколько нужно посетить для допуска">Нужно</th><th class="r" title="«+», «с» и «бс» в любой группе">Посещено</th><th class="r" title="Занятий по расписанию впереди, до аттестации">Осталось</th><th class="r hide-m">Не был</th><th class="r hide-m" title="Прошедшие занятия без отметки — пропуск">Без отм.</th><th class="r hide-m" title="Болел; в скобках — со справкой">Болел</th><th class="r">Турниров</th><th class="r">Посещ.</th><th>Допуск</th><th class="hide-m" style="min-width:220px">Не хватает</th><th class="no-print"></th></tr></thead><tbody>
+  ${list.map(({ a, r }) => `<tr class="click" data-go="#person/${a.id}"><td>${h(shortName(a))}</td><td class="hide-m">${h(a.group)}</td><td class="r num"${r.soft ? ` title="переходный период: с ${D.ru(db.settings.attest.softFrom)}"` : ''}>${r.total || ''}${r.soft ? '<div class="small muted">с ' + D.short(db.settings.attest.softFrom) + '</div>' : ''}</td><td class="r num">${r.total ? r.need : ''}</td><td class="r num"${r.comp ? ` title="в т. ч. соревнования: ${r.comp}"` : ''}>${r.total ? r.att : ''}</td><td class="r num">${r.total ? r.left : ''}</td><td class="r num hide-m">${r.missed || ''}</td><td class="r num hide-m">${r.unmarked || ''}</td><td class="r num hide-m">${r.sick ? r.sick + (r.sickCert ? ' (' + r.sickCert + ')' : '') : ''}</td><td class="r num">${r.tourn}</td><td class="r num">${r.pct != null ? Math.round(r.pct * 100) + '%' : ''}</td>
+  <td><span class="chip ${r.status.startsWith('допущен') ? 'ok' : r.status === 'нет данных' || r.late || r.other ? 'muted' : 'bad'}" >${h(r.status)}</span></td><td class="hide-m small">${r.manual ? 'расчёт: ' + h(r.auto) + (r.manual.note ? ' · ' + h(r.manual.note) : '') : [r.needVisits ? r.needVisits + ' посещ.' + (r.cantReach ? ' (уже не набрать)' : '') : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).join(', ') + (admSubstHTML(r) ? '<div>' + admSubstHTML(r) + '</div>' : '')}</td><td class="no-print"><button class="btn sm" data-act="manual-admit" data-id="${a.id}" title="Допуск вручную">✎</button></td></tr>`).join('')}</tbody></table></div>
+  <p class="small muted">Показано ${list.length} из ${all.length}, допущено ${ok}. Турнир — отметка «с» в журнале или участие в разделе «Турниры»; для замены посещений в категории турнира внесите место и число схваток.</p>`;
 }
 function vTests() {
   const U = ui.attest;
@@ -3874,7 +3925,7 @@ function vTests() {
       <select data-change="test-place" data-id="${t.id}" style="width:auto">${places.map(p => opt(p, t.place || 'нет')).join('')}</select>
       ${EX.map(e => `<label class="row small" style="gap:4px"><input type="checkbox" data-change="test-relief" data-id="${t.id}" data-k="${e.k}" ${(t.relief || {})[e.k] ? 'checked' : ''}>${e.label}</label>`).join('')}
       <select data-change="test-track" data-id="${t.id}" style="width:auto">${opt('', t.trackManual || '', 'трек: авто')}${['Дети', 'Белый', 'Синий+'].map(x => opt(x, t.trackManual || '')).join('')}</select></div>
-      <p class="small muted">2–3 место — одно упражнение, 1 место — два. На пояс — по норме страйпа, на страйп — ${Math.round(db.settings.attest.reliefCoef * 100)}% нормы страйпа. Место засчитывается, если в категории было не меньше 5 участников.</p></details>
+      <p class="small muted">2–3 место — одно упражнение, 1 место — два. На пояс — по норме страйпа, на страйп — ${Math.round(db.settings.attest.reliefCoef * 100)}% нормы страйпа. Место засчитывается, если в категории проведено 3 схватки и больше; при 2 схватках нужен второй такой же турнир (п. 6.3 Регламента).</p></details>
     ${r.checks && r.checks.length ? `<div class="small fail" style="margin-top:6px">${r.checks.map(h).join('; ')}</div>` : ''}</div>`; }).join('')
     : '<div class="card empty">Сдач нормативов пока нет. Нажмите «Добавить участников», выберите дату и людей.</div>'}
   <p class="small muted">Прыжок — лучшая из трёх попыток, в сантиметрах. Рукоход сдаётся только вместо одного не сданного основного упражнения (с 6 лет). Пересдача — не раньше чем через 4 недели (п. 5.5).</p>`;
@@ -4013,7 +4064,7 @@ function vSettings() {
   <div class="row" style="margin-top:8px"><button class="btn" data-act="trip-add">Добавить выезд</button></div>
   <h2 style="margin-top:16px">Аттестация</h2><div class="fgrid">${L('Предыдущая аттестация', inp('attest.prev', A.prev, 'date'))}${L('Предстоящая аттестация', inp('attest.next', A.next, 'date'))}
   ${L('Порог допуска, %', inp('attest.threshold', A.threshold, 'number'))}${L('Минимум турниров', inp('attest.minTournaments', A.minTournaments, 'number'))}${L('Турниры обязательны до (лет, включительно)', inp('attest.tournamentsMaxAge', A.tournamentsMaxAge ?? 15, 'number'))}
-  ${L('Порог посещаемости до (лет, включительно)', inp('attest.attendMaxAge', A.attendMaxAge ?? 15, 'number'))}${L('Переходный период: посещаемость также считать с', `<input type="date" data-change="soft" value="${h(A.softFor === A.next ? A.softFrom || '' : '')}">`)}${L('Послабление на страйп', inp('attest.reliefCoef', A.reliefCoef, 'number', 'step="0.05"'))}</div></div></div>
+  ${L('Детские правила допуска до (лет, включительно)', inp('attest.attendMaxAge', A.attendMaxAge ?? 15, 'number'))}${L('Переходный период: посещаемость также считать с', `<input type="date" data-change="soft" value="${h(A.softFor === A.next ? A.softFrom || '' : '')}">`)}${L('Послабление на страйп', inp('attest.reliefCoef', A.reliefCoef, 'number', 'step="0.05"'))}</div></div></div>
   <div class="card"><h2>Клуб</h2><div class="fgrid">${L('Клуб и адрес', inp('club', S.club))}${L('Главный тренер', inp('coachMain', S.coachMain))}${L('Второй тренер', inp('coachSecond', S.coachSecond))}${L('Кем присваивается пояс', inp('awardedBy', S.awardedBy))}${L('Оператор персональных данных (ФИО полностью, для актов)', inp('operatorName', S.operatorName || S.awardedBy))}${L('Адрес оператора для актов', inp('operatorAddress', S.operatorAddress || ''))}${L('Занятий в абонементе по умолчанию', inp('defaultCount', S.defaultCount, 'number'))}${L('Начало ведения программы (суммы оплат считаются с этой даты)', inp('programStart', S.programStart || S.sickCheckFrom, 'date'))}${L('Цель: взрослых (18+) занимается', inp('adultTarget', S.adultTarget ?? 16, 'number', 'min="0"'))}${L('Инструктаж проверять с (раньше — только бумажный журнал)', inp('briefFrom', S.briefFrom || '', 'date'))}
   <label class="f wide"><span>Пояса (по одному в строке, по порядку)</span><textarea data-change="belts" style="min-height:120px">${h(S.belts.join('\n'))}</textarea></label></div></div>
   <div class="card"><h2>Цены (Приложение № 1 к оферте)</h2><p class="small muted">По ним программа подставляет сумму в окне оплаты: на ${S.prices.count} занятий — детский тариф, если на дату оплаты ещё нет ${S.prices.kidUnder} лет (Положение о льготах, п. 3.1), иначе базовый; одно занятие — разовое посещение. Сумму в окне оплаты можно изменить — по договорённости.</p>
@@ -5139,7 +5190,7 @@ function tPeopleCards(T) {
       return `<li class="tp-card${x.pl ? ' m' + x.pl : ''}">
       <div class="tp-head">${beltHTML(c.belt, c.stripes)}<div class="who"><a href="#person/${x.a.id}"><b>${h(fullName(x.a))}</b></a><span class="small">${h(x.a.group || 'без группы')}${W.length ? ' · вес ' + weighLine(W[0]) : ''}</span></div>
         ${tMedals(T, x.a.id)}</div>
-      <div class="tcats">${tCats(T, x.a.id).map((e, i) => `<div class="tcat"><div class="tcat-t">${e.div ? `<span class="tdiv">${tDivName(e.div)}</span>` : '<span class="tdiv muted" title="Раздел не указан — отметьте в «Участниках»">раздел?</span>'}${tCatText(T, e) ? '<span class="tcat-c">' + h(tCatText(T, e)) + '</span>' : ''}</div><select data-change="tcat" data-id="${T.id}" data-aid="${x.a.id}" data-i="${i}" aria-label="Место: ${h(shortName(x.a))}, ${tDivName(e.div) || 'категория'} ${i + 1}">${PLACES.map(([v, l]) => opt(v, e.pl, l)).join('')}</select></div>`).join('')}</div>
+      <div class="tcats">${tCats(T, x.a.id).map((e, i) => `<div class="tcat"><div class="tcat-t">${e.div ? `<span class="tdiv">${tDivName(e.div)}</span>` : '<span class="tdiv muted" title="Раздел не указан — отметьте в «Участниках»">раздел?</span>'}${tCatText(T, e) ? '<span class="tcat-c">' + h(tCatText(T, e)) + '</span>' : ''}</div><select data-change="tcat" data-id="${T.id}" data-aid="${x.a.id}" data-i="${i}" aria-label="Место: ${h(shortName(x.a))}, ${tDivName(e.div) || 'категория'} ${i + 1}">${PLACES.map(([v, l]) => opt(v, e.pl, l)).join('')}</select><input type="number" class="tfights" data-change="tfights" data-id="${T.id}" data-aid="${x.a.id}" data-i="${i}" min="0" max="30" step="1" inputmode="numeric" placeholder="схв." title="Схваток проведено в категории (для допуска к аттестации с 16 лет)" aria-label="Схваток: ${h(shortName(x.a))}, ${tDivName(e.div) || 'категория'} ${i + 1}" value="${h(e.fights ?? '')}"></div>`).join('')}</div>
       <div class="tp-foot no-print"><button class="btn sm" data-act="tcat-edit" data-id="${T.id}" data-aid="${x.a.id}">Категории и вес</button></div></li>`; }).join('')}</ul>` : '<div class="empty">Участники не отмечены — кнопка «Участники»</div>';
 }
 function vTourn() {
@@ -5226,6 +5277,7 @@ function tCatRow(T, a, e, adult) {
       ${adult || e.masters ? `<label class="f"><span>Masters</span><select data-k="masters">${[['', '—'], ...T_MASTERS.map(x => [x, x])].map(([v, l]) => opt(v, e.masters || '', l)).join('')}</select></label>` : ''}
       <label class="f"><span>Весовая категория, кг</span><input type="text" data-k="weight" inputmode="decimal" placeholder="например, 30 или +80" value="${h(e.weight || '')}"></label>
       <label class="f"><span>Место</span><select data-k="pl">${PLACES.map(([v, l]) => opt(v, e.pl || '', l)).join('')}</select></label>
+      <label class="f"><span>Схваток проведено</span><input type="number" data-k="fights" min="0" max="30" step="1" inputmode="numeric" value="${h(e.fights ?? '')}"></label>
     </div>
     <button type="button" class="btn sm ghost tcat-del" aria-label="Убрать категорию">Убрать категорию</button></div>`;
 }
@@ -5248,7 +5300,8 @@ function openTournCats(tid, aid) {
       const rows = [...document.querySelectorAll('#dlg .tcat-row')];
       if (!rows.length) { notice('Оставьте хотя бы одну категорию. Чтобы убрать спортсмена из турнира — кнопка «Участники».'); return false; }
       const out = rows.map(r => { const g = k => { const el = r.querySelector(`[data-k="${k}"]`); return el ? String(el.value || '').trim() : ''; };
-        return { id: r.dataset.eid || uid('e'), div: g('div'), ageFrom: g('ageFrom'), ageTo: g('ageTo'), level: g('level'), masters: g('masters'), weight: g('weight').replace('.', ','), pl: g('pl') }; });
+        return { id: r.dataset.eid || uid('e'), div: g('div'), ageFrom: g('ageFrom'), ageTo: g('ageTo'), level: g('level'), masters: g('masters'), weight: g('weight').replace('.', ','), pl: g('pl'), fights: g('fights') }; });
+      if (out.some(e => e.fights && !/^\d{1,2}$/.test(e.fights))) { notice('Схваток — целое число, например 2 или 3.'); return false; }
       if (out.some(e => e.weight && !/^[+\-−]?\d{1,3}(,\d{1,2})?\+?$/.test(e.weight))) { notice('Весовая категория — цифрами, например 30, 32,5 или +80.'); return false; }
       if (kg) addWeighing(a, kg, fd.wdate);
       T.cats = T.cats || {}; T.cats[aid] = out; tSync(T, aid);
@@ -5771,6 +5824,10 @@ async function onChange(e) {
   else if (k === 'tcat') { const T = (db.tourneys || []).find(x => x.id === el.dataset.id), aid = el.dataset.aid, i = +el.dataset.i; if (!T) return;
     const C = tCats(T, aid).map(e => ({ ...e, id: e.id || uid('e') })); if (!C[i]) return; C[i].pl = v; T.cats = T.cats || {}; T.cats[aid] = C; tSync(T, aid);
     render.keepScroll = true; persist(v ? (C[i].div ? tDivName(C[i].div) + ': ' : '') + 'место ' + v : 'Сохранено'); }
+  else if (k === 'tfights') { const T = (db.tourneys || []).find(x => x.id === el.dataset.id), aid = el.dataset.aid, i = +el.dataset.i; if (!T) return;
+    const f = String(v || '').trim(); if (f && !/^\d{1,2}$/.test(f)) { notice('Схваток — целое число, например 2 или 3.'); rerender(); return; }
+    const C = tCats(T, aid).map(e => ({ ...e, id: e.id || uid('e') })); if (!C[i]) return; C[i].fights = f; T.cats = T.cats || {}; T.cats[aid] = C; tSync(T, aid);
+    render.keepScroll = true; persist(f ? 'Схваток: ' + f : 'Сохранено'); }
   else if (k === 'tres') { const T = (db.tourneys || []).find(x => x.id === el.dataset.id), aid = el.dataset.aid, dv = el.dataset.div; if (!T || !T.res || !(aid in T.res)) return;
     if (dv) { const o = T.res[aid] && typeof T.res[aid] === 'object' ? { ...T.res[aid] } : {}; o[dv] = v; T.res[aid] = o; } else T.res[aid] = v;
     render.keepScroll = true; persist(v ? (dv ? tDivName(dv) + ': ' : '') + 'место ' + v : 'Сохранено'); }
