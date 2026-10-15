@@ -1478,14 +1478,14 @@ function moneyItems(d) {
 }
 /* доходы и расходы за период (доход — за вычетом возвратов, по дате оплаты: так же считает «Мой налог» после аннулирования чека) */
 function finPeriod(d, from, to, items = moneyItems(d)) {
-  const R = { inc: 0, out: 0, refunds: 0, ownIn: 0, ownOut: 0, taxable: 0, person: 0, org: 0, incCat: {}, outCat: {}, outGroup: {}, group: {}, subs: { n: 0, sum: 0 }, ones: { n: 0, sum: 0 }, payers: new Set(), subPay: { sum: 0, ids: new Set() } };
+  const R = { incAcc: {}, inc: 0, out: 0, refunds: 0, ownIn: 0, ownOut: 0, taxable: 0, person: 0, org: 0, incCat: {}, outCat: {}, outGroup: {}, group: {}, subs: { n: 0, sum: 0 }, ones: { n: 0, sum: 0 }, payers: new Set(), subPay: { sum: 0, ids: new Set() } };
   const add = (o, k, v) => { o[k] = (o[k] || 0) + v; };
   for (const x of items) {
     if (x.date < from || x.date > to) continue;
     if (x.kind === 'in') {
       if (x.nonop) { R.ownIn += x.amount; continue; }
       const net = x.amount - x.refund;
-      R.inc += net; R.refunds += x.refund; add(R.incCat, x.cat, net);
+      R.inc += net; R.refunds += x.refund; add(R.incCat, x.cat, net); add(R.incAcc, x.acc || '', net);   // №32: в т. ч. по способу оплаты
       if (x.tax) { R.taxable += net; if (x.payer === 'org') R.org += net; else R.person += net; }
       if (x.cat === '_sub' || x.cat === '_one') { add(R.group, x.group || '—', net); const b = x.cat === '_sub' ? R.subs : R.ones; b.n++; b.sum += x.amount; if (x.aid) { R.subPay.sum += net; R.subPay.ids.add(x.aid); } }
       if (x.aid) R.payers.add(x.aid);
@@ -4140,6 +4140,12 @@ function finSetupCard() {
   <p class="small muted">Абонементы, оплаченные раньше этой даты, в остатки не входят (они уже в начальных суммах), но в отчётах о доходах учитываются — с начала ведения программы (${D.ru(pStartOf(db))}).</p>
   <button class="btn primary" data-act="fin-setup">Начать учёт</button></div>`;
 }
+function incAccLine(P) {                          // №32: «в т. ч. наличные … · карта … · способ оплаты не указан …»
+  const L = Object.entries(P.incAcc || {}).filter(([, v]) => v);
+  if (!L.length) return '';
+  const ord = finS(db).accounts.map(a => a.id), pos = k => { const i = ord.indexOf(k); return k === '' ? 999 : i < 0 ? 998 : i; };
+  return 'в т. ч. ' + L.sort((a, b) => pos(a[0]) - pos(b[0])).map(([k, v]) => (k ? accName(k) : 'способ оплаты не указан') + ' ' + rub(v)).join(' · ');
+}
 function vMoneyOverview() {
   const F = finS(db), t = ix.today, items = finItems(), ym = ymOf(t), [m1] = ymBounds(ym), [p1, p2] = ymBounds(ymAdd(ym, -1));
   const cur = finPeriod(db, m1, t, items), prev = finPeriod(db, p1, p2, items);
@@ -4168,7 +4174,7 @@ function vMoneyOverview() {
     <div class="stat"><b>${rub(pre.sum)}</b><span class="small muted">неотработано по оплаченным абонементам (${pre.n}) — столько вернули бы, если бы сегодня отказались все</span></div></div></div>`;
   const last = moneyRows('0000-01-01', '9999-12-31').slice(0, 8);
   return `${balCard}
-  <div class="card"><h2>${MONTHS[+ym.slice(5) - 1][0].toUpperCase() + MONTHS[+ym.slice(5) - 1].slice(1)} (по ${D.short(t)})</h2><div class="stats">${stat(cur.inc, 'доходы' + (cur.refunds ? ', за вычетом возвратов' : ''), 'var(--ok)')}${stat(cur.out, 'расходы', 'var(--bad)')}${stat(cur.profit, 'прибыль', cur.profit < 0 ? 'var(--bad)' : '')}</div>
+  <div class="card"><h2>${MONTHS[+ym.slice(5) - 1][0].toUpperCase() + MONTHS[+ym.slice(5) - 1].slice(1)} (по ${D.short(t)})</h2><div class="stats">${stat(cur.inc, 'доходы' + (cur.refunds ? ', за вычетом возвратов' : ''), 'var(--ok)')}${stat(cur.out, 'расходы', 'var(--bad)')}${stat(cur.profit, 'прибыль', cur.profit < 0 ? 'var(--bad)' : '')}</div>${incAccLine(cur) ? `<p class="small muted" style="margin-top:8px">Доходы ${h(incAccLine(cur))}</p>` : ''}
   <p class="small muted" style="margin-top:8px">Прошлый месяц (${MONTHS[+p1.slice(5, 7) - 1]}): доходы ${rub(prev.inc)}, расходы ${rub(prev.out)}, прибыль ${rub(prev.profit)}.${cur.ownIn || cur.ownOut ? ` Личные средства в этом месяце: вложено ${rub(cur.ownIn)}, взято ${rub(cur.ownOut)} — в прибыль не входят.` : ''}</p>
   <div class="row" style="margin-top:8px"><a class="btn sm" href="#money/report">Отчёт</a></div></div>
   ${recCard}${taxCard}${coachCard}${cliCard}
@@ -4212,6 +4218,7 @@ function finReport(from, to) {
   const pc = (x, y) => y ? Math.round(x / y * 100) + '%' : '';
   S.push({ title: 'Итог', head: ['', 'Сумма, ₽'], rows: [
     { c: ['Доходы' + (P.refunds ? ' (за вычетом возвратов ' + rubN(P.refunds) + ' ₽)' : ''), rubN(P.inc)] },
+    ...Object.entries(P.incAcc || {}).filter(([, v]) => v).sort((a, b) => (a[0] === '' ? 1 : 0) - (b[0] === '' ? 1 : 0) || finS(db).accounts.findIndex(x => x.id === a[0]) - finS(db).accounts.findIndex(x => x.id === b[0])).map(([k, v]) => ({ c: ['   в т. ч. ' + (k ? accName(k) : 'способ оплаты не указан'), rubN(v)] })),   // №32
     { c: ['Расходы', rubN(P.out)] },
     { c: ['Прибыль', rubN(P.profit)], b: 1 },
     ...(P.inc ? [{ c: ['Доля прибыли в доходах', pc(P.profit, P.inc)] }] : []),
