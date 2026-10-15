@@ -3245,8 +3245,8 @@ function wlHTML(S) {
   const sortTxt = [sl(S.s1), S.s2 && S.s2.split('-')[0] !== S.s1.split('-')[0] ? sl(S.s2) : ''].filter(Boolean).join(', затем ');
   return `<h2>Взвешивание</h2><p><b>Дата взвешивания: ${one ? D.ru(S.from) : D.ru(S.from) + ' — ' + D.ru(S.to)}</b></p>
     <p>${h(db.settings.club || 'Club D23')}${S.group ? ' · группа «' + h(S.group) + '»' : ''} · взвешено: ${R.length} ${plural(R.length, 'человек', 'человека', 'человек')}. Сортировка: ${sortTxt}.</p>
-    ${R.length ? `<div class="scroll"><table class="t"><thead><tr><th>№</th><th>ФИО</th><th>Группа</th><th>Дата рождения</th><th>Вес, кг</th>${one ? '' : '<th>Дата взвешивания</th>'}</tr></thead><tbody>
-    ${R.map((x, i) => `<tr><td class="num">${i + 1}</td><td>${h(fullName(x.a))}</td><td>${h(x.a.group || '—')}</td><td class="num">${x.a.birth ? D.ru(x.a.birth) : '—'}</td><td class="num"><b>${h(x.w.kg)}</b></td>${one ? '' : `<td class="num">${D.ru(x.w.date)}</td>`}</tr>`).join('')}</tbody></table></div>`
+    ${R.length ? `<div class="scroll"><table class="t"><thead><tr><th>№</th><th>ФИО</th><th>Группа</th><th>Дата рождения</th><th title="Полных лет на дату взвешивания">Возраст, лет</th><th>Вес, кг</th>${one ? '' : '<th>Дата взвешивания</th>'}</tr></thead><tbody>
+    ${R.map((x, i) => `<tr><td class="num">${i + 1}</td><td>${h(fullName(x.a))}</td><td>${h(x.a.group || '—')}</td><td class="num">${x.a.birth ? D.ru(x.a.birth) : '—'}</td><td class="num">${x.a.birth && D.age(x.a.birth, x.w.date || ix.today) != null ? D.age(x.a.birth, x.w.date || ix.today) : '—'}</td><td class="num"><b>${h(x.w.kg)}</b></td>${one ? '' : `<td class="num">${D.ru(x.w.date)}</td>`}</tr>`).join('')}</tbody></table></div>`
       : '<p>За эти даты взвешиваний нет.</p>'}`;
 }
 function openWeighList() {
@@ -3265,7 +3265,7 @@ function openWeighList() {
       <label class="f"><span>Группа</span><select id="wl-group">${opt('', S.group, 'Все группы')}${groups.map(g => opt(g, S.group)).join('')}</select></label></div>
       <div class="fgrid" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));margin-top:12px"><label class="f"><span>Сортировка</span><select id="wl-s1">${so(S.s1)}</select></label>
       <label class="f"><span>Затем</span><select id="wl-s2">${so(S.s2, true)}</select></label></div>
-    <p class="small muted">Если человек взвешивался несколько раз за период — берётся последнее взвешивание. Ушедшие не показываются.</p>
+    <p class="small muted">Если человек взвешивался несколько раз за период — берётся последнее взвешивание. Возраст — полных лет на дату взвешивания. Ушедшие не показываются.</p>
     <div class="treport" id="wl-out"></div>`, { wide: true, extraBtn: `<button type="button" class="btn" id="wl-print">Печать</button><button type="button" class="btn" id="wl-xlsx">В Excel</button><button type="button" class="btn primary" id="wl-word">В Word</button>` });
   const $i = id => document.getElementById(id);
   const upd = () => {
