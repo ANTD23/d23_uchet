@@ -3662,17 +3662,21 @@ function openSub(id, athleteId) {
         const tf = tariffFor(db, ix.ath.get(fd.athleteId), fd.count, fd.payDate || ix.today);
         if (tf && tf.price && +fd.amount !== tf.price && !await ask(`Сумма ${(+fd.amount || 0).toLocaleString('ru')} ₽ не по тарифу: ${tf.kind} — ${tf.price.toLocaleString('ru')} ₽ за ${+fd.count} ${plural(+fd.count, 'занятие', 'занятия', 'занятий')}.\n\nСохранить с этой суммой (индивидуальная цена)?`)) return false;
       }
-      const t = p || { id: uid('p') };
+      let tgt = p;                                   // №31: оплата кнопкой «Оплата», а у человека есть «ждём оплату» — оплатить его, а не заводить второй
+      if (!p && !fd.pending) { const pw = pendingSub(ix, fd.athleteId), pr = pw && ix.subCalc.get(pw.id);
+        if (pw && !(pr && pr.terminated) && await ask(`${shortName(ix.ath.get(fd.athleteId))}: уже записан абонемент «ждём оплату» (${pw.count} зан.${pr && pr.charged ? ', в долг ' + pr.charged + ' зан.' : ''}). Эта оплата — за него?\n\n«Да» — «ждём оплату» станет оплаченным (одна запись).\n«Отмена» — записать отдельный, ещё один абонемент.`)) {
+          tgt = pw; if (!fd.start) fd.start = pw.start || (pr && pr.first) || ''; } }
+      const t = tgt || { id: uid('p') };
       if (+fd.bonus < 0 || (fd.bonus !== '' && fd.bonus != null && !Number.isInteger(+fd.bonus))) { notice('Добавить занятий — целое число не меньше 0'); return false; }
       if (+fd.bonus > 0 && !String(fd.bonusNote || '').trim()) { notice('Укажите причину продления — она будет видна в карточке и в истории изменений.'); return false; }
-      const wasPend = !!(p && p.pending);
+      const wasPend = !!(tgt && tgt.pending);
       Object.assign(t, { athleteId: fd.athleteId, payDate: fd.pending ? '' : fd.payDate, start: fd.start, count: +fd.count || 0, bonus: +fd.bonus > 0 ? +fd.bonus : '', bonusNote: +fd.bonus > 0 ? String(fd.bonusNote || '').trim() : '', amount: +fd.amount || 0, refundPrice: +fd.refundPrice > 0 ? +fd.refundPrice : '', onlyGroup: fd.onlyGroup, carryWas: +fd.carryWas || 0, carryMissed: +fd.carryMissed || 0, note: fd.note.trim(), pending: !!fd.pending, acc: fd.acc || '' });
-      if (p && p.pending === false && !fd.pending && t.notified && t.notified.end && wasPend) { t.notified = { ...t.notified }; delete t.notified.end; }   /* №30-Б: оплата «ждём оплату» через форму */
+      if (wasPend && !fd.pending && t.notified && t.notified.end) { t.notified = { ...t.notified }; delete t.notified.end; }   /* №30-Б: оплата «ждём оплату» через форму */
       if (FN.orgs) t.payer = fd.payer || '';
       if (FN.checks !== false) t.check = fd.check ? (t.check || ix.today) : '';
       for (const k of ['acc', 'payer', 'check']) if (!t[k]) delete t[k];
-      if (!p) db.subs.push(t);
-      persist(p ? 'Абонемент сохранён' : t.pending ? 'Записан абонемент «ждём оплату»' : 'Оплата записана');
+      if (!tgt) db.subs.push(t);
+      persist(p ? 'Абонемент сохранён' : t.pending ? 'Записан абонемент «ждём оплату»' : tgt ? 'Оплата записана — «ждём оплату» оплачен' : 'Оплата записана');
       const term = () => { const rr = ix.subCalc.get(t.id); if (!rr) return ''; return rr.notActive ? 'не активирован — начнётся с первого посещения' + (rr.autoDate ? ', не позднее ' + D.ru(rr.autoDate) : '') : (rr.first ? 'действует с ' + D.ru(rr.first) : '') + (rr.end ? ' по ' + D.ru(rr.end) : ''); };   // показ нового срока, расчёт прежний
       if (!p && !t.pending && t.count > 1) setTimeout(() => { const rr = ix.subCalc.get(t.id); openMsg(t.athleteId, rr && rr.notActive ? 'Абонемент оплачен' : 'Новый абонемент оплачен', {}, t.id);
         const bx = document.querySelector('#dlg .dlg-b'); if (bx) bx.insertAdjacentHTML('afterbegin', `<div class="pay-res"><b>✓ Оплата записана: ${t.count} ${plural(t.count, 'занятие', 'занятия', 'занятий')}</b><span>${h(term())}</span></div>`); }, 50);
