@@ -438,24 +438,27 @@ details.legend-d .legend{padding:4px 0 6px}
 @media print{.mscroll{max-height:none!important;overflow:visible!important}}
 /* 16.10.2026: «Месяц» на телефоне — компактная таблица, тонкая панель, «Во весь экран» */
 .nm-s{display:none}
-.wn .nm-f,.wn .nm-s,.wn > b{color:var(--warned-nm);font-weight:700} .wn-ic{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:4px;background:var(--ok-fill);color:var(--on-fill,#fff);font-size:10px;font-weight:400;margin-left:4px;vertical-align:1px;cursor:help}   /* 17.10.2026: «предупреждён» — синяя фамилия и ✉ */
+.wn .nm-f,.wn .nm-s,.wn > b{color:var(--warned-nm);font-weight:700} .wn-ic{display:inline-grid;place-items:center;width:18px;height:18px;position:relative;border-radius:4px;background:var(--ok-fill);color:var(--on-fill,#fff);font-size:10px;font-weight:400;margin-left:4px;vertical-align:1px;cursor:help}   /* 17.10.2026: «предупреждён» — синяя фамилия и ✉ */
+.wn-ic::after{content:"";position:absolute;inset:-10px}   /* больше область нажатия на телефоне */
 @media print{.wn .nm-f,.wn .nm-s,.wn > b{color:#000!important} .wn-ic{background:none!important;color:#000!important;border:1px solid #000}}
 @media (max-width:860px){
   table.t.month .nm-f{display:none} table.t.month .nm-s{display:inline} table.t.month .mper{display:block;font-size:.7rem;line-height:1.1}
   table.t.month td,table.t.month th{padding:3px 2px} table.t.month .cell-m{width:22px;height:22px;font-size:.8rem;border-radius:5px}
   table.t.month td:first-child,table.t.month th:first-child{font-size:.8125rem;line-height:1.15;text-align:left;white-space:nowrap;padding-left:6px;padding-right:6px}
   table.t.month th{font-size:.75rem}
-  main .topline.jm-top{margin-bottom:6px;gap:6px} main .jm-top h1{font-size:1.05rem;margin:0}
-  main .card.jm-ctl{padding:8px;margin-bottom:8px} main .jm-ctl .row{gap:6px;flex-wrap:nowrap} main .jm-ctl .btn,main .jm-ctl select,main .jm-ctl input,main .jm-ctl summary.btn{min-height:38px;padding:4px 8px;font-size:.9rem}
-  main .jm-ctl input[type=month]{min-width:0;max-width:128px} main .jm-ctl select{min-width:0;max-width:120px}
+  main .topline.jm-top{margin-bottom:6px;gap:6px} .jm-tabs{gap:6px;flex-wrap:nowrap} main .jm-tabs .btn,main .jm-tabs summary.btn{min-height:40px;padding:4px 10px} main .jm-top h1{font-size:1.05rem;margin:0}
+  main .card.jm-ctl{padding:8px;margin-bottom:8px} main .jm-ctl .row{gap:6px;flex-wrap:wrap} main .jm-ctl .btn,main .jm-ctl select,main .jm-ctl input,main .jm-ctl summary.btn{min-height:38px;padding:4px 8px;font-size:16px}   /* не меньше 16px: иначе iPhone увеличивает страницу при нажатии на поле */
+  main .jm-ctl input[type=month]{min-width:0;max-width:132px} main .jm-ctl select{min-width:0;max-width:120px}
 }
+@media (max-width:380px){ main .jm-ctl input[type=month]{max-width:118px} main .jm-ctl select{max-width:96px} main .jm-ctl .btn{padding:4px 6px} }
 @media print{.month .nm-f{display:inline!important} .month .nm-s{display:none!important}}
 .jfs-bar{display:none}
 body.jfs .mtop,body.jfs .tabbar,body.jfs .side,body.jfs .jm-top,body.jfs .jm-ctl,body.jfs .ring-legend{display:none!important}
 body.jfs .shell{display:block} body.jfs main{padding:0!important;margin:0!important;max-width:none!important}
 body.jfs .jfs-bar{display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:45;height:48px;padding:6px 8px;box-sizing:border-box;background:var(--brand);color:#fff}
 body.jfs .jfs-bar b{white-space:nowrap;font-size:.95rem} body.jfs .jfs-bar .btn{min-height:36px;padding:2px 10px;background:rgba(255,255,255,.14);color:#fff;border-color:transparent}
-body.jfs .jfs-bar select{min-height:36px;width:auto;max-width:130px;padding:2px 6px;font-size:.875rem}
+body.jfs .jfs-bar select{min-height:36px;width:auto;max-width:130px;padding:2px 6px;font-size:16px}
+body.jfs{overflow-x:hidden}
 body.jfs .card.flat.scroll.mscroll{max-height:calc(100vh - 48px)!important;max-height:calc(100dvh - 48px - env(safe-area-inset-bottom,0px))!important;margin:0!important;border-radius:0!important;border-left:0;border-right:0}
 @media (max-width:860px){
   .sess-bar{top:calc(57px + env(safe-area-inset-top,0px));margin-inline:-12px;padding:10px 12px 0}
@@ -2466,7 +2469,13 @@ function warnedOf(a) {                            // «предупреждён�
   const p = c.pendingSub || c.sub; if (!p) return null;
   const e = notifyState(p, 'end'); return e && !e.stale ? { at: e.at, pend: !!c.pendingSub } : null;
 }
-function warnedIc(w) { return w ? `<span class="wn-ic" title="${w.pend ? 'Предупреждён об оплате' : 'Предупреждён об окончании абонемента'} ${D.ru(w.at)}" aria-label="предупреждён ${D.ru(w.at)}">✉</span>` : ''; }
+function warnedIc(w, a) { const t = (a ? shortName(a) + ': ' : '') + (w ? (w.pend ? 'предупреждён об оплате' : 'предупреждён об окончании абонемента') + ' ' + D.ru(w.at) : '');   // нажатие — подсказка внизу (на телефоне title не показывается)
+  return w ? `<span class="wn-ic" role="button" tabindex="0" data-act="mark-info" data-txt="${h(t)}" title="${h(t)}" aria-label="${h(t)}">✉</span>` : ''; }
+function resetZoom() {                            // вернуть масштаб 100% (если страницу увеличили щипком или полем ввода)
+  const m = document.querySelector('meta[name=viewport]'); if (!m) return; const c0 = 'width=device-width, initial-scale=1, viewport-fit=cover';
+  m.setAttribute('content', c0 + ', maximum-scale=1'); setTimeout(() => m.setAttribute('content', c0), 400);
+}
+window.addEventListener('orientationchange', () => { if (document.body.classList.contains('jfs')) setTimeout(resetZoom, 300); });
 function noSubGap(a) {
   const c = a && ix.athCalc.get(a.id); if (!c || a.status !== 'занимается' || a.noSub || perVisitOn(a, ix.today)) return null;
   const s = c.subCalc; if (!c.sub || (+c.sub.count || 0) <= 1 || !s || s.terminated || s.notActive || c.nextSub || c.pendingSub || s.remaining !== 0 || !s.end) return null;
@@ -3096,7 +3105,7 @@ function markRow(s, a, showGroup) {
     nd ? `<button class="chip bad" style="border:0;cursor:pointer" data-act="brief-new" data-id="${a.id}" data-date="${s.date}" title="Отметить проведённый инструктаж">нет инструктажа${nd.kind === 'внеплановый' ? ' (перерыв)' : ''}</button>` : '',
     showGroup ? '<span class="chip muted">' + h(groupOn(a, s.date) || 'без группы') + '</span>' + (groupOn(a, s.date) && groupOn(a, s.date) !== s.group && m ? ` <button class="btn sm no-print" data-act="move-own" data-sid="${s.id}" data-aid="${a.id}">Перенести в «${h(groupOn(a, s.date))}»</button>` : '') : '',
     m === '+' && (trial || trialAllowed(a, s.date)) ? `<button class="btn sm${trial ? ' primary' : ''}" data-act="trial" data-sid="${s.id}" data-aid="${a.id}" aria-pressed="${trial}" title="Пробное занятие — оплачивается как разовое посещение; отметка для статистики">пробное</button>` : ''].filter(Boolean).join(' ');
-  return `<li class="mrow${m ? '' : ' unmarked'}"><div class="mrow-h">${beltHTML(ac.belt, ac.stripes)}<div class="who${warnedOf(a) ? ' wn' : ''}"><b>${h(shortName(a))}${warnedIc(warnedOf(a))}</b>${chips ? `<span class="row mchips">${chips}</span>` : ''}</div>
+  return `<li class="mrow${m ? '' : ' unmarked'}"><div class="mrow-h">${beltHTML(ac.belt, ac.stripes)}<div class="who${warnedOf(a) ? ' wn' : ''}"><b>${h(shortName(a))}${warnedIc(warnedOf(a), a)}</b>${chips ? `<span class="row mchips">${chips}</span>` : ''}</div>
     ${rb ? `<span class="rem${rb === 1 ? ' warn' : rb === 2 ? ' hl2' : ''}" title="Осталось занятий по абонементу"><b>${rb}</b><span>осталось</span></span>` : ''}</div>
     <div class="marks m${keys.length}" role="group" aria-label="Отметка: ${h(shortName(a))}">${keys.map(k => `<button class="mk${m === k ? ' on' : ''}" data-act="mark" data-sid="${s.id}" data-aid="${a.id}" data-m="${k}" aria-pressed="${m === k}" aria-label="${MARKS[k].label}"><b>${k}</b><span>${MARK_SHORT[k]}</span></button>`).join('')}</div></li>`;
 }
@@ -3172,12 +3181,12 @@ function monthView(tabs, groups) {
   const rows = (list, showGroup) => list.map(a => { const ms = sess.map(s => s.marks[a.id] || ''); const cnt = k => ms.filter(x => x === k).length; const L = lastOf(a);
     const off = sess.map(s => !showGroup && !inGroupOn(a, J.mgroup, s.date)); const per = showGroup ? '' : period(a); const ng = noSubGap(a), nsub = d => !!(ng && ng.ack && d > ng.end && d <= ix.today);   // №34
     const W = warnedOf(a);
-    return `<tr><td${W ? ' class="wn"' : ''}><span class="nm-f">${h(shortName(a))}</span><span class="nm-s">${h((a.last || '') + (a.first ? ' ' + a.first[0] + '.' : ''))}</span>${warnedIc(W)}${showGroup ? ' <span class="small muted">' + h(a.group || '') + '</span>' : ''}${per ? ' <span class="small muted mper">' + per + '</span>' : ''}</td>${ms.map((x, i) => { const lc = lastCell(a, L, sess[i]) || nextCell(a, L, sess[i]), mc = sess[i].missing && !off[i] ? ' miss-col' : ''; return `<td${off[i] || lc || mc ? ` class="${off[i] ? 'off' : ''}${mc}${lc}"` : ''}>${x ? `<span class="cell-m ${cls[x] || ''}">${h(x === 'б' && isBS(ix, a.id, sess[i].date) ? 'бс' : x)}</span>` : lc ? '<span class="cell-m m-none"></span>' : nsub(sess[i].date) && !off[i] ? '<span class="cell-m m-nosub" title="Абонемент закончился, новый не оплачен">—</span>' : ''}</td>`; }).join('')}<td class="num">${cnt('+')}</td><td class="num">${cnt('н')}</td><td class="num">${cnt('б')}</td></tr>`; }).join('');
+    return `<tr><td${W ? ' class="wn"' : ''}><span class="nm-f">${h(shortName(a))}</span><span class="nm-s">${h((a.last || '') + (a.first ? ' ' + a.first[0] + '.' : ''))}</span>${warnedIc(W, a)}${showGroup ? ' <span class="small muted">' + h(a.group || '') + '</span>' : ''}${per ? ' <span class="small muted mper">' + per + '</span>' : ''}</td>${ms.map((x, i) => { const lc = lastCell(a, L, sess[i]) || nextCell(a, L, sess[i]), mc = sess[i].missing && !off[i] ? ' miss-col' : ''; return `<td${off[i] || lc || mc ? ` class="${off[i] ? 'off' : ''}${mc}${lc}"` : ''}>${x ? `<span class="cell-m ${cls[x] || ''}">${h(x === 'б' && isBS(ix, a.id, sess[i].date) ? 'бс' : x)}</span>` : lc ? '<span class="cell-m m-none"></span>' : nsub(sess[i].date) && !off[i] ? '<span class="cell-m m-nosub" title="Абонемент закончился, новый не оплачен">—</span>' : ''}</td>`; }).join('')}<td class="num">${cnt('+')}</td><td class="num">${cnt('н')}</td><td class="num">${cnt('б')}</td></tr>`; }).join('');
   { const li = sess.map(s => s.date).filter(d => d <= ix.today).length - 1; render.monthFocus = li >= 0 ? li : 0; }   // прокрутка к сегодняшнему (последнему прошедшему) занятию
   return `<div class="jfs-bar no-print"><button class="btn" data-act="jmonth" data-m="${prev}" aria-label="Предыдущий месяц">←</button><b>${MONTHS[m - 1][0].toUpperCase() + MONTHS[m - 1].slice(1)} ${y}</b><button class="btn" data-act="jmonth" data-m="${next}" aria-label="Следующий месяц">→</button><select data-change="jmgroup" aria-label="Группа">${groups.map(g => opt(g, J.mgroup)).join('')}</select><span class="spacer"></span><button class="btn" data-act="jfs" aria-label="Выйти из полноэкранного режима">✕</button></div>
-  <div class="topline jm-top"><h1>Посещения — ${MONTHS[m - 1]} ${y}</h1>${tabs}</div>
+  <div class="topline jm-top"><h1>Посещения — ${MONTHS[m - 1]} ${y}</h1><div class="row jm-tabs">${tabs}<button class="btn show-m" data-act="jfs" title="Во весь экран" aria-label="Во весь экран">⛶</button><details class="menu show-m"><summary class="btn" aria-label="Другие действия">⋯</summary><div class="menu-pop"><button class="btn" data-act="print-blank">Бланк для печати</button></div></details></div></div>
   <div class="card no-print jm-ctl"><div class="row"><button class="btn" data-act="jmonth" data-m="${prev}">←</button><input type="month" id="j-month" value="${J.month}" style="width:auto" data-change="jmonth-input">
-  <button class="btn" data-act="jmonth" data-m="${next}">→</button><select data-change="jmgroup" style="width:auto">${groups.map(g => opt(g, J.mgroup)).join('')}</select><span class="spacer"></span><button class="btn primary hide-m" data-act="print-blank">Бланк для печати</button><button class="btn show-m" data-act="jfs" title="Во весь экран" aria-label="Во весь экран">⛶</button><details class="menu show-m"><summary class="btn" aria-label="Другие действия">⋯</summary><div class="menu-pop"><button class="btn" data-act="print-blank">Бланк для печати</button></div></details></div></div>
+  <button class="btn" data-act="jmonth" data-m="${next}">→</button><select data-change="jmgroup" style="width:auto">${groups.map(g => opt(g, J.mgroup)).join('')}</select><span class="spacer"></span><button class="btn primary hide-m" data-act="print-blank">Бланк для печати</button></div></div>
   <div class="print-only"><b>${h(db.settings.club)}</b> — журнал посещаемости: ${h(J.mgroup)}, ${MONTHS[m - 1]} ${y}</div>
   <div class="card flat scroll mscroll">${sess.length ? `<table class="t month">${head}<tbody>${rows(people, false) || `<tr><td colspan="${sess.length + 4}" class="muted">В группе нет занимающихся</td></tr>`}</tbody></table>`
     : '<div class="empty">В этом месяце у группы занятий нет.</div>'}</div>${sess.length ? '<p class="small muted ring-legend"><span class="last-sub-key"></span> — последнее занятие<span class="hide-m"> абонемента</span> <span class="next-paid-key"></span> — <span class="hide-m">следующий абонемент оплачен (первое занятие по нему); нажмите на кольцо — подробнее</span><span class="show-m">следующий оплачен</span> <span class="wn-ic" style="margin-left:10px">✉</span> <b style="color:var(--warned-nm)">Фамилия</b> — предупреждён</p>' : ''}
@@ -5604,7 +5613,7 @@ const ACT = {
   'nosub-ack': el => { const a = ix.ath.get(el.dataset.id), g = a && noSubGap(a); if (!g) return;   // №34
     db.attnDone = db.attnDone || {}; db.attnDone[g.key] = ix.today; render.keepScroll = true; persist(shortName(a) + ': отметки не спрашиваются до оплаты или прихода'); },
   'nosub-undo': el => { const a = ix.ath.get(el.dataset.id), g = a && noSubGap(a); if (!g || !db.attnDone) return; delete db.attnDone[g.key]; render.keepScroll = true; persist(shortName(a) + ': отметки снова спрашиваются'); },
-  'jfs': () => { ui.journal.fs = !ui.journal.fs; render(); },
+  'jfs': () => { ui.journal.fs = !ui.journal.fs; resetZoom(); render(); },
   'pause-date': el => { const a = db.athletes.find(x => x.id === el.dataset.id); if (!a) return;   // №28
     modal('Перерыв: ' + shortName(a), `<div class="fgrid">${F('from', 'На перерыве с', a.pauseFrom || ix.today, 'date', 'required')}</div>
       <p class="small muted">С этой даты человек не показывается в списке группы. Занятия по абонементу во время перерыва списываются, как и раньше.</p>`,
