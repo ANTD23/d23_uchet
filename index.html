@@ -219,7 +219,7 @@ table.t tr.pend:hover td,table.t tr.rem1:hover td,table.t tr.rem2:hover td{filte
 .cell-m.m-plus{background:var(--ok-bg);color:var(--ok)} .cell-m.m-n{background:var(--bad-bg);color:var(--bad)}
 .cell-m.m-b{background:var(--sick-bg);color:var(--sick)} .cell-m.m-o{background:var(--surface-2);color:var(--cancel);box-shadow:inset 0 0 0 1px var(--line)} .cell-m.m-s{background:var(--comp-bg);color:var(--comp)}
 .month td.last-sub,.month td.next-paid{cursor:pointer} .cell-m.ring-last{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--next-ring)} .cell-m.ring-next{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ok-fill)} .mlast .cell-m.ring-last,.mlast .cell-m.ring-next{margin:3px} .month td.last-sub .cell-m{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--next-ring)} .cell-m.m-none{background:none} .month td.next-paid .cell-m{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ok-fill)}   /* первое занятие следующего, уже оплаченного абонемента */   /* 16.10.2026: последнее занятие — оранжевое, первое по оплаченному — зелёное (решение владельца) */
-.next-paid-key{display:inline-block;width:14px;height:14px;vertical-align:-2px;border-radius:5px;margin-left:14px;box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ok-fill)} .month th.fut{color:var(--ink-3);font-weight:400} .month th.miss,.month th.miss a{color:var(--ink-2)} .month th.miss{background:var(--sunk)} .month td.miss-col{background:var(--sunk)}   /* занятие не внесено — серый столбец */ .ring-legend{margin:8px 12px} @media (max-width:860px){.ring-legend{margin:6px 4px 0;font-size:.75rem;line-height:1.3;white-space:nowrap}}   /* телефон: подпись к кольцам — одна короткая строка */
+.next-paid-key{display:inline-block;width:14px;height:14px;vertical-align:-2px;border-radius:5px;margin-left:14px;box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ok-fill)} .month th.fut{color:var(--ink-3);font-weight:400} .month th.miss,.month th.miss a{color:var(--ink-2)} .month th.miss{background:var(--sunk)} .month td.miss-col{background:var(--sunk)}   /* занятие не внесено — серый столбец */ .ring-legend{margin:8px 12px} @media (max-width:860px), (pointer:coarse) and (max-height:500px){.ring-legend{margin:6px 4px 0;font-size:.75rem;line-height:1.6;white-space:normal} .ring-legend .lg-i{white-space:nowrap;display:inline-block;margin-right:8px}}   /* телефон: подпись к кольцам — одна короткая строка */
 @media print{table.month tr td.next-paid .cell-m,p span.next-paid-key,.mlast span.cell-m.ring-next{outline-style:dashed!important}}   /* на бумаге: последнее — сплошная рамка, следующий оплачен — пунктир */   /* последнее занятие абонемента — зелёное кольцо вокруг отметки */
 .last-sub-key{display:inline-block;width:14px;height:14px;vertical-align:-2px;border-radius:5px;box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--next-ring)}
 @media print{.month td.last-sub .cell-m,.last-sub-key,.month td.next-paid .cell-m,.next-paid-key,.cell-m.ring-last,.cell-m.ring-next{outline:2px solid #000!important;outline-offset:2px;width:22px!important;height:20px!important;border-radius:6px}}
@@ -301,7 +301,7 @@ dialog form{display:flex;flex-direction:column;max-height:92vh}
 .pass{color:var(--ok);font-weight:600} .fail{color:var(--bad);font-weight:600}
 
 /* телефон */
-@media (max-width:860px){
+@media (max-width:860px), (pointer:coarse) and (max-height:500px){
   .shell{grid-template-columns:minmax(0,1fr)}
   .side{display:none}
   main{padding:12px 12px 104px}
@@ -348,7 +348,7 @@ dialog form{display:flex;flex-direction:column;max-height:92vh}
 }
 @media (max-width:400px){ .tabbar a{font-size:.6875rem;letter-spacing:-.01em} }
 .seg.full{display:grid;grid-template-columns:repeat(3,1fr);width:100%;max-width:480px} .seg.full button{white-space:normal;line-height:1.2;padding:4px 6px}
-@media (min-width:861px){ .show-m{display:none!important} }
+@media (min-width:861px) and (min-height:501px), (min-width:861px) and (pointer:fine){ .show-m{display:none!important} }
 
 /* печать */
 .print-only{display:none}
@@ -409,6 +409,7 @@ dialog form{display:flex;flex-direction:column;max-height:92vh}
 details.menu{position:relative}
 details.menu > summary{list-style:none} details.menu > summary::-webkit-details-marker{display:none}
 .menu-pop{position:absolute;right:0;top:calc(100% + 6px);max-width:calc(100vw - 24px);z-index:35;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow-2);padding:6px;display:flex;flex-direction:column;gap:2px;min-width:240px}
+details.menu:not([open]) > .menu-pop{display:none}   /* закрытое меню не занимает места (иначе страница на телефоне становится шире экрана) */
 .menu-pop .btn{justify-content:flex-start;border-color:transparent;background:transparent;width:100%}
 .menu-pop .btn:hover{background:var(--sunk)}
 details.legend-d{margin-bottom:12px}
@@ -431,7 +432,7 @@ details.legend-d .legend{padding:4px 0 6px}
 .actbar{display:none}
 .month td:first-child,.month th:first-child{position:sticky;left:0;z-index:1;background:var(--surface)}
 .month th:first-child{z-index:2;background:var(--surface-2)}
-@media (max-width:860px){                         /* телефон: таблица «Месяц» прокручивается внутри экрана — строка с датами прилипает сверху, ФИО — слева */
+@media (max-width:860px), (pointer:coarse) and (max-height:500px){                         /* телефон: таблица «Месяц» прокручивается внутри экрана — строка с датами прилипает сверху, ФИО — слева */
   .card.flat.scroll.mscroll{max-height:calc(100vh - 150px);max-height:calc(100dvh - 140px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));overflow:auto;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-x pan-y}   /* сильнее «.card.flat» (обрезка по вертикали) — иначе таблица не листается вниз */
   .mscroll .month thead th{position:sticky;top:0;z-index:3} .mscroll .month thead th:first-child{z-index:4}
 }
@@ -441,12 +442,12 @@ details.legend-d .legend{padding:4px 0 6px}
 .wn .nm-f,.wn .nm-s,.wn > b{color:var(--warned-nm);font-weight:700} .wn-ic{display:inline-grid;place-items:center;width:18px;height:18px;position:relative;border-radius:4px;background:var(--ok-fill);color:var(--on-fill,#fff);font-size:10px;font-weight:400;margin-left:4px;vertical-align:1px;cursor:help}   /* 17.10.2026: «предупреждён» — синяя фамилия и ✉ */
 .wn-ic::after{content:"";position:absolute;inset:-10px}   /* больше область нажатия на телефоне */
 @media print{.wn .nm-f,.wn .nm-s,.wn > b{color:#000!important} .wn-ic{background:none!important;color:#000!important;border:1px solid #000}}
-@media (max-width:860px){
+@media (max-width:860px), (pointer:coarse) and (max-height:500px){
   table.t.month .nm-f{display:none} table.t.month .nm-s{display:inline} table.t.month .mper{display:block;font-size:.7rem;line-height:1.1}
   table.t.month td,table.t.month th{padding:3px 2px} table.t.month .cell-m{width:22px;height:22px;font-size:.8rem;border-radius:5px}
   table.t.month td:first-child,table.t.month th:first-child{font-size:.8125rem;line-height:1.15;text-align:left;white-space:nowrap;padding-left:6px;padding-right:6px}
   table.t.month th{font-size:.75rem}
-  main .topline.jm-top{margin-bottom:6px;gap:6px} .jm-tabs{gap:6px;flex-wrap:nowrap} main .jm-tabs .btn,main .jm-tabs summary.btn{min-height:40px;padding:4px 10px} main .jm-top h1{font-size:1.05rem;margin:0}
+  main .topline.jm-top{margin-bottom:6px;gap:6px} .jm-tabs{gap:6px;flex-wrap:nowrap} .jm-tabs .menu-pop{left:auto;right:0} main .jm-tabs .btn,main .jm-tabs summary.btn{min-height:40px;padding:4px 10px} main .jm-top h1{font-size:1.05rem;margin:0}
   main .card.jm-ctl{padding:8px;margin-bottom:8px} main .jm-ctl .row{gap:6px;flex-wrap:wrap} main .jm-ctl .btn,main .jm-ctl select,main .jm-ctl input,main .jm-ctl summary.btn{min-height:38px;padding:4px 8px;font-size:16px}   /* не меньше 16px: иначе iPhone увеличивает страницу при нажатии на поле */
   main .jm-ctl input[type=month]{min-width:0;max-width:132px} main .jm-ctl select{min-width:0;max-width:120px}
 }
@@ -460,7 +461,7 @@ body.jfs .jfs-bar b{white-space:nowrap;font-size:.95rem} body.jfs .jfs-bar .btn{
 body.jfs .jfs-bar select{min-height:36px;width:auto;max-width:130px;padding:2px 6px;font-size:16px}
 body.jfs{overflow-x:hidden}
 body.jfs .card.flat.scroll.mscroll{max-height:calc(100vh - 48px)!important;max-height:calc(100dvh - 48px - env(safe-area-inset-bottom,0px))!important;margin:0!important;border-radius:0!important;border-left:0;border-right:0}
-@media (max-width:860px){
+@media (max-width:860px), (pointer:coarse) and (max-height:500px){
   .sess-bar{top:calc(57px + env(safe-area-inset-top,0px));margin-inline:-12px;padding:10px 12px 0}
   .jlist > li.mrow{padding:12px}
   .jlist .marks,.jlist .marks.m5{grid-template-columns:repeat(4,1fr);width:100%}
@@ -497,7 +498,7 @@ body.jfs .card.flat.scroll.mscroll{max-height:calc(100vh - 48px)!important;max-h
 .plan-in .plan-sec{overflow:visible}
 .plan-in .plan-sec > .plan-h{border-radius:var(--r) var(--r) 0 0}
 .pl-a{margin-top:8px}
-@media (max-width:860px){.attn-card .attn-sec{margin:4px 8px 10px} .qa{min-height:76px;font-size:.875rem}}
+@media (max-width:860px), (pointer:coarse) and (max-height:500px){.attn-card .attn-sec{margin:4px 8px 10px} .qa{min-height:76px;font-size:.875rem}}
 /* ===== карточка спортсмена и форма оплаты (этап 4) ===== */
 .person-card .person-head h1{margin:0;text-wrap:balance}
 .subbox{display:grid;grid-template-columns:auto 1fr;gap:2px 16px;align-items:center;padding:14px 16px;border-radius:var(--r);background:var(--sunk);margin-top:16px}
@@ -532,7 +533,7 @@ details.more-fields{margin-top:14px;border-top:1px solid var(--line);padding-top
 details.more-fields > summary{cursor:pointer;font-weight:600;color:var(--ink);min-height:var(--tap);display:flex;align-items:center}
 .pay-res{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border-radius:var(--r);background:var(--ok-bg);color:var(--ok);margin-bottom:14px}
 .pay-res span{color:var(--ink)}
-@media (max-width:860px){.contacts{margin:14px -14px -14px} .subbox .big{font-size:2.5rem}}
+@media (max-width:860px), (pointer:coarse) and (max-height:500px){.contacts{margin:14px -14px -14px} .subbox .big{font-size:2.5rem}}
 @media print{.subbox{background:none!important;border:1px solid #000}.contacts{margin:8px 0 0}}
 /* ===== окна подтверждения и сообщений (этап 5) ===== */
 dialog.ask{border:0;border-radius:16px;padding:0;width:min(480px,94vw);background:var(--surface);color:var(--ink);box-shadow:var(--shadow-2)}
@@ -544,7 +545,7 @@ dialog.ask::backdrop{background:rgba(8,12,16,.55)}
 .ask-f .btn{min-width:120px;min-height:48px;font-size:1rem}
 .btn.danger-fill{background:var(--bad-fill);border-color:var(--bad-fill);color:var(--on-fill)}
 .btn.danger-fill:hover{filter:brightness(1.08);background:var(--bad-fill)}
-@media (max-width:860px){dialog.ask{width:100%;max-width:100%;margin:auto 0 0;border-radius:20px 20px 0 0}.ask-f{padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}.ask-f .btn{flex:1}}
+@media (max-width:860px), (pointer:coarse) and (max-height:500px){dialog.ask{width:100%;max-width:100%;margin:auto 0 0;border-radius:20px 20px 0 0}.ask-f{padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}.ask-f .btn{flex:1}}
 /* экран PIN */
 .pin-screen{max-width:440px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:24px 16px}
 .pin-screen .card{padding:24px}
@@ -561,7 +562,7 @@ dialog.ask::backdrop{background:rgba(8,12,16,.55)}
   background-image:linear-gradient(to right,var(--surface) 30%,transparent),linear-gradient(to left,var(--surface) 30%,transparent),radial-gradient(farthest-side at 0 50%,rgba(0,0,0,.22),transparent),radial-gradient(farthest-side at 100% 50%,rgba(0,0,0,.22),transparent);
   background-position:left center,right center,left center,right center;background-repeat:no-repeat;background-size:40px 100%,40px 100%,14px 100%,14px 100%;background-attachment:local,local,scroll,scroll}
 .scroll table.t td,.card.flat > table.t td{background-clip:padding-box}
-@media (max-width:860px){.list .who b{white-space:normal;overflow-wrap:anywhere}}
+@media (max-width:860px), (pointer:coarse) and (max-height:500px){.list .who b{white-space:normal;overflow-wrap:anywhere}}
 @media print{.scroll,.card.flat.scroll,.card.flat:has(> table){background:none!important;overflow:visible!important}}
 /* ===== взвешивания и категории турниров ===== */
 details.weigh-prev{margin-top:4px} details.weigh-prev > summary,details.weigh-add > summary{cursor:pointer;color:var(--sick);font-size:.9375rem;min-height:36px;display:inline-flex;align-items:center}
@@ -608,7 +609,7 @@ details.tcard.up[open]::before{background:linear-gradient(180deg,var(--accent-bt
 .tbody .tacts{padding:12px 16px 4px}
 .tbody .tscheme{padding:4px 16px 10px}
 .tbody ul.tp-cards{border-top:0;margin-top:4px}
-@media (max-width:860px){details.tcard > summary{gap:12px;padding:14px 12px 14px 16px}.tdate{width:56px;height:62px}.tdate b{font-size:1.5rem}.tname{font-size:1.0625rem}}
+@media (max-width:860px), (pointer:coarse) and (max-height:500px){details.tcard > summary{gap:12px;padding:14px 12px 14px 16px}.tdate{width:56px;height:62px}.tdate b{font-size:1.5rem}.tname{font-size:1.0625rem}}
 @media print{details.tcard{box-shadow:none;border:1px solid #000;break-inside:avoid}details.tcard > summary::before,.tchev{display:none}.tdate{background:none!important;color:#000!important;box-shadow:inset 0 0 0 1px #000}}
 .tp-li > .who{flex:1 1 220px;min-width:0}
 /* участники турнира — отдельные карточки */
@@ -1789,6 +1790,7 @@ const ui = {
   leads: { filter: 'active', q: '', from: null, to: null, per: 'year' },
   money: { from: null, to: null, per: 'month', kind: 'all', acc: 'all', cat: 'all', q: '', year: '' },
 };
+const PHONE_MQ = matchMedia('(max-width:860px), (pointer:coarse) and (max-height:500px)');   // телефонная раскладка (и телефон горизонтально)
 const h = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const $ = (s, el = document) => el.querySelector(s);
 const opt = (v, cur, label) => `<option value="${h(v)}"${String(v) === String(cur) ? ' selected' : ''}>${h(label ?? v)}</option>`;
@@ -2475,7 +2477,7 @@ function resetZoom() {                            // вернуть масшта
   const m = document.querySelector('meta[name=viewport]'); if (!m) return; const c0 = 'width=device-width, initial-scale=1, viewport-fit=cover';
   m.setAttribute('content', c0 + ', maximum-scale=1'); setTimeout(() => m.setAttribute('content', c0), 400);
 }
-window.addEventListener('orientationchange', () => { if (document.body.classList.contains('jfs')) setTimeout(resetZoom, 300); });
+window.addEventListener('orientationchange', () => { if (route().v === 'journal') setTimeout(resetZoom, 300); });   // поворот телефона в журнале — масштаб 100%
 function noSubGap(a) {
   const c = a && ix.athCalc.get(a.id); if (!c || a.status !== 'занимается' || a.noSub || perVisitOn(a, ix.today)) return null;
   const s = c.subCalc; if (!c.sub || (+c.sub.count || 0) <= 1 || !s || s.terminated || s.notActive || c.nextSub || c.pendingSub || s.remaining !== 0 || !s.end) return null;
@@ -3189,7 +3191,7 @@ function monthView(tabs, groups) {
   <button class="btn" data-act="jmonth" data-m="${next}">→</button><select data-change="jmgroup" style="width:auto">${groups.map(g => opt(g, J.mgroup)).join('')}</select><span class="spacer"></span><button class="btn primary hide-m" data-act="print-blank">Бланк для печати</button></div></div>
   <div class="print-only"><b>${h(db.settings.club)}</b> — журнал посещаемости: ${h(J.mgroup)}, ${MONTHS[m - 1]} ${y}</div>
   <div class="card flat scroll mscroll">${sess.length ? `<table class="t month">${head}<tbody>${rows(people, false) || `<tr><td colspan="${sess.length + 4}" class="muted">В группе нет занимающихся</td></tr>`}</tbody></table>`
-    : '<div class="empty">В этом месяце у группы занятий нет.</div>'}</div>${sess.length ? '<p class="small muted ring-legend"><span class="last-sub-key"></span> — последнее занятие<span class="hide-m"> абонемента</span> <span class="next-paid-key"></span> — <span class="hide-m">следующий абонемент оплачен (первое занятие по нему); нажмите на кольцо — подробнее</span><span class="show-m">следующий оплачен</span> <span class="wn-ic" style="margin-left:10px">✉</span> <b style="color:var(--warned-nm)">Фамилия</b> — предупреждён</p>' : ''}
+    : '<div class="empty">В этом месяце у группы занятий нет.</div>'}</div>${sess.length ? '<p class="small muted ring-legend"><span class="lg-i"><span class="last-sub-key"></span> — последнее занятие<span class="hide-m"> абонемента</span></span> <span class="lg-i"><span class="next-paid-key"></span> — <span class="hide-m">следующий абонемент оплачен (первое занятие по нему); нажмите на кольцо — подробнее</span><span class="show-m">следующий оплачен</span></span> <span class="lg-i"><b style="color:var(--warned-nm)">Фамилия</b> <span class="wn-ic">✉</span> — предупреждён</span></p>' : ''}
   ${guests.length ? `<details class="card flat no-print"><summary style="padding:12px 16px;cursor:pointer"><b>Из других групп на занятиях этой группы: ${guests.length}</b> <span class="small muted">— если человек попал сюда по ошибке, откройте занятие по дате и проверьте группу</span></summary><div class="scroll"><table class="t month">${head}<tbody>${rows(guests, true)}</tbody></table></div></details>` : ''}`;
 }
 
@@ -3230,7 +3232,7 @@ function vPeople() {
   return `<div class="topline"><div><h1>Спортсмены</h1><div class="muted">${list.length} из ${db.athletes.length}</div></div>
     <div class="row no-print"><button class="btn" data-act="reset-filters" data-page="people">Сбросить фильтры</button><button class="btn primary" data-act="person-new">Добавить</button><button class="btn" data-act="people-print">Печать списка</button><button class="btn" data-act="people-entry">Список для заявки</button><button class="btn" data-act="weigh-list">Взвешивание</button><button class="btn" data-act="people-csv" data-fmt="xlsx">В Excel</button><button class="btn" data-act="people-csv">CSV</button></div></div>
   <div class="card no-print"><input type="search" placeholder="Поиск: фамилия, имя, родитель, телефон" data-change="pf" data-k="q" value="${h(F.q)}" style="margin-bottom:10px">
-  <details class="filt" ${window.innerWidth > 860 || ui.peopleFiltOpen ? 'open' : ''} data-filt><summary>Фильтры${['group', 'belt', 'sex'].some(k => F[k] !== 'все') || F.status !== 'занимается' || F.ageFrom || F.ageTo || F.yFrom || F.yTo ? ' (включены)' : ''}</summary>
+  <details class="filt" ${!PHONE_MQ.matches || ui.peopleFiltOpen ? 'open' : ''} data-filt><summary>Фильтры${['group', 'belt', 'sex'].some(k => F[k] !== 'все') || F.status !== 'занимается' || F.ageFrom || F.ageTo || F.yFrom || F.yTo ? ' (включены)' : ''}</summary>
   <div class="filters">${sel('status', ['все', ...S.statuses], 'Статус')}${sel('group', ['все', ...S.groups.map(g => g.name)], 'Группа')}${sel('belt', ['все', ...S.belts], 'Пояс')}${sel('sex', ['все', 'М', 'Ж'], 'Пол')}
   ${sel('ageMode', ['сейчас', 'на дату соревнований', 'на 31.12'], 'Возраст считать')}${num('ageFrom', 'Возраст от', '0')}${num('ageTo', 'Возраст до', '99')}${num('yFrom', 'Год рожд. от', '2008')}${num('yTo', 'Год рожд. до', '2020')}
   ${sel('sort', ['name', 'age', 'group'], 'Сортировка').replace('>name<', '>по фамилии<').replace('>age<', '>по возрасту<').replace('>group<', '>по группе<')}</div></details>
@@ -3517,7 +3519,7 @@ function modal(title, body, { submit = 'Сохранить', onSubmit, extraBtn 
   d.showModal();
   const asel = d.querySelector('.dlg-b select[name=athleteId]'); if (asel) athleteSearch(asel);
   const first = d.querySelector('.dlg-b input:not([type=hidden]),.dlg-b select,.dlg-b textarea');
-  if (first && window.innerWidth > 860) first.focus();
+  if (first && !PHONE_MQ.matches) first.focus();
 }
 function athleteSearch(sel) {                     // поиск по фамилии/имени вместо прокрутки длинного списка
   const lab = sel.closest('label') || sel, norm = t => String(t).toLowerCase().replace(/ё/g, 'е');
