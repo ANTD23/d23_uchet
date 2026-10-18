@@ -452,6 +452,11 @@ details.legend-d .legend{padding:4px 0 6px}
   main .jm-ctl input[type=month]{min-width:0;max-width:132px} main .jm-ctl select{min-width:0;max-width:120px}
 }
 @media (max-width:380px){ main .jm-ctl input[type=month]{max-width:118px} main .jm-ctl select{max-width:96px} main .jm-ctl .btn{padding:4px 6px} }
+@media (max-width:860px), (pointer:coarse) and (max-height:500px){   /* 18.10.2026: в строках списков фамилия не сжимается в узкую колонку — кнопки и метки уходят на следующую строку */
+  .list > li{flex-wrap:wrap} .list > li > .who{flex:1 1 170px}
+  #gm-list .list > li > .who{flex:1 1 100%}
+  .contact{flex-wrap:wrap} .contact > .who{flex:1 1 190px}
+}
 @media print{.month .nm-f{display:inline!important} .month .nm-s{display:none!important}}
 .jfs-bar{display:none}
 body.jfs .mtop,body.jfs .tabbar,body.jfs .side,body.jfs .jm-top,body.jfs .jm-ctl,body.jfs .ring-legend{display:none!important}
@@ -749,7 +754,7 @@ function buildIndex(db, today) {
     for (const [aid, m] of Object.entries(s.marks || {})) {
       if (!m) continue;
       if (!ix.marks.has(aid)) ix.marks.set(aid, []);
-      ix.marks.get(aid).push({ date: s.date, group: s.group, mark: m, sid: s.id, trial: !!(s.trial && s.trial[aid]) });
+      ix.marks.get(aid).push({ date: s.date, group: s.group, mark: m, sid: s.id, trial: !!(s.trial && s.trial[aid]), trialV: (s.trial && s.trial[aid]) || '' });
     }
   }
   const push = (map, k, v) => { if (!map.has(k)) map.set(k, []); map.get(k).push(v); };
@@ -842,18 +847,24 @@ function subFirst(ix, p) { return ix.subFirst ? ix.subFirst.get(p.id) || null : 
    а если посещения не было — автоматически на 30-й календарный день с даты оплаты (9.2.2).
    Абонементы одного человека расходуются по очереди: следующий может активироваться
    только после окончания предыдущего. */
+/* №38: пробное — платное или бесплатное. По умолчанию — настройка «Пробное бесплатное с даты» (settings.trialFree = {on, from});
+   у конкретного занятия можно поменять: s.trial[id] = 'free' | 'paid' (true — как в настройке). Бесплатное пробное не списывается и не долг */
+function trialIsFree(S, v, date) {
+  if (v === 'free') return true; if (!v || v === 'paid') return false;
+  const P = S && S.trialFree; return !!(P && P.on && (!P.from || date >= P.from));
+}
 function computeSubs(ix) {
   ix.subCalc = new Map(); ix.subFirst = new Map(); ix.unpaid = new Map();
   const cutoff = ix.db.settings.sickCheckFrom || '';           // посещения до переноса из Excel не проверяем
   for (const a of ix.db.athletes) {                            // посещения у тех, у кого абонементов нет вовсе
     if (ix.subsByAth.has(a.id)) continue;
-    const l = (ix.marks.get(a.id) || []).filter(m => m.mark === '+' && m.date >= cutoff).map(m => m.date);
+    const l = (ix.marks.get(a.id) || []).filter(m => m.mark === '+' && m.date >= cutoff && !(m.trial && trialIsFree(ix.db.settings, m.trialV, m.date))).map(m => m.date);
     if (l.length) ix.unpaid.set(a.id, l);
   }
   for (const [aid, all] of ix.subsByAth) {
     const chains = new Map();
     for (const p of all) { const k = p.onlyGroup || ''; if (!chains.has(k)) chains.set(k, []); chains.get(k).push(p); }
-    const shared = withBlankCells(ix, aid, (ix.marks.get(aid) || []).map(m => ({ ...m, used: false })));   // одна отметка — одно списание на все цепочки
+    const shared = withBlankCells(ix, aid, (ix.marks.get(aid) || []).map(m => ({ ...m, used: !!(m.trial && trialIsFree(ix.db.settings, m.trialV, m.date)) })));   // №38: бесплатное пробное — не списывается и не долг   // одна отметка — одно списание на все цепочки
     const hasMain = chains.has('');
     const order = [...chains.keys()].sort((a, b) => (a === '') - (b === ''));       // сначала «только на группу», основной последним
     for (const og of order) calcChain(ix, aid, og, chains.get(og), shared, hasMain);
@@ -1498,7 +1509,7 @@ function moneyItems(d) {
     const c = finCat(d, o.kind, o.cat);
     out.push({ src: 'op', id: o.id, aid: o.aid || '', date: o.date || '', kind: o.kind, cat: o.cat || '', amount: +o.amount || 0, refund: +o.refund || 0, refundAt: o.refundAt || '', refundAcc: o.refundAcc || o.acc || '',
       acc: o.acc || '', to: o.to || '', payer: o.payer || '', check: o.check || '', group: o.group || '', coach: o.coach || '', period: o.period || '', rec: o.rec || '', note: o.note || '', anon: !!o.anon,
-      tax: o.kind === 'in' && !c.nonop && !!c.tax, nonop: !!c.nonop });
+      tax: o.kind === 'in' && !c.nonop && !!c.tax && o.noCheck !== 'notax', nonop: !!c.nonop, noCheck: o.kind === 'in' && o.noCheck || '' });   // №37: «чек не нужен»
   }
   return out.sort((x, y) => x.date < y.date ? -1 : x.date > y.date ? 1 : 0);
 }
@@ -1586,7 +1597,7 @@ function yearIncome(d, year, items = moneyItems(d)) {   // доход за го�
 /* оплаты, по которым чек в «Мой налог» не отмечен (наличные — чек сразу; перевод — не позднее 9-го числа следующего месяца) */
 function uncheckedItems(d, items = moneyItems(d), today = '') {
   const F = finS(d); if (!F.start || F.checks === false) return [];
-  return items.filter(x => x.kind === 'in' && x.tax && !x.check && x.date >= F.start && x.amount - x.refund > 0)
+  return items.filter(x => x.kind === 'in' && x.tax && !x.check && !x.noCheck && x.date >= F.start && x.amount - x.refund > 0)
     .map(x => { const cash = !!(F.accounts.find(A => A.id === x.acc) || {}).cash, by = cash ? x.date : ymAdd(ymOf(x.date), 1) + '-09';
       return { ...x, checkBy: by, late: !!today && by < today }; });
 }
@@ -3106,7 +3117,8 @@ function markRow(s, a, showGroup) {
     m === 'б' && isBS(ix, a.id, s.date) ? '<span class="chip ok">бс · справка</span>' : sickOn(a.id, s.date) ? '<span class="chip sick">болеет</span>' : '',
     nd ? `<button class="chip bad" style="border:0;cursor:pointer" data-act="brief-new" data-id="${a.id}" data-date="${s.date}" title="Отметить проведённый инструктаж">нет инструктажа${nd.kind === 'внеплановый' ? ' (перерыв)' : ''}</button>` : '',
     showGroup ? '<span class="chip muted">' + h(groupOn(a, s.date) || 'без группы') + '</span>' + (groupOn(a, s.date) && groupOn(a, s.date) !== s.group && m ? ` <button class="btn sm no-print" data-act="move-own" data-sid="${s.id}" data-aid="${a.id}">Перенести в «${h(groupOn(a, s.date))}»</button>` : '') : '',
-    m === '+' && (trial || trialAllowed(a, s.date)) ? `<button class="btn sm${trial ? ' primary' : ''}" data-act="trial" data-sid="${s.id}" data-aid="${a.id}" aria-pressed="${trial}" title="Пробное занятие — оплачивается как разовое посещение; отметка для статистики">пробное</button>` : ''].filter(Boolean).join(' ');
+    m === '+' && (trial || trialAllowed(a, s.date)) ? `<button class="btn sm${trial ? ' primary' : ''}" data-act="trial" data-sid="${s.id}" data-aid="${a.id}" aria-pressed="${trial}" title="Пробное занятие — оплачивается как разовое посещение; отметка для статистики">пробное</button>` : '',
+    m === '+' && trial ? `<button class="btn sm" data-act="trial-pay" data-sid="${s.id}" data-aid="${a.id}" title="Нажмите, чтобы поменять для этого занятия">${trialIsFree(db.settings, s.trial[a.id], s.date) ? 'бесплатно' : 'платно'}</button>` : ''].filter(Boolean).join(' ');
   return `<li class="mrow${m ? '' : ' unmarked'}"><div class="mrow-h">${beltHTML(ac.belt, ac.stripes)}<div class="who${warnedOf(a) ? ' wn' : ''}"><b>${h(shortName(a))}${warnedIc(warnedOf(a), a)}</b>${chips ? `<span class="row mchips">${chips}</span>` : ''}</div>
     ${rb ? `<span class="rem${rb === 1 ? ' warn' : rb === 2 ? ' hl2' : ''}" title="Осталось занятий по абонементу"><b>${rb}</b><span>осталось</span></span>` : ''}</div>
     <div class="marks m${keys.length}" role="group" aria-label="Отметка: ${h(shortName(a))}">${keys.map(k => `<button class="mk${m === k ? ' on' : ''}" data-act="mark" data-sid="${s.id}" data-aid="${a.id}" data-m="${k}" aria-pressed="${m === k}" aria-label="${MARKS[k].label}"><b>${k}</b><span>${MARK_SHORT[k]}</span></button>`).join('')}</div></li>`;
@@ -4159,6 +4171,8 @@ function vSettings() {
   <label class="f wide"><span>Пояса (по одному в строке, по порядку)</span><textarea data-change="belts" style="min-height:120px">${h(S.belts.join('\n'))}</textarea></label></div></div>
   <div class="card"><h2>Цены (Приложение № 1 к оферте)</h2><p class="small muted">По ним программа подставляет сумму в окне оплаты: на ${S.prices.count} занятий — детский тариф, если на дату оплаты ещё нет ${S.prices.kidUnder} лет (Положение о льготах, п. 3.1), иначе базовый; одно занятие — разовое посещение. Сумму в окне оплаты можно изменить — по договорённости.</p>
   <div class="fgrid">${L('Разовое посещение, ₽', inp('prices.single', S.prices.single, 'number', 'min="0" step="10"'))}${L('Абонемент на ' + S.prices.count + ' занятий, ₽', inp('prices.sub', S.prices.sub, 'number', 'min="0" step="10"'))}${L('Детский абонемент, ₽', inp('prices.subKid', S.prices.subKid, 'number', 'min="0" step="10"'))}${L('Детский — пока не исполнилось, лет', inp('prices.kidUnder', S.prices.kidUnder, 'number', 'min="1" max="18"'))}</div></div>
+  <div class="card"><h2>Пробное занятие</h2><div class="fgrid"><label class="row wide" style="gap:8px"><input type="checkbox" data-change="trialfree" data-k="on" ${S.trialFree && S.trialFree.on ? 'checked' : ''} style="width:20px;height:20px"><span><b>Пробное занятие бесплатное</b></span></label>${L('С даты', `<input type="date" data-change="trialfree" data-k="from" value="${h((S.trialFree && S.trialFree.from) || '')}">`)}</div>
+  <p class="small muted">Выключено — пробное платное, как разовое посещение. Включено — с этой даты отметка «пробное» не создаёт долга и не списывается; прежние пробные считаются как были. У конкретного занятия можно поменять кнопкой «платно / бесплатно» рядом с «пробное». Если меняете правило — поменяйте и оферту.</p></div>
   <div class="card"><h2>Заявки</h2><div class="fgrid"><label class="f wide"><span>Откуда узнают о клубе (по одному в строке)</span><textarea data-change="sources" style="min-height:110px">${h((S.sources || []).join('\n'))}</textarea></label>${L('Обезличивать заявки без договора через, мес.', inp('leadsKeep', S.leadsKeep, 'number', 'min="1" max="36"'))}</div></div>
   <div class="card"><h2>Шаблоны сообщений</h2><p class="small muted">Подстановки: {имя}, {фи}, {фио}, {остаток}, {долг}, {занятий}, {дата_начала}, {дата_окончания}, {срок_оплаты}, {группа}.</p>
   ${S.templates.map((t, i) => `<fieldset><legend>${h(t.title)}</legend><input type="text" data-change="tpl" data-i="${i}" data-k="title" value="${h(t.title)}" style="margin-bottom:6px"><textarea data-change="tpl" data-i="${i}" data-k="text">${h(t.text)}</textarea><button class="btn sm danger" data-act="tpl-del" data-i="${i}" style="margin-top:6px">Удалить шаблон</button></fieldset>`).join('')}
@@ -4192,7 +4206,7 @@ function moneyRowHTML(x, mobile) {
   const t = itemText(x), s = sign(x), col = s > 0 ? 'var(--ok)' : s < 0 ? 'var(--bad)' : 'var(--muted)';
   const amt = `<b class="num" style="color:${col};white-space:nowrap">${s > 0 ? '+' : s < 0 ? '−' : ''}${rubN(x.amount)}</b>${x.refund ? `<div class="small muted" style="white-space:nowrap">возврат −${rubN(x.refund)}</div>` : ''}`;
   const act = (x.kind === 'refund' || x.src === 'ref') && ix.ath.get(x.aid) ? `data-act="refund-acc" data-id="${h(x.aid)}"` : x.src === 'sub' ? `data-act="sub-edit" data-id="${h(x.id)}"` : x.src === 'ref' ? '' : `data-act="op-edit" data-id="${h(x.id)}"`;
-  const chk = x.kind === 'in' && x.tax && finS(db).checks !== false && x.date >= (finS(db).start || '9999') ? (x.check ? '<span class="chip ok" title="Чек в «Мой налог» выбит">чек</span>' : '<span class="chip warn" title="Чек в «Мой налог» не отмечен">нет чека</span>') : '';
+  const chk = x.kind === 'in' && x.noCheck ? `<span class="chip muted" title="${x.noCheck === 'notax' ? 'Доход не от профессиональной деятельности — не облагается налогом, чек не нужен' : 'Чек оформлен отдельно'}">без чека</span>` : x.kind === 'in' && x.tax && finS(db).checks !== false && x.date >= (finS(db).start || '9999') ? (x.check ? '<span class="chip ok" title="Чек в «Мой налог» выбит">чек</span>' : '<span class="chip warn" title="Чек в «Мой налог» не отмечен">нет чека</span>') : '';
   if (mobile) return `<li class="click" ${act}><div class="who"><b>${h(t.title)}</b><span class="small">${[D.short(x.date), x.kind === 'move' ? '' : accName(x.acc), t.sub].filter(Boolean).map(h).join(' · ')}</span></div><div style="text-align:right">${amt}${chk ? '<div>' + chk + '</div>' : ''}</div></li>`;
   return `<tr class="click" ${act}><td class="num">${D.ru(x.date)}</td><td><b>${h(t.title)}</b>${t.sub ? `<div class="small muted">${h(t.sub)}</div>` : ''}</td><td class="small">${h(x.kind === 'move' ? accName(x.acc) + ' → ' + accName(x.to) : accName(x.acc))}</td><td class="r">${amt}</td><td>${chk}</td></tr>`;
 }
@@ -4423,7 +4437,8 @@ function openOp(id, pre = {}) {
     <label class="f" data-show="salary tax"><span>За месяц</span><input type="month" name="period" value="${h(v.period || ymOf(ymAdd(ymOf(ix.today), -1) + '-01'))}"></label>` : ''}
   ${kind === 'in' && !auto ? `<label class="f"><span>От кого (необязательно)</span><select name="aid">${[['', '—'], ...athleteOptions(v.aid, () => true)].map(([k, l]) => opt(k, v.aid, l)).join('')}</select></label>` : ''}
   ${kind === 'in' && S.orgs ? FS('payer', 'Плательщик', [['', 'физическое лицо'], ['org', 'организация или ИП']], v.payer) : ''}
-  ${kind === 'in' && S.checks !== false ? `<label class="row wide" data-show-tax style="gap:8px"><input type="checkbox" name="check" ${v.check ? 'checked' : ''} style="width:20px;height:20px"><span>Чек в «Мой налог» выбит</span></label>` : ''}
+  ${kind === 'in' && !auto ? `<label class="f wide" data-show-tax><span>Чек</span><select name="noCheck">${[['', 'нужен — доход от занятий и услуг клуба'], ['notax', 'не нужен — доход не от профессиональной деятельности (не облагается налогом)'], ['separate', 'не нужен — чек оформлен отдельно (в налог входит)']].map(([k, l]) => opt(k, v.noCheck || '', l)).join('')}</select></label>` : ''}
+  ${kind === 'in' && S.checks !== false ? `<label class="row wide" data-show-tax data-need-check style="gap:8px"><input type="checkbox" name="check" ${v.check ? 'checked' : ''} style="width:20px;height:20px"><span>Чек в «Мой налог» выбит</span></label>` : ''}
   <label class="f wide"><span>Примечание</span><input type="text" name="note" value="${h(v.note)}" placeholder="${kind === 'out' ? 'например: счёт за сентябрь' : kind === 'move' ? 'например: сдал наличные на карту' : ''}"></label></div>
   ${rec ? `<p class="small muted">Регулярный платёж: ${h(finCat(db, 'out', rec.cat).name)}, ${rub(rec.amount)} до ${rec.day}-го числа.</p>` : ''}`;
   modal(o ? T[kind] : 'Новая операция: ' + T[kind].toLowerCase(), body, {
@@ -4442,6 +4457,7 @@ function openOp(id, pre = {}) {
       if (kind === 'in' && !auto) { t.aid = fd.aid || ''; }
       if (kind === 'in' && S.orgs) t.payer = fd.payer || '';
       if (kind === 'in' && S.checks !== false && 'check' in fd) t.check = fd.check ? (t.check || ix.today) : '';
+      if (kind === 'in' && !auto) { t.noCheck = ['notax', 'separate'].includes(fd.noCheck) ? fd.noCheck : ''; if (t.noCheck) t.check = ''; }   // №37
       if (!o && v.rec) { t.rec = v.rec; t.period = v.period; }
       for (const k of Object.keys(t)) if (t[k] === '' || t[k] == null) delete t[k];
       if (!o) db.ops.push(t);
@@ -4450,8 +4466,9 @@ function openOp(id, pre = {}) {
   const d = document.getElementById('dlg'), cs = d.querySelector('select[name=cat]');
   const sync = () => { const c = cs ? cs.value : v.cat, ci = finCat(db, kind, c);
     d.querySelectorAll('[data-show]').forEach(el => { el.style.display = el.dataset.show.split(' ').includes(c) ? '' : 'none'; });
-    d.querySelectorAll('[data-show-tax]').forEach(el => { el.style.display = kind === 'in' && ci.tax && !ci.nonop ? '' : 'none'; }); };
-  if (cs) cs.addEventListener('change', sync); sync();
+    d.querySelectorAll('[data-show-tax]').forEach(el => { el.style.display = kind === 'in' && ci.tax && !ci.nonop ? '' : 'none'; });
+    const nc = d.querySelector('[name=noCheck]'); if (nc && nc.value) d.querySelectorAll('[data-need-check]').forEach(el => { el.style.display = 'none'; }); };
+  if (cs) cs.addEventListener('change', sync); { const nc = d.querySelector('[name=noCheck]'); if (nc) nc.addEventListener('change', sync); } sync();
   const am = d.querySelector('[name=amount]'), co = d.querySelector('[name=coach]'), pe = d.querySelector('[name=period]');
   const fillPay = () => { if (o || !cs || am.dataset.touched) return; const c = cs.value;
     if (c === 'salary' && co && co.value && pe && pe.value) { const C = S.coaches.find(x => x.id === co.value); if (C) { const m = coachMonth(db, ix, C, pe.value, finItems()); am.value = m.left > 0 ? m.left : ''; } }
@@ -5733,7 +5750,11 @@ const ACT = {
   'trial': el => { const s = db.sessions.find(x => x.id === el.dataset.sid); if (!s) return; const aid = el.dataset.aid;
     s.trial = s.trial || {}; if (s.trial[aid]) delete s.trial[aid]; else s.trial[aid] = true;
     if (!Object.keys(s.trial).length) delete s.trial;
-    render.keepScroll = true; persist(s.trial && s.trial[aid] ? 'Отмечено пробное занятие' : 'Отметка «пробное» снята'); },
+    render.keepScroll = true; persist(s.trial && s.trial[aid] ? 'Отмечено пробное занятие — ' + (trialIsFree(db.settings, true, s.date) ? 'бесплатное' : 'платное') + ' (по настройке)' : 'Отметка «пробное» снята'); },
+  'trial-pay': el => { const s = db.sessions.find(x => x.id === el.dataset.sid), aid = el.dataset.aid; if (!s || !s.trial || !s.trial[aid]) return;   // №38: платно ↔ бесплатно у этого занятия
+    const nowFree = trialIsFree(db.settings, s.trial[aid], s.date), def = trialIsFree(db.settings, true, s.date);
+    s.trial[aid] = !nowFree === def ? true : (!nowFree ? 'free' : 'paid');
+    render.keepScroll = true; persist('Пробное ' + D.ru(s.date) + ': ' + (!nowFree ? 'бесплатное — не списывается' : 'платное — как разовое посещение')); },
   'print-nopublish': () => printNoPublish(),
   'tourn-show': el => { meta.tournShow = Object.assign({ n: '5', y: '' }, meta.tournShow || {}, { [el.dataset.k]: el.dataset.v }); writeMeta(); rerender(); },
   'tourn-report': el => openTournReport(el.dataset.id), 'tcat-edit': el => openTournCats(el.dataset.id, el.dataset.aid),
@@ -5955,6 +5976,10 @@ async function onChange(e) {
     render.keepScroll = true; persist();
   }
   else if (k === 'norm') { const n = db.settings.norms[+el.dataset.i]; const num = !['track', 'sex', 'pullKind', 'pushKind'].includes(el.dataset.k); n[el.dataset.k] = num ? (v === '' ? null : +v) : v.trim(); render.keepScroll = true; persist(); }
+  else if (k === 'trialfree') { const S = db.settings; S.trialFree = Object.assign({ on: false, from: '' }, S.trialFree || {});   // №38
+    if (el.dataset.k === 'on') { S.trialFree.on = el.checked; if (el.checked && !S.trialFree.from) S.trialFree.from = ix.today; } else S.trialFree.from = v || '';
+    if (!S.trialFree.on && !S.trialFree.from) delete S.trialFree;
+    rerender(); persist(S.trialFree && S.trialFree.on ? 'Пробное занятие бесплатное с ' + D.ru(S.trialFree.from || ix.today) : 'Пробное занятие платное'); }
   else if (k === 'set') { const numPaths = ['attest.threshold', 'attest.minTournaments', 'attest.tournamentsMaxAge', 'attest.attendMaxAge', 'attest.reliefCoef', 'defaultCount', 'copiesKeep', 'adultTarget', 'leadsKeep']; const isNum = numPaths.includes(el.dataset.path) || (/^prices\./.test(el.dataset.path) && el.dataset.path !== 'prices.from');
     if (isNum && (String(v).trim() === '' || !(+v >= 0))) { notice('Нужно число не меньше нуля (поле не может быть пустым)'); rerender(); return; }   // №8
     setPath(db.settings, el.dataset.path, isNum ? +v : v); render.keepScroll = true; persist('Сохранено'); }
