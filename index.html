@@ -212,6 +212,13 @@ table.t tr.pend:hover td,table.t tr.rem1:hover td,table.t tr.rem2:hover td{filte
 .mk[data-m="б"].on{background:var(--sick-fill)}
 .mk[data-m="о"].on{background:var(--cancel-fill)}
 .mk[data-m="с"].on{background:var(--comp-fill)}
+.mk[data-m="+"].on.debt{background:var(--bad-fill)}
+.ap-in{display:flex;gap:6px;align-items:center} .ap-in input{flex:1;min-width:0}
+.ap-list{display:flex;flex-direction:column;max-height:min(46vh,340px);overflow:auto;margin-top:6px;border:1px solid var(--line);border-radius:8px} .ap-list:empty{display:none}
+.ap-it > *{display:block;line-height:1.3} .ap-it{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;height:auto!important;flex:none;text-align:left;padding:10px 12px;min-height:48px;background:none;border:0;border-bottom:1px solid var(--line);cursor:pointer;color:var(--ink);font:inherit}
+.ap-it:last-child{border-bottom:0} .ap-it:hover,.ap-it.on{background:var(--sunk)} .ap-more{padding:8px 12px}   /* «д» — был, не оплачено */
+.debt-nm b,.debt-nm .nm-f,.debt-nm .nm-s{color:var(--bad)!important}
+.cell-m.m-debt{background:var(--bad-bg);color:var(--bad);text-decoration:underline}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.875rem;color:var(--ink-2)}
 .legend b{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;color:var(--on-fill);font-size:.8125rem;margin-right:4px}
 .cell-m{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:6px;font-weight:700;font-size:.875rem}
@@ -240,6 +247,8 @@ table.t tr.pend:hover td,table.t tr.rem1:hover td,table.t tr.rem2:hover td{filte
 .attn-sec.s-bad > .attn-h::before{background:var(--bad-fill)}
 .attn-sec.s-warn > .attn-h::before{background:var(--warn-fill)}
 .attn-sec.s-later > .attn-h{color:var(--ink-2);cursor:pointer;min-height:var(--tap)}
+.attn-sec.s-sick > .attn-h{color:var(--ink-2);cursor:pointer;min-height:var(--tap)} .attn-sec.s-sick > .attn-h::before{background:var(--sick-fill)}
+.fz-list{border-bottom:1px solid var(--line)}
 .attn-sec .alert:first-of-type{border-top:0}
 .plan-sec{overflow:hidden} .plan-in{display:flex;flex-direction:column;gap:12px;padding:4px 12px 12px} .plan-in .plan-sec{border:1px solid var(--line);border-radius:var(--r)} .plan-h{padding:12px 16px;font-weight:700;font-size:1.0625rem;background:var(--surface-2);border-bottom:1px solid var(--line);border-left:5px solid var(--line-strong)}
 .ps-write .plan-h{border-left-color:var(--warn-fill)} .ps-train .plan-h{border-left-color:var(--sick-fill)} .ps-money .plan-h{border-left-color:var(--ok-fill)} .ps-later .plan-h{color:var(--ink-2)}
@@ -970,6 +979,7 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
       if (used >= cap) break;
       m.used = true; used++; if (m.auto) r.blank = (r.blank || 0) + 1;
       if (mk === '+') r.was++; else if (mk === 'н' || mk === 'с') r.missed++; else { r.sick++; r.sickCharged++; }
+      if (mk === '+' && m.mark === '+' && p.pending) (r.owedPlus = r.owedPlus || []).push(m.date);   // 20.10.2026: посещение в счёт «ждём оплату» — в журнале «д»
       r.lastCharged = m.date; r.lastChargedGroup = m.group || '';
     }
     if (used >= cap && used > 0) { r.lastPaid = r.lastCharged; r.lastPaidGroup = r.lastChargedGroup; }   // для показа: последнее занятие, оплаченное этим абонементом (без долга)
@@ -1667,12 +1677,18 @@ function anonMoney(d, id) {
   d.ops.forEach(o => { if (o.aid === id) o.aid = ''; });
 }
 /* ===== ЗАЯВКИ, ТАРИФЫ, ПОСЕЩАЕМОСТЬ, ИТОГИ ГОДА ===== */
-const LEAD_SOURCES = ['ВКонтакте', 'Посоветовали знакомые', 'Авито', 'Яндекс Карты / 2ГИС', 'Вывеска, проходили мимо', 'Турнир, выступление, мероприятие', 'Сайт', 'Другое'];
+const LEAVE_REASONS = ['Дорого', 'Расписание', 'Переезд', 'Травма', 'Потерял интерес', 'Ребёнок не хочет', 'Сезонная работа', 'Другая секция', 'Иное'];
+const LEAD_SOURCES = ['ВКонтакте', 'Instagram', 'Посоветовали знакомые', 'Авито', 'Яндекс Карты / 2ГИС', 'Вывеска, проходили мимо', 'Турнир, выступление, мероприятие', 'Сайт', 'Другое'];
 const LEAD_STATUSES = ['новая', 'пробное назначено', 'был на пробном', 'купил абонемент', 'отказ'];
 function normExtra(d) {
   const S = d.settings;
   if (!Array.isArray(d.leads)) d.leads = [];
   if (!Array.isArray(S.sources) || !S.sources.length) S.sources = [...LEAD_SOURCES];
+  if (!S.srcV2) { if (!S.sources.some(x => /^instagram$/i.test(x))) S.sources.splice(Math.min(1, S.sources.length), 0, 'Instagram'); S.srcV2 = true; }   // 19.10.2026: Instagram в списке источников
+  if (!Array.isArray(S.leaveReasons) || !S.leaveReasons.length) S.leaveReasons = [...LEAVE_REASONS];
+  if (S.statsFrom == null) S.statsFrom = '2026-09-01';   // «Показатели» считаются с этой даты: журнал точный с 01.09.2026, раньше — неточный перенос из Excel
+  if (!S.newbie) S.newbie = { days: 14, minVisits: 2, missRow: 2, watch: 30 };   // контроль новичка
+  for (const g of S.groups || []) if (/^гость$/i.test(g.name) && g.guest == null) g.guest = true;   // группа «Гость» — тоже гости
   S.prices = Object.assign({ single: 700, sub: 5500, subKid: 5000, count: 12, kidUnder: 12, from: '' }, S.prices || {});
   if (!S.prices.from) S.prices.from = S.programStart || D.today();   // проверять оплаты на соответствие тарифу — с этого дня (прежние могли быть по старым ценам)
   if (S.leadsKeep == null) S.leadsKeep = 6;        // месяцев: незавершённые заявки обезличиваются
@@ -1734,6 +1750,150 @@ function attendDrop(ix, a, t) {
   if (!last || D.diff(last.date, t) >= 14) return null;      // давно не был — это другой пункт
   return { base: Math.round(B.r * 100), recent: R, last: last.date };
 }
+/* гость — приезжий: метка в карточке или группа с отметкой «Гости» */
+function isGuest(d, a) { return !!(a && (a.guest || (d.settings.groups || []).some(g => g.guest && g.name === a.group))); }
+/* контроль новичка: первые N дней в клубе, есть абонемент; пропуски подряд или мало посещений за первые дни */
+function newbieCheck(d, ix, a, t) {
+  const N = Object.assign({ days: 14, minVisits: 2, missRow: 2, watch: 30 }, d.settings.newbie || {});
+  const plural = (n, x, y, z) => { const m = Math.abs(n) % 100, k = m % 10; return m > 10 && m < 20 ? z : k === 1 ? x : k > 1 && k < 5 ? y : z; };
+  if (a.status !== 'занимается' || !a.addedAt || a.payPerVisit || a.noSub || a.otherTeam || isGuest(d, a)) return null;
+  if ((d.settings.groups || []).some(g => g.bySchedule && g.name === a.group)) return null;     // «Разово» — ходят нерегулярно по определению
+  if (a.addedAt < (d.settings.statsFrom || '')) return null;
+  const age = D.diff(a.addedAt, t); if (age < 0 || age > +N.watch) return null;
+  if (!(ix.subsByAth.get(a.id) || []).some(p => !p.pending && (+p.count || 0) > 1)) return null;  // без абонемента — это пробное (свой пункт)
+  const held = ix.sessionsSorted.filter(s => s.date >= a.addedAt && s.date <= t && inGroupOn(a, s.group, s.date) && Object.values(s.marks || {}).some(x => x === '+'));
+  const my = (ix.marks.get(a.id) || []).filter(m => m.date >= a.addedAt && m.date <= t), plus = my.filter(m => m.mark === '+' || m.mark === 'с');
+  let row = 0;                                     // пропуски подряд с конца: «н» или пусто; «б» и «о» не считаются
+  for (let i = held.length - 1; i >= 0; i--) { const m = held[i].marks[a.id]; if (m === '+' || m === 'с') break; if (m === 'б' || m === 'о') continue; row++; }
+  const last = plus.slice(-1)[0];
+  if (row >= +N.missRow) return { kind: 'row', row, last: last ? last.date : '', visits: plus.length, held: held.length,
+    text: `${row} ${plural(row, 'пропуск', 'пропуска', 'пропусков')} подряд${last ? ' (последнее посещение ' + D.ru(last.date) + ')' : ', посещений ещё не было'}` };
+  if (age >= +N.days && age <= +N.days + 7) { const inWin = plus.filter(m => D.diff(a.addedAt, m.date) < +N.days).length;
+    const heldWin = held.filter(s => D.diff(a.addedAt, s.date) < +N.days).length;
+    if (heldWin >= +N.minVisits && inWin < +N.minVisits) return { kind: 'few', visits: inWin, held: heldWin, text: `за первые ${N.days} дн. — ${inWin} ${plural(inWin, 'посещение', 'посещения', 'посещений')} из ${heldWin} занятий группы` }; }
+  return null;
+}
+/* «Показатели» (19.10.2026): помесячно, удержание новичков, причины ухода, источники, группы, тренеры.
+   Гости (метка или группа «Гости») — отдельно, в отток и средние не входят. Новичок — до 90 дней в клубе. */
+function metricsCalc(d, ix, opt = {}) {
+  const t = opt.today || ix.today, S = d.settings, ps = pStartOf(d), items = opt.items || moneyItems(d), NEWD = 90;
+  const F0 = S.statsFrom || ps || t;
+  let months = ymList(F0, t); if (months.length > (opt.months || 12)) months = months.slice(-(opt.months || 12));
+  const guest = a => isGuest(d, a), mem = d.athletes.filter(a => !guest(a)), gst = d.athletes.filter(guest);
+  const leftAt = a => a.status === 'ушёл' ? (a.endedAt || (a.refund && a.refund.date) || '0000-00-00') : '';
+  const on = (a, dt) => !!a.addedAt && a.addedAt <= dt && !(leftAt(a) && leftAt(a) <= dt);
+  const ten = a => { const e = leftAt(a); return a.addedAt && e !== '0000-00-00' ? D.diff(a.addedAt, e || t) : null; };
+  const isNew = a => a.addedAt && ten(a) != null && ten(a) <= NEWD;
+  const bySched = new Set((S.groups || []).filter(g => g.bySchedule).map(g => g.name));
+  const irregular = a => a.payPerVisit || a.noSub || bySched.has(a.group);
+  const hasSub = (a, after = '') => (ix.subsByAth.get(a.id) || []).some(p => !p.pending && (+p.count || 0) > 1 && subKey(p) >= after);
+  const plus = s => Object.values(s.marks || {}).filter(m => m === '+').length;
+  const M = [];
+  for (const ym of months) {
+    const [a, b0] = ymBounds(ym), b = D.min(b0, t), prev = D.add(a, -1), partial = b0 > t;
+    const startL = mem.filter(x => on(x, prev)), endL = mem.filter(x => on(x, b));
+    const newL = mem.filter(x => x.addedAt >= a && x.addedAt <= b);
+    const leftL = mem.filter(x => { const e = leftAt(x); return e >= a && e <= b; });
+    const leftNew = leftL.filter(isNew), startOld = startL.filter(x => D.diff(x.addedAt, prev) > NEWD);
+    const sess = ix.sessionsSorted.filter(s => s.date >= a && s.date <= b && plus(s) > 0);
+    let visits = 0, gVisits = 0; const gSet = new Set(), vBy = new Map();
+    for (const s of sess) for (const [aid, m] of Object.entries(s.marks)) { if (m !== '+') continue; const x = ix.ath.get(aid);
+      if (x && guest(x)) { gVisits++; gSet.add(aid); } else { visits++; vBy.set(aid, (vBy.get(aid) || 0) + 1); } }
+    const weeks = (D.diff(a, b) + 1) / 7;
+    const reg = endL.filter(x => !irregular(x) && x.addedAt <= a && !pausedOn(x, a) && !pausedOn(x, b));   // весь месяц в клубе, не на перерыве
+    const fr = reg.map(x => (vBy.get(x.id) || 0) / weeks);
+    const tr = d.athletes.map(x => ({ x, m: (ix.marks.get(x.id) || []).find(m => m.trial) })).filter(o => o.m && o.m.date >= a && o.m.date <= b);
+    const money = !!ps && b >= ps, inc = { mem: 0, guest: 0, kid: 0, adult: 0 };
+    if (money) for (const x of items) { if (x.kind !== 'in' || (x.cat !== '_sub' && x.cat !== '_one') || x.date < a || x.date > b) continue;
+      const who = ix.ath.get(x.aid), v = x.amount - x.refund; if (who && guest(who)) inc.guest += v; else { inc.mem += v; inc[who && isKidOn(who, x.date) ? 'kid' : 'adult'] += v; } }
+    const payL = endL.filter(x => !pausedOn(x, b) && !x.noSub), payN = payL.length, payK = payL.filter(x => isKidOn(x, b)).length;
+    M.push({ ym, a, b, partial, startN: startL.length, endN: endL.length, newN: newL.length, leftN: leftL.length, leftNew: leftNew.length,
+      churn: startL.length ? leftL.length / startL.length : null, churnOld: startOld.length ? (leftL.length - leftNew.length) / startOld.length : null,
+      paused: endL.filter(x => pausedOn(x, b)).length, sessions: sess.length, visits, perSession: sess.length ? (visits + gVisits) / sess.length : null,
+      perWeek: fr.length ? fr.reduce((n, v) => n + v, 0) / fr.length : null, regN: fr.length, f2: fr.filter(v => v >= 2).length, f1: fr.filter(v => v < 1).length,
+      trials: tr.length, trialBought: tr.filter(o => hasSub(o.x, o.m.date)).length, guests: gSet.size, gVisits, money, incMem: inc.mem, incGuest: inc.guest,
+      arpu: money && payN ? inc.mem / payN : null, payN, arpuKid: money && payK ? inc.kid / payK : null, arpuAdult: money && payN - payK ? inc.adult / (payN - payK) : null, moneyDays: money ? D.diff(D.max(a, ps), b) + 1 : 0 });
+  }
+  /* когорты: пришли в месяце → не ушли за первые 30/60/90 дней (считаются те, у кого этот срок уже прошёл) */
+  const cohort = (ym, L, who) => { const keep = n => { const E = L.filter(x => D.add(x.addedAt, n) <= t); return { n: E.length, ok: E.filter(x => !(leftAt(x) && D.diff(x.addedAt, leftAt(x)) < n)).length }; };
+    return { ym, who, n: L.length, m1: keep(30), m3: keep(91), m6: keep(182), m12: keep(365), now: L.filter(x => on(x, t)).length, refund: L.filter(x => x.refund).length }; };
+  const cohorts = [];   // 1, 3, 6, 12 месяцев; дети и взрослые отдельно (возраст на дату прихода)
+  for (const ym of ymList(F0, t)) { const [a, b0] = ymBounds(ym), L = mem.filter(x => x.addedAt >= D.max(a, F0) && x.addedAt <= D.min(b0, t)); if (!L.length) continue;
+    const K = L.filter(x => isKidOn(x, x.addedAt)), A = L.filter(x => !isKidOn(x, x.addedAt));
+    if (K.length) cohorts.push(cohort(ym, K, 'дети')); if (A.length) cohorts.push(cohort(ym, A, 'взрослые')); }
+  const lo = months.length ? months[0] + '-01' : F0;
+  /* причины ухода */
+  const leftAll = mem.filter(x => { const e = leftAt(x); return e >= lo && e <= t; }), reasons = {};
+  for (const x of leftAll) { const k = x.leaveReason || 'не указана', r = reasons[k] = reasons[k] || { reason: k, n: 0, nw: 0, old: 0, refund: 0 };
+    r.n++; isNew(x) ? r.nw++ : r.old++; if (x.refund) r.refund++; }
+  /* источники */
+  const src = {};
+  const sAdd = (x, k) => { const s = x.source || 'не указан', r = src[s] = src[s] || { src: s, n: 0, now: 0, left: 0, guests: 0 }; r[k]++; if (k === 'n') { if (on(x, t)) r.now++; else if (leftAt(x)) r.left++; } };
+  for (const x of mem) if (x.addedAt >= lo && x.addedAt <= t) sAdd(x, 'n');
+  for (const x of gst) if (x.addedAt >= lo && x.addedAt <= t) sAdd(x, 'guests');
+  /* группы и тренеры — за весь показанный период */
+  const grpStat = names => { const G = new Set(names), sess = ix.sessionsSorted.filter(s => G.has(s.group) && s.date >= lo && s.date <= t && plus(s) > 0), att = sess.map(plus);
+    const now = mem.filter(x => x.status !== 'ушёл' && G.has(x.group)), nowA = now.filter(x => x.status === 'занимается');
+    const left = leftAll.filter(x => G.has(groupOn(x, D.add(leftAt(x), -1)) || x.group));
+    return { sessions: sess.length, avg: att.length ? att.reduce((n, v) => n + v, 0) / att.length : null, max: att.length ? Math.max(...att) : null,
+      now: nowA.length, paused: now.length - nowA.length, newN: mem.filter(x => G.has(x.group) && x.addedAt >= lo && x.addedAt <= t).length, left: left.length, leftNew: left.filter(isNew).length }; };
+  const groups = (S.groups || []).filter(g => !g.guest).map(g => ({ name: g.name, cap: +g.cap || null, ...grpStat([g.name]) })).filter(g => g.sessions || g.now || g.left);
+  for (const g of groups) g.fill = g.cap && g.avg != null ? g.avg / g.cap : null;
+  const C = (finS(d).coaches || []).filter(c => (c.groups || []).length && (!c.to || c.to >= lo)), taken = new Set(C.flatMap(c => c.groups));
+  const coaches = C.map(c => ({ name: c.name, groups: c.groups, ...grpStat(c.groups) }));
+  const rest = groups.map(g => g.name).filter(n => !taken.has(n));
+  if (coaches.length && rest.length) coaches.unshift({ name: S.coachMain || 'Главный тренер', groups: rest, ...grpStat(rest) });
+  /* оценка срока и LTV: полные месяцы с деньгами */
+  /* LTV: отток — по всем месяцам (неполный текущий — пропорционально дням), доход на ученика — по месяцам с деньгами от 14 дней учёта; меньше 3 полных месяцев — предварительно */
+  const full = M.filter(m => !m.partial), mMoney = M.filter(m => m.money && m.arpu != null && m.moneyDays >= 14), fullMoney = mMoney.filter(m => !m.partial);
+  let sl = 0, ss = 0; for (const m of M) { const k = m.partial ? Math.max(0.1, (D.diff(m.a, m.b) + 1) / (D.diff(m.a, ymBounds(m.ym)[1]) + 1)) : 1; sl += m.leftN; ss += m.startN * k; }
+  const churnAvg = ss ? sl / ss : null;
+  const arpuAvg = mMoney.length ? mMoney.reduce((n, m) => n + m.arpu, 0) / mMoney.length : null;
+  const life = churnAvg ? Math.min(60, 1 / churnAvg) : null;
+  return { from: lo, statsFrom: F0, months: M, cohorts, reasons: Object.values(reasons).sort((x, y) => y.n - x.n), sources: Object.values(src).sort((x, y) => y.n - x.n || y.guests - x.guests),
+    groups, coaches, coachesSet: C.length > 0, fullN: full.length, fullMoneyN: fullMoney.length, prelim: full.length < 3 || fullMoney.length < 3, moneyMonths: mMoney.length, churnAvg, arpuAvg, life, ltv: life && arpuAvg ? arpuAvg * life : null,
+    guestsN: gst.length, noSource: mem.filter(x => x.status !== 'ушёл' && !x.source).length, noReason: leftAll.filter(x => !x.leaveReason).length };
+}
+/* дети — до 18 лет на дату (нет даты рождения — со взрослыми) */
+function isKidOn(a, date) { const x = a && a.birth && date ? D.age(a.birth, date) : null; return x != null && x < 18; }
+/* лето: перерыв и возвращение; сентябрьский тест детских групп. Год — последнее лето, которое уже закончилось */
+function summerCalc(d, ix, t) {
+  const Y = +t.slice(0, 4) - (t.slice(5) < '09-01' ? 1 : 0), s0 = Y + '-06-01', s1 = Y + '-08-31', f0 = Y + '-09-01', f1 = D.min(Y + '-10-31', t);
+  const mem = d.athletes.filter(a => !isGuest(d, a));
+  const pl = (a, from, to) => (ix.marks.get(a.id) || []).filter(m => (m.mark === '+' || m.mark === 'с') && m.date >= from && m.date <= to).map(m => m.date);
+  const fate = a => pl(a, f0, f1).length ? 'back' : a.status === 'ушёл' ? 'left' : pausedOn(a, t) ? 'paused' : 'gone';
+  const formal = new Set(mem.filter(a => (a.pauses || []).some(p => p.from && p.from >= Y + '-05-01' && p.from <= s1) || (a.status === 'приостановил' && a.pauseFrom && a.pauseFrom >= Y + '-05-01' && a.pauseFrom <= s1)).map(a => a.id));
+  const gapOf = a => { const P = pl(a, Y + '-05-01', f1); if (!pl(a, Y + '-05-01', Y + '-05-31').length) return 0;
+    const pts = [...P, ...(P.some(x => x > s1) ? [] : [f0])]; let g = 0;
+    for (let i = 1; i < pts.length; i++) if (pts[i] >= s0 && pts[i - 1] <= s1) g = Math.max(g, D.diff(pts[i - 1], pts[i]));
+    return g; };
+  const informal = mem.filter(a => !formal.has(a.id) && a.addedAt && a.addedAt <= Y + '-05-31' && gapOf(a) >= 28);
+  const sum = (L) => { const r = { n: L.length, back: 0, left: 0, paused: 0, gone: 0, kids: 0, kidsBack: 0 }; for (const a of L) { const f = fate(a); r[f]++; if (isKidOn(a, s0)) { r.kids++; if (f === 'back') r.kidsBack++; } } return r; };
+  /* сентябрьский тест: занимались в мае → продолжили осенью */
+  const may = mem.filter(a => pl(a, Y + '-05-01', Y + '-05-31').length), by = {};
+  for (const a of may) { const kid = isKidOn(a, Y + '-05-31'), g = (kid ? groupOn(a, Y + '-05-15') || a.group : 'Взрослые (18+)') || '—', f = fate(a);
+    const r = by[g] = by[g] || { group: g, kid, n: 0, back: 0, left: 0, paused: 0, gone: 0 }; r.n++; r[f]++; }
+  const rows = Object.values(by).sort((x, y) => (y.kid - x.kid) || x.group.localeCompare(y.group, 'ru'));
+  return { Y, s0, s1, f0, f1, formal: sum(mem.filter(a => formal.has(a.id))), informal: sum(informal), sept: rows, early: f1 < Y + '-10-31' };
+}
+/* время на поясе: средний срок между ступенями (по записям аттестаций) и сколько занимающиеся уже на текущей ступени */
+function beltCalc(d, ix, t) {
+  const byA = new Map();
+  for (const w of d.awards || []) { if (!w.date || !w.athleteId) continue; if (!byA.has(w.athleteId)) byA.set(w.athleteId, []); byA.get(w.athleteId).push(w); }
+  const steps = [];
+  for (const [aid, L] of byA) { L.sort((x, y) => x.date.localeCompare(y.date)); const a = ix.ath.get(aid);
+    for (let i = 1; i < L.length; i++) { const p = L[i - 1], c = L[i], kind = c.belt !== p.belt ? 'belt' : (+c.stripes || 0) > (+p.stripes || 0) ? 'stripe' : '';
+      if (kind) steps.push({ aid, from: p.belt, kind, m: D.diff(p.date, c.date) / 30.44, kid: isKidOn(a, c.date) }); } }
+  const act = d.athletes.filter(a => a.status === 'занимается' && !isGuest(d, a) && !a.otherTeam), rows = {}, stale = [];
+  const order = d.settings.belts || [];
+  for (const a of act) { const c = ix.athCalc.get(a.id) || {}, belt = c.belt || 'белый', since = c.beltDate || a.addedAt || '', m = since ? D.diff(since, t) / 30.44 : null;
+    const r = rows[belt] = rows[belt] || { belt, n: 0, sum: 0, k: 0, over12: 0, noRec: 0 }; r.n++; if (m != null) { r.sum += m; r.k++; } if (!c.beltDate) r.noRec++; if (m != null && m > 12) { r.over12++; stale.push({ a, belt, stripes: c.stripes || 0, since, rec: !!c.beltDate, m }); } }
+  const avg = (L) => L.length ? L.reduce((n, s) => n + s.m, 0) / L.length : null;
+  const out = Object.values(rows).map(r => { const S = steps.filter(s => s.from === r.belt);
+    return { ...r, avgNow: r.k ? r.sum / r.k : null, stripeAvg: avg(S.filter(s => s.kind === 'stripe')), stripeN: S.filter(s => s.kind === 'stripe').length, beltAvg: avg(S.filter(s => s.kind === 'belt')), beltN: S.filter(s => s.kind === 'belt').length }; })
+    .sort((x, y) => order.indexOf(x.belt) - order.indexOf(y.belt));
+  return { rows: out, steps: steps.length, stale: stale.sort((x, y) => y.m - x.m), records: (d.awards || []).length };
+}
 /* итоги года по месяцам */
 function yearStats(d, ix, y, items) {
   const ps = pStartOf(d), months = [], Y = String(y);
@@ -1757,7 +1917,7 @@ function yearStats(d, ix, y, items) {
   return { y: Y, months, startN: on(D.add(a0, -1)), endN: on(D.min(b0, ix.today)), newcomers: sum('newcomers'), left: sum('left'), sessions: sum('sessions'), visits: sum('visits'),
     inc: sum('inc'), out: sum('out'), profit: sum('profit'), leads: sum('leads'), tenure, ended, renewed, moneyFrom: ps };
 }
-if (typeof module !== 'undefined') module.exports = { bdayOn, perVisitOn, freezeRange, freezeSub, isBS, freezeState, plusAfter, pausedOn, normExtra, tariffFor, tariffAudit, leadStage, leadFunnel, attendDrop, yearStats, LEAD_STATUSES, normFin, finS, finCat, refundShares, moneyItems, finPeriod, finBalances, finFlow, taxMonths, taxAll, recurOpen, yearIncome, uncheckedItems, coachMonth, coachDebt, recurDue, prepaidTotal, anonMoney, ymBounds, ymAdd, ymList, FIN_DEFAULT, subTotal, tripAt, refundFor, refundInfo, refundAuto, daysOn, D, buildIndex, calcFreeze, calcAdmission, calcTest, fillTemplate, groupOn, inGroupOn, nthTrainDay, payDeadline, firstSession, fullName, shortName, cleanPhone, fmtPhone, EX };
+if (typeof module !== 'undefined') module.exports = { bdayOn, perVisitOn, freezeRange, freezeSub, isBS, freezeState, plusAfter, pausedOn, normExtra, tariffFor, tariffAudit, leadStage, leadFunnel, attendDrop, isGuest, newbieCheck, metricsCalc, summerCalc, beltCalc, isKidOn, yearStats, LEAD_STATUSES, normFin, finS, finCat, refundShares, moneyItems, finPeriod, finBalances, finFlow, taxMonths, taxAll, recurOpen, yearIncome, uncheckedItems, coachMonth, coachDebt, recurDue, prepaidTotal, anonMoney, ymBounds, ymAdd, ymList, FIN_DEFAULT, subTotal, tripAt, refundFor, refundInfo, refundAuto, daysOn, D, buildIndex, calcFreeze, calcAdmission, calcTest, fillTemplate, groupOn, inGroupOn, nthTrainDay, payDeadline, firstSession, fullName, shortName, cleanPhone, fmtPhone, EX };
 
 /* ===== D23 CRM — интерфейс, часть 1 ===== */
 const OFFICIAL_TEMPLATES = [
@@ -1774,6 +1934,9 @@ const NEW_TEMPLATES_5 = [
 ];
 const NEW_TEMPLATES_6 = [
   { title: 'После пробного занятия', text: 'Здравствуйте.\n{фи}.\nСпасибо, что пришли на пробное занятие. Если готовы продолжать, подскажу по абонементу и расписанию группы «{группа}». Документы для занятий можно взять в зале или заполнить дома.' },
+];
+const NEW_TEMPLATES_9 = [
+  { title: 'Новичок пропускает', text: 'Здравствуйте.\n{фи}.\nКак вам первые тренировки? Заметили, что последние занятия пропущены. Первые недели — самые непростые, дальше втягиваются. Если что-то мешает — расписание, нагрузка, что-то непонятно на тренировке — напишите, подстроимся.\nЖдём в группе «{группа}».' },
 ];
 const NEW_TEMPLATES_8 = [
   { title: 'С днём рождения', text: 'Здравствуйте.\nПоздравляем {имя} с днём рождения! Здоровья, сил и новых побед на ковре. Ждём на тренировке!\nClub D23' },
@@ -1867,6 +2030,11 @@ function normalize(d) {
     const have = new Set((d.settings.templates || []).map(t => t.title));
     d.settings.templates = [...(d.settings.templates || []), ...NEW_TEMPLATES_8.filter(o => !have.has(o.title)).map(o => ({ ...o }))];
     d.settings.tplVersion = 8;
+  }
+  if ((d.settings.tplVersion || 1) === 8) {           // 19.10.2026: контроль новичка
+    const have = new Set((d.settings.templates || []).map(t => t.title));
+    d.settings.templates = [...(d.settings.templates || []), ...NEW_TEMPLATES_9.filter(o => !have.has(o.title)).map(o => ({ ...o }))];
+    d.settings.tplVersion = 9;
   }
   normFin(d); normExtra(d);
   return d;
@@ -2360,7 +2528,7 @@ function navHTML(cur) {
     <nav class="nav" aria-label="Разделы"><a href="#" class="nav-search" data-act="gsearch" title="Найти спортсмена (клавиша /)">${I.search}Найти спортсмена<kbd aria-hidden="true">/</kbd></a>${NAV.map(([k, l]) => `${NAV_GROUPS[k] ? `<div class="nav-gl">${NAV_GROUPS[k]}</div>` : ''}<a href="#${k}" class="${cur === k ? 'on' : ''}"${cur === k ? ' aria-current="page"' : ''}>${I[k]}${l}</a>`).join('')}</nav>
     <div class="sync">${dirty() ? `Есть изменения, которых нет в копии. ${meta.lastExport ? 'Последняя копия: ' + D.ru(meta.lastExport.slice(0, 10)) : 'Копию ещё не сохраняли'}.<button class="btn sm" data-act="export">Сохранить копию</button>` : (meta.lastExport ? 'Копия сохранена ' + D.ru(meta.lastExport.slice(0, 10)) + '.' : 'Данные хранятся в этом браузере.')}</div></aside>`;
   const tabs = [['today', 'Сегодня'], ['journal', 'Посещения'], ['people', 'Спортсмены'], ['subs', 'Абонементы'], ['more', 'Ещё']];
-  const moreOn = ['leads', 'year', 'money', 'attest', 'tourn', 'report', 'settings', 'data', 'more'].includes(cur);
+  const moreOn = ['leads', 'year', 'metrics', 'money', 'attest', 'tourn', 'report', 'settings', 'data', 'more'].includes(cur);
   const bar = `<nav class="tabbar no-print" aria-label="Разделы">${tabs.map(([k, l]) => { const on = cur === k || (k === 'more' && moreOn); return `<a href="#${k}" class="${on ? 'on' : ''}"${on ? ' aria-current="page"' : ''}>${I[k]}${l}</a>`; }).join('')}</nav>`;
   const top = `<header class="mtop no-print"><div class="mark-logo" aria-hidden="true">D23</div><b>Club D23</b>${dirty() ? `<button class="ib warn" data-act="export" aria-label="Есть изменения без копии — сохранить копию" title="Сохранить копию">${I.data}</button>` : ''}<button class="ib" data-act="gsearch" aria-label="Найти спортсмена">${I.search}</button></header>`;
   return side + top + bar;
@@ -2376,9 +2544,9 @@ function render() {
   if (logBaseFor !== db) logSetBase();
   if (undoFor !== db) { undoJson = JSON.stringify(db); undoFor = db; }
   const { v, arg } = route();
-  const views = { plan: vPlan, today: vToday, journal: vJournal, session: vSession, people: vPeople, person: vPerson, subs: vSubs, leads: vLeads, year: vYear, money: vMoney, attest: vAttest, tourn: vTourn, report: vReport, settings: vSettings, data: vData, more: vMore };
+  const views = { plan: vPlan, today: vToday, journal: vJournal, session: vSession, people: vPeople, person: vPerson, subs: vSubs, leads: vLeads, year: vYear, metrics: vMetrics, money: vMoney, attest: vAttest, tourn: vTourn, report: vReport, settings: vSettings, data: vData, more: vMore };
   const fn = views[v] || vToday;
-  const navKey = v === 'plan' ? 'today' : v === 'session' ? 'journal' : v === 'person' ? 'people' : v === 'year' ? 'report' : v;
+  const navKey = v === 'plan' ? 'today' : v === 'session' ? 'journal' : v === 'person' ? 'people' : v === 'year' || v === 'metrics' ? 'report' : v;
   let body;
   try { body = fn(arg); } catch (e) { console.error(e); body = `<div class="card"><h2>Ошибка отображения</h2><p class="muted">${h(e.message)}</p></div>`; }
   const scroll = window.scrollY, keep = render.keep, main0 = document.querySelector('main');
@@ -2537,7 +2705,9 @@ function attentionCalc() {
     if (far.length) out.push({ tone: 'sick', a, text: `${nm}: «б» без записи о заморозке (${far.map(m => D.short(m.date)).join(', ')}) — занятия списываются как пропуск: оформите заморозку (по справке) или исправьте отметку`, act: 'freeze-new' });
     if (a.payPerVisit) { const odd = (ix.marks.get(a.id) || []).filter(m => m.mark !== '+' && m.date >= (db.settings.sickCheckFrom || '') && perVisitOn(a, m.date)).map(m => D.short(m.date));   // №13: у разовика только «+» и пусто
       if (odd.length) out.push({ tone: 'warn', a, text: `${nm}: оплата разово — в журнале ставится только «+», другие отметки не учитываются (${odd.join(', ')}): снимите их` }); }
-    if (s && !s.notActive && s.remaining > 0 && !a.payPerVisit && !a.noSub && !c.pendingSub && s.first && s.first <= t) {   // пропадает: абонемент идёт, а человека нет
+    const nb = newbieCheck(db, ix, a, t);             // 19.10.2026: новичок — первые недели решают, останется ли
+    if (nb) out.push({ tone: 'warn', a, text: `${nm}: новичок (в клубе с ${D.ru(a.addedAt)}) — ${nb.text}: поговорить лично или написать, помочь втянуться`, tpl: 'Новичок пропускает', newbie: true });
+    if (!nb && s && !s.notActive && s.remaining > 0 && !a.payPerVisit && !a.noSub && !c.pendingSub && s.first && s.first <= t) {   // пропадает: абонемент идёт, а человека нет
       const lastPlus = (ix.marks.get(a.id) || []).filter(m => m.mark === '+').slice(-1)[0];
       const since = D.max(lastPlus ? lastPlus.date : '', s.first);
       const frNow = fr.some(f => { const g = freezeRange(ix, f); return g && g.from <= t && g.to >= D.add(t, -14); });
@@ -2644,16 +2814,29 @@ function attnMark(key, on) {
     const sp = ty && it.a && notifySub(it.a.id, ty, it.sub); if (sp && !(notifyState(sp, ty) && !notifyState(sp, ty).stale)) markNotified(sp, ty); }
   render.keepScroll = true; persist(on ? 'Отмечено как сделанное' : 'Возвращено в список');
 }
+/* 20.10.2026: кто сейчас на заморозке (болеет) — по сегодняшнему дню */
+function frozenNow() {
+  const t = ix.today, by = new Map();
+  for (const f of db.freezes) { const a = ix.ath.get(f.athleteId), g = a && a.status !== 'ушёл' ? freezeRange(ix, f) : null; if (!g || t < g.from || t > g.to) continue;
+    if (!by.has(a.id) || by.get(a.id).g.from < g.from) by.set(a.id, { a, f, g }); }
+  return [...by.values()].sort((x, y) => shortName(x.a).localeCompare(shortName(y.a), 'ru'));
+}
 function alertSections(list, fn) {
   const nm = x => x.a ? shortName(x.a) : '\uffff';
   const byName = (x, y) => nm(x).localeCompare(nm(y), 'ru');
-  const urgent = list.filter(x => x.tone === 'bad' || x.tone === 'sick').sort(byName);
-  const soon = list.filter(x => x.tone === 'warn').sort(byName);
-  const later = list.filter(x => !['bad', 'sick', 'warn'].includes(x.tone)).sort(byName);
+  const fz = frozenNow(), fzIds = new Set(fz.map(x => x.a.id));
+  const isFz = x => x.tone === 'sick' || (x.a && fzIds.has(x.a.id) && x.tone !== 'bad');   // болезнь и всё, кроме срочного, по тем, кто болеет, — в «Заморозку»
+  const frz = list.filter(isFz).sort(byName), rest = list.filter(x => !isFz(x));
+  const urgent = rest.filter(x => x.tone === 'bad').sort(byName);
+  const soon = rest.filter(x => x.tone === 'warn').sort(byName);
+  const later = rest.filter(x => !['bad', 'sick', 'warn'].includes(x.tone)).sort(byName);
   const head = (t, n) => `<div class="attn-h">${t} · ${n}</div>`;
+  const people = new Set([...fzIds, ...frz.filter(x => x.a).map(x => x.a.id)]);
+  const roster = fz.length ? `<ul class="list fz-list">${fz.map(({ a, f, g }) => `<li class="click" data-go="#person/${a.id}"><div class="who"><b>${h(shortName(a))}</b><span class="small">${h(a.group || '')} · с ${D.ru(g.from)} ${g.open ? '— пока болеет' : 'по ' + D.ru(g.to)} · ${f.certDate ? 'справка ' + D.ru(f.certDate) : 'справки нет'}</span></div><span class="chip sick">болеет</span></li>`).join('')}</ul>` : '';
   return (urgent.length ? `<section class="attn-sec s-bad">${head('Срочно', urgent.length)}${urgent.map(fn).join('')}</section>` : '')
     + (soon.length ? `<section class="attn-sec s-warn">${head('Скоро', soon.length)}${soon.map(fn).join('')}</section>` : '')
-    + (later.length ? `<details class="attn-later attn-sec s-later" data-later ${meta.laterOpen ? 'open' : ''}><summary class="attn-h">Можно позже · ${later.length}</summary>${later.map(fn).join('')}</details>` : '');
+    + (later.length ? `<details class="attn-later attn-sec s-later" data-later ${meta.laterOpen ? 'open' : ''}><summary class="attn-h">Можно позже · ${later.length}</summary>${later.map(fn).join('')}</details>` : '')
+    + (people.size ? `<details class="attn-later attn-sec s-sick" data-frz ${meta.frzOpen ? 'open' : ''}><summary class="attn-h">Заморозка · ${people.size} ${plural(people.size, 'человек', 'человека', 'человек')}${frz.length ? ' · пунктов ' + frz.length : ''}</summary>${roster}${frz.map(fn).join('')}</details>` : '');
 }
 /* действия пункта: первая кнопка — главная, остальные — в меню «⋯» (команды кнопок прежние) */
 function actsHTML(list, right = '') {
@@ -2729,7 +2912,7 @@ function vToday() {
   <div class="tg-b"><div class="card flat attn-card"><div class="row" style="padding:14px 16px 8px;gap:10px 12px"><h2 style="margin:0;flex:1 1 220px">Требует внимания <span class="muted small">${mode === 'plan' ? (P.total ? 'сделано ' + P.doneN + ' из ' + P.total : '') : (al.length || '') + (done.length ? ' · сделано ' + done.length : '')}</span></h2>
     <div class="seg no-print" role="group" aria-label="Вид списка">${[['urg', 'По срочности'], ['plan', 'План на день']].map(([m, l]) => `<button type="button" data-act="today-mode" data-m="${m}" class="${mode === m ? 'on' : ''}" aria-pressed="${mode === m}">${l}</button>`).join('')}</div></div>
     ${mode === 'plan' ? planBody(P) : `
-    ${al.length ? alertSections(al, attnItem)
+    ${al.length || frozenNow().length ? alertSections(al, attnItem)
       : `<div class="empty">${done.length ? 'Всё сделано.' : 'Всё в порядке: долгов, просроченных справок и заканчивающихся абонементов нет.'}</div>`}
     ${done.length ? `<details class="attn-donelist"><summary class="small">Сделано: ${done.length}</summary>${done.map(x => `<div class="alert done"><span class="dot"></span><div class="txt">${attnTxt(x.text)}<span class="small muted"> · сделано ${D.ru(doneMap[attnKey(x)])}</span></div>
       <div class="row">${x.a ? `<a class="btn sm ghost" href="#person/${x.a.id}">Карточка</a>` : ''}<button class="btn sm" data-act="attn-undo" data-key="${h(attnKey(x))}">Вернуть</button></div></div>`).join('')}</details>` : ''}`}</div></div>
@@ -3090,6 +3273,10 @@ function offSchedule(s) { const g = ix.group.get(s.group); return everScheduled(
 function suggestGroup(date) {
   const dw = D.dow(date); const g = db.settings.groups.find(g => daysOn(g, date)[dw]); return g ? g.name : (db.settings.groups[0] || {}).name;
 }
+/* 20.10.2026: посещение не оплачено — в журнале «д» вместо «+», фамилия красная. В данных отметка остаётся «+»: после оплаты снова «+» */
+function owedPlus(c) { return (c && c.pendingSub && c.pendingCalc && c.pendingCalc.owedPlus) || []; }   // посещения в счёт «ждём оплату»
+function debtOn(aid, date) { const c = ix.athCalc.get(aid); return !!(c && ((c.debtDates || []).includes(date) || owedPlus(c).includes(date))); }
+function hasDebt(aid) { const c = ix.athCalc.get(aid); return !!(c && ((c.debtDates || []).length || owedPlus(c).length)); }
 function sickOn(aid, date) { return db.freezes.some(f => { if (f.athleteId !== aid) return false; const g = freezeRange(ix, f); return g && date >= g.from && date <= g.to; }); }   // №5/№16
 function sessionMembers(s) {           // только состав выбранной группы
   if (!s.group) return [];
@@ -3108,7 +3295,7 @@ function remBig(c) {                              // крупный остато
 }
 const MARK_SHORT = { '+': 'был', 'н': 'не был', 'б': 'болел', 'о': 'отменено', 'с': 'соревн.' };
 function markRow(s, a, showGroup) {
-  const m = s.marks[a.id] || '', ac = ix.athCalc.get(a.id);
+  const m = s.marks[a.id] || '', ac = ix.athCalc.get(a.id), dbt = m === '+' && debtOn(a.id, s.date);
   const trial = !!(s.trial && s.trial[a.id]), nd = m === '+' || !m ? briefNeed(a, s.date) : null, rb = remBig(ac);
   const keys = perVisitOn(a, s.date) ? (m && m !== '+' ? ['+', m] : ['+']) : m === 'о' ? ['+', 'н', 'б', 'о', 'с'] : ['+', 'н', 'б', 'с'];   // №13: разовику — только «+» (чужую отметку можно снять)
   const chips = [rb ? '' : chipSub(ac), chipMed(ac.med),
@@ -3119,9 +3306,9 @@ function markRow(s, a, showGroup) {
     showGroup ? '<span class="chip muted">' + h(groupOn(a, s.date) || 'без группы') + '</span>' + (groupOn(a, s.date) && groupOn(a, s.date) !== s.group && m ? ` <button class="btn sm no-print" data-act="move-own" data-sid="${s.id}" data-aid="${a.id}">Перенести в «${h(groupOn(a, s.date))}»</button>` : '') : '',
     m === '+' && (trial || trialAllowed(a, s.date)) ? `<button class="btn sm${trial ? ' primary' : ''}" data-act="trial" data-sid="${s.id}" data-aid="${a.id}" aria-pressed="${trial}" title="Пробное занятие — оплачивается как разовое посещение; отметка для статистики">пробное</button>` : '',
     m === '+' && trial ? `<button class="btn sm" data-act="trial-pay" data-sid="${s.id}" data-aid="${a.id}" title="Нажмите, чтобы поменять для этого занятия">${trialIsFree(db.settings, s.trial[a.id], s.date) ? 'бесплатно' : 'платно'}</button>` : ''].filter(Boolean).join(' ');
-  return `<li class="mrow${m ? '' : ' unmarked'}"><div class="mrow-h">${beltHTML(ac.belt, ac.stripes)}<div class="who${warnedOf(a) ? ' wn' : ''}"><b>${h(shortName(a))}${warnedIc(warnedOf(a), a)}</b>${chips ? `<span class="row mchips">${chips}</span>` : ''}</div>
+  return `<li class="mrow${m ? '' : ' unmarked'}"><div class="mrow-h">${beltHTML(ac.belt, ac.stripes)}<div class="who${warnedOf(a) ? ' wn' : ''}${hasDebt(a.id) ? ' debt-nm' : ''}"${hasDebt(a.id) ? ' title="Есть неоплаченные посещения"' : ''}><b>${h(shortName(a))}${warnedIc(warnedOf(a), a)}</b>${chips ? `<span class="row mchips">${chips}</span>` : ''}</div>
     ${rb ? `<span class="rem${rb === 1 ? ' warn' : rb === 2 ? ' hl2' : ''}" title="Осталось занятий по абонементу"><b>${rb}</b><span>осталось</span></span>` : ''}</div>
-    <div class="marks m${keys.length}" role="group" aria-label="Отметка: ${h(shortName(a))}">${keys.map(k => `<button class="mk${m === k ? ' on' : ''}" data-act="mark" data-sid="${s.id}" data-aid="${a.id}" data-m="${k}" aria-pressed="${m === k}" aria-label="${MARKS[k].label}"><b>${k}</b><span>${MARK_SHORT[k]}</span></button>`).join('')}</div></li>`;
+    <div class="marks m${keys.length}" role="group" aria-label="Отметка: ${h(shortName(a))}">${keys.map(k => { const d = dbt && k === '+'; return `<button class="mk${m === k ? ' on' : ''}${d ? ' debt' : ''}" data-act="mark" data-sid="${s.id}" data-aid="${a.id}" data-m="${k}" aria-pressed="${m === k}" aria-label="${d ? 'был, не оплачено (долг)' : MARKS[k].label}"${d ? ' title="Был, посещение не оплачено. После оплаты станет «+»"' : ''}><b>${d ? 'д' : k}</b><span>${d ? 'долг' : MARK_SHORT[k]}</span></button>`; }).join('')}</div></li>`;
 }
 function vSession(sid) {
   const s = db.sessions.find(x => x.id === sid);
@@ -3142,7 +3329,7 @@ function vSession(sid) {
   ${hol ? `<div class="banner">Этот день отмечен как нерабочий: ${h(hol)}.</div>` : ''}
   ${offSchedule(s) ? `<div class="banner">По расписанию у «${h(s.group)}» нет занятий в ${DOW_FULL[D.dow(s.date)]}. Проверьте, та ли группа выбрана.</div>` : ''}
   ${!s.group ? `<div class="banner">У занятия не выбрана группа. Выберите её в списке выше — тогда появится состав группы.</div>` : ''}
-  <details class="legend-d no-print"><summary>Что значат отметки</summary><div class="legend"><span><b style="background:var(--ok-fill)">+</b>был</span><span><b style="background:var(--bad-fill)">н</b>не был, списывается</span><span><b style="background:var(--sick-fill)">б</b>болел, справки нет</span><span><b style="background:var(--sick-fill)">бс</b>болел, справка внесена — не списывается, в аттестации посещение</span><span><b style="background:var(--cancel-fill)">о</b>отменено клубом</span><span><b style="background:var(--comp-fill)">с</b>соревнования</span><span class="muted">пустая клетка на состоявшемся занятии в расчёте абонемента = «н»</span></div></details>
+  <details class="legend-d no-print"><summary>Что значат отметки</summary><div class="legend"><span><b style="background:var(--ok-fill)">+</b>был</span><span><b style="background:var(--bad-fill)">н</b>не был, списывается</span><span><b style="background:var(--bad-fill)">д</b>был, не оплачено (долг); после оплаты — «+»</span><span><b style="background:var(--sick-fill)">б</b>болел, справки нет</span><span><b style="background:var(--sick-fill)">бс</b>болел, справка внесена — не списывается, в аттестации посещение</span><span><b style="background:var(--cancel-fill)">о</b>отменено клубом</span><span><b style="background:var(--comp-fill)">с</b>соревнования</span><span class="muted">пустая клетка на состоявшемся занятии в расчёте абонемента = «н»</span></div></details>
   ${s.group ? `<div class="card flat"><ul class="list jlist">${people.map(a => markRow(s, a, false)).join('') || '<li class="empty">В группе нет занимающихся. Добавьте человека ниже или выберите другую группу.</li>'}</ul></div>` : ''}
   ${extra.length ? `<details class="card flat" ${openExtra ? 'open' : ''}><summary style="padding:12px 16px;cursor:pointer;min-height:44px"><b>${s.group ? 'Из других групп на этом занятии' : 'Отмечены на занятии'}: ${extra.length}</b>${extra.length > 1 ? ` <button class="btn sm no-print" data-act="move-own" data-sid="${s.id}" style="margin-left:8px">Перенести всех в их группы</button>` : ''}</summary>
   <p class="small muted" style="padding:0 16px">Если отметку поставили не в ту группу, «Перенести» переставит её на занятие группы человека за эту же дату. Если человек действительно приходил в эту группу — ничего не делайте.</p><ul class="list jlist" style="border-top:1px solid var(--line)">${extra.map(a => markRow(s, a, true)).join('')}</ul></details>` : ''}
@@ -3195,7 +3382,8 @@ function monthView(tabs, groups) {
   const rows = (list, showGroup) => list.map(a => { const ms = sess.map(s => s.marks[a.id] || ''); const cnt = k => ms.filter(x => x === k).length; const L = lastOf(a);
     const off = sess.map(s => !showGroup && !inGroupOn(a, J.mgroup, s.date)); const per = showGroup ? '' : period(a); const ng = noSubGap(a), nsub = d => !!(ng && ng.ack && d > ng.end && d <= ix.today);   // №34
     const W = warnedOf(a);
-    return `<tr><td${W ? ' class="wn"' : ''}><span class="nm-f">${h(shortName(a))}</span><span class="nm-s">${h((a.last || '') + (a.first ? ' ' + a.first[0] + '.' : ''))}</span>${warnedIc(W, a)}${showGroup ? ' <span class="small muted">' + h(a.group || '') + '</span>' : ''}${per ? ' <span class="small muted mper">' + per + '</span>' : ''}</td>${ms.map((x, i) => { const lc = lastCell(a, L, sess[i]) || nextCell(a, L, sess[i]), mc = sess[i].missing && !off[i] ? ' miss-col' : ''; return `<td${off[i] || lc || mc ? ` class="${off[i] ? 'off' : ''}${mc}${lc}"` : ''}>${x ? `<span class="cell-m ${cls[x] || ''}">${h(x === 'б' && isBS(ix, a.id, sess[i].date) ? 'бс' : x)}</span>` : lc ? '<span class="cell-m m-none"></span>' : nsub(sess[i].date) && !off[i] ? '<span class="cell-m m-nosub" title="Абонемент закончился, новый не оплачен">—</span>' : ''}</td>`; }).join('')}<td class="num">${cnt('+')}</td><td class="num">${cnt('н')}</td><td class="num">${cnt('б')}</td></tr>`; }).join('');
+    const dn = hasDebt(a.id), tdc = [W ? 'wn' : '', dn ? 'debt-nm' : ''].filter(Boolean).join(' ');
+    return `<tr><td${tdc ? ` class="${tdc}"` : ''}${dn ? ' title="Есть неоплаченные посещения"' : ''}><span class="nm-f">${h(shortName(a))}</span><span class="nm-s">${h((a.last || '') + (a.first ? ' ' + a.first[0] + '.' : ''))}</span>${warnedIc(W, a)}${showGroup ? ' <span class="small muted">' + h(a.group || '') + '</span>' : ''}${per ? ' <span class="small muted mper">' + per + '</span>' : ''}</td>${ms.map((x, i) => { const lc = lastCell(a, L, sess[i]) || nextCell(a, L, sess[i]), mc = sess[i].missing && !off[i] ? ' miss-col' : ''; return `<td${off[i] || lc || mc ? ` class="${off[i] ? 'off' : ''}${mc}${lc}"` : ''}>${x === '+' && debtOn(a.id, sess[i].date) ? '<span class="cell-m m-debt" title="Был, посещение не оплачено — после оплаты станет «+»">д</span>' : x ? `<span class="cell-m ${cls[x] || ''}">${h(x === 'б' && isBS(ix, a.id, sess[i].date) ? 'бс' : x)}</span>` : lc ? '<span class="cell-m m-none"></span>' : nsub(sess[i].date) && !off[i] ? '<span class="cell-m m-nosub" title="Абонемент закончился, новый не оплачен">—</span>' : ''}</td>`; }).join('')}<td class="num">${cnt('+')}</td><td class="num">${cnt('н')}</td><td class="num">${cnt('б')}</td></tr>`; }).join('');
   { const li = sess.map(s => s.date).filter(d => d <= ix.today).length - 1; render.monthFocus = li >= 0 ? li : 0; }   // прокрутка к сегодняшнему (последнему прошедшему) занятию
   return `<div class="jfs-bar no-print"><button class="btn" data-act="jmonth" data-m="${prev}" aria-label="Предыдущий месяц">←</button><b>${MONTHS[m - 1][0].toUpperCase() + MONTHS[m - 1].slice(1)} ${y}</b><button class="btn" data-act="jmonth" data-m="${next}" aria-label="Следующий месяц">→</button><select data-change="jmgroup" aria-label="Группа">${groups.map(g => opt(g, J.mgroup)).join('')}</select><span class="spacer"></span><button class="btn" data-act="jfs" aria-label="Выйти из полноэкранного режима">✕</button></div>
   <div class="topline jm-top"><h1>Посещения — ${MONTHS[m - 1]} ${y}</h1><div class="row jm-tabs">${tabs}<button class="btn show-m" data-act="jfs" title="Во весь экран" aria-label="Во весь экран">⛶</button><details class="menu show-m"><summary class="btn" aria-label="Другие действия">⋯</summary><div class="menu-pop"><button class="btn" data-act="print-blank">Бланк для печати</button></div></details></div></div>
@@ -3434,7 +3622,7 @@ function vPerson(id) {
   const logCard = myLog.length ? `<details class="card no-print"><summary><b>История изменений</b> <span class="small muted">${myLog.length}</span></summary><ul class="list" style="margin-top:8px">${myLog.slice(0, 150).map(x => `<li style="padding:6px 0"><span class="small num" style="min-width:110px">${new Date(x.at).toLocaleString('ru', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}</span><span class="who small">${h(x.t)}</span></li>`).join('')}</ul>${myLog.length > 150 ? '<p class="small muted">Показаны последние 150.</p>' : ''}</details>` : '';
   return `<div class="topline"><div><a href="#people" class="small no-print">← Спортсмены</a></div></div>
   <div class="card person-card"><div class="person-head"><div style="flex:1;min-width:0"><h1>${h(fullName(a))}</h1>
-    <div class="row" style="gap:6px;margin-top:6px"><span class="chip ${a.status === 'занимается' ? 'ok' : 'muted'}">${h(a.status)}</span><span class="chip">${h(a.group || 'без группы')}${a.group2 ? ' / ' + h(a.group2) : ''}</span>${c.age != null ? `<span class="chip">${c.age} ${plural(c.age, 'год', 'года', 'лет')}</span>` : ''}${a.otherTeam ? `<span class="chip warn">другая команда${a.teamName ? ': ' + h(a.teamName) : ''}</span>` : ''}${a.status === 'ушёл' ? '<span class="chip muted">договор прекращён' + (leftDate(a) ? ' ' + D.short(leftDate(a)) : '') + '</span>' : ''}${a.refund ? '<span class="chip muted">отказ от договора ' + D.short(a.refund.date) + '</span>' : a.status === 'ушёл' ? '' : chipSub(c)}${chipMed(c.med)}</div>
+    <div class="row" style="gap:6px;margin-top:6px"><span class="chip ${a.status === 'занимается' ? 'ok' : 'muted'}">${h(a.status)}</span>${isGuest(db, a) ? '<span class="chip">гость</span>' : ''}${a.status === 'ушёл' && a.leaveReason ? `<span class="chip muted">причина: ${h(a.leaveReason)}${a.leaveNote ? ' — ' + h(a.leaveNote) : ''}</span>` : ''}<span class="chip">${h(a.group || 'без группы')}${a.group2 ? ' / ' + h(a.group2) : ''}</span>${c.age != null ? `<span class="chip">${c.age} ${plural(c.age, 'год', 'года', 'лет')}</span>` : ''}${a.otherTeam ? `<span class="chip warn">другая команда${a.teamName ? ': ' + h(a.teamName) : ''}</span>` : ''}${a.status === 'ушёл' ? '<span class="chip muted">договор прекращён' + (leftDate(a) ? ' ' + D.short(leftDate(a)) : '') + '</span>' : ''}${a.refund ? '<span class="chip muted">отказ от договора ' + D.short(a.refund.date) + '</span>' : a.status === 'ушёл' ? '' : chipSub(c)}${chipMed(c.med)}</div>
     <div class="row" style="gap:12px;margin-top:12px">${beltHTML(c.belt, c.stripes, true)}<span class="small muted">${c.belt ? h(c.belt) + (c.stripes ? ', ' + c.stripes + ' ' + plural(c.stripes, 'страйп', 'страйпа', 'страйпов') : '') + (c.beltSet ? ' с ' + D.ru(c.beltDate) + (c.monthsSince != null ? ' (' + c.monthsSince + ' мес.)' : '') : ' — запись о присвоении не внесена') : 'Пояс не присвоен'}</span></div></div></div>
     ${personSubBox(a, c)}
     <div class="row no-print person-acts">${a.status === 'приостановил' ? `<button class="btn primary" data-act="pause-return" data-id="${id}">Вернулся</button>` : ''}<button class="btn ${a.status === 'приостановил' ? '' : 'primary'}" data-act="sub-new" data-id="${id}">Оплата</button><button class="btn" data-act="msg" data-id="${id}">Написать</button>
@@ -3529,30 +3717,38 @@ function modal(title, body, { submit = 'Сохранить', onSubmit, extraBtn 
   <div class="dlg-b">${body}</div><div class="dlg-f">${extraBtn}<span class="spacer"></span><button type="button" class="btn" data-act="close">${h(closeText || (onSubmit ? 'Отмена' : 'Закрыть'))}</button>${onSubmit ? `<button type="submit" class="btn primary">${h(submit)}</button>` : ''}</div></form>`;
   dlgSubmit = onSubmit || null;
   d.showModal();
-  const asel = d.querySelector('.dlg-b select[name=athleteId]'); if (asel) athleteSearch(asel);
+  const asel = d.querySelector('.dlg-b select[name=athleteId]'), apIn = asel ? athleteSearch(asel) : null;
   const first = d.querySelector('.dlg-b input:not([type=hidden]),.dlg-b select,.dlg-b textarea');
-  if (first && !PHONE_MQ.matches) first.focus();
+  if (apIn && !asel.value) apIn.focus();               // 20.10.2026: и на телефоне — сразу клавиатура для поиска фамилии
+  else if (first && !PHONE_MQ.matches) first.focus();
 }
-function athleteSearch(sel) {                     // поиск по фамилии/имени вместо прокрутки длинного списка
-  const lab = sel.closest('label') || sel, norm = t => String(t).toLowerCase().replace(/ё/g, 'е');
-  const all = [...sel.options].map(o => ({ v: o.value, t: o.textContent }));
-  const box = document.createElement('div'); box.className = 'wide';
-  box.innerHTML = '<label class="f"><span>Найти спортсмена</span><input type="search" placeholder="Начните вводить фамилию или имя" autocomplete="off" enterkeyhint="search"></label><div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px"></div>';
-  lab.parentNode.insertBefore(box, lab);
-  const inp = box.querySelector('input'), hits = box.querySelector('.row');
-  const fill = list => { const cur = sel.value; sel.innerHTML = all.filter(x => !x.v || list.includes(x) || x.v === cur).map(x => opt(x.v, cur, x.t)).join(''); };
-  const pick = x => { sel.value = x.v; sel.dispatchEvent(new Event('change')); inp.value = x.t; hits.innerHTML = ''; fill(all); };
-  let found = [];
-  inp.addEventListener('input', () => {
-    const q = norm(inp.value.trim()); hits.innerHTML = '';
-    found = q ? all.filter(x => x.v && (norm(x.t).split(/\s+/).some(w => w.startsWith(q)) || norm(x.t).includes(q))) : [];
-    fill(q ? found : all);
-    if (found.length === 1) { pick(found[0]); return; }
-    found.slice(0, 8).forEach(x => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn sm'; b.textContent = x.t; b.onclick = () => pick(x); hits.appendChild(b); });
-    if (q && !found.length) hits.innerHTML = '<span class="small muted">Не найдено</span>';
-    else if (found.length > 8) hits.insertAdjacentHTML('beforeend', `<span class="small muted">и ещё ${found.length - 8} — уточните</span>`);
-  });
-  inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); if (found.length) pick(found[0]); } });
+function athleteSearch(sel) {                     // 20.10.2026: одно поле — печатаете буквы, ниже подходящие фамилии; список всех не разворачивается
+  const lab = sel.closest('label') || sel, norm = t => String(t).toLowerCase().replace(/ё/g, 'е').trim();
+  const all = [...sel.options].filter(o => o.value).map(o => { const a = ix.ath.get(o.value); return { v: o.value, t: o.textContent, last: norm(a ? a.last : o.textContent),
+    sub: a ? [a.group, a.status !== 'занимается' ? a.status : '', a.birth ? D.ru(a.birth) : ''].filter(Boolean).join(' · ') : '' }; });
+  const title = (lab.querySelector && lab.querySelector('span') || {}).textContent || 'Спортсмен';
+  const box = document.createElement('div'); box.className = 'wide ath-pick';
+  box.innerHTML = `<label class="f"><span>${h(title)}</span><span class="ap-in"><input type="text" placeholder="Начните вводить фамилию" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" enterkeyhint="search" aria-autocomplete="list"><button type="button" class="btn ghost ap-x" aria-label="Очистить" hidden>✕</button></span></label><div class="ap-list" role="listbox"></div>`;
+  lab.parentNode.insertBefore(box, lab); lab.style.display = 'none'; sel.required = false;   // выбор проверяется при сохранении («Выберите спортсмена»)
+  const inp = box.querySelector('input'), list = box.querySelector('.ap-list'), x = box.querySelector('.ap-x');
+  let found = [], cur = -1;
+  const show = () => { list.innerHTML = found.slice(0, 12).map((o, i) => `<button type="button" class="ap-it${i === cur ? ' on' : ''}" role="option" data-i="${i}"><b>${h(o.t)}</b>${o.sub ? `<span class="small muted">${h(o.sub)}</span>` : ''}</button>`).join('')
+    + (found.length > 12 ? `<div class="small muted ap-more">и ещё ${found.length - 12} — уточните</div>` : '') + (inp.value.trim() && !found.length ? '<div class="small muted ap-more">Не найдено</div>' : ''); };
+  const pick = o => { sel.value = o.v; sel.dispatchEvent(new Event('change', { bubbles: true })); inp.value = o.t; found = []; cur = -1; list.innerHTML = ''; x.hidden = false; };
+  const search = () => { const q = norm(inp.value); cur = -1;
+    if (sel.value) { sel.value = ''; sel.dispatchEvent(new Event('change', { bubbles: true })); }
+    found = !q ? [] : all.filter(o => o.last.startsWith(q)).concat(all.filter(o => !o.last.startsWith(q) && norm(o.t).split(/\s+/).some(w => w.startsWith(q))));   // сначала по фамилии, потом по имени
+    if (q && !found.length) found = all.filter(o => norm(o.t).includes(q));   // ничего с начала слова — ищем внутри
+    if (found.length) cur = 0; x.hidden = !inp.value; show(); };
+  if (sel.value) { const o = all.find(o => o.v === sel.value); if (o) { inp.value = o.t; x.hidden = false; } }
+  inp.addEventListener('input', search);
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); if (found[cur]) pick(found[cur]); }
+    else if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && found.length) { e.preventDefault(); cur = (cur + (e.key === 'ArrowDown' ? 1 : -1) + Math.min(12, found.length)) % Math.min(12, found.length); show(); }
+    else if (e.key === 'Escape' && found.length) { e.preventDefault(); e.stopPropagation(); found = []; list.innerHTML = ''; } });
+  list.addEventListener('click', e => { const b = e.target.closest('.ap-it'); if (b) pick(found[+b.dataset.i]); });
+  x.addEventListener('click', () => { inp.value = ''; search(); inp.focus(); });
+  return inp;
 }
 function closeModal() { const d = document.getElementById('dlg'); if (d && d.open) d.close(); }
 document.addEventListener('submit', e => {
@@ -3589,13 +3785,33 @@ function personForm(a) {
   <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="noSub" ${a.noSub ? 'checked' : ''} style="width:20px;height:20px"><span><b>Без абонемента</b> — занимается бесплатно или по особой договорённости. Программа не будет напоминать об оплате.</span></label>
   <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="healthConsent" ${a.healthConsent ? 'checked' : ''} style="width:20px;height:20px"><span><b>Согласие на сведения о здоровье</b> получено (Бланк № 2.1). Без него медсправку и периоды болезни не вносить (п. 12.1.1, 12.2 оферты).</span></label>
   ${F('medUntil', 'Медсправка действует до', a.medUntil, 'date')}${F('addedAt', 'В клубе с (начало занятий)', a.addedAt || (a.id ? '' : ix.today), 'date')}
-  ${FS('source', 'Откуда узнали о клубе', [['', '—'], ...(S.sources || []), ...(a.source && !(S.sources || []).includes(a.source) ? [a.source] : [])], a.source || '')}
+  ${FS('source', 'Откуда узнали о клубе' + (a.id ? '' : ' *'), [['', '—'], ...(S.sources || []), ...(a.source && !(S.sources || []).includes(a.source) ? [a.source] : []), [SRC_NEW, '+ другой источник…']], a.source || '')}
+  <label class="f" id="src-new-wrap" style="display:none"><span>Новый источник (добавится в список)</span><input type="text" name="sourceNew" placeholder="например: Telegram, реклама ВКонтакте"></label>
   ${F('endedAt', 'Договор прекращён (для статуса «ушёл»)', a.endedAt || '', 'date')}
+  <div class="wide fgrid" id="lr-wrap" style="${a.status === 'ушёл' ? '' : 'display:none'};margin:0">${FS('leaveReason', 'Причина ухода', [['', '—'], ...(S.leaveReasons || LEAVE_REASONS), ...(a.leaveReason && !(S.leaveReasons || LEAVE_REASONS).includes(a.leaveReason) ? [a.leaveReason] : [])], a.leaveReason || '')}${F('leaveNote', 'Причина: подробнее', a.leaveNote || '', 'text', 'placeholder="коротко, без медицинских подробностей"')}</div>
+  <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="guest" ${a.guest ? 'checked' : ''} style="width:20px;height:20px"><span><b>Гость</b> — приезжий, отдыхающий: занимается в обычной группе, но не входит в отток, средние показатели и контроль новичков. Его посещения и оплаты считаются в «Показателях» отдельно.</span></label>
   <label class="f wide"><span>Примечание</span><textarea name="note">${h(a.note)}</textarea></label></div>
   <p class="small muted">Если человек перешёл в другую группу, используйте кнопку «Перевести» в карточке — тогда старые занятия останутся в прежней группе. Здесь группу меняйте только для исправления ошибки.</p>
   <p class="small muted">Диагнозы и медицинские подробности сюда не пишите — только дату действия справки.</p>`;
 }
-const PERSON_FIELDS = ['last', 'first', 'middle', 'sex', 'birth', 'weight', 'group', 'group2', 'status', 'phone', 'motherName', 'motherPhone', 'fatherName', 'fatherPhone', 'mainContact', 'medUntil', 'addedAt', 'endedAt', 'note', 'source'];
+const PERSON_FIELDS = ['last', 'first', 'middle', 'sex', 'birth', 'weight', 'group', 'group2', 'status', 'phone', 'motherName', 'motherPhone', 'fatherName', 'fatherPhone', 'mainContact', 'medUntil', 'addedAt', 'endedAt', 'note', 'source', 'leaveReason', 'leaveNote'];
+const SRC_NEW = '__new';
+/* «+ другой источник…»: новый источник из поля — в список настроек; возвращает значение для карточки */
+function sourceFromForm(fd) {
+  if (fd.source !== SRC_NEW) return (fd.source || '').trim();
+  const v = String(fd.sourceNew || '').trim(); if (!v) return null;
+  const L = db.settings.sources || (db.settings.sources = []), ex = L.find(x => x.toLowerCase() === v.toLowerCase());
+  if (ex) return ex; L.push(v); return v;
+}
+function wireSourceNew(root = document) {          // показать поле «Новый источник», когда выбран «+ другой источник…»
+  root.querySelectorAll('select[name=source]').forEach(sel => { const w = sel.closest('form').querySelector('#src-new-wrap'); if (!w) return;
+    sel.addEventListener('change', () => { w.style.display = sel.value === SRC_NEW ? '' : 'none'; if (sel.value === SRC_NEW) w.querySelector('input').focus(); }); });
+}
+function leaveReasonCheck(fd) {                    // причина ухода обязательна; «Иное» — с пояснением
+  if (!fd.leaveReason) return 'Укажите причину ухода — она нужна для статистики в «Сводке» → «Показатели». Если не знаете — выберите «Иное» и напишите «не знаю».';
+  if (/^иное$/i.test(fd.leaveReason) && !String(fd.leaveNote || '').trim()) return 'Выбрано «Иное» — коротко напишите причину в поле «Причина: подробнее».';
+  return '';
+}
 function openPerson(id, pre = {}, onNew = null) {
   const a = id ? ix.ath.get(id) : { status: 'занимается', ...pre };
   modal(id ? 'Изменить данные' : 'Новый спортсмен', personForm(a), {
@@ -3605,11 +3821,18 @@ function openPerson(id, pre = {}, onNew = null) {
       const norm = s => String(s || '').trim().toLowerCase().replace(/ё/g, 'е');
       const twin = db.athletes.find(x => x.id !== id && norm(x.last) === norm(fd.last) && norm(x.first) === norm(fd.first) && (!fd.birth || !x.birth || x.birth === fd.birth));
       if (twin && !await ask(`Уже есть: ${fullName(twin)}${twin.birth ? ', ' + D.ru(twin.birth) : ''} (${twin.status}). Это другой человек?\n\nЕсли тот же — нажмите «Отмена» и откройте его карточку.`)) return false;
+      if (fd.source === SRC_NEW && !String(fd.sourceNew || '').trim()) { notice('Впишите новый источник или выберите его из списка.'); return false; }
+      if (!id && !fd.source) { notice('Укажите, откуда узнали о клубе. Нет подходящего — «+ другой источник…».'); return false; }
+      const wasLeft0 = !!id && (ix.ath.get(id) || {}).status === 'ушёл';
+      if (fd.status === 'ушёл' && !wasLeft0) { const lr = leaveReasonCheck(fd); if (lr) { notice(lr); return false; } }
       if (fd.status === 'приостановил') { const pe = pauseFromCheck({ addedAt: fd.addedAt, pauses: id ? (ix.ath.get(id) || {}).pauses : [] }, fd.pauseFrom || ix.today); if (pe) { notice(pe); return false; } }
       const t = id ? db.athletes.find(x => x.id === id) : { id: uid('a') };
       const wasLeft = !!id && t.status === 'ушёл', wasPaused = !!id && t.status === 'приостановил';
       const w0 = id ? (weighings(t)[0] || {}).kg || '' : '';
       for (const k of PERSON_FIELDS) t[k] = (fd[k] || '').trim();
+      t.source = sourceFromForm(fd) || '';
+      if (t.status !== 'ушёл') { t.leaveReason = ''; t.leaveNote = ''; }
+      t.guest = !!fd.guest;
       if (t.weight && t.weight.replace('.', ',') !== w0) { const nw = t.weight; t.weight = w0; addWeighing(t, nw, ix.today); }   // новый вес в форме — взвешивание сегодняшним днём
       if (t.status === 'ушёл' && !t.endedAt && !wasLeft) t.endedAt = ix.today;          // п. 12.3.1: от этой даты — 3 года хранения
       if (t.status !== 'ушёл') t.endedAt = '';
@@ -3628,6 +3851,8 @@ function openPerson(id, pre = {}, onNew = null) {
   });
   const st = document.querySelector('#dlg [name=status]'), pw = document.getElementById('pf-wrap');   // №28
   if (st && pw) st.addEventListener('change', () => { pw.style.display = st.value === 'приостановил' ? '' : 'none'; const i = pw.querySelector('input'); if (st.value === 'приостановил' && !i.value) i.value = ix.today; });
+  const lw = document.getElementById('lr-wrap'); if (st && lw) st.addEventListener('change', () => { lw.style.display = st.value === 'ушёл' ? '' : 'none'; });
+  wireSourceNew(document.getElementById('dlg'));
 }
 
 /* ---------- АБОНЕМЕНТЫ ---------- */
@@ -4088,8 +4313,8 @@ function vReport() {
   const ages = [['до 4', 0, 4], ['5–6', 5, 6], ['7–8', 7, 8], ['9–11', 9, 11], ['12–15', 12, 15], ['16–17', 16, 17], ['18+', 18, 200]];
   const debtors = db.athletes.map(a => ({ a, c: ix.athCalc.get(a.id) })).filter(x => (x.c.subCalc && x.c.subCalc.remaining < 0) || (x.c.unpaid && x.c.unpaid.length && !x.c.pendingSub));
   const beltCount = {}; active.forEach(a => { const b = ix.athCalc.get(a.id).belt || 'не присвоен'; beltCount[b] = (beltCount[b] || 0) + 1; });
-  return `<div class="topline"><h1>Сводка</h1><div class="row no-print"><input type="date" data-change="rep" data-k="from" value="${R.from}" style="width:auto"> — <input type="date" data-change="rep" data-k="to" value="${R.to}" style="width:auto"><button class="btn" data-act="reset-filters" data-page="report" title="Текущий месяц">Сбросить</button><button class="btn" data-act="print">Печать</button><a class="btn" href="#year">Итоги года</a></div></div>
-  <div class="print-only">${h(db.settings.club)} — сводка за ${D.ru(R.from)} — ${D.ru(R.to)}</div>
+  return `<div class="topline"><h1>Сводка</h1><div class="row no-print"><input type="date" data-change="rep" data-k="from" value="${R.from}" style="width:auto"> — <input type="date" data-change="rep" data-k="to" value="${R.to}" style="width:auto"><button class="btn" data-act="reset-filters" data-page="report" title="Текущий месяц">Сбросить</button><button class="btn" data-act="print">Печать</button></div></div>
+  ${reportTabs('report')}<div class="print-only">${h(db.settings.club)} — сводка за ${D.ru(R.from)} — ${D.ru(R.to)}</div>
   <div class="card"><div class="stats"><div class="stat"><b>${sess.length}</b><span class="small muted">занятий проведено</span></div><div class="stat"><b>${cnt(sess, '+')}</b><span class="small muted">посещений</span></div>
   <div class="stat"><b>${cnt(sess, 'н')}</b><span class="small muted">пропусков без заморозки</span></div><div class="stat"><b>${cnt(sess, 'б')}</b><span class="small muted">по болезни</span></div>
   <div class="stat"><b>${pays.length}</b><span class="small muted">оплат</span></div>${(() => { const refOld = finItems().filter(x => x.cat === '_ref' && x.date >= R.from && x.date <= R.to).reduce((n, x) => n + x.amount, 0);   // возвраты по оплатам до начала программы — в день выплаты
@@ -4148,11 +4373,13 @@ function vSettings() {
   <div class="card"><h2>Группы и расписание</h2>
   <label class="row small" style="gap:8px;margin:0 0 8px"><b>Изменения расписания действуют с</b><input type="date" data-change="sched-from" value="${ui.schedFrom}" style="width:auto"></label>
   <p class="small muted">Галочки показывают расписание на эту дату. Изменение действует только с неё: прошлые занятия, сроки абонементов и заморозки до этой даты считаются по прежнему расписанию (п. 9.3.8 оферты).</p>
-  <p class="small muted">Отметьте дни занятий — по ним считается окончание абонементов. «Посещ. по расписанию» — для групп, куда ходят нерегулярно (например, «Разово»): для допуска к аттестации пропуском считается каждый день по расписанию, когда клуб работал, даже если в группе в этот день никого не было. При переименовании группа поменяется везде: у спортсменов, в журнале и абонементах.</p>
-  <div class="scroll"><table class="t"><thead><tr><th>Группа</th>${DOW.map(d => `<th style="text-align:center">${d}</th>`).join('')}<th style="text-align:center" title="Для допуска к аттестации: пропуском считается каждый день по расписанию, когда клуб работал, даже если в группе никто не занимался">Посещ. по расписанию</th><th></th></tr></thead><tbody>
+  <p class="small muted">Отметьте дни занятий — по ним считается окончание абонементов. «Посещ. по расписанию» — для групп, куда ходят нерегулярно (например, «Разово»): для допуска к аттестации пропуском считается каждый день по расписанию, когда клуб работал, даже если в группе в этот день никого не было. При переименовании группа поменяется везде: у спортсменов, в журнале и абонементах. «Мест» — сколько человек комфортно помещается на ковёр (для заполняемости в «Показателях»). «Гости» — группа для приезжих: все её спортсмены считаются гостями; приезжих в обычной группе отмечайте галочкой «Гость» в карточке.</p>
+  <div class="scroll"><table class="t"><thead><tr><th>Группа</th>${DOW.map(d => `<th style="text-align:center">${d}</th>`).join('')}<th style="text-align:center" title="Для допуска к аттестации: пропуском считается каждый день по расписанию, когда клуб работал, даже если в группе никто не занимался">Посещ. по расписанию</th><th style="text-align:center" title="Сколько человек комфортно помещается на ковёр — для заполняемости в «Показателях»">Мест</th><th style="text-align:center" title="Группа для приезжих: все в ней — гости, в отток и средние показатели не входят">Гости</th><th></th></tr></thead><tbody>
   ${S.groups.map((g, i) => `<tr><td><input type="text" data-change="group-name" data-i="${i}" value="${h(g.name)}" style="min-width:140px"></td>${daysOn(g, ui.schedFrom).map((on, d) => `<td style="text-align:center"><input type="checkbox" data-change="group-day" data-i="${i}" data-d="${d}" ${on ? 'checked' : ''} style="width:20px;height:20px"></td>`).join('')}
   <td style="text-align:center"><input type="checkbox" data-change="group-bysched" data-i="${i}" ${g.bySchedule ? 'checked' : ''} style="width:20px;height:20px"></td>
-  <td><button class="btn sm ghost" data-act="group-del" data-i="${i}" aria-label="Удалить группу">✕</button></td></tr>${(g.schedHistory || []).length > 1 ? `<tr><td colspan="10" class="small muted" style="padding-top:0">История расписания: ${g.schedHistory.map((e, k) => `${k ? 'с ' + D.ru(e.from) : 'исходное'}: ${e.days.map((x, j) => x ? DOW[j] : '').filter(Boolean).join(' ') || 'нет дней'}${k ? ` <button class="btn sm ghost" data-act="sched-del" data-i="${i}" data-from="${e.from}" aria-label="Удалить это изменение">✕</button>` : ''}`).join(' · ')}</td></tr>` : ''}`).join('')}</tbody></table></div>
+  <td style="text-align:center"><input type="number" min="0" step="1" inputmode="numeric" data-change="group-cap" data-i="${i}" value="${h(g.cap ?? '')}" style="width:64px"></td>
+  <td style="text-align:center"><input type="checkbox" data-change="group-guest" data-i="${i}" ${g.guest ? 'checked' : ''} style="width:20px;height:20px"></td>
+  <td><button class="btn sm ghost" data-act="group-del" data-i="${i}" aria-label="Удалить группу">✕</button></td></tr>${(g.schedHistory || []).length > 1 ? `<tr><td colspan="12" class="small muted" style="padding-top:0">История расписания: ${g.schedHistory.map((e, k) => `${k ? 'с ' + D.ru(e.from) : 'исходное'}: ${e.days.map((x, j) => x ? DOW[j] : '').filter(Boolean).join(' ') || 'нет дней'}${k ? ` <button class="btn sm ghost" data-act="sched-del" data-i="${i}" data-from="${e.from}" aria-label="Удалить это изменение">✕</button>` : ''}`).join(' · ')}</td></tr>` : ''}`).join('')}</tbody></table></div>
   <button class="btn" data-act="group-add" style="margin-top:8px">Добавить группу</button></div>
   <div class="grid2"><div class="card"><h2>Нерабочие дни</h2><p class="small muted">Праздники, выезды на соревнования, ремонт — дни, когда занятий нет у всего клуба. В срок абонемента не засчитываются.</p>
   <ul class="list" style="max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:8px">${[...S.holidays].sort((a, b) => a.date.localeCompare(b.date)).map(x => `<li><span class="num" style="width:90px">${D.ru(x.date)}</span><span class="who small">${h(x.reason)}</span><button class="btn sm ghost" data-act="hol-del" data-date="${x.date}" aria-label="Удалить">✕</button></li>`).join('') || '<li class="muted">Нет</li>'}</ul>
@@ -4167,13 +4394,17 @@ function vSettings() {
   <h2 style="margin-top:16px">Аттестация</h2><div class="fgrid">${L('Предыдущая аттестация', inp('attest.prev', A.prev, 'date'))}${L('Предстоящая аттестация', inp('attest.next', A.next, 'date'))}
   ${L('Порог допуска, %', inp('attest.threshold', A.threshold, 'number'))}${L('Минимум турниров', inp('attest.minTournaments', A.minTournaments, 'number'))}${L('Турниры обязательны до (лет, включительно)', inp('attest.tournamentsMaxAge', A.tournamentsMaxAge ?? 15, 'number'))}
   ${L('Детские правила допуска до (лет, включительно)', inp('attest.attendMaxAge', A.attendMaxAge ?? 15, 'number'))}${L('Переходный период: посещаемость также считать с', `<input type="date" data-change="soft" value="${h(A.softFor === A.next ? A.softFrom || '' : '')}">`)}${L('Послабление на страйп', inp('attest.reliefCoef', A.reliefCoef, 'number', 'step="0.05"'))}</div></div></div>
-  <div class="card"><h2>Клуб</h2><div class="fgrid">${L('Клуб и адрес', inp('club', S.club))}${L('Главный тренер', inp('coachMain', S.coachMain))}${L('Второй тренер', inp('coachSecond', S.coachSecond))}${L('Кем присваивается пояс', inp('awardedBy', S.awardedBy))}${L('Оператор персональных данных (ФИО полностью, для актов)', inp('operatorName', S.operatorName || S.awardedBy))}${L('Адрес оператора для актов', inp('operatorAddress', S.operatorAddress || ''))}${L('Занятий в абонементе по умолчанию', inp('defaultCount', S.defaultCount, 'number'))}${L('Начало ведения программы (суммы оплат считаются с этой даты)', inp('programStart', S.programStart || S.sickCheckFrom, 'date'))}${L('Цель: взрослых (18+) занимается', inp('adultTarget', S.adultTarget ?? 16, 'number', 'min="0"'))}${L('Инструктаж проверять с (раньше — только бумажный журнал)', inp('briefFrom', S.briefFrom || '', 'date'))}
+  <div class="card"><h2>Клуб</h2><div class="fgrid">${L('Клуб и адрес', inp('club', S.club))}${L('Главный тренер', inp('coachMain', S.coachMain))}${L('Второй тренер', inp('coachSecond', S.coachSecond))}${L('Кем присваивается пояс', inp('awardedBy', S.awardedBy))}${L('Оператор персональных данных (ФИО полностью, для актов)', inp('operatorName', S.operatorName || S.awardedBy))}${L('Адрес оператора для актов', inp('operatorAddress', S.operatorAddress || ''))}${L('Занятий в абонементе по умолчанию', inp('defaultCount', S.defaultCount, 'number'))}${L('Начало ведения программы (суммы оплат считаются с этой даты)', inp('programStart', S.programStart || S.sickCheckFrom, 'date'))}${L('Цель: взрослых (18+) занимается', inp('adultTarget', S.adultTarget ?? 16, 'number', 'min="0"'))}${L('«Показатели» считать с (раньше — неточный перенос из Excel)', inp('statsFrom', S.statsFrom || '', 'date'))}${L('Инструктаж проверять с (раньше — только бумажный журнал)', inp('briefFrom', S.briefFrom || '', 'date'))}
   <label class="f wide"><span>Пояса (по одному в строке, по порядку)</span><textarea data-change="belts" style="min-height:120px">${h(S.belts.join('\n'))}</textarea></label></div></div>
   <div class="card"><h2>Цены (Приложение № 1 к оферте)</h2><p class="small muted">По ним программа подставляет сумму в окне оплаты: на ${S.prices.count} занятий — детский тариф, если на дату оплаты ещё нет ${S.prices.kidUnder} лет (Положение о льготах, п. 3.1), иначе базовый; одно занятие — разовое посещение. Сумму в окне оплаты можно изменить — по договорённости.</p>
   <div class="fgrid">${L('Разовое посещение, ₽', inp('prices.single', S.prices.single, 'number', 'min="0" step="10"'))}${L('Абонемент на ' + S.prices.count + ' занятий, ₽', inp('prices.sub', S.prices.sub, 'number', 'min="0" step="10"'))}${L('Детский абонемент, ₽', inp('prices.subKid', S.prices.subKid, 'number', 'min="0" step="10"'))}${L('Детский — пока не исполнилось, лет', inp('prices.kidUnder', S.prices.kidUnder, 'number', 'min="1" max="18"'))}</div></div>
   <div class="card"><h2>Пробное занятие</h2><div class="fgrid"><label class="row wide" style="gap:8px"><input type="checkbox" data-change="trialfree" data-k="on" ${S.trialFree && S.trialFree.on ? 'checked' : ''} style="width:20px;height:20px"><span><b>Пробное занятие бесплатное</b></span></label>${L('С даты', `<input type="date" data-change="trialfree" data-k="from" value="${h((S.trialFree && S.trialFree.from) || '')}">`)}</div>
   <p class="small muted">Выключено — пробное платное, как разовое посещение. Включено — с этой даты отметка «пробное» не создаёт долга и не списывается; прежние пробные считаются как были. У конкретного занятия можно поменять кнопкой «платно / бесплатно» рядом с «пробное». Если меняете правило — поменяйте и оферту.</p></div>
-  <div class="card"><h2>Заявки</h2><div class="fgrid"><label class="f wide"><span>Откуда узнают о клубе (по одному в строке)</span><textarea data-change="sources" style="min-height:110px">${h((S.sources || []).join('\n'))}</textarea></label>${L('Обезличивать заявки без договора через, мес.', inp('leadsKeep', S.leadsKeep, 'number', 'min="1" max="36"'))}</div></div>
+  <div class="card"><h2>Источники, причины ухода, заявки</h2><div class="fgrid"><label class="f wide"><span>Откуда узнают о клубе (по одному в строке; новый можно добавить и в карточке — «+ другой источник…»)</span><textarea data-change="sources" style="min-height:110px">${h((S.sources || []).join('\n'))}</textarea></label>
+  <label class="f wide"><span>Причины ухода (по одному в строке; «Иное» — с пояснением)</span><textarea data-change="leave-reasons" style="min-height:110px">${h((S.leaveReasons || LEAVE_REASONS).join('\n'))}</textarea></label>${L('Обезличивать заявки без договора через, мес.', inp('leadsKeep', S.leadsKeep, 'number', 'min="1" max="36"'))}</div>
+  <p class="small muted">Переименовали источник или причину — у спортсменов, кому они уже проставлены, останется прежнее название (оно видно в карточке и в «Показателях» отдельной строкой).</p></div>
+  <div class="card"><h2>Контроль новичка</h2><p class="small muted">Пункт «Новичок» в «Требует внимания»: человек пришёл недавно и ходит меньше, чем нужно, чтобы втянуться. Большинство уходящих новичков уходит в первые недели — написать или поговорить лучше сразу.</p>
+  <div class="fgrid">${L('Первые дни в клубе, дн.', inp('newbie.days', S.newbie.days, 'number', 'min="7" max="60"'))}${L('…за них посещений не меньше', inp('newbie.minVisits', S.newbie.minVisits, 'number', 'min="1" max="10"'))}${L('Пропусков подряд — сигнал', inp('newbie.missRow', S.newbie.missRow, 'number', 'min="1" max="6"'))}${L('Сколько дней считать новичком', inp('newbie.watch', S.newbie.watch, 'number', 'min="14" max="120"'))}</div></div>
   <div class="card"><h2>Шаблоны сообщений</h2><p class="small muted">Подстановки: {имя}, {фи}, {фио}, {остаток}, {долг}, {занятий}, {дата_начала}, {дата_окончания}, {срок_оплаты}, {группа}.</p>
   ${S.templates.map((t, i) => `<fieldset><legend>${h(t.title)}</legend><input type="text" data-change="tpl" data-i="${i}" data-k="title" value="${h(t.title)}" style="margin-bottom:6px"><textarea data-change="tpl" data-i="${i}" data-k="text">${h(t.text)}</textarea><button class="btn sm danger" data-act="tpl-del" data-i="${i}" style="margin-top:6px">Удалить шаблон</button></fieldset>`).join('')}
   <button class="btn" data-act="tpl-add">Добавить шаблон</button></div>`;
@@ -4682,8 +4913,8 @@ function vYear(arg) {
   const t = ix.today, y = /^\d{4}$/.test(arg || '') ? arg : t.slice(0, 4);
   const first = [...db.athletes.map(a => a.addedAt), ...ix.sessionsSorted.slice(0, 1).map(s => s.date)].filter(Boolean).sort()[0] || t;
   const years = []; for (let k = +t.slice(0, 4); k >= +first.slice(0, 4); k--) years.push(String(k));
-  return `<div class="topline"><div><h1>Итоги года</h1></div><div class="row no-print"><select data-change="year-sel" style="width:auto">${years.map(k => opt(k, y, k + ' год')).join('')}</select><button class="btn" data-act="year-print" data-y="${y}">Печать</button><button class="btn" data-act="year-word" data-y="${y}">В Word</button><button class="btn" data-act="year-xlsx" data-y="${y}">В Excel</button><a class="btn" href="#report">Сводка</a></div></div>
-  <div class="print-only"><b>${h(db.settings.club)}</b> — итоги ${y} года</div>${yearSectionsHTML(yearReport(y), false)}`;
+  return `<div class="topline"><div><h1>Сводка</h1></div><div class="row no-print"><select data-change="year-sel" style="width:auto">${years.map(k => opt(k, y, k + ' год')).join('')}</select><button class="btn" data-act="year-print" data-y="${y}">Печать</button><button class="btn" data-act="year-word" data-y="${y}">В Word</button><button class="btn" data-act="year-xlsx" data-y="${y}">В Excel</button></div></div>
+  ${reportTabs('year')}<div class="print-only"><b>${h(db.settings.club)}</b> — итоги ${y} года</div>${yearSectionsHTML(yearReport(y), false)}`;
 }
 function yearReport(y) {
   const items = finItems(), A = yearStats(db, ix, y, items), B = yearStats(db, ix, String(+y - 1), items), S = [], t = ix.today;
@@ -4725,6 +4956,128 @@ function yearSectionsHTML(S, print) {
   }).join('');
 }
 function yearDoc(y) { return `<h2 style="margin:0 0 4pt">Итоги ${y} года</h2><p style="margin:0 0 8pt">${h(db.settings.club)}. Сформировано ${D.ru(ix.today)}.</p>${yearSectionsHTML(yearReport(y), true)}`; }
+/* ---------- СВОДКА → ПОКАЗАТЕЛИ (19.10.2026) ---------- */
+function reportTabs(cur) {
+  return `<div class="seg no-print" role="group" aria-label="Сводка" style="margin:0 0 12px">${[['report', 'Период'], ['metrics', 'Показатели'], ['year', 'Итоги года']].map(([k, l]) => `<button type="button" data-go="#${k}" class="${cur === k ? 'on' : ''}" aria-pressed="${cur === k}">${l}</button>`).join('')}</div>`;
+}
+const mPct = v => v == null ? '—' : Math.round(v * 100) + '%';
+const mNum = (v, k = 1) => v == null ? '—' : (+v).toLocaleString('ru', { maximumFractionDigits: k, minimumFractionDigits: k });
+const mOf = (x, n) => n ? `${x} из ${n} (${Math.round(x / n * 100)}%)` : '—';
+function metricsReport(R) {
+  const S = [], M = R.months, t = ix.today;
+  const head = ['Показатель', ...M.map(m => MONTHS[+m.ym.slice(5) - 1] + (m.ym.slice(0, 4) !== t.slice(0, 4) ? ' ' + m.ym.slice(2, 4) : '') + (m.partial ? ' (по ' + D.short(t) + ')' : ''))];
+  const row = (label, f, b) => ({ c: [label, ...M.map(m => { const v = f(m); return v == null ? '—' : String(v); })], b });
+  const sub = label => ({ c: [label, ...M.map(() => '')], b: 1 });
+  S.push({ title: 'По месяцам', head, rows: [
+    sub('Состав'),
+    row('Занималось на начало месяца', m => m.startN), row('Пришли новые', m => m.newN), row('Ушли (договор прекращён)', m => m.leftN),
+    row('…из них новички (до 90 дней в клубе)', m => m.leftNew), row('Отток, % от состава на начало', m => mPct(m.churn), 1), row('Отток старожилов (больше 90 дней), %', m => mPct(m.churnOld)),
+    row('На перерыве на конец месяца', m => m.paused), row('Занимается на конец месяца', m => m.endN, 1),
+    sub('Посещаемость'),
+    row('Занятий проведено', m => m.sessions), row('Посещений (без гостей)', m => m.visits), row('В среднем на занятии (с гостями)', m => mNum(m.perSession)),
+    row('Посещений на человека в неделю', m => mNum(m.perWeek), 1), row('Ходят 2 раза в неделю и чаще', m => mOf(m.f2, m.regN)), row('Ходят реже раза в неделю', m => mOf(m.f1, m.regN)),
+    sub('Пробные и гости'),
+    row('Пробных занятий', m => m.trials), row('…после пробного купили абонемент', m => m.trials ? mOf(m.trialBought, m.trials) : '—'),
+    row('Гостей', m => m.guests), row('Посещений гостей', m => m.gVisits), row('Оплаты гостей, ₽', m => m.money ? rubN(m.incGuest) : '—'),
+    sub('Деньги'),
+    row('Оплаты занятий (без гостей), ₽', m => m.money ? rubN(m.incMem) : '—'), row('Доход на ученика в месяц (ARPU), ₽', m => m.arpu == null ? '—' : rubN(m.arpu), 1),
+    row('…дети, ₽', m => m.arpuKid == null ? '—' : rubN(m.arpuKid)), row('…взрослые, ₽', m => m.arpuAdult == null ? '—' : rubN(m.arpuAdult)) ],
+    note: `Считается с ${D.ru(R.statsFrom)} (Настройки → Клуб). Гости (метка «Гость» или группа «Гости») в состав, отток и посещения на человека не входят. «Посещений на человека» и «Ходят…» — по тем, кто весь месяц в клубе, с абонементом, не на перерыве и не в группе «по расписанию» (Разово). Деньги — с начала учёта денег (${D.ru(pStartOf(db)) || '—'}). Доход на ученика — оплаты месяца (за вычетом возвратов) на одного занимающегося, кроме перерыва.` });
+  const c = x => x.n ? mOf(x.ok, x.n) : '—';
+  const tot = who => { const L = R.cohorts.filter(k => k.who === who), z = k => ({ n: L.reduce((s, x) => s + x[k].n, 0), ok: L.reduce((s, x) => s + x[k].ok, 0) });
+    return L.length ? { c: ['Всего — ' + who, String(L.reduce((s, x) => s + x.n, 0)), c(z('m1')), c(z('m3')), c(z('m6')), c(z('m12')), String(L.reduce((s, x) => s + x.now, 0)), String(L.reduce((s, x) => s + x.refund, 0))], b: 1 } : null; };
+  S.push({ title: 'Удержание новичков: дети и взрослые', head: ['Пришли', 'Пришло', 'Через 1 мес.', 'Через 3 мес.', 'Через 6 мес.', 'Через 12 мес.', 'Занимаются сейчас', 'Ушли с возвратом'],
+    rows: [...R.cohorts.map(k => ({ c: [MONTHS[+k.ym.slice(5) - 1] + ' ' + k.ym.slice(0, 4) + ' — ' + k.who, String(k.n), c(k.m1), c(k.m3), c(k.m6), c(k.m12), String(k.now), String(k.refund)] })), tot('дети'), tot('взрослые')].filter(Boolean),
+    note: `Пришедшие с ${D.ru(R.statsFrom)}; дети — до 18 лет на дату прихода (без даты рождения — со взрослыми). «Через 3 мес.» — из тех, кто в клубе уже 3 месяца и больше, сколько не ушли за первые 3 месяца; пока срок не прошёл ни у кого — «—». Столбцы 6 и 12 месяцев заполнятся со временем: более ранние приходы не считаются, потому что ушедшие до сентября 2026 в программу не переносились.` });
+  if (R.reasons.length) S.push({ title: 'Почему уходят', head: ['Причина', 'Ушли', 'Новички (до 90 дн.)', 'Старожилы', 'С возвратом'],
+    rows: [...R.reasons.map(r => ({ c: [r.reason, String(r.n), String(r.nw), String(r.old), String(r.refund)] })),
+      { c: ['Всего', ...['n', 'nw', 'old', 'refund'].map(k => String(R.reasons.reduce((s, r) => s + r[k], 0)))], b: 1 }],
+    note: `Ушедшие с ${D.ru(R.from)}. Причину указывают при статусе «ушёл» и в окне «Отказ от договора».` });
+  if (R.sources.length) S.push({ title: 'Откуда приходят', head: ['Источник', 'Пришли', 'Занимаются', 'Ушли', 'Остались', 'Гостей'],
+    rows: R.sources.map(r => ({ c: [r.src, String(r.n), String(r.now), String(r.left), r.n ? Math.round((r.n - r.left) / r.n * 100) + '%' : '—', String(r.guests)] })),
+    note: `Новые с ${D.ru(R.from)} по полю «Откуда узнали о клубе». «Остались» — не ушли (в том числе на перерыве). Гости — отдельно.` });
+  if (R.groups.length) S.push({ title: 'Группы', head: ['Группа', 'Занятий', 'В среднем', 'Максимум', 'Мест', 'Заполняемость', 'Занимаются', 'Новых', 'Ушли (новичков)'],
+    rows: R.groups.map(g => ({ c: [g.name, String(g.sessions), mNum(g.avg), g.max == null ? '—' : String(g.max), g.cap ? String(g.cap) : '—', mPct(g.fill), String(g.now) + (g.paused ? ' + ' + g.paused + ' на перерыве' : ''), String(g.newN), g.left ? `${g.left} (${g.leftNew})` : '0'] })),
+    note: `С ${D.ru(R.from)}. «В среднем» — человек на занятии, вместе с гостями. Заполняемость — средняя посещаемость от числа мест (Настройки → Группы и расписание, столбец «Мест»): 70–85% — хорошо, меньше 50% — группу стоит продвигать или пересобрать, больше 100% — тесно.` });
+  if (R.coachesSet) S.push({ title: 'Тренеры', head: ['Тренер', 'Группы', 'Занятий', 'В среднем', 'Занимаются', 'Новых', 'Ушли (новичков)'],
+    rows: R.coaches.map(x => ({ c: [x.name, x.groups.join(', '), String(x.sessions), mNum(x.avg), String(x.now), String(x.newN), x.left ? `${x.left} (${x.leftNew})` : '0'] })),
+    note: 'По группам, закреплённым за тренером («Деньги» → «Тренеры» → «Схема оплаты»); незакреплённые — у главного тренера. Сравнивайте похожие группы (детскую с детской) и за несколько месяцев: при малом числе людей один ушедший сильно меняет процент.' });
+  else S.push({ title: 'Тренеры', head: ['', ''], rows: [{ c: ['Показатели по тренерам появятся, когда за тренером закреплены группы', '«Деньги» → «Тренеры» → «Схема оплаты»'] }] });
+  S.push({ title: 'ARPU и LTV: доход на ученика и ценность ученика' + (R.prelim ? ' (предварительно)' : ''), head: ['Показатель', 'Значение'], rows: [
+    { c: ['Месяцев в расчёте: отток / деньги', `${M.length} / ${R.moneyMonths}`] },
+    { c: ['Средний месячный отток', mPct(R.churnAvg)] },
+    { c: ['Ожидаемый срок занятий, мес. (1 ÷ отток)', R.life == null ? '—' : mNum(R.life)] },
+    { c: ['Доход на ученика в месяц (ARPU), ₽', R.arpuAvg == null ? '—' : rubN(R.arpuAvg)] },
+    { c: ['Ценность ученика за всё время (LTV = ARPU × срок), ₽', R.ltv == null ? '—' : rubN(R.ltv)], b: 1 },
+    { c: ['Разумный предел затрат на привлечение одного ученика (⅓ LTV), ₽', R.ltv == null ? '—' : rubN(R.ltv / 3)] } ],
+    note: (R.prelim ? 'ПРЕДВАРИТЕЛЬНО: деньги учитываются с ' + (D.ru(pStartOf(db)) || '—') + ', и часть абонементов оплачена до этой даты — доход на ученика сейчас занижен; отток считается по ' + M.length + ' мес. (неполный — пропорционально дням), в него попали ушедшие при наведении порядка в списках. Надёжной оценка станет после 3 полных месяцев с деньгами, точной — через 6–12 месяцев. ' : '') + 'Срок ограничен 60 месяцами. LTV — сколько денег в среднем приносит ученик за всё время занятий: столько стоит удержать одного ученика; на привлечение нового разумно тратить не больше трети.' });
+  { const Z = summerCalc(db, ix, t), lab = { back: 'вернулись к осени', left: 'ушли (договор прекращён)', paused: 'ещё на перерыве', gone: 'не вернулись, но не выписаны' };
+    const col = r => r.n ? [String(r.n), mOf(r.back, r.n), String(r.left), String(r.paused), String(r.gone), r.kids ? mOf(r.kidsBack, r.kids) : '—'] : ['0', '—', '—', '—', '—', '—'];
+    S.push({ title: `Лето ${Z.Y}: перерыв и возвращение`, head: ['', 'Человек', 'Вернулись к осени', 'Ушли', 'Ещё на перерыве', 'Не вернулись, не выписаны', 'Дети: вернулись'],
+      rows: [{ c: ['Оформили «приостановил» (с мая по август)', ...col(Z.formal)] }, { c: ['Без оформления: перерыв 4 недели и больше', ...col(Z.informal)] }],
+      note: `Лето — ${D.ru(Z.s0)}–${D.ru(Z.s1)}; «вернулись» — было посещение с ${D.ru(Z.f0)} по ${D.ru(Z.f1)}${Z.early ? ' (осень ещё идёт — цифра может вырасти)' : ''}. «Без оформления» — занимались в мае и не приходили 4 недели и больше летом без отметки «приостановил». «Не вернулись, не выписаны» — статус «занимается», но осенью их не было: позвоните, а если не вернутся — поставьте «ушёл» с причиной.${Z.Y < 2027 ? ' Журнал до 01.09.2026 перенесён из Excel — за лето 2026 оценка приблизительная.' : ''}` });
+    S.push({ title: `Сентябрьский тест ${Z.Y}: занимались в мае → продолжили осенью`, head: ['Группа в мае', 'Занимались в мае', 'Продолжили осенью', 'Ушли', 'На перерыве', 'Не ходят, не выписаны'],
+      rows: [...Z.sept.map(r => ({ c: [r.group, String(r.n), mOf(r.back, r.n), String(r.left), String(r.paused), String(r.gone)] })),
+        ...['дети', 'взрослые'].map(w => { const L = Z.sept.filter(r => r.kid === (w === 'дети')); if (!L.length) return null; const n = L.reduce((s, r) => s + r.n, 0), b = L.reduce((s, r) => s + r.back, 0); return { c: ['Всего — ' + w, String(n), mOf(b, n), ...['left', 'paused', 'gone'].map(k => String(L.reduce((s, r) => s + r[k], 0)))], b: 1 }; }).filter(Boolean)],
+      note: `Дети — до 18 лет на 31 мая, по группе, в которой занимались в мае. «Продолжили» — было посещение с ${D.ru(Z.f0)} по ${D.ru(Z.f1)}${Z.early ? ' (октябрь ещё идёт)' : ''}. Главный годовой тест детского направления: решение о продолжении принимают родители в конце лета.${Z.Y < 2027 ? ' Майский журнал 2026 перенесён из Excel — оценка приблизительная.' : ''}` }); }
+  { const B = beltCalc(db, ix, t), mo = v => v == null ? '—' : mNum(v);
+    S.push({ title: 'Время на поясе', head: ['Пояс', 'Занимаются', 'В среднем на ступени сейчас, мес.', 'Больше 12 мес. без аттестации', 'До страйпа, мес. (случаев)', 'До следующего пояса, мес. (случаев)'],
+      rows: B.rows.map(r => ({ c: [r.belt, String(r.n) + (r.noRec ? ` (без записей: ${r.noRec})` : ''), mo(r.avgNow), String(r.over12), r.stripeN ? `${mo(r.stripeAvg)} (${r.stripeN})` : '—', r.beltN ? `${mo(r.beltAvg)} (${r.beltN})` : '—'] })),
+      note: `«На ступени сейчас» — сколько прошло с последней аттестации (пояс или страйп), у кого записей нет — с начала занятий. «До страйпа / пояса» — средний срок между записями аттестаций (сейчас записей ${B.records}, переходов между ними ${B.steps} — цифры станут показательными после нескольких аттестаций). Аттестация два раза в год: больше 12 месяцев без продвижения — пропущены две аттестации, повод поговорить с человеком или родителями.` });
+    if (B.stale.length) S.push({ title: 'Без продвижения больше 12 месяцев', head: ['Спортсмен', 'Группа', 'Пояс', 'С какой даты', 'Месяцев'],
+      rows: B.stale.map(x => ({ c: [shortName(x.a), x.a.group || '', x.belt + (x.stripes ? ', ' + x.stripes + ' стр.' : ''), (x.rec ? 'аттестация ' : 'в клубе с ') + D.ru(x.since), mNum(x.m, 0)] })),
+      note: 'Занимающиеся, у кого последняя аттестация (или начало занятий, если записей нет) больше 12 месяцев назад. Если запись об аттестации просто не внесена — внесите её в карточке («Присвоить пояс»).' }); }
+  return S;
+}
+function metricsTiles(R) {
+  const M = R.months, cur = M[M.length - 1], last = [...M].reverse().find(m => !m.partial), k30 = R.cohorts.reduce((o, k) => ({ n: o.n + k.m1.n, ok: o.ok + k.m1.ok }), { n: 0, ok: 0 });
+  const fills = R.groups.filter(g => g.fill != null);
+  const tile = (v, l) => `<div class="stat"><b>${v}</b><span class="small muted">${l}</span></div>`;
+  return `<div class="card"><div class="stats">
+  ${tile(cur ? cur.endN : '—', 'занимается сейчас (без гостей)')}
+  ${tile(last ? mPct(last.churn) : '—', last ? `отток за ${MONTHS[+last.ym.slice(5) - 1]}: ушли ${last.leftN} из ${last.startN}` : 'отток: нет полного месяца')}
+  ${tile(k30.n ? mPct(k30.ok / k30.n) : '—', `новичков прошли первый месяц${k30.n ? ' (' + k30.ok + ' из ' + k30.n + ')' : ''}`)}
+  ${tile(cur ? mNum(cur.perWeek) : '—', 'посещений на человека в неделю, этот месяц')}
+  ${tile(fills.length ? fills.map(g => mPct(g.fill)).join(' · ') : '—', fills.length ? 'заполняемость: ' + fills.map(g => g.name).join(' · ') : 'заполняемость: укажите «Мест» у групп в Настройках')}
+  </div>${R.noSource || R.noReason ? `<div class="row" style="margin-top:10px;gap:10px;flex-wrap:wrap"><span class="small">${[R.noSource ? `без «откуда узнали»: ${R.noSource}` : '', R.noReason ? `ушедших без причины: ${R.noReason}` : ''].filter(Boolean).join(' · ')}</span><button class="btn sm" data-act="fill-open">Заполнить</button></div>` : ''}</div>`;
+}
+function vMetrics() {
+  const m = ui.metrics || (ui.metrics = { months: 12 }), R = metricsCalc(db, ix, { months: m.months, items: finItems() });
+  return `<div class="topline"><h1>Сводка</h1><div class="row no-print"><select data-change="metrics-months" style="width:auto">${[[6, '6 месяцев'], [12, '12 месяцев'], [24, '24 месяца']].map(([v, l]) => opt(v, m.months, 'Последние ' + l)).join('')}</select><button class="btn" data-act="fill-open">Источники и причины</button><button class="btn" data-act="metrics-print">Печать</button><button class="btn" data-act="metrics-word">В Word</button><button class="btn" data-act="metrics-xlsx">В Excel</button></div></div>
+  ${reportTabs('metrics')}<div class="print-only"><b>${h(db.settings.club)}</b> — показатели клуба</div>
+  ${metricsTiles(R)}${yearSectionsHTML(metricsReport(R), false)}`;
+}
+function metricsDoc() {
+  const m = ui.metrics || { months: 12 }, R = metricsCalc(db, ix, { months: m.months, items: finItems() });
+  return `<h2 style="margin:0 0 4pt">Показатели клуба</h2><p style="margin:0 0 8pt">${h(db.settings.club)}. С ${D.ru(R.from)} по ${D.ru(ix.today)}. Сформировано ${D.ru(ix.today)}.</p>${yearSectionsHTML(metricsReport(R), true)}`;
+}
+/* окно «Источники и причины»: быстро проставить «откуда узнали» и причину ухода списком */
+function openFill() {
+  const S = db.settings, from = S.statsFrom || pStartOf(db) || '';
+  const noSrc = db.athletes.filter(a => !a.source && (a.status !== 'ушёл' || (a.addedAt || '') >= from)).sort((x, y) => (y.addedAt || '').localeCompare(x.addedAt || '') || fullName(x).localeCompare(fullName(y), 'ru'));
+  const noLR = db.athletes.filter(a => a.status === 'ушёл' && !a.leaveReason).sort((x, y) => (y.endedAt || '').localeCompare(x.endedAt || ''));
+  const srcSel = a => `<select name="src_${a.id}" class="fill-src" style="flex:0 1 260px;min-width:180px">${[['', '—'], ...(S.sources || [])].map(x => Array.isArray(x) ? opt(x[0], '', x[1]) : opt(x, '')).join('')}</select>`;
+  const lrSel = a => `<select name="lr_${a.id}" style="flex:0 1 200px;min-width:160px">${[['', '—'], ...(S.leaveReasons || LEAVE_REASONS)].map(x => Array.isArray(x) ? opt(x[0], '', x[1]) : opt(x, '')).join('')}</select>`;
+  const who = a => `<div class="who" style="flex:1 1 240px"><b>${h(fullName(a))}</b><span class="small">${h(a.group || '')}${a.addedAt ? ' · в клубе с ' + D.ru(a.addedAt) : ''}${a.status === 'ушёл' && a.endedAt ? ' · ушёл ' + D.ru(a.endedAt) : ''}${a.refund ? ' · с возвратом' : ''}${isGuest(db, a) ? ' · гость' : ''}</span></div>`;
+  modal('Источники и причины ухода', `${noSrc.length ? `<h3 style="margin-top:0">Откуда узнали о клубе — ${noSrc.length}</h3>
+  <div class="row" style="gap:8px;margin-bottom:8px"><input type="text" id="fill-src-new" placeholder="Новый источник, например: Telegram" style="flex:1;min-width:160px"><button type="button" class="btn" data-act="fill-src-add">Добавить в список</button></div>
+  <ul class="list" style="border:1px solid var(--line);border-radius:8px">${noSrc.map(a => `<li style="flex-wrap:wrap;gap:8px">${who(a)}${srcSel(a)}</li>`).join('')}</ul>
+  <p class="small muted">Не помните — оставьте «—». Давно занимающихся можно не заполнять: важнее новые.</p>` : '<p>У всех указано, откуда узнали о клубе.</p>'}
+  ${noLR.length ? `<h3>Причина ухода — ${noLR.length}</h3><ul class="list" style="border:1px solid var(--line);border-radius:8px">${noLR.map(a => `<li style="flex-wrap:wrap;gap:8px">${who(a)}${lrSel(a)}<input type="text" name="ln_${a.id}" placeholder="подробнее (необязательно)" style="flex:1 1 160px"></li>`).join('')}</ul>` : '<p>У всех ушедших указана причина.</p>'}`,
+  { wide: true, submit: 'Сохранить', onSubmit(fd) {
+    let ns = 0, nr = 0; const L = S.sources || (S.sources = []);
+    for (const [k, v0] of Object.entries(fd)) { const v = String(v0 || '').trim(); if (!v) continue;
+      if (k.startsWith('src_')) { const a = db.athletes.find(x => x.id === k.slice(4)); if (!a) continue; a.source = v; ns++; if (!L.includes(v)) L.push(v); }
+      else if (k.startsWith('lr_')) { const a = db.athletes.find(x => x.id === k.slice(3)); if (!a) continue; a.leaveReason = v; a.leaveNote = String(fd['ln_' + a.id] || '').trim(); nr++; } }
+    if (!ns && !nr) return true;
+    render.keepScroll = true; persist(`Сохранено: источников — ${ns}, причин ухода — ${nr}`);
+  } });
+}
+function fillSrcAdd() {
+  const i = document.getElementById('fill-src-new'), v = (i && i.value || '').trim(); if (!v) return;
+  document.querySelectorAll('#dlg select.fill-src').forEach(sel => { if (![...sel.options].some(o => o.value.toLowerCase() === v.toLowerCase())) sel.insertAdjacentHTML('beforeend', opt(v, '')); });
+  i.value = ''; toast(`«${v}» — в списке; сохранится вместе с выбором`);
+}
 const WORD_HEAD = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>@page{size:A4;margin:15mm}body{font:10.5pt Arial,sans-serif;color:#000}table{border-collapse:collapse;width:100%}td,th{border:1px solid #000;padding:2pt 5pt;font-size:10pt}th{font-weight:bold}h2{font-size:14pt}h3{font-size:11.5pt;margin:12pt 0 3pt}</style></head><body>';
 
 /* ---------- ТАРИФ В ОКНЕ ОПЛАТЫ ---------- */
@@ -4983,7 +5336,7 @@ function printBlank(g, ym, fromNo, perPage, filled, rightPad = 4) {
   const cols = [...dates].sort();
   if (!cols.length) { notice(`У группы «${g}» в ${MONTHS[m - 1]} нет дней занятий: задайте расписание группы в Настройках.`); return; }
   const people = blankPeople(g, first, last).map((a, i) => ({ a, no: i + 1 })).filter(x => x.no >= fromNo);
-  const markOf = (a, d) => { if (!filled) return ''; const s = sess.filter(x => x.date === d).find(x => x.marks[a.id]); const v = s ? s.marks[a.id] : ''; return v === 'б' && isBS(ix, a.id, d) ? 'бс' : v; };
+  const markOf = (a, d) => { if (!filled) return ''; const s = sess.filter(x => x.date === d).find(x => x.marks[a.id]); const v = s ? s.marks[a.id] : ''; return v === 'б' && isBS(ix, a.id, d) ? 'бс' : v === '+' && debtOn(a.id, d) ? 'д' : v; };
   // ширины, мм: страница А4 альбом 297, поля 25 слева и 7 справа
   const W = 297 - 25 - 7 - rightPad, fixed = { no: 8, fio: 54, tot: 11, extra: [17, 17, 7, 17, 7, 17, 7] };
   const extraSum = fixed.extra.reduce((s, x) => s + x, 0);
@@ -5199,16 +5552,18 @@ function openRefuse(id) {
     : '<p class="small">Не списанных занятий на эту дату нет — возврат не производится (п. 10.4.4).</p>';
   const P0 = refusePreview(a, ix.today);
   modal('Отказ от договора: ' + shortName(a), `<div class="fgrid">${F('date', 'Заявление получено', ix.today, 'date', 'required max="' + ix.today + '"')}${FS('how', 'Как получено (п. 10.3)', ['письменное заявление', 'сообщение в MAX', 'сообщение ВКонтакте', 'другое'], 'сообщение в MAX')}
-  <label class="f wide"><span>Примечание: где или как получено</span><input type="text" name="howNote" placeholder="например: Telegram, по e-mail, передал тренеру на занятии"></label></div>
+  <label class="f wide"><span>Примечание: где или как получено</span><input type="text" name="howNote" placeholder="например: Telegram, по e-mail, передал тренеру на занятии"></label>
+  ${FS('leaveReason', 'Причина ухода', [['', '— выберите —'], ...(db.settings.leaveReasons || LEAVE_REASONS)], a.leaveReason || '')}${F('leaveNote', 'Причина: подробнее', a.leaveNote || '', 'text', 'placeholder="коротко, без медицинских подробностей"')}</div>
   <h3 style="margin-top:12px">Расчёт на дату заявления</h3><div id="refuse-calc">${calcHTML(P0)}</div><div id="refuse-owe" class="small" style="color:var(--bad);margin-top:6px"></div>
   <div class="fgrid" style="margin-top:10px">${F('sum', 'К возврату, ₽', P0.total, 'number', 'min="0" step="1" inputmode="numeric" required')}</div>
   <p class="small muted">Договор прекращается с даты получения заявления (п. 10.3): статус станет «ушёл», занятия после этой даты не списываются. Вернуть деньги — не позднее 10 календарных дней тем же способом, которым платили (п. 10.4.3). Уменьшать сумму можно только на фактические расходы, подтверждённые документами (п. 10.4.1). Заявление или переписку сохраните.</p>`, { submit: 'Записать отказ', async onSubmit(fd) {
     if (!fd.date || fd.date > ix.today) { notice('Укажите дату получения заявления (не позже сегодняшней).'); return false; }
     if (fd.how === 'другое' && !String(fd.howNote || '').trim()) { notice('Выбрано «другое» — укажите в примечании, где или как получено заявление.'); return false; }
+    { const lr = leaveReasonCheck(fd); if (lr) { notice(lr); return false; } }
     const P = refusePreview(a, fd.date), sum = Math.max(0, Math.round(+fd.sum || 0));
     if (sum < P.total && !await ask(`Сумма меньше расчётной (${P.total.toLocaleString('ru')} ₽). Удерживать можно только фактические расходы, подтверждённые документами (п. 10.4.1, 10.4.6.1). Продолжить?`)) return false;
     if (sum > P.total && !await ask(`Сумма больше расчётной (${P.total.toLocaleString('ru')} ₽). Вернуть больше по своему решению?`)) return false;
-    a.status = 'ушёл'; a.endedAt = fd.date;
+    a.status = 'ушёл'; a.endedAt = fd.date; a.leaveReason = fd.leaveReason; a.leaveNote = String(fd.leaveNote || '').trim();
     a.refund = { date: fd.date, how: fd.how, howNote: String(fd.howNote || '').trim(), sum, calcSum: P.total, due: D.add(fd.date, 10), lines: P.rows, paidAt: sum > 0 ? '' : fd.date, checkAt: sum > 0 ? '' : fd.date };
     render.keepScroll = true; persist(sum > 0 ? `Отказ записан: вернуть ${sum.toLocaleString('ru')} ₽ до ${D.ru(a.refund.due)}` : 'Отказ записан, возврата нет');
   } });
@@ -5658,6 +6013,11 @@ const ACT = {
   'gm-one': el => { const st = ui.gmsg, a = ix.ath.get(el.dataset.id); if (!st || !a) return; copyText(st.textFor(a), 'Текст для ' + shortName(a) + ' скопирован'); st.sent.add(st.group + '|' + st.date + '|' + a.id); st.draw(); },
   'gm-copy-all': () => { const st = ui.gmsg; if (!st) return; copyText($('#gm-text').value.replace(/\{(фи|фио|имя)\}\.?\n?/gi, '').replace(/\{дата_занятия\}/g, D.ru(st.date)).replace(/\{группа\}/g, st.group), 'Общий текст скопирован'); },
   'gm-phones': () => { const st = ui.gmsg; if (!st) return; const L = st.people().map(a => { const c = ix.athCalc.get(a.id); return shortName(a) + ' — ' + (cleanPhone(c.contact) ? fmtPhone(c.contact) + ' (' + c.contactWho + ')' : 'нет телефона'); }); copyText(L.join('\n'), 'Номера скопированы: ' + L.length); },
+  'metrics-print': () => openPrint('Показатели клуба', metricsDoc(), 'h3{margin:12pt 0 3pt}td,th{font-size:8.5pt;padding:2px 4px}'),
+  'metrics-word': () => { downloadBlob('D23_показатели_' + ix.today + '.docx', docxBlob(htmlDocx(metricsDoc()))); toast('Показатели сохранены в Word (.docx)'); },
+  'metrics-xlsx': () => { downloadBlob('D23_показатели_' + ix.today + '.xlsx', xlsxBlob(htmlDocx(metricsDoc()), 'Показатели')); toast('Показатели сохранены в Excel (.xlsx)'); },
+  'fill-open': () => openFill(),
+  'fill-src-add': () => fillSrcAdd(),
   'year-print': el => openPrint('Итоги ' + el.dataset.y + ' года', yearDoc(el.dataset.y), 'h3{margin:12pt 0 3pt}'),
   'year-xlsx': el => { downloadBlob('D23_итоги_' + el.dataset.y + '_года.xlsx', xlsxBlob(htmlDocx(yearDoc(el.dataset.y)), 'Итоги ' + el.dataset.y)); toast('Итоги года сохранены в Excel (.xlsx)'); },
   'year-word': el => { downloadBlob('D23_итоги_' + el.dataset.y + '_года.docx', docxBlob(htmlDocx(yearDoc(el.dataset.y)))); toast('Итоги года сохранены в Word (.docx)'); },
@@ -5980,7 +6340,7 @@ async function onChange(e) {
     if (el.dataset.k === 'on') { S.trialFree.on = el.checked; if (el.checked && !S.trialFree.from) S.trialFree.from = ix.today; } else S.trialFree.from = v || '';
     if (!S.trialFree.on && !S.trialFree.from) delete S.trialFree;
     rerender(); persist(S.trialFree && S.trialFree.on ? 'Пробное занятие бесплатное с ' + D.ru(S.trialFree.from || ix.today) : 'Пробное занятие платное'); }
-  else if (k === 'set') { const numPaths = ['attest.threshold', 'attest.minTournaments', 'attest.tournamentsMaxAge', 'attest.attendMaxAge', 'attest.reliefCoef', 'defaultCount', 'copiesKeep', 'adultTarget', 'leadsKeep']; const isNum = numPaths.includes(el.dataset.path) || (/^prices\./.test(el.dataset.path) && el.dataset.path !== 'prices.from');
+  else if (k === 'set') { const numPaths = ['attest.threshold', 'attest.minTournaments', 'attest.tournamentsMaxAge', 'attest.attendMaxAge', 'attest.reliefCoef', 'defaultCount', 'copiesKeep', 'adultTarget', 'leadsKeep']; const isNum = numPaths.includes(el.dataset.path) || /^newbie\./.test(el.dataset.path) || (/^prices\./.test(el.dataset.path) && el.dataset.path !== 'prices.from');
     if (isNum && (String(v).trim() === '' || !(+v >= 0))) { notice('Нужно число не меньше нуля (поле не может быть пустым)'); rerender(); return; }   // №8
     setPath(db.settings, el.dataset.path, isNum ? +v : v); render.keepScroll = true; persist('Сохранено'); }
   else if (k === 'soft') { const A = db.settings.attest; A.softFrom = v; A.softFor = v ? A.next : ''; render.keepScroll = true; persist('Сохранено'); }
@@ -5989,6 +6349,7 @@ async function onChange(e) {
     if (v && x.to < ix.today && !await ask('Объявленный период уже закончился. Продление действует, только если вы объявили его до ' + D.ru(x.to) + ' (п. 9.6.3). Внести?')) { rerender(); return; }
     x.ext = v; render.keepScroll = true; persist('Сохранено'); }
   else if (k === 'leads-from' || k === 'leads-to') { if (v) { ui.leads[k === 'leads-from' ? 'from' : 'to'] = v; ui.leads.per = ''; rerender(); } }
+  else if (k === 'metrics-months') { ui.metrics = { ...(ui.metrics || {}), months: +v || 12 }; rerender(); }
   else if (k === 'year-sel') { location.hash = '#year/' + v; }
   else if (k === 'sources') { const L = [...new Set(v.split('\n').map(x => x.trim()).filter(Boolean))]; if (!L.length) { rerender(); return; } db.settings.sources = L; render.keepScroll = true; persist('Сохранено'); }
   else if (k === 'belts') { db.settings.belts = v.split('\n').map(x => x.trim()).filter(Boolean); render.keepScroll = true; persist('Сохранено'); }
@@ -5996,6 +6357,9 @@ async function onChange(e) {
   else if (k === 'group-name') { const g = db.settings.groups[+el.dataset.i]; const nn = v.trim(); if (!nn) { rerender(); return; }
     if (db.settings.groups.some((x, i) => i !== +el.dataset.i && x.name === nn)) { notice('Группа с таким названием уже есть'); rerender(); return; }
     renameGroup(g.name, nn); g.name = nn; render.keepScroll = true; persist('Группа переименована'); }
+  else if (k === 'leave-reasons') { const L = [...new Set(v.split('\n').map(x => x.trim()).filter(Boolean))]; if (!L.length) { rerender(); return; } db.settings.leaveReasons = L; render.keepScroll = true; persist('Сохранено'); }
+  else if (k === 'group-cap') { const g = db.settings.groups[+el.dataset.i]; if (!g) return; const n = String(v).trim(); if (n === '') delete g.cap; else if (+n >= 0) g.cap = Math.round(+n); else { notice('Число мест — целое число не меньше нуля'); rerender(); return; } render.keepScroll = true; persist('Сохранено'); }
+  else if (k === 'group-guest') { const g = db.settings.groups[+el.dataset.i]; if (!g) return; g.guest = v; render.keepScroll = true; persist(v ? 'Группа — для гостей' : 'Группа — обычная'); }
   else if (k === 'group-bysched') { db.settings.groups[+el.dataset.i].bySchedule = v; render.keepScroll = true; persist(v ? 'Посещаемость группы — по расписанию' : 'Посещаемость группы — по проведённым занятиям'); }
   else if (k === 'group-day') { const g = db.settings.groups[+el.dataset.i], from = ui.schedFrom || ix.today;
     const how = setGroupDay(g, +el.dataset.d, v, from); render.keepScroll = true; persist(how === 'сразу' ? 'Расписание изменено' : 'Расписание «' + g.name + '» изменено с ' + D.ru(from)); }
@@ -6025,6 +6389,7 @@ function showError(err) { console.error(err); notice('Ошибка: ' + (err && 
 document.addEventListener('change', safeChange);
 document.addEventListener('toggle', e => { if (e.target.matches && e.target.matches('details[data-filt]')) ui.peopleFiltOpen = e.target.open;
   if (e.target.matches && e.target.matches('details[data-later]')) { meta.laterOpen = e.target.open; writeMeta(); }
+  if (e.target.matches && e.target.matches('details[data-frz]')) { meta.frzOpen = e.target.open; writeMeta(); }
   if (e.target.matches && e.target.matches('details[data-tid]')) { const S = new Set(meta.tournOpen || []), id = e.target.dataset.tid; if (e.target.open) S.add(id); else S.delete(id); meta.tournOpen = [...S].filter(x => (db.tourneys || []).some(T => T.id === x)); writeMeta(); } }, true);
 document.addEventListener('input', safeChange);
 
