@@ -220,6 +220,7 @@ table.t tr.pend:hover td,table.t tr.rem1:hover td,table.t tr.rem2:hover td{filte
 .ap-it:last-child{border-bottom:0} .ap-it:hover,.ap-it.on{background:var(--sunk)} .ap-more{padding:8px 12px}   /* «д» — был, не оплачено */
 .debt-nm b,.debt-nm .nm-f,.debt-nm .nm-s{color:var(--bad)!important}
 .cell-m.m-debt{background:var(--bad-bg);color:var(--bad);text-decoration:underline}
+.cell-m.m-pkg{width:auto;min-width:26px;padding:0 3px;font-size:.6875rem;letter-spacing:-.02em}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.875rem;color:var(--ink-2)}
 .legend b{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;color:var(--on-fill);font-size:.8125rem;margin-right:4px}
 .cell-m{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:6px;font-weight:700;font-size:.875rem}
@@ -914,6 +915,9 @@ function withBlankCells(ix, aid, list) {
   }
   return extra.length ? [...list, ...extra].sort((x, y) => x.date < y.date ? -1 : x.date > y.date ? 1 : 0) : list;
 }
+/* 20.10.2026: пакет разовых — оплата сразу за несколько занятий у человека с «Оплата разово».
+   Списывается только за посещение («+»), без срока по расписанию и без автоактивации; в журнале — «3/10». Отдельного поля нет: признак — число занятий больше 1 и «оплата разово» на дату оплаты */
+function isPkg(ix, p) { if (!p || p.pending || (+p.count || 0) <= 1) return false; const a = ix.ath.get(p.athleteId); return perVisitOn(a, p.payDate || p.start || ''); }
 function setSubStatus(ix, p, r) {
   if (r.notActive) { r.status = p.pending ? 'ждём оплату' : 'не активирован'; r.tone = p.pending ? 'bad' : 'ok'; return; }
   if (r.next && r.remaining > 0) { r.status = 'не израсходовано ' + r.remaining + ' (начат следующий)'; r.tone = 'bad'; r.burned = r.remaining; }
@@ -935,7 +939,7 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
   for (let i = 0; i < list.length; i++) {
     const p = list[i];
     const r = { was: 0, missed: 0, sick: 0, sickCharged: 0, comp: 0, cancel: 0, next: null, end: '', endKind: '', remaining: null, status: '', tone: '', lastCharged: '', charged: 0 };
-    const groups = subGroups(ix, p);
+    const groups = subGroups(ix, p), pkg = isPkg(ix, p); if (pkg) r.pkg = true;
     if (p.start) { r.act = p.start; r.first = p.start; r.actKind = 'manual'; }
     else if (!blocked) {
       r.from = cursor && cursor < '9999' ? cursor : (p.payDate || p.waitFrom || '');   // п. 8.6.1: посещения до оплаты — в новый абонемент
@@ -943,7 +947,7 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
       for (let k = lowerBound(marks, r.from, 'date'); k < marks.length; k++) { const m = marks[k]; if (!m.used && m.mark === '+') { visit = m; break; } }
       // 30 дней считаются со дня после оплаты, а если оплатили заранее — со дня после окончания текущего абонемента
       const base = cursor && cursor < '9999' ? D.max(p.payDate || '', D.add(cursor, -1)) : p.payDate;
-      r.autoDate = p.pending || !p.payDate ? null : (cursor >= '9999' ? null : D.add(base, 30));
+      r.autoDate = p.pending || !p.payDate || pkg ? null : (cursor >= '9999' ? null : D.add(base, 30));   // пакет разовых — без автоактивации
       r.autoFromForecast = !!(r.autoDate && cursorForecast && cursor && D.add(cursor, -1) > (p.payDate || ''));
       if (visit && (!r.autoDate || visit.date <= r.autoDate)) { r.act = visit.date; r.first = visit.date; r.actKind = 'visit'; }
       else if (r.autoDate && ix.today >= r.autoDate) { r.act = r.autoDate; r.first = nthTrainDay(ix, r.autoDate, 1, groups) || r.autoDate; r.actKind = 'auto'; }
@@ -967,7 +971,7 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
       if (stopFor(p) && m.date >= stopFor(p)) break;                                  // п. 10.3: договор прекращён
       if (m.used) continue;
       if (perVisitOn(A0, m.date) && m.mark !== '+') continue;                           // №13 (О11, К7): у разовика только «+» и пусто
-      if (m.auto && (+p.count || 0) <= 1) continue;                                   // разовая оплата — раздел 9 не применяется
+      if (m.auto && ((+p.count || 0) <= 1 || pkg)) continue;                          // разовая оплата и пакет разовых — раздел 9 не применяется
       // в периоде заморозки «о» и «с» считаются днями болезни (приоритет заморозки): при сгорании продления «с» списывается, «о» — нет (п. 9.5.8.1)
       const mk = (m.mark === 'о' || m.mark === 'с') && fr.some(x => inFr(x, m.date)) ? 'б' : m.mark;
       let charged = mk === '+' || mk === 'н';
@@ -981,13 +985,15 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
       if (used >= cap) break;
       m.used = true; used++; if (m.auto) r.blank = (r.blank || 0) + 1;
       if (mk === '+') r.was++; else if (mk === 'н' || mk === 'с') r.missed++; else { r.sick++; r.sickCharged++; }
-      if (mk === '+' && m.mark === '+' && p.pending) (r.owedPlus = r.owedPlus || []).push(m.date);   // 20.10.2026: посещение в счёт «ждём оплату» — в журнале «д»
+      if (mk === '+' && m.mark === '+' && p.pending) (r.owedPlus = r.owedPlus || []).push(m.date);
+      if (m.mark === '+') (r.plusList = r.plusList || []).push({ date: m.date, group: m.group || '', n: carry + used });   // какое по счёту посещение этой оплаты (журнал: «3/10», «р»)   // 20.10.2026: посещение в счёт «ждём оплату» — в журнале «д»
       r.lastCharged = m.date; r.lastChargedGroup = m.group || '';
     }
     if (used >= cap && used > 0) { r.lastPaid = r.lastCharged; r.lastPaidGroup = r.lastChargedGroup; }   // для показа: последнее занятие, оплаченное этим абонементом (без долга)
     r.charged = used + carry;
     r.remaining = subTotal(p) - r.charged;
     if (r.remaining <= 0) { r.end = r.lastCharged || r.first; r.endKind = 'fact'; cursor = D.add(r.end, 1); cursorForecast = false; }
+    else if (pkg) { r.endKind = 'pkg'; cursor = '9999-12-31'; cursorForecast = false; }   // пакет разовых: бессрочно, следующая оплата — после его окончания
     else if (!hasSchedule(ix, groups)) { r.endKind = 'nosched'; cursor = '9999-12-31'; }
     else {
       let maxGroupDate = '';
@@ -1697,9 +1703,11 @@ function normExtra(d) {
   return d;
 }
 /* тариф по Приложению № 1 и Положению о льготах: детский — если на дату оплаты ещё нет 12 лет (п. 3.1, 3.2 Положения) */
+const rubN0 = v => (Math.round(+v || 0)).toLocaleString('ru');
 function tariffFor(d, a, count, payDate) {
   const P = d.settings.prices || {}, n = +count || 0;
   if (n === 1) return { kind: 'разовое', price: +P.single || 0 };
+  if (n > 1 && a && perVisitOn(a, payDate)) return { kind: `пакет разовых: ${n} × ${rubN0(P.single)} ₽`, price: (+P.single || 0) * n, pkg: true };   // «Оплата разово»: пакет по цене разового
   if (n !== +P.count) return null;
   const age = a && a.birth && payDate ? D.age(a.birth, payDate) : null;
   if (age == null) return { kind: 'нет даты рождения', price: null, age: null };
@@ -1711,7 +1719,8 @@ function tariffAudit(d, from, to) {                // оплаты период�
   for (const p of d.subs) {
     if (p.pending || !p.payDate || p.payDate < lo || p.payDate > to || !(+p.amount > 0)) continue;
     const a = ath.get(p.athleteId), tf = tariffFor(d, a, p.count, p.payDate); if (!tf) continue;
-    if (tf.kind === 'детский') { R.kid++; R.kidSum += Math.max(0, (+P.sub || 0) - (+P.subKid || 0)); } else if (tf.kind === 'базовый') R.base++; else if (tf.kind === 'разовое') R.single++;
+    if (tf.pkg) { R.pkg = (R.pkg || 0) + 1; R.pkgVisits = (R.pkgVisits || 0) + (+p.count || 0); }
+    else if (tf.kind === 'детский') { R.kid++; R.kidSum += Math.max(0, (+P.sub || 0) - (+P.subKid || 0)); } else if (tf.kind === 'базовый') R.base++; else if (tf.kind === 'разовое') R.single++;
     if (tf.price != null && +p.amount !== tf.price) R.off.push({ p, a, tf });
   }
   return R;
@@ -1919,7 +1928,7 @@ function yearStats(d, ix, y, items) {
   return { y: Y, months, startN: on(D.add(a0, -1)), endN: on(D.min(b0, ix.today)), newcomers: sum('newcomers'), left: sum('left'), sessions: sum('sessions'), visits: sum('visits'),
     inc: sum('inc'), out: sum('out'), profit: sum('profit'), leads: sum('leads'), tenure, ended, renewed, moneyFrom: ps };
 }
-if (typeof module !== 'undefined') module.exports = { bdayOn, perVisitOn, freezeRange, freezeSub, isBS, freezeState, plusAfter, pausedOn, normExtra, tariffFor, tariffAudit, leadStage, leadFunnel, attendDrop, isGuest, newbieCheck, metricsCalc, summerCalc, beltCalc, isKidOn, yearStats, LEAD_STATUSES, normFin, finS, finCat, refundShares, moneyItems, finPeriod, finBalances, finFlow, taxMonths, taxAll, recurOpen, yearIncome, uncheckedItems, coachMonth, coachDebt, recurDue, prepaidTotal, anonMoney, ymBounds, ymAdd, ymList, FIN_DEFAULT, subTotal, tripAt, refundFor, refundInfo, refundAuto, daysOn, D, buildIndex, calcFreeze, calcAdmission, calcTest, fillTemplate, groupOn, inGroupOn, nthTrainDay, payDeadline, firstSession, fullName, shortName, cleanPhone, fmtPhone, EX };
+if (typeof module !== 'undefined') module.exports = { bdayOn, perVisitOn, freezeRange, freezeSub, isBS, freezeState, plusAfter, pausedOn, normExtra, tariffFor, tariffAudit, leadStage, leadFunnel, attendDrop, isPkg, isGuest, newbieCheck, metricsCalc, summerCalc, beltCalc, isKidOn, yearStats, LEAD_STATUSES, normFin, finS, finCat, refundShares, moneyItems, finPeriod, finBalances, finFlow, taxMonths, taxAll, recurOpen, yearIncome, uncheckedItems, coachMonth, coachDebt, recurDue, prepaidTotal, anonMoney, ymBounds, ymAdd, ymList, FIN_DEFAULT, subTotal, tripAt, refundFor, refundInfo, refundAuto, daysOn, D, buildIndex, calcFreeze, calcAdmission, calcTest, fillTemplate, groupOn, inGroupOn, nthTrainDay, payDeadline, firstSession, fullName, shortName, cleanPhone, fmtPhone, EX };
 
 /* ===== D23 CRM — интерфейс, часть 1 ===== */
 const OFFICIAL_TEMPLATES = [
@@ -1939,6 +1948,10 @@ const NEW_TEMPLATES_6 = [
 ];
 const NEW_TEMPLATES_9 = [
   { title: 'Новичок пропускает', text: 'Здравствуйте.\n{фи}.\nКак вам первые тренировки? Заметили, что последние занятия пропущены. Первые недели — самые непростые, дальше втягиваются. Если что-то мешает — расписание, нагрузка, что-то непонятно на тренировке — напишите, подстроимся.\nЖдём в группе «{группа}».' },
+];
+const NEW_TEMPLATES_10 = [
+  { title: 'Пакет разовых заканчивается', text: 'Здравствуйте.\n{фи}.\nПо оплаченному пакету разовых занятий осталось одно занятие. Чтобы заниматься дальше, оплатите новый пакет или разовое посещение.' },
+  { title: 'Пакет разовых использован', text: 'Здравствуйте.\n{фи}.\nОплаченный пакет разовых занятий использован полностью. Следующее посещение — по оплате: разовое занятие или новый пакет.' },
 ];
 const NEW_TEMPLATES_8 = [
   { title: 'С днём рождения', text: 'Здравствуйте.\nПоздравляем {имя} с днём рождения! Здоровья, сил и новых побед на ковре. Ждём на тренировке!\nClub D23' },
@@ -2037,6 +2050,11 @@ function normalize(d) {
     const have = new Set((d.settings.templates || []).map(t => t.title));
     d.settings.templates = [...(d.settings.templates || []), ...NEW_TEMPLATES_9.filter(o => !have.has(o.title)).map(o => ({ ...o }))];
     d.settings.tplVersion = 9;
+  }
+  if ((d.settings.tplVersion || 1) === 9) {           // 20.10.2026: пакет разовых
+    const have = new Set((d.settings.templates || []).map(t => t.title));
+    d.settings.templates = [...(d.settings.templates || []), ...NEW_TEMPLATES_10.filter(o => !have.has(o.title)).map(o => ({ ...o }))];
+    d.settings.tplVersion = 10;
   }
   normFin(d); normExtra(d);
   return d;
@@ -2505,6 +2523,8 @@ function chipSub(c) {
       return debt ? `<span class="chip bad">договор прекращён · не оплачено ${debt}</span>` : '<span class="chip muted">договор прекращён</span>'; } }
   if (c && ((c.subCalc && c.subCalc.terminated) || (!c.subCalc && c.pendingCalc && c.pendingCalc.terminated))) return '<span class="chip muted">договор прекращён</span>';
   if (c && c.noSub && !c.subCalc) return '<span class="chip muted">без абонемента</span>';
+  if (c && c.perVisit && !c.pendingSub && c.subCalc && c.subCalc.pkg && !(c.debtDates || []).length && c.subCalc.remaining >= 1)
+    return `<span class="chip ${c.subCalc.remaining === 1 ? 'warn' : 'ok'}">пакет · ост. ${c.subCalc.remaining} из ${subTotal(c.sub)}</span>`;
   if (c && c.perVisit && !c.pendingSub) return (c.debtDates || []).length ? `<span class="chip bad">не оплачено ${c.debtDates.length}</span>` : '<span class="chip muted">разово</span>';
   if (c && c.pendingSub) { const n = c.pendingCalc ? c.pendingCalc.charged : 0; return `<span class="chip bad">ждём оплату${n ? ' · в долг ' + n : ''}</span>`; }
   if (c && !c.subCalc && c.unpaid && c.unpaid.length && !c.nextSub && !c.pendingSub) return `<span class="chip bad">не оплачено ${c.unpaid.length}</span>`;
@@ -2681,7 +2701,12 @@ function attentionCalc() {
       const single = (+c.sub.count || 0) <= 1;
       if (s.remaining < 0 && !(c.debtDates || []).length) out.push({ tone: 'bad', a, text: `${nm}: долг ${-s.remaining} ${plural(-s.remaining, 'занятие', 'занятия', 'занятий')} сверх оплаты`, tpl: 'Долг по занятиям' });
       const ne = notifyState(c.sub, 'end'), warned = ne && !ne.stale, wtxt = warned ? ' — предупреждён ' + D.short(ne.at) : '';
-      if (s.remaining === 0 && !c.nextSub && !single) out.push({ tone: warned ? 'muted' : 'warn', a, text: `${nm}: абонемент использован${s.end ? ' ' + D.ru(s.end) : ''}, нового нет${wtxt}`, tpl: 'Абонемент закончился', wait: true });
+      if (s.pkg) {                                   // пакет разовых: без дат, только остаток
+        const N = subTotal(c.sub);
+        if (s.remaining === 0 && !c.nextSub) out.push({ tone: warned ? 'muted' : 'warn', a, text: `${nm}: пакет разовых использован (${N} из ${N}${s.end ? ', последнее ' + D.ru(s.end) : ''}), новой оплаты нет${wtxt}`, tpl: 'Пакет разовых использован' });
+        else if (s.remaining === 1 && !c.nextSub) out.push({ tone: warned ? 'muted' : 'warn', a, text: `${nm}: пакет разовых — осталось одно занятие из ${N}${wtxt}`, tpl: 'Пакет разовых заканчивается' });
+      }
+      else if (s.remaining === 0 && !c.nextSub && !single) out.push({ tone: warned ? 'muted' : 'warn', a, text: `${nm}: абонемент использован${s.end ? ' ' + D.ru(s.end) : ''}, нового нет${wtxt}`, tpl: 'Абонемент закончился', wait: true });
       else if (s.remaining === 1 && !c.nextSub && !single) out.push({ tone: warned ? 'muted' : 'warn', a, text: `${nm}: осталось одно занятие${s.end ? ' (' + D.ru(s.end) + ')' : ''}${wtxt}`, tpl: 'Абонемент заканчивается' });
       else if (s.remaining === 2 && !c.nextSub && !single) out.push({ tone: warned ? 'muted' : 'warn', a, text: `${nm}: осталось два занятия${s.end ? ' (последнее ' + D.ru(s.end) + ')' : ''}${wtxt}`, tpl: 'Абонемент заканчивается', rem2: true });
     }
@@ -3276,6 +3301,19 @@ function suggestGroup(date) {
   const dw = D.dow(date); const g = db.settings.groups.find(g => daysOn(g, date)[dw]); return g ? g.name : (db.settings.groups[0] || {}).name;
 }
 /* 20.10.2026: посещение не оплачено — в журнале «д» вместо «+», фамилия красная. В данных отметка остаётся «+»: после оплаты снова «+» */
+/* 20.10.2026: подробности отметки «+» по оплатам: пакет разовых («3/10»), разовое («р»); границы абонементов для печатного бланка («[», «]») */
+function payMarks(aid) {
+  if (payMarks.ix !== ix) { payMarks.ix = ix; payMarks.m = new Map(); }
+  if (payMarks.m.has(aid)) return payMarks.m.get(aid);
+  const R = { tag: new Map(), first: new Map(), last: new Map(), plan: new Map() };
+  for (const p of ix.subsByAth.get(aid) || []) { const r = ix.subCalc.get(p.id); if (!r || r.notActive) continue; const N = subTotal(p);
+    if (r.pkg) { for (const x of r.plusList || []) if (x.n >= 1 && x.n <= N) R.tag.set(x.date + '|' + x.group, { kind: 'pkg', n: x.n, N }); continue; }
+    if ((+p.count || 0) <= 1) { for (const x of r.plusList || []) if (x.n === 1) R.tag.set(x.date + '|' + x.group, { kind: 'one' }); continue; }
+    if (p.pending || r.terminated) continue;
+    if (r.first) { const m = (ix.marks.get(aid) || []).find(m => m.date === r.first); R.first.set(r.first, m ? m.group : ''); }
+    if (r.lastPaid) R.last.set(r.lastPaid, r.lastPaidGroup || ''); else if (r.endKind === 'forecast' && r.end) R.plan.set(r.end, true); }
+  payMarks.m.set(aid, R); return R;
+}
 function owedPlus(c) { return (c && c.pendingSub && c.pendingCalc && c.pendingCalc.owedPlus) || []; }   // посещения в счёт «ждём оплату»
 function debtOn(aid, date) { const c = ix.athCalc.get(aid); return !!(c && ((c.debtDates || []).includes(date) || owedPlus(c).includes(date))); }
 function hasDebt(aid) { const c = ix.athCalc.get(aid); return !!(c && ((c.debtDates || []).length || owedPlus(c).length)); }
@@ -3292,7 +3330,7 @@ function sessionOthers(s) {            // отмечены на занятии, 
 }
 function trialAllowed(a, date) { return !(ix.subsByAth.get(a.id) || []).some(p => !p.pending && subKey(p) <= date); }
 function remBig(c) {                              // крупный остаток в строке журнала — только для обычного действующего абонемента (как «ост. N» в chipSub)
-  if (!c || !c.subCalc || c.pendingSub || c.perVisit || c.subCalc.terminated || !(+c.sub.count > 0)) return null;
+  if (!c || !c.subCalc || c.pendingSub || (c.perVisit && !c.subCalc.pkg) || c.subCalc.terminated || !(+c.sub.count > 0)) return null;   // пакет разовых — тоже с остатком
   return c.subCalc.remaining >= 1 ? c.subCalc.remaining : null;
 }
 const MARK_SHORT = { '+': 'был', 'н': 'не был', 'б': 'болел', 'о': 'отменено', 'с': 'соревн.' };
@@ -3310,7 +3348,9 @@ function markRow(s, a, showGroup) {
     m === '+' && trial ? `<button class="btn sm" data-act="trial-pay" data-sid="${s.id}" data-aid="${a.id}" title="Нажмите, чтобы поменять для этого занятия">${trialIsFree(db.settings, s.trial[a.id], s.date) ? 'бесплатно' : 'платно'}</button>` : ''].filter(Boolean).join(' ');
   return `<li class="mrow${m ? '' : ' unmarked'}"><div class="mrow-h">${beltHTML(ac.belt, ac.stripes)}<div class="who${warnedOf(a) ? ' wn' : ''}${hasDebt(a.id) ? ' debt-nm' : ''}"${hasDebt(a.id) ? ' title="Есть неоплаченные посещения"' : ''}><b>${h(shortName(a))}${warnedIc(warnedOf(a), a)}</b>${chips ? `<span class="row mchips">${chips}</span>` : ''}</div>
     ${rb ? `<span class="rem${rb === 1 ? ' warn' : rb === 2 ? ' hl2' : ''}" title="Осталось занятий по абонементу"><b>${rb}</b><span>осталось</span></span>` : ''}</div>
-    <div class="marks m${keys.length}" role="group" aria-label="Отметка: ${h(shortName(a))}">${keys.map(k => { const d = dbt && k === '+'; return `<button class="mk${m === k ? ' on' : ''}${d ? ' debt' : ''}" data-act="mark" data-sid="${s.id}" data-aid="${a.id}" data-m="${k}" aria-pressed="${m === k}" aria-label="${d ? 'был, не оплачено (долг)' : MARKS[k].label}"${d ? ' title="Был, посещение не оплачено. После оплаты станет «+»"' : ''}><b>${d ? 'д' : k}</b><span>${d ? 'долг' : MARK_SHORT[k]}</span></button>`; }).join('')}</div></li>`;
+    <div class="marks m${keys.length}" role="group" aria-label="Отметка: ${h(shortName(a))}">${keys.map(k => { const d = dbt && k === '+', tg = !d && k === '+' && m === '+' ? payMarks(a.id).tag.get(s.date + '|' + s.group) : null;
+      const lb = d ? ['д', 'долг'] : tg && tg.kind === 'pkg' ? ['+', tg.n + '/' + tg.N] : tg ? ['р', 'разово'] : [k, MARK_SHORT[k]];
+      return `<button class="mk${m === k ? ' on' : ''}${d ? ' debt' : ''}" data-act="mark" data-sid="${s.id}" data-aid="${a.id}" data-m="${k}" aria-pressed="${m === k}" aria-label="${d ? 'был, не оплачено (долг)' : tg && tg.kind === 'pkg' ? 'был, пакет: ' + tg.n + ' из ' + tg.N : tg ? 'был, оплачено разово' : MARKS[k].label}"${d ? ' title="Был, посещение не оплачено. После оплаты станет «+»"' : ''}><b>${lb[0]}</b><span>${lb[1]}</span></button>`; }).join('')}</div></li>`;
 }
 function vSession(sid) {
   const s = db.sessions.find(x => x.id === sid);
@@ -3385,7 +3425,7 @@ function monthView(tabs, groups) {
     const off = sess.map(s => !showGroup && !inGroupOn(a, J.mgroup, s.date)); const per = showGroup ? '' : period(a); const ng = noSubGap(a), nsub = d => !!(ng && ng.ack && d > ng.end && d <= ix.today);   // №34
     const W = warnedOf(a);
     const dn = hasDebt(a.id), tdc = [W ? 'wn' : '', dn ? 'debt-nm' : ''].filter(Boolean).join(' ');
-    return `<tr><td${tdc ? ` class="${tdc}"` : ''}${dn ? ' title="Есть неоплаченные посещения"' : ''}><span class="nm-f">${h(shortName(a))}</span><span class="nm-s">${h((a.last || '') + (a.first ? ' ' + a.first[0] + '.' : ''))}</span>${warnedIc(W, a)}${showGroup ? ' <span class="small muted">' + h(a.group || '') + '</span>' : ''}${per ? ' <span class="small muted mper">' + per + '</span>' : ''}</td>${ms.map((x, i) => { const lc = lastCell(a, L, sess[i]) || nextCell(a, L, sess[i]), mc = sess[i].missing && !off[i] ? ' miss-col' : ''; return `<td${off[i] || lc || mc ? ` class="${off[i] ? 'off' : ''}${mc}${lc}"` : ''}>${x === '+' && debtOn(a.id, sess[i].date) ? '<span class="cell-m m-debt" title="Был, посещение не оплачено — после оплаты станет «+»">д</span>' : x ? `<span class="cell-m ${cls[x] || ''}">${h(x === 'б' && isBS(ix, a.id, sess[i].date) ? 'бс' : x)}</span>` : lc ? '<span class="cell-m m-none"></span>' : nsub(sess[i].date) && !off[i] ? '<span class="cell-m m-nosub" title="Абонемент закончился, новый не оплачен">—</span>' : ''}</td>`; }).join('')}<td class="num">${cnt('+')}</td><td class="num">${cnt('н')}</td><td class="num">${cnt('б')}</td></tr>`; }).join('');
+    return `<tr><td${tdc ? ` class="${tdc}"` : ''}${dn ? ' title="Есть неоплаченные посещения"' : ''}><span class="nm-f">${h(shortName(a))}</span><span class="nm-s">${h((a.last || '') + (a.first ? ' ' + a.first[0] + '.' : ''))}</span>${warnedIc(W, a)}${showGroup ? ' <span class="small muted">' + h(a.group || '') + '</span>' : ''}${per ? ' <span class="small muted mper">' + per + '</span>' : ''}</td>${ms.map((x, i) => { const lc = lastCell(a, L, sess[i]) || nextCell(a, L, sess[i]), mc = sess[i].missing && !off[i] ? ' miss-col' : ''; return `<td${off[i] || lc || mc ? ` class="${off[i] ? 'off' : ''}${mc}${lc}"` : ''}>${x === '+' && debtOn(a.id, sess[i].date) ? '<span class="cell-m m-debt" title="Был, посещение не оплачено — после оплаты станет «+»">д</span>' : x === '+' && payMarks(a.id).tag.get(sess[i].date + '|' + sess[i].group) ? (tg => tg.kind === 'pkg' ? `<span class="cell-m m-plus m-pkg" title="Пакет разовых: ${tg.n}-е из ${tg.N}">${tg.n}/${tg.N}</span>` : '<span class="cell-m m-plus" title="Оплачено разово">р</span>')(payMarks(a.id).tag.get(sess[i].date + '|' + sess[i].group)) : x ? `<span class="cell-m ${cls[x] || ''}">${h(x === 'б' && isBS(ix, a.id, sess[i].date) ? 'бс' : x)}</span>` : lc ? '<span class="cell-m m-none"></span>' : nsub(sess[i].date) && !off[i] ? '<span class="cell-m m-nosub" title="Абонемент закончился, новый не оплачен">—</span>' : ''}</td>`; }).join('')}<td class="num">${cnt('+')}</td><td class="num">${cnt('н')}</td><td class="num">${cnt('б')}</td></tr>`; }).join('');
   { const li = sess.map(s => s.date).filter(d => d <= ix.today).length - 1; render.monthFocus = li >= 0 ? li : 0; }   // прокрутка к сегодняшнему (последнему прошедшему) занятию
   return `<div class="jfs-bar no-print"><button class="btn" data-act="jmonth" data-m="${prev}" aria-label="Предыдущий месяц">←</button><b>${MONTHS[m - 1][0].toUpperCase() + MONTHS[m - 1].slice(1)} ${y}</b><button class="btn" data-act="jmonth" data-m="${next}" aria-label="Следующий месяц">→</button><select data-change="jmgroup" aria-label="Группа">${groups.map(g => opt(g, J.mgroup)).join('')}</select><span class="spacer"></span><button class="btn" data-act="jfs" aria-label="Выйти из полноэкранного режима">✕</button></div>
   <div class="topline jm-top"><h1>Посещения — ${MONTHS[m - 1]} ${y}</h1><div class="row jm-tabs">${tabs}<button class="btn show-m" data-act="jfs" title="Во весь экран" aria-label="Во весь экран">⛶</button><details class="menu show-m"><summary class="btn" aria-label="Другие действия">⋯</summary><div class="menu-pop"><button class="btn" data-act="print-blank">Бланк для печати</button></div></details></div></div>
@@ -3465,6 +3505,7 @@ function personSubBox(a, c) {
     else { l1 = s.remaining === 0 ? 'абонемент использован' : plural(s.remaining, 'занятие осталось', 'занятия осталось', 'занятий осталось'); tone = s.remaining <= 1 ? 'warn' : '';
       const tot = (+c.sub.count || 0) + (+c.sub.bonus || 0); if (tot > 0) pct = Math.max(0, Math.min(100, Math.round(s.remaining / tot * 100))); }
     l2 = s.end ? (s.endKind === 'fact' ? 'последнее занятие ' : 'до ') + D.ru(s.end) : '';
+    if (s.pkg) { l1 = s.remaining === 0 ? 'пакет разовых использован' : plural(s.remaining, 'занятие осталось', 'занятия осталось', 'занятий осталось') + ' в пакете'; l2 = `пакет разовых: ${subTotal(c.sub)} зан., использовано ${Math.max(0, subTotal(c.sub) - s.remaining)}, без срока` + (s.end ? ' · последнее ' + D.ru(s.end) : ''); }
     if (c.nextSub) l2 += (l2 ? ' · ' : '') + 'следующий оплачен';
   } else return '';
   return `<div class="subbox${tone ? ' ' + tone : ''}"><span class="big num">${h(big)}</span><span class="l1">${h(l1)}</span><span class="l2">${h(l2)}</span>${pct != null ? `<span class="meter" aria-hidden="true"><i style="width:${pct}%"></i></span>` : ''}</div>`;
@@ -3650,7 +3691,7 @@ function vPerson(id) {
   </div>
   <div class="card flat"><div class="row" style="padding:14px 16px 6px"><h2 style="margin:0">Абонементы</h2><span class="spacer"></span>${R ? '' : `<button class="btn sm no-print" data-act="refuse" data-id="${id}">Отказ от договора</button>`}<button class="btn sm no-print" data-act="freeze-new" data-id="${id}">Заморозка</button><button class="btn sm no-print" data-act="sub-wait" data-id="${id}">Ждём оплату</button><button class="btn sm no-print" data-act="sub-new" data-id="${id}">Добавить</button></div>
   ${subsCtl}${subs.length ? `<div class="scroll"><table class="t"><thead><tr><th>Действует с</th><th class="r">Занятий</th><th class="r">Сумма</th><th class="r">Был</th><th class="r">Не был</th><th class="r">Болел</th><th class="r">Остаток</th><th>Окончание</th><th></th></tr></thead><tbody>
-  ${shownSubs.map(p => { const r = ix.subCalc.get(p.id); return `<tr class="click" data-act="sub-edit" data-id="${p.id}"><td class="num">${startLabel(p, r)}${p.onlyGroup ? ' <span class="chip">' + h(p.onlyGroup) + '</span>' : ''}</td><td class="r num">${p.count}${+p.bonus > 0 ? ` <span class="chip ok" title="${h(p.bonusNote || 'решение тренера')}">+${p.bonus}</span>` : ''}</td><td class="r num">${amountCell(p)}</td><td class="r num">${r.was}</td><td class="r num">${r.missed}</td><td class="r num">${r.sick}${r.sickCharged ? ' (спис. ' + r.sickCharged + ')' : ''}</td><td class="r num"><b>${r.remaining}</b></td><td class="num">${r.end ? D.ru(r.end) : (r.endKind === 'nosched' ? '<span class="small muted">нет расписания</span>' : '')}</td><td><span class="chip ${r.tone}">${h(r.status)}</span>${notifyBadges(p, r)}</td></tr>`; }).join('')}</tbody></table></div>${subsMore}` : '<div class="empty">Абонементов нет</div>'}
+  ${shownSubs.map(p => { const r = ix.subCalc.get(p.id); return `<tr class="click" data-act="sub-edit" data-id="${p.id}"><td class="num">${startLabel(p, r)}${p.onlyGroup ? ' <span class="chip">' + h(p.onlyGroup) + '</span>' : ''}</td><td class="r num">${p.count}${+p.bonus > 0 ? ` <span class="chip ok" title="${h(p.bonusNote || 'решение тренера')}">+${p.bonus}</span>` : ''}</td><td class="r num">${amountCell(p)}</td><td class="r num">${r.was}</td><td class="r num">${r.missed}</td><td class="r num">${r.sick}${r.sickCharged ? ' (спис. ' + r.sickCharged + ')' : ''}</td><td class="r num"><b>${r.remaining}</b></td><td class="num">${r.end ? D.ru(r.end) : (r.endKind === 'nosched' ? '<span class="small muted">нет расписания</span>' : r.endKind === 'pkg' ? '<span class="small muted">пакет, без срока</span>' : '')}</td><td><span class="chip ${r.tone}">${h(r.status)}</span>${notifyBadges(p, r)}</td></tr>`; }).join('')}</tbody></table></div>${subsMore}` : '<div class="empty">Абонементов нет</div>'}
   ${freezes.length ? `<div style="padding:8px 16px 14px"><h3>Заморозки по болезни</h3><ul class="list">${freezes.map(f => { const fc = calcFreeze(ix, f); return `<li class="click" data-act="freeze-edit" data-id="${f.id}"><div class="who"><b>${D.ru(f.from)} — ${f.to ? D.ru(f.to) : '…'}</b><span class="small">${h(fc.text)}</span></div><span class="chip ${{ 'прекращена': 'bad', 'ошибка': 'bad', 'предварительно': 'warn', 'оформлена': 'ok' }[freezeState(fc, f)] || 'sick'}">${freezeState(fc, f)}</span></li>`; }).join('')}</ul></div>` : ''}</div>
   <div class="grid2"><div class="card flat"><div class="row" style="padding:14px 16px 6px"><h2 style="margin:0">Пояса</h2><span class="spacer"></span><button class="btn sm no-print" data-act="award-new" data-id="${id}">Присвоить</button></div>
   ${awards.length ? `<ul class="list">${awards.map(w => `<li class="click" data-act="award-edit" data-id="${w.id}">${beltHTML(w.belt, w.stripes)}<div class="who"><b>${h(w.belt)}${w.stripes ? ', ' + w.stripes + ' стр.' : ''}</b><span class="small">${D.ru(w.date)} · ${h(w.by)}</span></div></li>`).join('')}</ul>` : '<div class="empty">Присвоений нет</div>'}</div>
@@ -3919,13 +3960,13 @@ function vSubs() {
   <div class="card flat show-m"><ul class="list sublist">${rows.map(({ p, r, a }) => { const hl = p.pending ? ' pend' : latestIds.has(p.id) && !ix.athCalc.get(a.id).nextSub && !ix.athCalc.get(a.id).pendingSub && !r.terminated && (r.remaining === 1 || r.remaining === 2) ? ' rem' + r.remaining : '';
     return `<li class="click${hl}" data-act="sub-edit" data-id="${p.id}"><div class="who"><b class="nm">${h(shortName(a))}</b>
       <span class="small">${h(p.onlyGroup || a.group || '')} · ${p.count} зан.${p.payDate && !p.pending ? ' · опл. ' + D.short(p.payDate) : ''}${refundBySub().get(p.id) ? ' · ' + subNet(p).toLocaleString('ru') + ' ₽ с учётом возврата' : ''} · ${r.first ? 'с ' + D.short(r.first) : (p.pending ? 'с 1-го посещения' : 'не активирован' + (r.autoDate ? ', до ' + D.short(r.autoDate) : ''))}</span>
-      <span class="small">${r.end ? (r.endKind === 'fact' ? 'последнее ' : r.endKind === 'terminated' ? 'прекращён ' : 'окончание ') + D.ru(r.end) : (r.endKind === 'nosched' ? 'нет расписания' : '')}</span>${notifyBadges(p, r)}</div>
+      <span class="small">${r.end ? (r.endKind === 'fact' ? 'последнее ' : r.endKind === 'terminated' ? 'прекращён ' : 'окончание ') + D.ru(r.end) : (r.endKind === 'nosched' ? 'нет расписания' : r.endKind === 'pkg' ? 'пакет разовых, без срока' : '')}</span>${notifyBadges(p, r)}</div>
       <div class="subside"><b class="num">${r.remaining}</b><span class="chip ${r.tone}">${h(r.status)}</span></div></li>`; }).join('') || '<li class="empty">Нет абонементов в этом списке</li>'}</ul></div>
   <div class="card flat scroll hide-m"><table class="t"><thead><tr>${th('name', 'ФИО')}${th('pay', 'Оплата', 'hide-m')}${th('start', 'С')}<th class="r">Занятий</th><th class="r hide-m">Сумма</th><th class="r hide-m">Был</th><th class="r hide-m">Не был</th><th class="r hide-m">Болел</th>${th('rem', 'Остаток', 'r')}${th('end', 'Окончание')}<th>Статус</th></tr></thead><tbody>
   ${rows.map(({ p, r, a }) => { const hl = p.pending ? ' pend' : latestIds.has(p.id) && !ix.athCalc.get(a.id).nextSub && !ix.athCalc.get(a.id).pendingSub && !r.terminated && (r.remaining === 1 || r.remaining === 2) ? ' rem' + r.remaining : '';
   return `<tr class="click${hl}" data-act="sub-edit" data-id="${p.id}"><td><b class="nm">${h(shortName(a))}</b><div class="small muted">${h(p.onlyGroup || a.group)}</div></td><td class="hide-m num">${D.ru(p.payDate)}</td><td class="num">${startLabel(p, r, true)}</td>
   <td class="r num">${p.count}</td><td class="r num hide-m">${amountCell(p)}</td><td class="r num hide-m">${r.was}</td><td class="r num hide-m">${r.missed}</td><td class="r num hide-m">${r.sick}</td>
-  <td class="r num"><b>${r.remaining}</b></td><td class="num">${r.end ? D.ru(r.end) : (r.endKind === 'nosched' ? '<span class="small muted">нет расписания</span>' : '')}</td><td><span class="chip ${r.tone}">${h(r.status)}</span>${notifyBadges(p, r)}</td></tr>`; }).join('') || '<tr><td colspan="11" class="empty">Нет абонементов в этом списке</td></tr>'}</tbody></table></div>
+  <td class="r num"><b>${r.remaining}</b></td><td class="num">${r.end ? D.ru(r.end) : (r.endKind === 'nosched' ? '<span class="small muted">нет расписания</span>' : r.endKind === 'pkg' ? '<span class="small muted">пакет, без срока</span>' : '')}</td><td><span class="chip ${r.tone}">${h(r.status)}</span>${notifyBadges(p, r)}</td></tr>`; }).join('') || '<tr><td colspan="11" class="empty">Нет абонементов в этом списке</td></tr>'}</tbody></table></div>
   <p class="small muted">Списывается «был» и «не был» (п. 9.4). «Болел» не списывается, пока заморозка не прекращена (п. 9.5). Окончание — прогноз по расписанию группы и нерабочим дням (п. 9.3).</p>`;
 }
 function openSub(id, athleteId) {
@@ -3958,7 +3999,7 @@ function openSub(id, athleteId) {
   <details style="margin-top:10px"><summary class="small">Перенос из прежнего журнала</summary><div class="fgrid" style="margin-top:8px">${F('carryWas', 'Был (перенос)', v.carryWas || 0, 'number')}${F('carryMissed', 'Не был (перенос)', v.carryMissed || 0, 'number')}</div></details></details>
   ${r ? `<div class="card" style="margin:12px 0 0;background:var(--sunk)"><div class="stats"><div class="stat"><b>${r.was}</b><span class="small muted">был</span></div><div class="stat"><b>${r.missed}</b><span class="small muted">не был</span></div><div class="stat"><b>${r.sick}</b><span class="small muted">болел</span></div>${r.blank ? `<div class="stat"><b>${r.blank}</b><span class="small muted">из «не был» — пустые клетки</span></div>` : ''}<div class="stat"><b>${r.remaining}</b><span class="small muted">остаток</span></div></div>
   <div class="small" style="margin-top:8px">${activationText(p, r)}</div>
-  <div class="small" style="margin-top:4px">${r.end ? (r.endKind === 'fact' ? 'Последнее списанное занятие: ' : r.endKind === 'terminated' ? 'Договор прекращён: ' : 'Окончание по расписанию: ') + D.ru(r.end) : ''}${r.notifyBy ? ' · сообщить об окончании не позднее ' + D.ru(r.notifyBy) : ''}</div>${refundInfo(ix, p) && (+p.count || 0) > 1 && !r.terminated ? `<div class="small" style="margin-top:4px">При отказе от договора на сегодня — к возврату <b>${refundInfo(ix, p).sum.toLocaleString('ru')} ₽</b>${refundInfo(ix, p).price ? ' (' + refundInfo(ix, p).left + ' × ' + refundInfo(ix, p).price.toLocaleString('ru') + ' ₽' + (refundInfo(ix, p).own ? ', своя цена' : '') + ')' : ' (абонемент не активирован — вся сумма)'}, п. 10.4${ix.ath.get(p.athleteId) && ix.ath.get(p.athleteId).status === 'ушёл' ? ', договор прекращён ' + D.ru(ix.ath.get(p.athleteId).endedAt) : ''}</div>` : ''}</div>` : ''}`;
+  <div class="small" style="margin-top:4px">${r.pkg ? 'Пакет разовых: списывается только за посещение, без срока; использовано ' + Math.max(0, subTotal(p) - r.remaining) + ' из ' + subTotal(p) + '. ' : ''}${r.end ? (r.endKind === 'fact' ? 'Последнее списанное занятие: ' : r.endKind === 'terminated' ? 'Договор прекращён: ' : 'Окончание по расписанию: ') + D.ru(r.end) : ''}${r.notifyBy ? ' · сообщить об окончании не позднее ' + D.ru(r.notifyBy) : ''}</div>${refundInfo(ix, p) && (+p.count || 0) > 1 && !r.terminated ? `<div class="small" style="margin-top:4px">При отказе от договора на сегодня — к возврату <b>${refundInfo(ix, p).sum.toLocaleString('ru')} ₽</b>${refundInfo(ix, p).price ? ' (' + refundInfo(ix, p).left + ' × ' + refundInfo(ix, p).price.toLocaleString('ru') + ' ₽' + (refundInfo(ix, p).own ? ', своя цена' : '') + ')' : ' (абонемент не активирован — вся сумма)'}, п. 10.4${ix.ath.get(p.athleteId) && ix.ath.get(p.athleteId).status === 'ушёл' ? ', договор прекращён ' + D.ru(ix.ath.get(p.athleteId).endedAt) : ''}</div>` : ''}</div>` : ''}`;
   modal(p ? 'Абонемент' : 'Новая оплата', body, {
     extraBtn: p ? `<button type="button" class="btn danger" data-act="sub-del" data-id="${p.id}">Удалить</button>${p.pending ? `<button type="button" class="btn primary" data-act="sub-paid" data-id="${p.id}">Оплачено сегодня</button>` : ''}<button type="button" class="btn" data-act="msg" data-id="${aid}" data-sub="${p.id}" data-tpl="Новый абонемент оплачен">Сообщение</button>` : '',
     async onSubmit(fd) {
@@ -5107,10 +5148,13 @@ function tariffHook(p) {
     if (!p && !am.dataset.touched) am.value = tf.price;
     const prev = (ix.subsByAth.get(a.id) || []).filter(q => q !== p && !q.pending && q.payDate && q.payDate < date && +q.count === +db.settings.prices.count).pop();
     const was = prev && tariffFor(db, a, prev.count, prev.payDate);
-    note.innerHTML = `Тариф: <b>${h(tf.kind)}</b> — ${rubN(tf.price)} ₽${tf.age != null ? ` (на дату оплаты ${tf.age} ${plural(tf.age, 'год', 'года', 'лет')})` : ''}.`
+    note.innerHTML = `Тариф: <b>${h(tf.kind)}</b> — ${rubN(tf.price)} ₽${tf.pkg ? '. Списывается только за посещение, без срока; в журнале — «1/' + (+cn.value) + '», «2/' + (+cn.value) + '»…' : ''}${tf.age != null ? ` (на дату оплаты ${tf.age} ${plural(tf.age, 'год', 'года', 'лет')})` : ''}.`
       + (was && was.kind === 'детский' && tf.kind === 'базовый' ? ' <b style="color:var(--warn)">С этой оплаты — тариф «Базовый»: исполнилось ' + db.settings.prices.kidUnder + ' лет. Сообщите заказчику (п. 5.4 Положения о льготах).</b>' : '')
       + (+am.value && +am.value !== tf.price ? ' <span class="muted">Сумма другая — по договорённости.</span>' : '');
   };
+  cn.addEventListener('input', () => { cn.dataset.touched = '1'; });
+  if (sel && !p) sel.addEventListener('change', () => { const a = ix.ath.get(sel.value);   // 20.10.2026: разовику — не 12, а число неоплаченных посещений (или 1); пакет — укажите число занятий сами
+    if (a && a.payPerVisit && !cn.dataset.touched) { const c = ix.athCalc.get(a.id); cn.value = Math.max(1, (c && c.debtDates || []).length); } });
   [am, cn, pd].forEach(x => x && x.addEventListener('input', upd)); [cn, pd, sel].forEach(x => x && x.addEventListener('change', () => setTimeout(upd, 0)));
   upd();
 }
@@ -5350,7 +5394,16 @@ function printBlank(g, ym, fromNo, perPage, filled, rightPad = 4) {
   const cols = [...dates].sort();
   if (!cols.length) { notice(`У группы «${g}» в ${MONTHS[m - 1]} нет дней занятий: задайте расписание группы в Настройках.`); return; }
   const people = blankPeople(g, first, last).map((a, i) => ({ a, no: i + 1 })).filter(x => x.no >= fromNo);
-  const markOf = (a, d) => { if (!filled) return ''; const s = sess.filter(x => x.date === d).find(x => x.marks[a.id]); const v = s ? s.marks[a.id] : ''; return v === 'б' && isBS(ix, a.id, d) ? 'бс' : v === '+' && debtOn(a.id, d) ? 'д' : v; };
+  const rawOf = (a, d) => { if (!filled) return ''; const s = sess.filter(x => x.date === d).find(x => x.marks[a.id]); return s ? s.marks[a.id] : ''; };
+  /* 20.10.2026: «д» — не оплачено; «р» — оплачено разово; «3/10» — пакет разовых; «[» — первое занятие абонемента, «]» — последнее (в пустой будущей клетке — по прогнозу) */
+  const markOf = (a, d) => { const v = rawOf(a, d); if (!filled) return ''; const P = payMarks(a.id), tg = P.tag.get(d + '|' + g);
+    let t = v === 'б' && isBS(ix, a.id, d) ? 'бс' : v === '+' && debtOn(a.id, d) ? 'д' : v === '+' && tg ? (tg.kind === 'pkg' ? tg.n + '/' + tg.N : 'р') : v;
+    if (tg && tg.kind === 'pkg') return t;
+    const fg = P.first.get(d), lg = P.last.get(d), mine = x => x === g || (!x && inGroupOn(a, g, d));
+    if (fg !== undefined && mine(fg)) t = '[' + t;
+    if ((lg !== undefined && mine(lg)) || (!v && P.plan.has(d) && inGroupOn(a, g, d))) t = t + ']';
+    return t; };
+  const isOne = (a) => perVisitOn(a, last) || cols.some(d => { const tg = payMarks(a.id).tag.get(d + '|' + g); return tg && rawOf(a, d) === '+'; });
   // ширины, мм: страница А4 альбом 297, поля 25 слева и 7 справа
   const W = 297 - 25 - 7 - rightPad, fixed = { no: 8, fio: 54, tot: 11, extra: [17, 17, 7, 17, 7, 17, 7] };
   const extraSum = fixed.extra.reduce((s, x) => s + x, 0);
@@ -5371,11 +5424,11 @@ function printBlank(g, ym, fromNo, perPage, filled, rightPad = 4) {
     for (let k = 0; k < perPage; k++) {
       const x = chunk[k];
       const ms = x ? cols.map(d => markOf(x.a, d)) : cols.map(() => '');
-      const tot = ms.filter(v => v === '+').length;
-      rows.push(`<tr><td class="b c">${x ? x.no : ''}</td><td class="fio">${x ? h(shortName(x.a)) + (warnedOf(x.a) ? ' ✉' : '') : ''}</td><td class="c">${tot || ''}</td>${ms.map(v => `<td class="c">${h(v)}</td>`).join('')}${fixed.extra.map((_, j) => `<td${j === 0 ? ' class="b"' : ''}></td>`).join('')}</tr>`);
+      const tot = x ? cols.filter(d => rawOf(x.a, d) === '+').length : 0;   // все посещения: «+», «р», «д», «3/10»
+      rows.push(`<tr><td class="b c">${x ? x.no : ''}</td><td class="fio">${x ? h(shortName(x.a)) + (isOne(x.a) ? ' (р)' : '') + (warnedOf(x.a) ? ' ✉' : '') : ''}</td><td class="c">${tot || ''}</td>${ms.map(v => `<td class="c${v.length > 2 ? ' sm' : ''}">${h(v)}</td>`).join('')}${fixed.extra.map((_, j) => `<td${j === 0 ? ' class="b"' : ''}></td>`).join('')}</tr>`);
     }
     pages.push(`<section class="page">${head}<table>${thead}<tbody>${rows.join('')}</tbody></table>
-      <div class="foot"><span>+ был · н не был · б болел · бс болел, справка · о отменено · с соревнования</span><span>Тренер: ____________________</span></div></section>`);
+      <div class="foot"><span class="lg">+ был · н не был · б болел · бс болел, справка · о отменено · с соревн.${filled ? ' · д не оплачено · р разово · 3/10 пакет · [ ] первое и последнее занятие абонемента' : ''}</span><span>Тренер: ____________________</span></div></section>`);
   }
   openPrint(`Журнал ${g} ${MONTHS[m - 1]} ${y}`, pages.join(''), `
     @page{size:A4 landscape;margin:0}
@@ -5393,9 +5446,10 @@ function printBlank(g, ym, fromNo, perPage, filled, rightPad = 4) {
     th.rot div{writing-mode:vertical-rl;transform:rotate(180deg);margin:0 auto;white-space:nowrap}
     td{height:${rowH}mm;font-size:9pt}
     td.c{text-align:center}
+    td.c.sm{font-size:7pt;letter-spacing:-.03em;white-space:nowrap}
     td.fio,th.fio{text-align:left;padding:0 4px;white-space:nowrap;font-size:10pt}
     th.b,td.b{border-left:2px solid #000}
-    .foot{display:flex;justify-content:space-between;align-items:flex-end;font-size:8pt;height:${FOOT_H}mm}
+    .foot{display:flex;justify-content:space-between;align-items:flex-end;gap:6mm;font-size:8pt;height:${FOOT_H}mm}.foot .lg{font-size:7.5pt}.foot > span:last-child{white-space:nowrap}
     tr{page-break-inside:avoid}`, { pages: true });
 }
 
