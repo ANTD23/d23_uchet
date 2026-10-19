@@ -1780,7 +1780,7 @@ function newbieCheck(d, ix, a, t) {
   if (row >= +N.missRow) return { kind: 'row', row, last: last ? last.date : '', visits: plus.length, held: held.length,
     text: `${row} ${plural(row, 'пропуск', 'пропуска', 'пропусков')} подряд${last ? ' (последнее посещение ' + D.ru(last.date) + ')' : ', посещений ещё не было'}` };
   if (age >= +N.days && age <= +N.days + 7) { const inWin = plus.filter(m => D.diff(a.addedAt, m.date) < +N.days).length;
-    const heldWin = held.filter(s => D.diff(a.addedAt, s.date) < +N.days).length;
+    const heldWin = held.filter(s => D.diff(a.addedAt, s.date) < +N.days && s.marks[a.id] !== 'б' && s.marks[a.id] !== 'о').length;   // болел или занятие отменено — не в счёт
     if (heldWin >= +N.minVisits && inWin < +N.minVisits) return { kind: 'few', visits: inWin, held: heldWin, text: `за первые ${N.days} дн. — ${inWin} ${plural(inWin, 'посещение', 'посещения', 'посещений')} из ${heldWin} занятий группы` }; }
   return null;
 }
@@ -1953,6 +1953,9 @@ const NEW_TEMPLATES_10 = [
   { title: 'Пакет разовых заканчивается', text: 'Здравствуйте.\n{фи}.\nПо оплаченному пакету разовых занятий осталось одно занятие. Чтобы заниматься дальше, оплатите новый пакет или разовое посещение.' },
   { title: 'Пакет разовых использован', text: 'Здравствуйте.\n{фи}.\nОплаченный пакет разовых занятий использован полностью. Следующее посещение — по оплате: разовое занятие или новый пакет.' },
 ];
+const NEW_TEMPLATES_11 = [
+  { title: 'Пакет разовых оплачен', text: 'Здравствуйте.\n{фи}.\n✅ Оплачен пакет разовых занятий: {занятий}.\nЗанятие списывается только когда вы пришли, срока у пакета нет. Сколько осталось — подскажу в любой момент, а когда останется одно занятие — напомню.' },
+];
 const NEW_TEMPLATES_8 = [
   { title: 'С днём рождения', text: 'Здравствуйте.\nПоздравляем {имя} с днём рождения! Здоровья, сил и новых побед на ковре. Ждём на тренировке!\nClub D23' },
 ];
@@ -2055,6 +2058,11 @@ function normalize(d) {
     const have = new Set((d.settings.templates || []).map(t => t.title));
     d.settings.templates = [...(d.settings.templates || []), ...NEW_TEMPLATES_10.filter(o => !have.has(o.title)).map(o => ({ ...o }))];
     d.settings.tplVersion = 10;
+  }
+  if ((d.settings.tplVersion || 1) === 10) {          // 20.10.2026: сообщение об оплате пакета разовых
+    const have = new Set((d.settings.templates || []).map(t => t.title));
+    d.settings.templates = [...(d.settings.templates || []), ...NEW_TEMPLATES_11.filter(o => !have.has(o.title)).map(o => ({ ...o }))];
+    d.settings.tplVersion = 11;
   }
   normFin(d); normExtra(d);
   return d;
@@ -3710,14 +3718,14 @@ function personSummary(a, c, freezes) {
   else if (s) {
     if (s.notActive) L.push(['Абонемент', 'оплачен, не активирован' + (s.autoDate ? ' (автоактивация ' + D.ru(s.autoDate) + ')' : '')]);
     else if (s.remaining < 0) L.push(['Абонемент', '<b style="color:var(--bad)">долг ' + (-s.remaining) + ' зан.</b>']);
-    else L.push(['Абонемент', (s.remaining === 0 ? 'использован' : 'осталось <b>' + s.remaining + '</b> ' + plural(s.remaining, 'занятие', 'занятия', 'занятий')) + (s.end ? (s.endKind === 'fact' ? ', последнее ' : ', до ') + D.ru(s.end) : '')]);
+    else L.push([s.pkg ? 'Пакет разовых' : 'Абонемент', (s.remaining === 0 ? 'использован' : 'осталось <b>' + s.remaining + '</b> ' + plural(s.remaining, 'занятие', 'занятия', 'занятий') + (s.pkg ? ' из ' + subTotal(c.sub) + ', без срока' : '')) + (s.end ? (s.endKind === 'fact' ? ', последнее ' : ', до ') + D.ru(s.end) : '')]);
     if (!left && !s.notActive && (+c.sub.count || 0) > 1) {          // ушёл — сообщать о сроке и окончании уже некому
       const q = notifyState(c.sub, 'period'), e = notifyState(c.sub, 'end'), sid = c.sub.id;
       const btns = (ty, tpl) => `<span class="row no-print" style="gap:6px;margin-top:4px"><button class="btn sm" data-act="msg" data-id="${a.id}" data-sub="${sid}" data-tpl="${tpl}">Написать</button><button class="btn sm ghost" data-act="notify-mark" data-sub="${sid}" data-type="${ty}" title="Сообщение отправлено не из программы">Уже отправил</button></span>`;
-      if (q || s.first >= (db.settings.notifyFrom || '9999')) L.push(['Срок сообщён', q ? '✓ ' + D.ru(q.at) + (q.stale ? ` <span class="chip warn">срок изменился: теперь до ${D.ru(q.now)}</span>` + btns('period', 'Абонемент продлён') : '')
+      if (!s.pkg && (q || s.first >= (db.settings.notifyFrom || '9999'))) L.push(['Срок сообщён', q ? '✓ ' + D.ru(q.at) + (q.stale ? ` <span class="chip warn">срок изменился: теперь до ${D.ru(q.now)}</span>` + btns('period', 'Абонемент продлён') : '')
         : (s.first >= (db.settings.notifyFrom || '9999') ? '<span class="muted">не отмечено</span>' + btns('period', 'Новый абонемент оплачен') : '<span class="muted">—</span>')]);
-      if (e || (s.remaining <= 2 && !c.nextSub)) L.push(['Об окончании', e ? '✓ предупреждён ' + D.ru(e.at) + (e.stale ? ` <span class="chip warn">окончание изменилось: теперь ${D.ru(e.now)}</span>` + btns('end', 'Абонемент заканчивается') : '')
-        : '<b style="color:var(--bad)">не предупреждён</b>' + btns('end', s.remaining === 0 ? 'Абонемент закончился' : 'Абонемент заканчивается')]);
+      if (e || (s.remaining <= (s.pkg ? 1 : 2) && !c.nextSub)) L.push(['Об окончании', e ? '✓ предупреждён ' + D.ru(e.at) + (e.stale && !s.pkg ? ` <span class="chip warn">окончание изменилось: теперь ${D.ru(e.now)}</span>` + btns('end', 'Абонемент заканчивается') : '')
+        : '<b style="color:var(--bad)">не предупреждён</b>' + btns('end', s.pkg ? (s.remaining === 0 ? 'Пакет разовых использован' : 'Пакет разовых заканчивается') : s.remaining === 0 ? 'Абонемент закончился' : 'Абонемент заканчивается')]);
     }
     if (c.nextSub) { const nr = ix.subCalc.get(c.nextSub.id); L.push(['Следующий', 'оплачен' + (nr && nr.first ? ', с ' + D.ru(nr.first) : '')]); }
   } else L.push(['Абонемент', a.noSub ? 'без абонемента' : a.payPerVisit ? 'оплата разово' : '<span class="muted">нет</span>']);
@@ -4040,8 +4048,8 @@ function openSub(id, athleteId) {
       for (const k of ['acc', 'payer', 'check']) if (!t[k]) delete t[k];
       if (!tgt) db.subs.push(t);
       persist(p ? 'Абонемент сохранён' : t.pending ? 'Записан абонемент «ждём оплату»' : tgt ? 'Оплата записана — «ждём оплату» оплачен' : 'Оплата записана');
-      const term = () => { const rr = ix.subCalc.get(t.id); if (!rr) return ''; return rr.notActive ? 'не активирован — начнётся с первого посещения' + (rr.autoDate ? ', не позднее ' + D.ru(rr.autoDate) : '') : (rr.first ? 'действует с ' + D.ru(rr.first) : '') + (rr.end ? ' по ' + D.ru(rr.end) : ''); };   // показ нового срока, расчёт прежний
-      if (!p && !t.pending && t.count > 1) setTimeout(() => { const rr = ix.subCalc.get(t.id); openMsg(t.athleteId, rr && rr.notActive ? 'Абонемент оплачен' : 'Новый абонемент оплачен', {}, t.id);
+      const term = () => { const rr = ix.subCalc.get(t.id); if (!rr) return ''; if (rr.pkg) return 'пакет разовых, без срока: использовано ' + Math.max(0, subTotal(t) - rr.remaining) + ' из ' + subTotal(t); return rr.notActive ? 'не активирован — начнётся с первого посещения' + (rr.autoDate ? ', не позднее ' + D.ru(rr.autoDate) : '') : (rr.first ? 'действует с ' + D.ru(rr.first) : '') + (rr.end ? ' по ' + D.ru(rr.end) : ''); };   // показ нового срока, расчёт прежний
+      if (!p && !t.pending && t.count > 1) setTimeout(() => { const rr = ix.subCalc.get(t.id); openMsg(t.athleteId, rr && rr.pkg ? 'Пакет разовых оплачен' : rr && rr.notActive ? 'Абонемент оплачен' : 'Новый абонемент оплачен', {}, t.id);   // пакет — без дат активации и окончания
         const bx = document.querySelector('#dlg .dlg-b'); if (bx) bx.insertAdjacentHTML('afterbegin', `<div class="pay-res"><b>✓ Оплата записана: ${t.count} ${plural(t.count, 'занятие', 'занятия', 'занятий')}</b><span>${h(term())}</span></div>`); }, 50);
       else if (!p && !t.pending) { const ts = document.querySelector('.toast'); if (ts && ts.firstChild && ts.firstChild.nodeType === 3 && term()) ts.firstChild.nodeValue = 'Оплата записана · ' + term(); }
     },
@@ -4142,7 +4150,8 @@ function openAward(id, athleteId) {
 let msgAttnKey = '';
 /* какие шаблоны что означают: «end» — предупреждение об окончании, «period» — сообщён срок действия */
 const NOTIFY_TPL = { 'Абонемент заканчивается': 'end', 'Абонемент закончился': 'end', 'Осталось одно занятие': 'end', 'Осталось одно занятие (официально)': 'end', 'Абонемент использован': 'end',
-  'Новый абонемент оплачен': 'period', 'Абонемент продлён': 'period', 'Оплата принята': 'period' };
+  'Новый абонемент оплачен': 'period', 'Абонемент продлён': 'period', 'Оплата принята': 'period',
+  'Пакет разовых заканчивается': 'end', 'Пакет разовых использован': 'end' };   // пакет разовых: срока нет — только «об окончании»
 const NOTIFY_TXT = { end: 'Отметить в карточке: предупреждён об окончании абонемента', period: 'Отметить в карточке: срок действия абонемента сообщён' };
 let msgCtx = null;
 function notifySub(aid, type, subId) {            // к какому абонементу относится сообщение
@@ -4166,9 +4175,9 @@ function notifyBadges(p, r) {
   if (!r || p.pending || r.terminated || (+p.count || 0) <= 1) return '';
   const c = ix.athCalc.get(p.athleteId) || {}, cur = c.sub === p, next = c.nextSub === p, q = notifyState(p, 'period'), e = notifyState(p, 'end'), b = [];
   if (q) b.push(`<span class="chip ${q.stale ? 'warn' : 'ok'}" title="${q.stale ? 'Срок сообщён ' + D.ru(q.at) + ', потом изменился — теперь до ' + D.ru(q.now) + '. Сообщите новый срок' : 'Срок действия сообщён ' + D.ru(q.at)}">📅 ${q.stale ? 'срок изменился' : D.short(q.at)}</span>`);
-  else if ((cur || next) && r.first && !r.notActive && r.first >= (db.settings.notifyFrom || '9999')) b.push('<span class="chip bad" title="Срок действия абонемента ещё не сообщён">📅 не сообщён</span>');
+  else if ((cur || next) && r.first && !r.notActive && !r.pkg && r.first >= (db.settings.notifyFrom || '9999')) b.push('<span class="chip bad" title="Срок действия абонемента ещё не сообщён">📅 не сообщён</span>');   // у пакета срока нет
   if (e) b.push(`<span class="chip ${e.stale ? 'warn' : 'ok'}" title="${e.stale ? 'Предупреждён об окончании ' + D.ru(e.at) + ', потом окончание изменилось — теперь ' + D.ru(e.now) : 'Предупреждён об окончании ' + D.ru(e.at)}">✉ ${e.stale ? 'окончание изменилось' : D.short(e.at)}</span>`);
-  else if (cur && !c.nextSub && !c.pendingSub && r.remaining != null && r.remaining <= 2) b.push(`<span class="chip bad" title="Осталось ${Math.max(0, r.remaining)} — об окончании не предупреждён">✉ не предупреждён</span>`);
+  else if (cur && !c.nextSub && !c.pendingSub && r.remaining != null && r.remaining <= (r.pkg ? 1 : 2)) b.push(`<span class="chip bad" title="Осталось ${Math.max(0, r.remaining)} — об окончании не предупреждён">✉ не предупреждён</span>`);
   return b.length ? `<div class="nb">${b.join('')}</div>` : '';
 }
 function notifyIcon(p) {
@@ -5143,12 +5152,13 @@ function tariffHook(p) {
   const upd = () => {
     const aid = sel ? sel.value : hid ? hid.value : '', a = aid && ix.ath.get(aid); if (!a) { note.innerHTML = ''; return; }
     const date = (pd && pd.value) || ix.today, tf = tariffFor(db, a, cn.value, date);
-    if (!tf) { note.innerHTML = `<span class="muted">Число занятий не из тарифа (${db.settings.prices.count} или 1) — сумму укажите сами.</span>`; return; }
+    if (!tf) { note.innerHTML = `<span class="muted">Число занятий не из тарифа (${db.settings.prices.count} или 1) — сумму укажите сами.</span>`
+      + ((+cn.value || 0) > 1 ? ' <b style="color:var(--warn)">Если это пакет разовых (п. 8.8 оферты) — сначала отметьте в карточке «Оплата разово»: иначе программа посчитает его абонементом со сроком по расписанию.</b>' : ''); return; }
     if (tf.price == null) { note.innerHTML = '<b style="color:var(--warn)">Нет даты рождения — тариф (детский или базовый) не определить.</b> Укажите её в карточке.'; return; }
     if (!p && !am.dataset.touched) am.value = tf.price;
     const prev = (ix.subsByAth.get(a.id) || []).filter(q => q !== p && !q.pending && q.payDate && q.payDate < date && +q.count === +db.settings.prices.count).pop();
     const was = prev && tariffFor(db, a, prev.count, prev.payDate);
-    note.innerHTML = `Тариф: <b>${h(tf.kind)}</b> — ${rubN(tf.price)} ₽${tf.pkg ? '. Списывается только за посещение, без срока; в журнале — «1/' + (+cn.value) + '», «2/' + (+cn.value) + '»…' : ''}${tf.age != null ? ` (на дату оплаты ${tf.age} ${plural(tf.age, 'год', 'года', 'лет')})` : ''}.`
+    note.innerHTML = `Тариф: <b>${h(tf.kind)}</b> — ${rubN(tf.price)} ₽${tf.pkg ? '. Списывается только за посещение, без срока; в журнале — «1/' + (+cn.value) + '», «2/' + (+cn.value) + '»…' : ''}${tf.pkg && +cn.value === +db.settings.prices.count ? ' <b style="color:var(--warn)">Если это абонемент на ' + db.settings.prices.count + ' занятий, а не пакет — снимите в карточке «Оплата разово».</b>' : ''}${tf.age != null ? ` (на дату оплаты ${tf.age} ${plural(tf.age, 'год', 'года', 'лет')})` : ''}.`
       + (was && was.kind === 'детский' && tf.kind === 'базовый' ? ' <b style="color:var(--warn)">С этой оплаты — тариф «Базовый»: исполнилось ' + db.settings.prices.kidUnder + ' лет. Сообщите заказчику (п. 5.4 Положения о льготах).</b>' : '')
       + (+am.value && +am.value !== tf.price ? ' <span class="muted">Сумма другая — по договорённости.</span>' : '');
   };
@@ -5603,7 +5613,7 @@ function refusePreview(a, date) {
     const r = ix2.subCalc.get(p.id), x = r && refundInfo(ix2, p); if (!x || !(x.sum > 0)) continue;
     if ((+p.count || 0) <= 1 && !x.notActive) continue;                 // разовое посещение не пересчитывается
     if (!x.notActive && r.end && r.end < date) continue;                // период действия истёк — возврата нет (п. 10.4.7)
-    rows.push({ sub: p.id, pay: p.payDate || '', amount: +p.amount || 0, count: +p.count || 0, price: x.price || null, left: x.left, notActive: !!x.notActive, sum: x.sum });
+    rows.push({ sub: p.id, pay: p.payDate || '', amount: +p.amount || 0, count: +p.count || 0, price: x.price || null, left: x.left, notActive: !!x.notActive, sum: x.sum, pkg: !!r.pkg });   // pkg — пакет разовых (п. 8.8.5 оферты ред. 7)
   }
   const c2 = ix2.athCalc.get(a.id);
   return { rows, total: rows.reduce((n, x) => n + x.sum, 0), owe: c2 && c2.pendingSub && c2.pendingCalc ? c2.pendingCalc.charged || 0 : 0 };
@@ -5616,7 +5626,7 @@ function refundExtra(a) {
 function refundHow(R) { return R.how === 'другое' ? R.howNote || 'другое' : [R.how, R.howNote].filter(Boolean).join(': '); }   // «сообщение в MAX: …» / при «другое» — примечание
 function openRefuse(id) {
   const a = db.athletes.find(x => x.id === id); if (!a) return;
-  const calcHTML = P => P.rows.length ? `<ul class="list" style="border:1px solid var(--line);border-radius:8px">${P.rows.map(x => `<li style="padding:8px 10px"><div class="who small"><b>Абонемент ${x.count} зан., ${x.amount.toLocaleString('ru')} ₽${x.pay ? ', оплачен ' + D.ru(x.pay) : ''}</b>${x.notActive ? 'не активирован — возврат полностью (п. 10.4.5)' : `не списано ${x.left} × ${x.price.toLocaleString('ru')} ₽ (п. 10.4.2)`}</div><b class="num">${x.sum.toLocaleString('ru')} ₽</b></li>`).join('')}</ul>`
+  const calcHTML = P => P.rows.length ? `<ul class="list" style="border:1px solid var(--line);border-radius:8px">${P.rows.map(x => `<li style="padding:8px 10px"><div class="who small"><b>${x.pkg ? 'Пакет разовых' : 'Абонемент'} ${x.count} зан., ${x.amount.toLocaleString('ru')} ₽${x.pay ? ', оплачен ' + D.ru(x.pay) : ''}</b>${x.pkg ? `пакет разовых: не использовано ${x.notActive ? x.count : x.left} — возврат полностью (п. 8.8.5)` : x.notActive ? 'не активирован — возврат полностью (п. 10.4.5)' : `не списано ${x.left} × ${x.price.toLocaleString('ru')} ₽ (п. 10.4.2)`}</div><b class="num">${x.sum.toLocaleString('ru')} ₽</b></li>`).join('')}</ul>`
     : '<p class="small">Не списанных занятий на эту дату нет — возврат не производится (п. 10.4.4).</p>';
   const P0 = refusePreview(a, ix.today);
   modal('Отказ от договора: ' + shortName(a), `<div class="fgrid">${F('date', 'Заявление получено', ix.today, 'date', 'required max="' + ix.today + '"')}${FS('how', 'Как получено (п. 10.3)', ['письменное заявление', 'сообщение в MAX', 'сообщение ВКонтакте', 'другое'], 'сообщение в MAX')}
@@ -5648,10 +5658,10 @@ function printRefund(a) {
   <p><b>Исполнитель:</b> ${operatorLine()}</p><p><b>Потребитель:</b> ${h(fullName(a))}</p>
   <p><b>Заявление об отказе получено:</b> ${D.ru(R.date)}${refundHow(R) ? ' (' + h(refundHow(R)) + ')' : ''}. Договор расторгнут с этой даты (п. 10.3).</p>
   ${(R.lines || []).length ? `<table><thead><tr><th>Абонемент оплачен</th><th>Уплачено, ₽</th><th>Занятий</th><th>Цена занятия, ₽</th><th>Не списано на дату отказа</th><th>К возврату, ₽</th></tr></thead><tbody>
-  ${R.lines.map(x => `<tr><td>${D.ru(x.pay)}</td><td>${x.amount.toLocaleString('ru')}</td><td>${x.count}</td><td>${x.notActive ? '—' : x.price.toLocaleString('ru')}</td><td>${x.notActive ? 'не активирован (п. 10.4.5)' : x.left}</td><td>${x.sum.toLocaleString('ru')}</td></tr>`).join('')}</tbody></table>`
+  ${R.lines.map(x => `<tr><td>${D.ru(x.pay)}</td><td>${x.amount.toLocaleString('ru')}</td><td>${x.count}</td><td>${x.notActive && !x.pkg ? '—' : (x.price || Math.round(x.amount / Math.max(1, x.count))).toLocaleString('ru')}</td><td>${x.pkg ? (x.notActive ? x.count : x.left) + ' (пакет разовых, п. 8.8.5)' : x.notActive ? 'не активирован (п. 10.4.5)' : x.left}</td><td>${x.sum.toLocaleString('ru')}</td></tr>`).join('')}</tbody></table>`
     : '<p>Не списанных с абонемента занятий на дату отказа нет — возврат не производится (п. 10.4.4).</p>'}
   <p style="margin-top:10px"><b>Итого к возврату: ${(+R.sum || 0).toLocaleString('ru')} руб.</b>${+R.sum !== +R.calcSum ? ` Расчётная сумма ${(+R.calcSum || 0).toLocaleString('ru')} руб. ${+R.sum < +R.calcSum ? 'уменьшена на фактически понесённые расходы, подтверждённые документами (п. 10.4.1)' : 'увеличена по решению Исполнителя'}.` : ''}</p>
-  <p>Цена занятия = уплаченная сумма ÷ число занятий в абонементе, с округлением в большую сторону до 10 руб. в пользу Заказчика (п. 10.4.2). Не списанные занятия — по учёту посещений на дату отказа (п. 9.4).</p>
+  ${(R.lines || []).some(x => !x.pkg) ? '<p>Цена занятия = уплаченная сумма ÷ число занятий в абонементе, с округлением в большую сторону до 10 руб. в пользу Заказчика (п. 10.4.2). Не списанные занятия — по учёту посещений на дату отказа (п. 9.4).</p>' : ''}${(R.lines || []).some(x => x.pkg) ? '<p>Пакет разовых посещений: неиспользованный остаток возвращается в полном объёме — цена разового посещения, по которой оплачен пакет, × неиспользованные посещения (п. 8.8.5).</p>' : ''}
   ${+R.sum > 0 ? `<p>Срок возврата — не позднее ${D.ru(R.due)}, тем же способом, которым была произведена оплата (п. 10.4.3).${R.paidAt ? ' Возврат выплачен ' + D.ru(R.paidAt) + '.' : ''}</p>` : ''}
   <p class="sig">Исполнитель <span class="l"></span> / ${op} /</p><p style="margin-top:14px">Дата «____» ____________ 20___ г.</p>`, PRINT_CSS);
 }
