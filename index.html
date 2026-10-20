@@ -918,7 +918,13 @@ function withBlankCells(ix, aid, list) {
 }
 /* 20.10.2026: пакет разовых — оплата сразу за несколько занятий у человека с «Оплата разово».
    Списывается только за посещение («+»), без срока по расписанию и без автоактивации; в журнале — «3/10». Отдельного поля нет: признак — число занятий больше 1 и «оплата разово» на дату оплаты */
-function isPkg(ix, p) { if (!p || p.pending || (+p.count || 0) <= 1) return false; const a = ix.ath.get(p.athleteId); return perVisitOn(a, p.payDate || p.start || ''); }
+function isPkg(ix, p) {
+  if (!p || p.pending || (+p.count || 0) <= 1) return false;
+  if (p.pkg === true) return true; if (p.pkg === false) return false;                 // 21.10.2026: явная отметка в окне оплаты
+  const a = ix.ath.get(p.athleteId); if (perVisitOn(a, p.payDate || p.start || '')) return true;
+  const one = +((ix.db.settings.prices || {}).single) || 0;                          // прежние записи без отметки: сумма = занятий × цена разового — пакет (п. 8.8)
+  return one > 0 && +p.amount === one * (+p.count || 0) && +p.count !== +((ix.db.settings.prices || {}).count || 12);
+}
 function setSubStatus(ix, p, r) {
   if (r.notActive) { r.status = p.pending ? 'ждём оплату' : 'не активирован'; r.tone = p.pending ? 'bad' : 'ok'; return; }
   if (r.next && r.remaining > 0) { r.status = 'не израсходовано ' + r.remaining + ' (начат следующий)'; r.tone = 'bad'; r.burned = r.remaining; }
@@ -971,7 +977,7 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
       if (r.next && m.date >= r.next) break;
       if (stopFor(p) && m.date >= stopFor(p)) break;                                  // п. 10.3: договор прекращён
       if (m.used) continue;
-      if (perVisitOn(A0, m.date) && m.mark !== '+') continue;                           // №13 (О11, К7): у разовика только «+» и пусто
+      if ((perVisitOn(A0, m.date) || pkg) && m.mark !== '+') continue;                  // №13 (О11, К7): у разовика и у пакета разовых списывается только «+»
       if (m.auto && ((+p.count || 0) <= 1 || pkg)) continue;                          // разовая оплата и пакет разовых — раздел 9 не применяется
       // в периоде заморозки «о» и «с» считаются днями болезни (приоритет заморозки): при сгорании продления «с» списывается, «о» — нет (п. 9.5.8.1)
       const mk = (m.mark === 'о' || m.mark === 'с') && fr.some(x => inFr(x, m.date)) ? 'б' : m.mark;
@@ -1092,12 +1098,12 @@ function calcFreeze(ix, f) {
   r.certBy = certBy; r.askBy = askBy;
   const checkBy = mode === 'wait' ? D.add(fTo, 15) : askBy || certBy;
   r.checkBy = checkBy;
-  r.certAsk = !!(askBy && !f.certDate && ix.today >= certBy && ix.today <= askBy);   // вернулся без справки — спросить на следующем занятии
+  r.certAsk = !!(askBy && !f.certDate && !f.noCert && ix.today >= certBy && ix.today <= askBy);   // вернулся без справки — спросить на следующем занятии
   const certIsSession = !askBy && (mode === 'a' || mode === 'b') && certBy && certBy === (mode === 'a' ? firstAfterBase : firstFromReturn);
   r.certIsSession = certIsSession;
   let lapsedByCert = false;
   if (mode === 'a' || mode === 'b' || mode === 'wait') {
-    lapsedByCert = f.certDate ? f.certDate > checkBy : (certIsSession ? ix.today >= checkBy : ix.today > checkBy);   // при правиле «спросить на следующем» — весь день этого занятия
+    lapsedByCert = f.certDate ? f.certDate > checkBy : f.noCert ? true : (certIsSession ? ix.today >= checkBy : ix.today > checkBy);   // 21.10.2026: «Справки не будет» — заморозки нет сразу   // при правиле «спросить на следующем» — весь день этого занятия
   }
   r.mode = lapsedByCert ? 'lapsed' : mode;
   r.lapsedByCert = lapsedByCert;
@@ -1109,7 +1115,7 @@ function calcFreeze(ix, f) {
   const retTxt = ret ? D.ru(ret) + (r.retGuess ? ' (по журналу)' : '') : '';
   if (r.mode === 'lapsed') {
     r.text = lapsedByCert
-      ? (f.certDate ? 'Справка получена после срока ' + D.ru(checkBy) : 'Справка не получена ' + (askBy ? 'и на занятии ' + D.ru(askBy) + ' (вернулся ' + retTxt + ')' : 'до ' + D.ru(checkBy))) + ' — заморозки нет, занятия болезни списываются'
+      ? (f.noCert && !f.certDate ? 'Справки не будет (отмечено ' + D.ru(f.noCert) + ')' : f.certDate ? 'Справка получена после срока ' + D.ru(checkBy) : 'Справка не получена ' + (askBy ? 'и на занятии ' + D.ru(askBy) + ' (вернулся ' + retTxt + ')' : 'до ' + D.ru(checkBy))) + ' — заморозки нет, занятия болезни списываются'
       : ret ? 'Вернулся ' + retTxt + ' — позже 15 дней после болезни (до ' + D.ru(r.returnBy) + '): продление прекратилось, занятия болезни списываются'
         : 'Не вернулся до ' + D.ru(r.returnBy) + ' — продление прекратилось (п. 9.5.5)';
   } else if (r.mode === 'wait') r.text = 'Ждём возвращения: +' + r.ext + ' зан. продления';
@@ -1705,10 +1711,10 @@ function normExtra(d) {
 }
 /* тариф по Приложению № 1 и Положению о льготах: детский — если на дату оплаты ещё нет 12 лет (п. 3.1, 3.2 Положения) */
 const rubN0 = v => (Math.round(+v || 0)).toLocaleString('ru');
-function tariffFor(d, a, count, payDate) {
+function tariffFor(d, a, count, payDate, pkg) {     // pkg: true — пакет разовых, false — не пакет, не задано — по «Оплата разово»
   const P = d.settings.prices || {}, n = +count || 0;
   if (n === 1) return { kind: 'разовое', price: +P.single || 0 };
-  if (n > 1 && a && perVisitOn(a, payDate)) return { kind: `пакет разовых: ${n} × ${rubN0(P.single)} ₽`, price: (+P.single || 0) * n, pkg: true };   // «Оплата разово»: пакет по цене разового
+  if (n > 1 && pkg !== false && (pkg === true || (a && perVisitOn(a, payDate)))) return { kind: `пакет разовых: ${n} × ${rubN0(P.single)} ₽`, price: (+P.single || 0) * n, pkg: true };   // «Оплата разово»: пакет по цене разового
   if (n !== +P.count) return null;
   const age = a && a.birth && payDate ? D.age(a.birth, payDate) : null;
   if (age == null) return { kind: 'нет даты рождения', price: null, age: null };
@@ -1719,7 +1725,7 @@ function tariffAudit(d, from, to) {                // оплаты период�
   const lo = D.max(D.max(from, P.from || ''), pStartOf(d));
   for (const p of d.subs) {
     if (p.pending || !p.payDate || p.payDate < lo || p.payDate > to || !(+p.amount > 0)) continue;
-    const a = ath.get(p.athleteId), tf = tariffFor(d, a, p.count, p.payDate); if (!tf) continue;
+    const a = ath.get(p.athleteId), tf = tariffFor(d, a, p.count, p.payDate, p.pkg === true || p.pkg === false ? p.pkg : (+p.count > 1 && +p.amount === (+P.single || 0) * +p.count && +p.count !== +P.count) || undefined); if (!tf) continue;
     if (tf.pkg) { R.pkg = (R.pkg || 0) + 1; R.pkgVisits = (R.pkgVisits || 0) + (+p.count || 0); }
     else if (tf.kind === 'детский') { R.kid++; R.kidSum += Math.max(0, (+P.sub || 0) - (+P.subKid || 0)); } else if (tf.kind === 'базовый') R.base++; else if (tf.kind === 'разовое') R.single++;
     if (tf.price != null && +p.amount !== tf.price) R.off.push({ p, a, tf });
@@ -2793,7 +2799,7 @@ function attentionCalc() {
     const c = calcFreeze(ix, f);
     if (c.mode === 'err' || c.mode === 'incomplete') { out.push({ tone: 'bad', a, text: `${shortName(a)}: ошибка в заморозке ${f.from ? 'с ' + D.ru(f.from) : ''} — ${c.text}. Откройте и исправьте`, freeze: f.id }); continue; }   // №22
     if (c.mode === 'prov') { out.push({ tone: 'sick', a, text: `${shortName(a)}: болеет с ${D.ru(f.from)} — заморозка предварительно (дата «по» не внесена); занятия болезни пока не списываются. Внесите «по» и дату справки`, freeze: f.id }); continue; }   // №16
-    if (c.certAsk) out.push({ tone: 'bad', a, text: `${shortName(a)}: вернулся ${D.ru(c.ret)}${c.retGuess ? ' (по журналу)' : ''} без справки о болезни — спросить справку на занятии ${D.ru(c.askBy)}. Не принесёт — заморозки нет, ${c.ext} ${plural(c.ext, 'занятие', 'занятия', 'занятий')} болезни спишутся`, freeze: f.id });
+    if (c.certAsk) out.push({ tone: 'bad', a, nocert: f.id, text: `${shortName(a)}: вернулся ${D.ru(c.ret)}${c.retGuess ? ' (по журналу)' : ''} без справки о болезни — спросить справку на занятии ${D.ru(c.askBy)}. Не принесёт — заморозки нет, ${c.ext} ${plural(c.ext, 'занятие', 'занятия', 'занятий')} болезни спишутся`, freeze: f.id });
     else if (['a', 'b', 'wait'].includes(c.mode) && !f.certDate && c.certBy && !c.askBy) out.push({ tone: 'sick', a, text: `${shortName(a)}: справка о болезни нужна ${c.certIsSession ? 'до начала занятия' : 'не позднее'} ${D.ru(c.certBy)}${c.remindBy ? ', напомнить до ' + D.ru(c.remindBy) : ''}`, freeze: f.id });
     else if (['a', 'b'].includes(c.mode) && !f.certDate && c.askBy && ix.today < c.certBy) out.push({ tone: 'sick', a, text: `${shortName(a)}: справку о болезни принести на занятие ${D.ru(c.certBy)}`, freeze: f.id });
     if (c.mode === 'wait' && f.certDate) out.push({ tone: 'sick', a, text: `${shortName(a)}: заморозка — вернуться не позднее ${D.ru(c.returnBy)}`, freeze: f.id });
@@ -2897,6 +2903,7 @@ function attnItem(x) {
     x.unpaid ? B('sub-new', 'Оплата', ` data-id="${aid}"`) : '',
     x.tpl && aid ? `<button class="btn sm" data-act="msg" data-id="${aid}" data-tpl="${h(x.tpl)}"${x.sub ? ` data-sub="${x.sub}"` : ''} data-key="${h(attnKey(x))}" data-extra='${h(JSON.stringify(x.extra || {}))}'>Написать</button>` : '',
     x.freeze ? B('freeze-edit', 'Открыть заморозку', ` data-id="${x.freeze}"`) : '',
+    x.nocert ? B('freeze-nocert', 'Справки не будет', ` data-id="${x.nocert}"`) : '',
     x.act === 'freeze-new' ? B('freeze-new', 'Оформить заморозку', ` data-id="${aid}"`) : '',
     x.brief ? B('brief-new', 'Инструктаж проведён', ` data-id="${x.brief}"`) : '',
     x.docs ? B('docs-edit', 'Документы', ` data-id="${x.docs}"`) : '',
@@ -3995,6 +4002,7 @@ function openSub(id, athleteId) {
   ${(FN.accounts || []).length && FN.accounts.length <= 4 ? `<div class="f wide"><span>Как оплачено</span><div class="choice" role="group" aria-label="Как оплачено">${FN.accounts.map(A => `<button type="button" data-acc="${h(A.id)}" aria-pressed="${(v.acc || '') === A.id}">${h(A.name)}</button>`).join('')}</div><input type="hidden" name="acc" value="${h(v.acc || '')}">${v.acc && !FN.accounts.some(A => A.id === v.acc) ? '<p class="small muted" style="margin:4px 0 0">Прежний счёт удалён — выберите способ оплаты.</p>' : ''}</div>` : `${FS('acc', 'Как оплачено', [...(v.acc ? [] : [['', '— не указано —']]), ...FN.accounts.map(A => [A.id, A.name]), ...(v.acc && !FN.accounts.some(A => A.id === v.acc) ? [[v.acc, 'счёт удалён']] : [])], v.acc || '')}`}
   <div class="f"><span>Оплачено занятий</span><div class="stepper"><button type="button" data-step="-1" aria-label="Меньше занятий">−</button><input type="number" name="count" value="${h(v.count)}" min="1" inputmode="numeric" required aria-label="Оплачено занятий"><button type="button" data-step="1" aria-label="Больше занятий">+</button></div></div>${F('amount', 'Сумма, ₽', v.amount, 'number', 'inputmode="numeric"')}
   ${F('payDate', 'Дата оплаты', v.payDate, 'date')}${FN.checks !== false ? `<label class="row" style="gap:8px;align-self:end;min-height:40px"><input type="checkbox" name="check" ${v.check ? 'checked' : ''} style="width:20px;height:20px"><span>Чек в «Мой налог» выбит${v.check && v.check !== true ? ' <span class="small muted">' + h(D.short(String(v.check))) + '</span>' : ''}</span></label>` : ''}
+  <label class="row wide" id="pkg-wrap" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="pkg" ${p ? (isPkg(ix, p) ? 'checked' : '') : ''} style="width:20px;height:20px"><span><b>Пакет разовых посещений</b> (п. 8.8 оферты): занятие списывается только когда человек пришёл, пропуски не списываются, срока и автоактивации нет.</span></label>
   <p class="small wide" id="tariff-note" style="margin:-4px 0 0"></p></div>
   <details class="more-fields" ${p ? 'open' : ''}><summary>Дополнительно: дата активации, только группа, продление, «ждём оплату»</summary><div class="fgrid" style="margin-top:10px">
   ${F('start', 'Дата активации (пусто — автоматически)', v.start, 'date')}
@@ -4035,7 +4043,7 @@ function openSub(id, athleteId) {
         if (pr && pr.remaining > 0 && !await ask(`Предыдущий абонемент (с ${D.ru(pr.first)}) ещё не истёк: осталось ${pr.remaining} зан. Если новый начнётся ${D.ru(fd.start)}, период предыдущего оборвётся (п. 9.3.2).\n\nОставьте дату активации пустой — новый начнётся сам после окончания текущего.\n\nВсё равно сохранить с этой датой?`)) return false;
       }
       if (!fd.pending && (!p || +fd.amount !== +p.amount || +fd.count !== +p.count || fd.payDate !== p.payDate)) {   // №14 (О6): сумма не по тарифу — спросить
-        const tf = tariffFor(db, ix.ath.get(fd.athleteId), fd.count, fd.payDate || ix.today);
+        const tf = tariffFor(db, ix.ath.get(fd.athleteId), fd.count, fd.payDate || ix.today, +fd.count > 1 ? !!fd.pkg : undefined);
         if (tf && tf.price && +fd.amount !== tf.price && !await ask(`Сумма ${(+fd.amount || 0).toLocaleString('ru')} ₽ не по тарифу: ${tf.kind} — ${tf.price.toLocaleString('ru')} ₽ за ${+fd.count} ${plural(+fd.count, 'занятие', 'занятия', 'занятий')}.\n\nСохранить с этой суммой (индивидуальная цена)?`)) return false;
       }
       let tgt = p;                                   // №31: оплата кнопкой «Оплата», а у человека есть «ждём оплату» — оплатить его, а не заводить второй
@@ -4047,6 +4055,7 @@ function openSub(id, athleteId) {
       if (+fd.bonus > 0 && !String(fd.bonusNote || '').trim()) { notice('Укажите причину продления — она будет видна в карточке и в истории изменений.'); return false; }
       const wasPend = !!(tgt && tgt.pending);
       Object.assign(t, { athleteId: fd.athleteId, payDate: fd.pending ? '' : fd.payDate, start: fd.start, count: +fd.count || 0, bonus: +fd.bonus > 0 ? +fd.bonus : '', bonusNote: +fd.bonus > 0 ? String(fd.bonusNote || '').trim() : '', amount: +fd.amount || 0, refundPrice: +fd.refundPrice > 0 ? +fd.refundPrice : '', onlyGroup: fd.onlyGroup, carryWas: +fd.carryWas || 0, carryMissed: +fd.carryMissed || 0, note: fd.note.trim(), pending: !!fd.pending, acc: fd.acc || '' });
+      if (+t.count > 1 && !t.pending) t.pkg = !!fd.pkg; else delete t.pkg;   // 21.10.2026: пакет разовых — явной отметкой
       if (wasPend && !fd.pending && t.notified && t.notified.end) { t.notified = { ...t.notified }; delete t.notified.end; }   /* №30-Б: оплата «ждём оплату» через форму */
       if (FN.orgs) t.payer = fd.payer || '';
       if (FN.checks !== false) t.check = fd.check ? (t.check || ix.today) : '';
@@ -4098,7 +4107,7 @@ function openFreeze(id, athleteId) {
     ${fc.returnBy ? `<dt>Вернуться не позднее (п. 9.5.4 «б»)</dt><dd>${fc.ret ? 'вернулся ' + D.ru(fc.ret) + (fc.retGuess ? ' (по журналу: первое «+» после болезни)' : '') : D.ru(fc.returnBy)}</dd>` : ''}
     ${fc.remindBy ? `<dt>Напомнить клиенту (п. 9.5.6)</dt><dd>не позднее ${D.ru(fc.remindBy)}</dd>` : ''}</dl></div>` : ''}`;
   modal('Заморозка по болезни', body, {
-    extraBtn: f ? `<button type="button" class="btn danger" data-act="freeze-del" data-id="${f.id}">Удалить</button><button type="button" class="btn" data-act="freeze-mark" data-id="${f.id}">Проставить «б» в журнале</button><button type="button" class="btn" data-act="msg" data-id="${aid}" data-sub="${f.subId}" data-tpl="Абонемент продлён">Сообщение</button>` : '',
+    extraBtn: f ? `<button type="button" class="btn danger" data-act="freeze-del" data-id="${f.id}">Удалить</button>${!f.certDate ? (f.noCert ? `<button type="button" class="btn" data-act="freeze-nocert-undo" data-id="${f.id}" title="Отметка «справки не будет» от ${D.ru(f.noCert)}">Отменить «справки не будет»</button>` : `<button type="button" class="btn" data-act="freeze-nocert" data-id="${f.id}" title="Человек сказал, что справки не будет: заморозки нет, занятия болезни списываются">Справки не будет</button>`) : ''}<button type="button" class="btn" data-act="freeze-mark" data-id="${f.id}">Проставить «б» в журнале</button><button type="button" class="btn" data-act="msg" data-id="${aid}" data-sub="${f.subId}" data-tpl="Абонемент продлён">Сообщение</button>` : '',
     async onSubmit(fd) {
       if (!fd.subId || !freezeSub(ix, { subId: fd.subId, athleteId: aid })) { notice('Выберите абонемент: без абонемента заморозки нет.'); return false; }   // №5
       if (fd.to && fd.to < fd.from) { notice('Дата окончания болезни раньше начала'); return false; }
@@ -4111,6 +4120,7 @@ function openFreeze(id, athleteId) {
       if (!f && db.freezes.some(x => x.subId === fd.subId)) { notice('По п. 9.5.1 заморозка оформляется однократно за период абонемента — для этого абонемента она уже есть.'); return false; }
       const t = f || { id: uid('f'), athleteId: aid };
       Object.assign(t, { subId: fd.subId, from: fd.from, to: fd.to, returned: fd.returned, certDate: fd.certDate, note: fd.note.trim() });
+      if (t.certDate) delete t.noCert;                 // справку всё-таки принесли — отметка «справки не будет» снимается
       if (!f) db.freezes.push(t);
       persist('Заморозка сохранена');
       if (!f) setTimeout(async () => { if (await ask('Проставить «б» на занятиях группы за период болезни?')) markFreeze(t.id); }, 50);
@@ -5156,21 +5166,26 @@ function tariffHook(p) {
   am.addEventListener('input', () => { am.dataset.touched = '1'; });
   const upd = () => {
     const aid = sel ? sel.value : hid ? hid.value : '', a = aid && ix.ath.get(aid); if (!a) { note.innerHTML = ''; return; }
-    const date = (pd && pd.value) || ix.today, tf = tariffFor(db, a, cn.value, date);
+    pkAuto(a);
+    const date = (pd && pd.value) || ix.today, tf = tariffFor(db, a, cn.value, date, pk && +cn.value > 1 ? pk.checked : undefined);
     if (!tf) { note.innerHTML = `<span class="muted">Число занятий не из тарифа (${db.settings.prices.count} или 1) — сумму укажите сами.</span>`
-      + ((+cn.value || 0) > 1 ? ' <b style="color:var(--warn)">Если это пакет разовых (п. 8.8 оферты) — сначала отметьте в карточке «Оплата разово»: иначе программа посчитает его абонементом со сроком по расписанию.</b>' : ''); return; }
+      + ((+cn.value || 0) > 1 ? ' <b style="color:var(--warn)">Если это несколько разовых посещений вперёд — отметьте «Пакет разовых посещений»: иначе это абонемент со сроком по расписанию.</b>' : ''); return; }
     if (tf.price == null) { note.innerHTML = '<b style="color:var(--warn)">Нет даты рождения — тариф (детский или базовый) не определить.</b> Укажите её в карточке.'; return; }
     if (!p && !am.dataset.touched) am.value = tf.price;
     const prev = (ix.subsByAth.get(a.id) || []).filter(q => q !== p && !q.pending && q.payDate && q.payDate < date && +q.count === +db.settings.prices.count).pop();
     const was = prev && tariffFor(db, a, prev.count, prev.payDate);
-    note.innerHTML = `Тариф: <b>${h(tf.kind)}</b> — ${rubN(tf.price)} ₽${tf.pkg ? '. Списывается только за посещение, без срока; в журнале — «1/' + (+cn.value) + '», «2/' + (+cn.value) + '»…' : ''}${tf.pkg && +cn.value === +db.settings.prices.count ? ' <b style="color:var(--warn)">Если это абонемент на ' + db.settings.prices.count + ' занятий, а не пакет — снимите в карточке «Оплата разово».</b>' : ''}${tf.age != null ? ` (на дату оплаты ${tf.age} ${plural(tf.age, 'год', 'года', 'лет')})` : ''}.`
+    note.innerHTML = `Тариф: <b>${h(tf.kind)}</b> — ${rubN(tf.price)} ₽${tf.pkg ? '. Списывается только за посещение, без срока; в журнале — «1/' + (+cn.value) + '», «2/' + (+cn.value) + '»…' : ''}${tf.pkg && +cn.value === +db.settings.prices.count ? ' <b style="color:var(--warn)">Если это абонемент на ' + db.settings.prices.count + ' занятий, а не пакет — снимите галочку «Пакет разовых посещений».</b>' : ''}${tf.age != null ? ` (на дату оплаты ${tf.age} ${plural(tf.age, 'год', 'года', 'лет')})` : ''}.`
       + (was && was.kind === 'детский' && tf.kind === 'базовый' ? ' <b style="color:var(--warn)">С этой оплаты — тариф «Базовый»: исполнилось ' + db.settings.prices.kidUnder + ' лет. Сообщите заказчику (п. 5.4 Положения о льготах).</b>' : '')
       + (+am.value && +am.value !== tf.price ? ' <span class="muted">Сумма другая — по договорённости.</span>' : '');
   };
   cn.addEventListener('input', () => { cn.dataset.touched = '1'; });
+  const pk = d.querySelector('[name=pkg]'), pkw = d.querySelector('#pkg-wrap');
+  if (pk) pk.addEventListener('change', () => { pk.dataset.touched = '1'; am.dataset.touched = ''; });
+  const pkAuto = a => { if (!pk) return; const n = +cn.value || 0; if (pkw) pkw.style.display = n > 1 ? '' : 'none';   // по умолчанию: «Оплата разово» или число занятий не из тарифа — пакет
+    if (!p && !pk.dataset.touched) pk.checked = n > 1 && !!a && (perVisitOn(a, (pd && pd.value) || ix.today) || n !== +db.settings.prices.count); };
   if (sel && !p) sel.addEventListener('change', () => { const a = ix.ath.get(sel.value);   // 20.10.2026: разовику — не 12, а число неоплаченных посещений (или 1); пакет — укажите число занятий сами
     if (a && a.payPerVisit && !cn.dataset.touched) { const c = ix.athCalc.get(a.id); cn.value = Math.max(1, (c && c.debtDates || []).length); } });
-  [am, cn, pd].forEach(x => x && x.addEventListener('input', upd)); [cn, pd, sel].forEach(x => x && x.addEventListener('change', () => setTimeout(upd, 0)));
+  [am, cn, pd].forEach(x => x && x.addEventListener('input', upd)); [cn, pd, sel, pk].forEach(x => x && x.addEventListener('change', () => setTimeout(upd, 0)));
   upd();
 }
 
@@ -6100,6 +6115,10 @@ const ACT = {
   'metrics-word': () => { downloadBlob('D23_показатели_' + ix.today + '.docx', docxBlob(htmlDocx(metricsDoc()))); toast('Показатели сохранены в Word (.docx)'); },
   'metrics-xlsx': () => { downloadBlob('D23_показатели_' + ix.today + '.xlsx', xlsxBlob(htmlDocx(metricsDoc()), 'Показатели')); toast('Показатели сохранены в Excel (.xlsx)'); },
   'fill-open': () => openFill(),
+  'freeze-nocert': async el => { const f = db.freezes.find(x => x.id === el.dataset.id); if (!f) return; const a = ix.ath.get(f.athleteId), c = calcFreeze(ix, f);
+    if (!await ask(`${a ? shortName(a) : ''}: справки не будет?\n\nЗаморозки нет: ${c.ext ? c.ext + ' ' + plural(c.ext, 'занятие', 'занятия', 'занятий') + ' болезни спишутся' : 'занятия болезни спишутся'} с абонемента как пропуски (п. 9.5 оферты), срок абонемента не продлевается. Если справку всё же принесут — внесите дату «Справка получена», отметка снимется.`, { ok: 'Справки не будет' })) return;
+    f.noCert = ix.today; closeModal(); render.keepScroll = true; persist('Отмечено: справки не будет — заморозки нет'); },
+  'freeze-nocert-undo': el => { const f = db.freezes.find(x => x.id === el.dataset.id); if (!f) return; delete f.noCert; closeModal(); render.keepScroll = true; persist('Отметка «справки не будет» снята'); },
   'fill-src-add': () => fillSrcAdd(),
   'year-print': el => openPrint('Итоги ' + el.dataset.y + ' года', yearDoc(el.dataset.y), 'h3{margin:12pt 0 3pt}'),
   'year-xlsx': el => { downloadBlob('D23_итоги_' + el.dataset.y + '_года.xlsx', xlsxBlob(htmlDocx(yearDoc(el.dataset.y)), 'Итоги ' + el.dataset.y)); toast('Итоги года сохранены в Excel (.xlsx)'); },
