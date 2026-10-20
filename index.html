@@ -220,6 +220,7 @@ table.t tr.pend:hover td,table.t tr.rem1:hover td,table.t tr.rem2:hover td{filte
 .ap-it:last-child{border-bottom:0} .ap-it:hover,.ap-it.on{background:var(--sunk)} .ap-more{padding:8px 12px}   /* «д» — был, не оплачено */
 .debt-nm b,.debt-nm .nm-f,.debt-nm .nm-s{color:var(--bad)!important}
 .cell-m.m-debt{background:var(--bad-bg);color:var(--bad);text-decoration:underline}
+.cell-m.m-free{width:auto;min-width:26px;padding:0 3px;background:var(--sunk);color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line)}
 .cell-m.m-pkg{width:auto;min-width:26px;padding:0 3px;font-size:.6875rem;letter-spacing:-.02em}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.875rem;color:var(--ink-2)}
 .legend b{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;color:var(--on-fill);font-size:.8125rem;margin-right:4px}
@@ -3313,8 +3314,9 @@ function suggestGroup(date) {
 function payMarks(aid) {
   if (payMarks.ix !== ix) { payMarks.ix = ix; payMarks.m = new Map(); }
   if (payMarks.m.has(aid)) return payMarks.m.get(aid);
-  const R = { tag: new Map(), first: new Map(), last: new Map(), plan: new Map() };
+  const R = { tag: new Map(), first: new Map(), last: new Map(), plan: new Map(), paid: new Set() };
   for (const p of ix.subsByAth.get(aid) || []) { const r = ix.subCalc.get(p.id); if (!r || r.notActive) continue; const N = subTotal(p);
+    for (const x of r.plusList || []) R.paid.add(x.date + '|' + x.group);   // посещение покрыто какой-либо оплатой
     if (r.pkg) { for (const x of r.plusList || []) if (x.n >= 1 && x.n <= N) R.tag.set(x.date + '|' + x.group, { kind: 'pkg', n: x.n, N }); continue; }
     if ((+p.count || 0) <= 1) { for (const x of r.plusList || []) if (x.n === 1) R.tag.set(x.date + '|' + x.group, { kind: 'one' }); continue; }
     if (p.pending || r.terminated) continue;
@@ -3322,6 +3324,8 @@ function payMarks(aid) {
     if (r.lastPaid) R.last.set(r.lastPaid, r.lastPaidGroup || ''); else if (r.endKind === 'forecast' && r.end) R.plan.set(r.end, true); }
   payMarks.m.set(aid, R); return R;
 }
+/* 20.10.2026: «+0» — бесплатное посещение: в карточке «Без абонемента» и посещение не покрыто ни одной оплатой */
+function freeOn(a, date, group) { return !!(a && a.noSub && !payMarks(a.id).paid.has(date + '|' + group)); }
 function owedPlus(c) { return (c && c.pendingSub && c.pendingCalc && c.pendingCalc.owedPlus) || []; }   // посещения в счёт «ждём оплату»
 function debtOn(aid, date) { const c = ix.athCalc.get(aid); return !!(c && ((c.debtDates || []).includes(date) || owedPlus(c).includes(date))); }
 function hasDebt(aid) { const c = ix.athCalc.get(aid); return !!(c && ((c.debtDates || []).length || owedPlus(c).length)); }
@@ -3357,8 +3361,9 @@ function markRow(s, a, showGroup) {
   return `<li class="mrow${m ? '' : ' unmarked'}"><div class="mrow-h">${beltHTML(ac.belt, ac.stripes)}<div class="who${warnedOf(a) ? ' wn' : ''}${hasDebt(a.id) ? ' debt-nm' : ''}"${hasDebt(a.id) ? ' title="Есть неоплаченные посещения"' : ''}><b>${h(shortName(a))}${warnedIc(warnedOf(a), a)}</b>${chips ? `<span class="row mchips">${chips}</span>` : ''}</div>
     ${rb ? `<span class="rem${rb === 1 ? ' warn' : rb === 2 ? ' hl2' : ''}" title="Осталось занятий по абонементу"><b>${rb}</b><span>осталось</span></span>` : ''}</div>
     <div class="marks m${keys.length}" role="group" aria-label="Отметка: ${h(shortName(a))}">${keys.map(k => { const d = dbt && k === '+', tg = !d && k === '+' && m === '+' ? payMarks(a.id).tag.get(s.date + '|' + s.group) : null;
-      const lb = d ? ['д', 'долг'] : tg && tg.kind === 'pkg' ? ['+', tg.n + '/' + tg.N] : tg ? ['р', 'разово'] : [k, MARK_SHORT[k]];
-      return `<button class="mk${m === k ? ' on' : ''}${d ? ' debt' : ''}" data-act="mark" data-sid="${s.id}" data-aid="${a.id}" data-m="${k}" aria-pressed="${m === k}" aria-label="${d ? 'был, не оплачено (долг)' : tg && tg.kind === 'pkg' ? 'был, пакет: ' + tg.n + ' из ' + tg.N : tg ? 'был, оплачено разово' : MARKS[k].label}"${d ? ' title="Был, посещение не оплачено. После оплаты станет «+»"' : ''}><b>${lb[0]}</b><span>${lb[1]}</span></button>`; }).join('')}</div></li>`;
+      const fr = !d && !tg && k === '+' && m === '+' && freeOn(a, s.date, s.group);
+      const lb = d ? ['д', 'долг'] : tg && tg.kind === 'pkg' ? ['+', tg.n + '/' + tg.N] : tg ? ['р', 'разово'] : fr ? ['+0', 'бесплатно'] : [k, MARK_SHORT[k]];
+      return `<button class="mk${m === k ? ' on' : ''}${d ? ' debt' : ''}" data-act="mark" data-sid="${s.id}" data-aid="${a.id}" data-m="${k}" aria-pressed="${m === k}" aria-label="${d ? 'был, не оплачено (долг)' : tg && tg.kind === 'pkg' ? 'был, пакет: ' + tg.n + ' из ' + tg.N : tg ? 'был, оплачено разово' : fr ? 'был, бесплатно (без абонемента)' : MARKS[k].label}"${d ? ' title="Был, посещение не оплачено. После оплаты станет «+»"' : ''}><b>${lb[0]}</b><span>${lb[1]}</span></button>`; }).join('')}</div></li>`;
 }
 function vSession(sid) {
   const s = db.sessions.find(x => x.id === sid);
@@ -3379,7 +3384,7 @@ function vSession(sid) {
   ${hol ? `<div class="banner">Этот день отмечен как нерабочий: ${h(hol)}.</div>` : ''}
   ${offSchedule(s) ? `<div class="banner">По расписанию у «${h(s.group)}» нет занятий в ${DOW_FULL[D.dow(s.date)]}. Проверьте, та ли группа выбрана.</div>` : ''}
   ${!s.group ? `<div class="banner">У занятия не выбрана группа. Выберите её в списке выше — тогда появится состав группы.</div>` : ''}
-  <details class="legend-d no-print"><summary>Что значат отметки</summary><div class="legend"><span><b style="background:var(--ok-fill)">+</b>был</span><span><b style="background:var(--bad-fill)">н</b>не был, списывается</span><span><b style="background:var(--bad-fill)">д</b>был, не оплачено (долг); после оплаты — «+»</span><span><b style="background:var(--sick-fill)">б</b>болел, справки нет</span><span><b style="background:var(--sick-fill)">бс</b>болел, справка внесена — не списывается, в аттестации посещение</span><span><b style="background:var(--cancel-fill)">о</b>отменено клубом</span><span><b style="background:var(--comp-fill)">с</b>соревнования</span><span class="muted">пустая клетка на состоявшемся занятии в расчёте абонемента = «н»</span></div></details>
+  <details class="legend-d no-print"><summary>Что значат отметки</summary><div class="legend"><span><b style="background:var(--ok-fill)">+</b>был</span><span><b style="background:var(--bad-fill)">н</b>не был, списывается</span><span><b style="background:var(--bad-fill)">д</b>был, не оплачено (долг); после оплаты — «+»</span><span><b style="background:var(--ink-3);width:auto;padding:0 4px">+0</b>был, бесплатно (в карточке «Без абонемента»)</span><span><b style="background:var(--sick-fill)">б</b>болел, справки нет</span><span><b style="background:var(--sick-fill)">бс</b>болел, справка внесена — не списывается, в аттестации посещение</span><span><b style="background:var(--cancel-fill)">о</b>отменено клубом</span><span><b style="background:var(--comp-fill)">с</b>соревнования</span><span class="muted">пустая клетка на состоявшемся занятии в расчёте абонемента = «н»</span></div></details>
   ${s.group ? `<div class="card flat"><ul class="list jlist">${people.map(a => markRow(s, a, false)).join('') || '<li class="empty">В группе нет занимающихся. Добавьте человека ниже или выберите другую группу.</li>'}</ul></div>` : ''}
   ${extra.length ? `<details class="card flat" ${openExtra ? 'open' : ''}><summary style="padding:12px 16px;cursor:pointer;min-height:44px"><b>${s.group ? 'Из других групп на этом занятии' : 'Отмечены на занятии'}: ${extra.length}</b>${extra.length > 1 ? ` <button class="btn sm no-print" data-act="move-own" data-sid="${s.id}" style="margin-left:8px">Перенести всех в их группы</button>` : ''}</summary>
   <p class="small muted" style="padding:0 16px">Если отметку поставили не в ту группу, «Перенести» переставит её на занятие группы человека за эту же дату. Если человек действительно приходил в эту группу — ничего не делайте.</p><ul class="list jlist" style="border-top:1px solid var(--line)">${extra.map(a => markRow(s, a, true)).join('')}</ul></details>` : ''}
@@ -3433,7 +3438,7 @@ function monthView(tabs, groups) {
     const off = sess.map(s => !showGroup && !inGroupOn(a, J.mgroup, s.date)); const per = showGroup ? '' : period(a); const ng = noSubGap(a), nsub = d => !!(ng && ng.ack && d > ng.end && d <= ix.today);   // №34
     const W = warnedOf(a);
     const dn = hasDebt(a.id), tdc = [W ? 'wn' : '', dn ? 'debt-nm' : ''].filter(Boolean).join(' ');
-    return `<tr><td${tdc ? ` class="${tdc}"` : ''}${dn ? ' title="Есть неоплаченные посещения"' : ''}><span class="nm-f">${h(shortName(a))}</span><span class="nm-s">${h((a.last || '') + (a.first ? ' ' + a.first[0] + '.' : ''))}</span>${warnedIc(W, a)}${showGroup ? ' <span class="small muted">' + h(a.group || '') + '</span>' : ''}${per ? ' <span class="small muted mper">' + per + '</span>' : ''}</td>${ms.map((x, i) => { const lc = lastCell(a, L, sess[i]) || nextCell(a, L, sess[i]), mc = sess[i].missing && !off[i] ? ' miss-col' : ''; return `<td${off[i] || lc || mc ? ` class="${off[i] ? 'off' : ''}${mc}${lc}"` : ''}>${x === '+' && debtOn(a.id, sess[i].date) ? '<span class="cell-m m-debt" title="Был, посещение не оплачено — после оплаты станет «+»">д</span>' : x === '+' && payMarks(a.id).tag.get(sess[i].date + '|' + sess[i].group) ? (tg => tg.kind === 'pkg' ? `<span class="cell-m m-plus m-pkg" title="Пакет разовых: ${tg.n}-е из ${tg.N}">${tg.n}/${tg.N}</span>` : '<span class="cell-m m-plus" title="Оплачено разово">р</span>')(payMarks(a.id).tag.get(sess[i].date + '|' + sess[i].group)) : x ? `<span class="cell-m ${cls[x] || ''}">${h(x === 'б' && isBS(ix, a.id, sess[i].date) ? 'бс' : x)}</span>` : lc ? '<span class="cell-m m-none"></span>' : nsub(sess[i].date) && !off[i] ? '<span class="cell-m m-nosub" title="Абонемент закончился, новый не оплачен">—</span>' : ''}</td>`; }).join('')}<td class="num">${cnt('+')}</td><td class="num">${cnt('н')}</td><td class="num">${cnt('б')}</td></tr>`; }).join('');
+    return `<tr><td${tdc ? ` class="${tdc}"` : ''}${dn ? ' title="Есть неоплаченные посещения"' : ''}><span class="nm-f">${h(shortName(a))}</span><span class="nm-s">${h((a.last || '') + (a.first ? ' ' + a.first[0] + '.' : ''))}</span>${warnedIc(W, a)}${showGroup ? ' <span class="small muted">' + h(a.group || '') + '</span>' : ''}${per ? ' <span class="small muted mper">' + per + '</span>' : ''}</td>${ms.map((x, i) => { const lc = lastCell(a, L, sess[i]) || nextCell(a, L, sess[i]), mc = sess[i].missing && !off[i] ? ' miss-col' : ''; return `<td${off[i] || lc || mc ? ` class="${off[i] ? 'off' : ''}${mc}${lc}"` : ''}>${x === '+' && debtOn(a.id, sess[i].date) ? '<span class="cell-m m-debt" title="Был, посещение не оплачено — после оплаты станет «+»">д</span>' : x === '+' && payMarks(a.id).tag.get(sess[i].date + '|' + sess[i].group) ? (tg => tg.kind === 'pkg' ? `<span class="cell-m m-plus m-pkg" title="Пакет разовых: ${tg.n}-е из ${tg.N}">${tg.n}/${tg.N}</span>` : '<span class="cell-m m-plus" title="Оплачено разово">р</span>')(payMarks(a.id).tag.get(sess[i].date + '|' + sess[i].group)) : x === '+' && freeOn(a, sess[i].date, sess[i].group) ? '<span class="cell-m m-free" title="Был, бесплатно (без абонемента)">+0</span>' : x ? `<span class="cell-m ${cls[x] || ''}">${h(x === 'б' && isBS(ix, a.id, sess[i].date) ? 'бс' : x)}</span>` : lc ? '<span class="cell-m m-none"></span>' : nsub(sess[i].date) && !off[i] ? '<span class="cell-m m-nosub" title="Абонемент закончился, новый не оплачен">—</span>' : ''}</td>`; }).join('')}<td class="num">${cnt('+')}</td><td class="num">${cnt('н')}</td><td class="num">${cnt('б')}</td></tr>`; }).join('');
   { const li = sess.map(s => s.date).filter(d => d <= ix.today).length - 1; render.monthFocus = li >= 0 ? li : 0; }   // прокрутка к сегодняшнему (последнему прошедшему) занятию
   return `<div class="jfs-bar no-print"><button class="btn" data-act="jmonth" data-m="${prev}" aria-label="Предыдущий месяц">←</button><b>${MONTHS[m - 1][0].toUpperCase() + MONTHS[m - 1].slice(1)} ${y}</b><button class="btn" data-act="jmonth" data-m="${next}" aria-label="Следующий месяц">→</button><select data-change="jmgroup" aria-label="Группа">${groups.map(g => opt(g, J.mgroup)).join('')}</select><span class="spacer"></span><button class="btn" data-act="jfs" aria-label="Выйти из полноэкранного режима">✕</button></div>
   <div class="topline jm-top"><h1>Посещения — ${MONTHS[m - 1]} ${y}</h1><div class="row jm-tabs">${tabs}<button class="btn show-m" data-act="jfs" title="Во весь экран" aria-label="Во весь экран">⛶</button><details class="menu show-m"><summary class="btn" aria-label="Другие действия">⋯</summary><div class="menu-pop"><button class="btn" data-act="print-blank">Бланк для печати</button></div></details></div></div>
@@ -5407,7 +5412,7 @@ function printBlank(g, ym, fromNo, perPage, filled, rightPad = 4) {
   const rawOf = (a, d) => { if (!filled) return ''; const s = sess.filter(x => x.date === d).find(x => x.marks[a.id]); return s ? s.marks[a.id] : ''; };
   /* 20.10.2026: «д» — не оплачено; «р» — оплачено разово; «3/10» — пакет разовых; «[» — первое занятие абонемента, «]» — последнее (в пустой будущей клетке — по прогнозу) */
   const markOf = (a, d) => { const v = rawOf(a, d); if (!filled) return ''; const P = payMarks(a.id), tg = P.tag.get(d + '|' + g);
-    let t = v === 'б' && isBS(ix, a.id, d) ? 'бс' : v === '+' && debtOn(a.id, d) ? 'д' : v === '+' && tg ? (tg.kind === 'pkg' ? tg.n + '/' + tg.N : 'р') : v;
+    let t = v === 'б' && isBS(ix, a.id, d) ? 'бс' : v === '+' && debtOn(a.id, d) ? 'д' : v === '+' && tg ? (tg.kind === 'pkg' ? tg.n + '/' + tg.N : 'р') : v === '+' && freeOn(a, d, g) ? '+0' : v;
     if (tg && tg.kind === 'pkg') return t;
     const fg = P.first.get(d), lg = P.last.get(d), mine = x => x === g || (!x && inGroupOn(a, g, d));
     if (fg !== undefined && mine(fg)) t = '[' + t;
@@ -5438,7 +5443,7 @@ function printBlank(g, ym, fromNo, perPage, filled, rightPad = 4) {
       rows.push(`<tr><td class="b c">${x ? x.no : ''}</td><td class="fio">${x ? h(shortName(x.a)) + (isOne(x.a) ? ' (р)' : '') + (warnedOf(x.a) ? ' ✉' : '') : ''}</td><td class="c">${tot || ''}</td>${ms.map(v => `<td class="c${v.length > 2 ? ' sm' : ''}">${h(v)}</td>`).join('')}${fixed.extra.map((_, j) => `<td${j === 0 ? ' class="b"' : ''}></td>`).join('')}</tr>`);
     }
     pages.push(`<section class="page">${head}<table>${thead}<tbody>${rows.join('')}</tbody></table>
-      <div class="foot"><span class="lg">+ был · н не был · б болел · бс болел, справка · о отменено · с соревн.${filled ? ' · д не оплачено · р разово · 3/10 пакет · [ ] первое и последнее занятие абонемента' : ''}</span><span>Тренер: ____________________</span></div></section>`);
+      <div class="foot"><span class="lg">+ был · н не был · б болел · бс болел, справка · о отменено · с соревн.${filled ? ' · д не оплачено · р разово · 3/10 пакет · +0 бесплатно · [ ] первое и последнее занятие абонемента' : ''}</span><span>Тренер: ____________________</span></div></section>`);
   }
   openPrint(`Журнал ${g} ${MONTHS[m - 1]} ${y}`, pages.join(''), `
     @page{size:A4 landscape;margin:0}
