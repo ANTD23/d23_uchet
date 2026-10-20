@@ -2722,8 +2722,8 @@ function attentionCalc() {
         if (s.remaining === 0 && !c.nextSub) out.push({ tone: warned ? 'muted' : 'warn', a, text: `${nm}: пакет разовых использован (${N} из ${N}${s.end ? ', последнее ' + D.ru(s.end) : ''}), новой оплаты нет${wtxt}`, tpl: 'Пакет разовых использован' });
         else if (s.remaining === 1 && !c.nextSub) out.push({ tone: warned ? 'muted' : 'warn', a, text: `${nm}: пакет разовых — осталось одно занятие из ${N}${wtxt}`, tpl: 'Пакет разовых заканчивается' });
       }
-      else if (s.remaining === 0 && !c.nextSub && !single) out.push({ tone: warned ? 'muted' : 'warn', a, text: `${nm}: абонемент использован${s.end ? ' ' + D.ru(s.end) : ''}, нового нет${wtxt}`, tpl: 'Абонемент закончился', wait: true });
-      else if (s.remaining === 1 && !c.nextSub && !single) out.push({ tone: warned ? 'muted' : 'warn', a, text: `${nm}: осталось одно занятие${s.end ? ' (' + D.ru(s.end) + ')' : ''}${wtxt}`, tpl: 'Абонемент заканчивается' });
+      else if (s.remaining === 0 && !c.nextSub && !single) out.push({ tone: warned ? 'muted' : 'bad', a, text: `${nm}: абонемент использован${s.end ? ' ' + D.ru(s.end) : ''}, нового нет${wtxt}`, tpl: 'Абонемент закончился', wait: true });
+      else if (s.remaining === 1 && !c.nextSub && !single) out.push({ tone: warned ? 'muted' : 'bad', a, text: `${nm}: осталось одно занятие${s.end ? ' (' + D.ru(s.end) + ')' : ''}${wtxt}`, tpl: 'Абонемент заканчивается' });
       else if (s.remaining === 2 && !c.nextSub && !single) out.push({ tone: warned ? 'muted' : 'warn', a, text: `${nm}: осталось два занятия${s.end ? ' (последнее ' + D.ru(s.end) + ')' : ''}${wtxt}`, tpl: 'Абонемент заканчивается', rem2: true });
     }
     { const g = noSubGap(a); if (g && D.diff(g.end, t) >= 14) out.push({ tone: 'muted', a, text: `${nm}: не ходит 14 дней и больше после окончания абонемента (${D.ru(g.end)}), оплаты нет — поставить «приостановил» или «ушёл»?`, go: '#person/' + a.id }); }   // №34
@@ -2788,12 +2788,12 @@ function attentionCalc() {
   }
   for (const p of db.subs) {                       // активация абонементов (п. 9.2.3, 9.3.7)
     const a = ix.ath.get(p.athleteId), r = ix.subCalc.get(p.id); if (!a || !r || p.pending || a.status === 'ушёл' || r.terminated || (+p.count || 0) <= 1) continue;   // разовые оплаты — без уведомлений об активации
-    if (r.notActive && r.autoDate && r.autoNotifyBy && r.autoNotifyBy <= t) out.push({ tone: 'warn', a, text: `${shortName(a)}: абонемент не активирован — автоактивация ${D.ru(r.autoDate)}, сообщить до ${D.ru(r.autoNotifyBy)} (п. 9.2.3)`, tpl: 'Автоактивация абонемента', sub: p.id });
+    if (r.notActive && r.autoDate && r.autoNotifyBy && D.add(r.autoNotifyBy, -3) <= t) out.push({ tone: r.autoNotifyBy <= t ? 'bad' : 'warn', a, text: `${shortName(a)}: абонемент не активирован — автоактивация ${D.ru(r.autoDate)}, сообщить до ${D.ru(r.autoNotifyBy)} (п. 9.2.3)`, tpl: 'Автоактивация абонемента', sub: p.id });
     const q = notifyState(p, 'period'), ca = ix.athCalc.get(a.id) || {};
     if (!r.notActive && r.first && r.end && r.end >= t && r.remaining > 1 && (ca.sub === p || ca.nextSub === p) && (q ? q.stale : r.first >= (db.settings.notifyFrom || '9999') && D.max(r.first, p.payDate || '') >= D.add(t, -14))) {   // новый — оплачен или начат за последние 2 недели
       if (q) out.push({ tone: 'warn', a, text: `${shortName(a)}: срок абонемента изменился — теперь ${D.ru(r.first)} — ${D.ru(r.end)}, сообщите новый срок`, tpl: 'Абонемент продлён', sub: p.id });
-      else if (r.actKind === 'visit' || r.actKind === 'auto') out.push({ tone: 'warn', a, text: `${shortName(a)}: абонемент активирован ${D.ru(r.first)}${r.actKind === 'auto' ? ' (автоматически)' : ''} — сообщите период ${D.ru(r.first)} — ${D.ru(r.end)} (п. 9.3.7)`, tpl: 'Новый абонемент оплачен', sub: p.id });
-      else out.push({ tone: 'warn', a, text: `${shortName(a)}: ${p.payDate ? 'оплатил абонемент ' + D.ru(p.payDate) : 'новый абонемент'} — сообщите срок действия ${D.ru(r.first)} — ${D.ru(r.end)}`, tpl: 'Новый абонемент оплачен', sub: p.id });
+      else if (r.actKind === 'visit' || r.actKind === 'auto') out.push({ tone: 'bad', a, text: `${shortName(a)}: абонемент активирован ${D.ru(r.first)}${r.actKind === 'auto' ? ' (автоматически)' : ''} — сообщите период ${D.ru(r.first)} — ${D.ru(r.end)} (п. 9.3.7)`, tpl: 'Новый абонемент оплачен', sub: p.id });
+      else out.push({ tone: r.first <= t ? 'bad' : 'warn', a, text: `${shortName(a)}: ${p.payDate ? 'оплатил абонемент ' + D.ru(p.payDate) : 'новый абонемент'} — сообщите срок действия ${D.ru(r.first)} — ${D.ru(r.end)}`, tpl: 'Новый абонемент оплачен', sub: p.id });
     }
   }
   for (const f of db.freezes) {
