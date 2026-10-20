@@ -1754,6 +1754,7 @@ function leadFunnel(d, ix, from, to) {             // по источникам:
 /* «стал ходить реже»: за 3 недели доля посещённых занятий своей группы упала вдвое против 8 недель до этого */
 function attendDrop(ix, a, t) {
   if (a.status !== 'занимается' || a.payPerVisit) return null;
+  { const c = ix.athCalc && ix.athCalc.get(a.id); if (c && c.subCalc && c.subCalc.pkg) return null; }   // пакет разовых — ходит, когда может
   const r1 = D.add(t, -21), b1 = D.add(t, -77), b2 = D.add(t, -22);
   if ((a.addedAt || '') > b1) return null;
   const my = ix.marks.get(a.id) || [];
@@ -1778,7 +1779,7 @@ function newbieCheck(d, ix, a, t) {
   if ((d.settings.groups || []).some(g => g.bySchedule && g.name === a.group)) return null;     // «Разово» — ходят нерегулярно по определению
   if (a.addedAt < (d.settings.statsFrom || '')) return null;
   const age = D.diff(a.addedAt, t); if (age < 0 || age > +N.watch) return null;
-  if (!(ix.subsByAth.get(a.id) || []).some(p => !p.pending && (+p.count || 0) > 1)) return null;  // без абонемента — это пробное (свой пункт)
+  if (!(ix.subsByAth.get(a.id) || []).some(p => !p.pending && (+p.count || 0) > 1 && !isPkg(ix, p))) return null;  // без абонемента (в т. ч. только пакет разовых) — свой пункт
   const held = ix.sessionsSorted.filter(s => s.date >= a.addedAt && s.date <= t && inGroupOn(a, s.group, s.date) && Object.values(s.marks || {}).some(x => x === '+'));
   const my = (ix.marks.get(a.id) || []).filter(m => m.date >= a.addedAt && m.date <= t), plus = my.filter(m => m.mark === '+' || m.mark === 'с');
   let row = 0;                                     // пропуски подряд с конца: «н» или пусто; «б» и «о» не считаются
@@ -2738,7 +2739,8 @@ function attentionCalc() {
     if (c.noParentPhone) out.push({ tone: 'muted', a, text: `${nm}: нет телефона родителя` });
     // «б» без заморозки за последние 60 дней
     const fr = ix.freezesByAth.get(a.id) || [];
-    const loose = a.payPerVisit && !a.payPerVisitFrom ? [] : (ix.marks.get(a.id) || []).filter(m => m.mark === 'б' && !perVisitOn(a, m.date) && D.diff(m.date, t) <= 60 && m.date >= (db.settings.sickCheckFrom || '') && !fr.some(f => { const g = freezeRange(ix, f); return g && m.date >= g.from && m.date <= g.to; }));   // №5: заморозка без абонемента не действует
+    const loose = a.payPerVisit && !a.payPerVisitFrom ? [] : (ix.marks.get(a.id) || []).filter(m => m.mark === 'б' && !perVisitOn(a, m.date) && D.diff(m.date, t) <= 60 && m.date >= (db.settings.sickCheckFrom || '') && !fr.some(f => { const g = freezeRange(ix, f); return g && m.date >= g.from && m.date <= g.to; })
+      && !(ix.subsByAth.get(a.id) || []).some(p => { const r = ix.subCalc.get(p.id); return r && r.pkg && r.first && r.first <= m.date && (!r.end || r.end >= m.date); }));   // №5: заморозка без абонемента не действует; в пакете разовых «б» не списывается
     // №33: «б» вскоре после окончания заморозки (до 7 дней) — скорее всего, болеет дольше: исправить дату «по» в этой заморозке
     const nearF = m => fr.map(f => ({ f, g: freezeRange(ix, f) })).filter(x => x.g && x.g.to < m.date && D.diff(x.g.to, m.date) <= 7).sort((x, y) => y.g.to.localeCompare(x.g.to))[0];
     const byF = new Map(), far = [];
@@ -2749,7 +2751,7 @@ function attentionCalc() {
       if (odd.length) out.push({ tone: 'warn', a, text: `${nm}: оплата разово — в журнале ставится только «+», другие отметки не учитываются (${odd.join(', ')}): снимите их` }); }
     const nb = newbieCheck(db, ix, a, t);             // 19.10.2026: новичок — первые недели решают, останется ли
     if (nb) out.push({ tone: 'warn', a, text: `${nm}: новичок (в клубе с ${D.ru(a.addedAt)}) — ${nb.text}: поговорить лично или написать, помочь втянуться`, tpl: 'Новичок пропускает', newbie: true });
-    if (!nb && s && !s.notActive && s.remaining > 0 && !a.payPerVisit && !a.noSub && !c.pendingSub && s.first && s.first <= t) {   // пропадает: абонемент идёт, а человека нет
+    if (!nb && s && !s.notActive && !s.pkg && s.remaining > 0 && !a.payPerVisit && !a.noSub && !c.pendingSub && s.first && s.first <= t) {   // пропадает: абонемент идёт, а человека нет
       const lastPlus = (ix.marks.get(a.id) || []).filter(m => m.mark === '+').slice(-1)[0];
       const since = D.max(lastPlus ? lastPlus.date : '', s.first);
       const frNow = fr.some(f => { const g = freezeRange(ix, f); return g && g.from <= t && g.to >= D.add(t, -14); });
@@ -2810,7 +2812,7 @@ function attentionCalc() {
     if (ss.date < fromM || ss.date > t || !ss.group || !Object.values(ss.marks).some(Boolean)) continue;
     const G = ix.group.get(ss.group); if (!everScheduled(G)) continue;           // «Разово», «Гость» — без расписания, не проверяем
     let who = db.athletes.filter(a => a.status === 'занимается' && !perVisitOn(a, ss.date) && !ss.marks[a.id] && inGroupOn(a, ss.group, ss.date) && !pausedOn(a, ss.date)).filter(a => {
-      const c = ix.athCalc.get(a.id); return c.sub && (+c.sub.count || 0) > 1 && c.subCalc && !c.subCalc.notActive && c.subCalc.first <= ss.date; });
+      const c = ix.athCalc.get(a.id); return c.sub && (+c.sub.count || 0) > 1 && c.subCalc && !c.subCalc.notActive && !c.subCalc.pkg && c.subCalc.first <= ss.date; });   // 21.10.2026: у пакета разовых пропуск не списывается — отметку не требуем
     const gapNow = who.filter(a => { const g = noSubGap(a); return g && ss.date > g.end; });   // №34
     for (const a of gapNow) { const g = noSubGap(a); if (g.ack) continue; const e = gapMap.get(a.id) || { a, g, d: [], s: '' }; e.d.push(ss.date); e.s = ss.id; gapMap.set(a.id, e); }
     who = who.filter(a => !gapNow.includes(a));
