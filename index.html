@@ -228,7 +228,7 @@ table.t tr.pend:hover td,table.t tr.rem1:hover td,table.t tr.rem2:hover td{filte
 .cell-m.m-nosub{color:var(--muted);font-weight:400}
 .cell-m.m-plus{background:var(--ok-bg);color:var(--ok)} .cell-m.m-n{background:var(--bad-bg);color:var(--bad)}
 .cell-m.m-b{background:var(--sick-bg);color:var(--sick)} .cell-m.m-o{background:var(--surface-2);color:var(--cancel);box-shadow:inset 0 0 0 1px var(--line)} .cell-m.m-s{background:var(--comp-bg);color:var(--comp)}
-.month td.last-sub,.month td.next-paid{cursor:pointer} .cell-m.ring-last{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--next-ring)} .cell-m.ring-next{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ok-fill)} .mlast .cell-m.ring-last,.mlast .cell-m.ring-next{margin:3px} .month td.last-sub .cell-m{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--next-ring)} .cell-m.m-none{background:none} .month td.next-paid .cell-m{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ok-fill)}   /* первое занятие следующего, уже оплаченного абонемента */   /* 16.10.2026: последнее занятие — оранжевое, первое по оплаченному — зелёное (решение владельца) */
+.month td.last-sub,.month td.next-paid{cursor:pointer} .cell-m.ring-last{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--next-ring)} .cell-m.ring-next{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ok-fill)} .mlast .cell-m.ring-last,.mlast .cell-m.ring-next{margin:3px} .month td.last-sub .cell-m{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--next-ring)} .cell-m.m-none{background:none} .month td.next-paid .cell-m{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ok-fill)} .month td.next-paid.wait .cell-m,.cell-m.ring-next.wait,.next-paid-key.wait{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--bad-fill)}   /* первое занятие следующего, уже оплаченного абонемента */   /* 16.10.2026: последнее занятие — оранжевое, первое по оплаченному — зелёное (решение владельца) */
 .next-paid-key{display:inline-block;width:14px;height:14px;vertical-align:-2px;border-radius:5px;margin-left:14px;box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ok-fill)} .month th.fut{color:var(--ink-3);font-weight:400} .month th.miss,.month th.miss a{color:var(--ink-2)} .month th.miss{background:var(--sunk)} table.t.month th.miss{min-width:50px;box-sizing:border-box}   /* «занятие не внесено»: та же ширина, что у соседних */ .month td.miss-col{background:var(--sunk)}   /* занятие не внесено — серый столбец */ .ring-legend{margin:8px 12px} @media (max-width:860px), (pointer:coarse) and (max-height:500px){.ring-legend{margin:6px 4px 0;font-size:.75rem;line-height:1.6;white-space:normal} .ring-legend .lg-i{white-space:nowrap;display:inline-block;margin-right:8px}}   /* телефон: подпись к кольцам — одна короткая строка */
 @media print{table.month tr td.next-paid .cell-m,p span.next-paid-key,.mlast span.cell-m.ring-next{outline-style:dashed!important}}   /* на бумаге: последнее — сплошная рамка, следующий оплачен — пунктир */   /* последнее занятие абонемента — зелёное кольцо вокруг отметки */
 .last-sub-key{display:inline-block;width:14px;height:14px;vertical-align:-2px;border-radius:5px;box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--next-ring)}
@@ -3340,7 +3340,7 @@ function payMarks(aid) {
     for (const x of r.plusList || []) R.paid.add(x.date + '|' + x.group);   // посещение покрыто какой-либо оплатой
     if (r.pkg) { for (const x of r.plusList || []) if (x.n >= 1 && x.n <= N) R.tag.set(x.date + '|' + x.group, { kind: 'pkg', n: x.n, N }); continue; }
     if ((+p.count || 0) <= 1) { for (const x of r.plusList || []) if (x.n === 1) R.tag.set(x.date + '|' + x.group, { kind: 'one' }); continue; }
-    if (p.pending || r.terminated) continue;
+    if (r.terminated || (p.pending && !r.first)) continue;   // 21.10.2026: «ждём оплату», начатый посещением, — тоже кольцо начала и кольцо предполагаемого окончания
     if (r.first) { const m = (ix.marks.get(aid) || []).find(m => m.date === r.first); R.first.set(r.first, m ? m.group : ''); }
     if (r.lastPaid) R.last.set(r.lastPaid, r.lastPaidGroup || ''); else if (r.endKind === 'forecast' && r.end) R.plan.set(r.end, true); }
   payMarks.m.set(aid, R); return R;
@@ -3422,7 +3422,8 @@ function subRings(a) {                           // кольца: последн
     const end = r.lastPaid || (r.endKind === 'forecast' ? r.end : '');
     if (r.lastPaid) L.fact.set(r.lastPaid + '|' + r.lastPaidGroup, p); else if (end) L.plan.set(end, p);
     // следующий абонемент уже оплачен — кольцо на следующем занятии по расписанию после последнего занятия этого
-    const q = end && list.slice(i + 1).find(x => !x.pending && x.payDate && (x.onlyGroup || '') === (p.onlyGroup || ''));
+    const q = end && (list.slice(i + 1).find(x => !x.pending && x.payDate && (x.onlyGroup || '') === (p.onlyGroup || ''))
+      || list.slice(i + 1).find(x => x.pending && (ix.subCalc.get(x.id) || {}).first && (x.onlyGroup || '') === (p.onlyGroup || '')));   // 21.10.2026: «ждём оплату», начатый посещением, — красное кольцо на первом занятии
     if (q) {                                   // кольцо — на первом занятии нового абонемента: он активирован — день активации (первое посещение);
       const rq = ix.subCalc.get(q.id);        // ещё нет — ближайшее занятие по расписанию, на котором человек ещё может прийти (пропуски и прошедшие дни без «+» пропускаются)
       let nx = rq && rq.first && !rq.notActive ? rq.first : null;
@@ -3450,7 +3451,10 @@ function monthView(tabs, groups) {
   const guests = [...marked].map(id => ix.ath.get(id)).filter(a => a && sess.some(s => s.marks[a.id] && !inGroupOn(a, J.mgroup, s.date))).sort(byName);
   const cls = { '+': 'm-plus', 'н': 'm-n', 'б': 'm-b', 'о': 'm-o', 'с': 'm-s' };
   const lastOf = subRings;
-  const nextCell = (a, L, s) => { const q = L.next.get(s.date); return q && inGroupOn(a, s.group, s.date) ? ` next-paid" title="Следующий абонемент оплачен${q.payDate ? ' ' + D.ru(q.payDate) : ''} (${subTotal(q)} зан.) — первое занятие по нему` : ''; };
+  let anyWait = false;
+  const nextCell = (a, L, s) => { const q = L.next.get(s.date); if (!q || !inGroupOn(a, s.group, s.date)) return '';
+    if (q.pending) { anyWait = true; return ` next-paid wait" title="Новый абонемент на ${subTotal(q)} зан. — ждём оплату; первое занятие по нему`; }
+    return ` next-paid" title="Следующий абонемент оплачен${q.payDate ? ' ' + D.ru(q.payDate) : ''} (${subTotal(q)} зан.) — первое занятие по нему`; };
   const lastCell = (a, L, s) => { const p = L.fact.get(s.date + '|' + s.group) || (s.marks[a.id] == null && L.plan.get(s.date) && inGroupOn(a, s.group, s.date) ? L.plan.get(s.date) : null);
     return p ? ` last-sub" title="Последнее занятие абонемента на ${subTotal(p)} зан.${L.fact.get(s.date + '|' + s.group) ? '' : ' (по прогнозу)'}` : ''; };
   const prev = m === 1 ? (y - 1) + '-12' : y + '-' + pad(m - 1), next = m === 12 ? (y + 1) + '-01' : y + '-' + pad(m + 1);
@@ -3467,7 +3471,7 @@ function monthView(tabs, groups) {
   <button class="btn" data-act="jmonth" data-m="${next}">→</button><select data-change="jmgroup" style="width:auto">${groups.map(g => opt(g, J.mgroup)).join('')}</select><span class="spacer"></span><button class="btn primary hide-m" data-act="print-blank">Бланк для печати</button></div></div>
   <div class="print-only"><b>${h(db.settings.club)}</b> — журнал посещаемости: ${h(J.mgroup)}, ${MONTHS[m - 1]} ${y}</div>
   <div class="card flat scroll mscroll">${sess.length ? `<table class="t month">${head}<tbody>${rows(people, false) || `<tr><td colspan="${sess.length + 4}" class="muted">В группе нет занимающихся</td></tr>`}</tbody></table>`
-    : '<div class="empty">В этом месяце у группы занятий нет.</div>'}</div>${sess.length ? '<p class="small muted ring-legend"><span class="lg-i"><span class="last-sub-key"></span> — последнее занятие<span class="hide-m"> абонемента</span></span> <span class="lg-i"><span class="next-paid-key"></span> — <span class="hide-m">следующий абонемент оплачен (первое занятие по нему); нажмите на кольцо — подробнее</span><span class="show-m">следующий оплачен</span></span> <span class="lg-i"><b style="color:var(--warned-nm)">Фамилия</b> <span class="wn-ic">✉</span> — предупреждён</span></p>' : ''}
+    : '<div class="empty">В этом месяце у группы занятий нет.</div>'}</div>${sess.length ? '<p class="small muted ring-legend"><span class="lg-i"><span class="last-sub-key"></span> — последнее занятие<span class="hide-m"> абонемента</span></span> <span class="lg-i"><span class="next-paid-key"></span> — <span class="hide-m">следующий абонемент оплачен (первое занятие по нему); нажмите на кольцо — подробнее</span><span class="show-m">следующий оплачен</span></span>' + (anyWait ? ' <span class="lg-i"><span class="next-paid-key wait"></span> — <span class="hide-m">новый абонемент, ждём оплату (первое занятие по нему)</span><span class="show-m">ждём оплату</span></span>' : '') + ' <span class="lg-i"><b style="color:var(--warned-nm)">Фамилия</b> <span class="wn-ic">✉</span> — предупреждён</span></p>' : ''}
   ${guests.length ? `<details class="card flat no-print"><summary style="padding:12px 16px;cursor:pointer"><b>Из других групп на занятиях этой группы: ${guests.length}</b> <span class="small muted">— если человек попал сюда по ошибке, откройте занятие по дате и проверьте группу</span></summary><div class="scroll"><table class="t month">${head}<tbody>${rows(guests, true)}</tbody></table></div></details>` : ''}`;
 }
 
@@ -3666,9 +3670,9 @@ function vPerson(id) {
   const tests = db.tests.filter(t => t.athleteId === id).sort((x, y) => y.date.localeCompare(x.date));
   const freezes = (ix.freezesByAth.get(id) || []);
   const adm = calcAdmission(ix, a);
-  const RG = subRings(a), pLbl = p => `абонемента на ${subTotal(p)} зан.`, qLbl = q => `следующий абонемент оплачен${q.payDate ? ' ' + D.ru(q.payDate) : ''} (${subTotal(q)} зан.) — первое занятие по нему`;
+  const RG = subRings(a), pLbl = p => `абонемента на ${subTotal(p)} зан.`, qLbl = q => q.pending ? `новый абонемент на ${subTotal(q)} зан. — ждём оплату; первое занятие по нему` : `следующий абонемент оплачен${q.payDate ? ' ' + D.ru(q.payDate) : ''} (${subTotal(q)} зан.) — первое занятие по нему`;
   const ringOf = m => { const p = RG.fact.get(m.date + '|' + (m.group || '')); if (p) return ['ring-last', 'последнее занятие ' + pLbl(p)];   // кольца, как в «Месяце»
-    const q = RG.next.get(m.date); return q && m.mark === '+' ? ['ring-next', qLbl(q)] : null; };
+    const q = RG.next.get(m.date); return q && m.mark === '+' ? ['ring-next' + (q.pending ? ' wait' : ''), qLbl(q)] : null; };
   const ahead = [...[...RG.plan].filter(([d]) => d >= ix.today).map(([d, p]) => [d, 'ring-last', 'последнее занятие ' + pLbl(p) + ' (по прогнозу)']),
     ...[...RG.next].filter(([d]) => d >= ix.today && !(ix.marks.get(a.id) || []).some(m => m.date === d)).map(([d, q]) => [d, 'ring-next', qLbl(q) + ' (по расписанию)'])].sort((x, y) => x[0].localeCompare(y[0]));
   const ringsAhead = ahead.length ? `<div class="small muted" style="margin-top:10px">Впереди</div><div class="row" style="gap:6px 4px;margin-top:4px;flex-wrap:wrap">${ahead.map(([d, cl, t]) => `<button type="button" class="mlast" data-act="mark-info" data-txt="${h(D.ru(d) + ', ' + DOW_FULL[D.dow(d)] + ' — ' + t)}" title="${h(t)}"><span class="cell-m m-none ${cl}"></span><small>${D.short(d)}</small></button>`).join('')}</div>` : '';
