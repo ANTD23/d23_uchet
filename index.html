@@ -2717,6 +2717,11 @@ function noSubGap(a) {
 function attentionCalc() {
   const out = [], t = ix.today;
   for (const a of db.athletes) {
+    if (a.status === 'приостановил') {          // 21.10.2026: долг остаётся и на перерыве — напоминание на «Сегодня»
+      const c = ix.athCalc.get(a.id), dd = (c && c.debtDates) || [];
+      if (dd.length && !c.pendingSub) out.push({ tone: 'warn', a, text: `${shortName(a)}: на перерыве${a.pauseFrom ? ' с ' + D.ru(a.pauseFrom) : ''}, не оплачено ${dd.length} ${plural(dd.length, 'посещение', 'посещения', 'посещений')} (${dd.map(d => D.short(d)).join(', ')}) — запросить оплату при возвращении`, unpaid: true });
+      continue;
+    }
     if (a.status !== 'занимается') continue;
     const c = ix.athCalc.get(a.id), s = c.subCalc, nm = shortName(a);
     if (c.pendingSub) {
@@ -3348,6 +3353,11 @@ function payMarks(aid) {
 /* 20.10.2026: «+0» — бесплатное посещение: в карточке «Без абонемента» и посещение не покрыто ни одной оплатой */
 function freeOn(a, date, group) { return !!(a && a.noSub && !payMarks(a.id).paid.has(date + '|' + group)); }
 function owedPlus(c) { return (c && c.pendingSub && c.pendingCalc && c.pendingCalc.owedPlus) || []; }   // посещения в счёт «ждём оплату»
+/* 21.10.2026: напоминание о долге при возвращении с перерыва и при первой отметке «+» за день */
+function debtText(aid, except) { const c = ix.athCalc.get(aid), a = ix.ath.get(aid); const dd = ((c && c.debtDates) || []).filter(d => d !== except);
+  return a && dd.length ? `${shortName(a)}: не оплачено ${dd.length} ${plural(dd.length, 'посещение', 'посещения', 'посещений')} (${dd.map(d => D.ru(d)).join(', ')}) — запросите оплату.` : ''; }
+function debtRemind(aid, date) { const k = aid + '|' + date; debtRemind.seen = debtRemind.seen || new Set(); if (debtRemind.seen.has(k)) return;
+  const t = debtText(aid, date); if (!t) return; debtRemind.seen.add(k); setTimeout(() => notice('Долг: ' + t), 60); }
 function debtOn(aid, date) { const c = ix.athCalc.get(aid); return !!(c && ((c.debtDates || []).includes(date) || owedPlus(c).includes(date))); }
 function hasDebt(aid) { const c = ix.athCalc.get(aid); return !!(c && ((c.debtDates || []).length || owedPlus(c).length)); }
 function sickOn(aid, date) { return db.freezes.some(f => { if (f.athleteId !== aid) return false; const g = freezeRange(ix, f); return g && date >= g.from && date <= g.to; }); }   // №5/№16
@@ -3930,7 +3940,7 @@ function openPerson(id, pre = {}, onNew = null) {
       if (t.status === 'ушёл' && !t.endedAt && !wasLeft) t.endedAt = ix.today;          // п. 12.3.1: от этой даты — 3 года хранения
       if (t.status !== 'ушёл') t.endedAt = '';
       if (t.status === 'приостановил') t.pauseFrom = fd.pauseFrom || (wasPaused ? t.pauseFrom || '' : ix.today);   // №28: дата перерыва — из поля «На перерыве с» (по умолчанию сегодня)
-      if (wasPaused && t.status !== 'приостановил') { t.pauses = [...(t.pauses || []), { from: t.pauseFrom || '', to: ix.today }]; delete t.pauseFrom; }
+      if (wasPaused && t.status !== 'приостановил') { t.pauses = [...(t.pauses || []), { from: t.pauseFrom || '', to: ix.today }]; delete t.pauseFrom; if (t.status === 'занимается') setTimeout(() => debtRemind(t.id, ix.today), 300); }
       t.healthConsent = !!fd.healthConsent;
       t.noSub = !!fd.noSub; { const wasPV = !!t.payPerVisit; t.payPerVisit = !!fd.payPerVisit;   // №13-Б: дата, с которой действует «оплата разово»
         const hist = !!id && ((ix.subsByAth.get(id) || []).some(q => (+q.count || 0) > 1) || (ix.marks.get(id) || []).length > 0);
@@ -6116,7 +6126,7 @@ const ACT = {
       if (!fd.to) { notice('Укажите дату возвращения'); return false; }
       if (fd.from && fd.to <= fd.from) { notice('Дата возвращения должна быть позже начала перерыва'); return false; }
       a.pauses = [...(a.pauses || []), { from: fd.from || '', to: fd.to }]; delete a.pauseFrom; a.status = 'занимается';
-      render.keepScroll = true; persist(shortName(a) + ': вернулся с ' + D.ru(fd.to) + ' — снова в списке группы'); } }); },
+      render.keepScroll = true; persist(shortName(a) + ': вернулся с ' + D.ru(fd.to) + ' — снова в списке группы'); debtRemind(a.id, fd.to); } }); },
   'lead-new': () => openLead(null), 'lead-edit': el => openLead(el.dataset.id), 'lead-convert': el => leadToAthlete(el.dataset.id),
   'lead-del': async el => { if (!await ask('Удалить заявку? Она пропадёт и из статистики. Если просто не нужны имя и телефон — дождитесь обезличивания.')) return; db.leads = db.leads.filter(L => L.id !== el.dataset.id); closeModal(); render.keepScroll = true; persist('Заявка удалена'); },
   'leads-filter': el => { ui.leads.filter = el.dataset.f; rerender(); },
@@ -6253,6 +6263,7 @@ const ACT = {
   'jmonth': el => { ui.journal.month = el.dataset.m; render.forceFocus = true; rerender(); },
   'mark': el => { const s = db.sessions.find(x => x.id === el.dataset.sid); const cur = s.marks[el.dataset.aid];
     if (cur === el.dataset.m) delete s.marks[el.dataset.aid]; else s.marks[el.dataset.aid] = el.dataset.m;
+    if (el.dataset.m === '+' && cur !== '+') debtRemind(el.dataset.aid, s.date);
     if (el.dataset.m === '+' && cur !== '+') { const a = ix.ath.get(el.dataset.aid), nd = a && briefNeed(a, s.date); if (nd) setTimeout(() => toast(`${shortName(a)}: нет записи о ${nd.kind === 'первичный' ? 'первичном' : 'внеплановом'} инструктаже — проведите до занятия и возьмите подпись в журнале`), 50); }
     if (el.dataset.m !== '+' && s.trial) delete s.trial[el.dataset.aid];
     if (el.dataset.m === 'с' && cur !== 'с' && !tripOf(s.date)) toast('Внимание: ' + D.ru(s.date) + ' не входит ни в один объявленный период выезда (п. 9.6.2.1). Внесите выезд в Настройках → Соревнования или поставьте другую отметку.');
@@ -6267,7 +6278,7 @@ const ACT = {
   'mark-rest': el => { const s = db.sessions.find(x => x.id === el.dataset.id); const before = JSON.stringify(s.marks);
     setTimeout(() => undoToast('Остальным поставлено «н»', () => { s.marks = JSON.parse(before); render.keepScroll = true; persist('Отметки возвращены'); }), 0);
     sessionMembers(s).forEach(a => { if (!s.marks[a.id] && !perVisitOn(a, s.date)) s.marks[a.id] = sickOn(a.id, s.date) ? 'б' : 'н'; }); render.keepScroll = true; persist(); },
-  'session-add': el => { const id = $('#add-to-session').value; if (!id) return; const s = db.sessions.find(x => x.id === el.dataset.id); s.marks[id] = '+'; ui.openOthers = s.id; render.keepScroll = true; persist('Добавлен на занятие'); },
+  'session-add': el => { const id = $('#add-to-session').value; if (!id) return; const s = db.sessions.find(x => x.id === el.dataset.id); debtRemind(id, s.date); s.marks[id] = '+'; ui.openOthers = s.id; render.keepScroll = true; persist('Добавлен на занятие'); },
   'session-del': async el => { const s = db.sessions.find(x => x.id === el.dataset.id); const n = Object.keys(s.marks).length;
     if (!await ask(`Удалить занятие ${D.ru(s.date)}${n ? ' и ' + n + ' отметок' : ''}?`)) return; db.sessions = db.sessions.filter(x => x !== s); location.hash = '#journal'; persist('Занятие удалено'); },
   'move-own': async el => { const s = db.sessions.find(x => x.id === el.dataset.sid);
