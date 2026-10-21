@@ -1019,7 +1019,7 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
     let t = null;
     for (const [p, r] of done) if (r.first && r.first <= m.date && !(r.next && m.date >= r.next) && !(stopFor(p) && m.date >= stopFor(p))) t = r;
     if (!t && (!og || !hasMain) && m.date >= (ix.db.settings.sickCheckFrom || '')) { if (!ix.unpaid.has(aid)) ix.unpaid.set(aid, []); ix.unpaid.get(aid).push(m.date); }
-    if (t) { m.used = true; t.was++; t.charged++; t.remaining--; t.debtVisits = (t.debtVisits || 0) + 1; (t.debtDates = t.debtDates || []).push(m.date); if (m.date > t.lastCharged) t.lastCharged = m.date; if (t.remaining <= 0) { t.end = t.lastCharged; t.endKind = 'fact'; } }
+    if (t) { m.used = true; t.was++; t.charged++; t.remaining--; t.debtVisits = (t.debtVisits || 0) + 1; (t.debtDates = t.debtDates || []).push(m.date); if (m.date > t.lastCharged) t.lastCharged = m.date; if (t.remaining <= 0 && t.endKind !== 'fact') { t.end = t.lastPaid || t.end; t.endKind = 'fact'; } }   // 21.10.2026: занятия в долг не сдвигают окончание — абонемент кончился на последнем оплаченном
   }
   for (const [p, r] of done) {
     setSubStatus(ix, p, r);
