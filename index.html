@@ -251,7 +251,7 @@ table.t tr.pend:hover td,table.t tr.rem1:hover td,table.t tr.rem2:hover td{filte
 .attn-sec.s-warn > .attn-h::before{background:var(--warn-fill)}
 .attn-sec.s-later > .attn-h{color:var(--ink-2);cursor:pointer;min-height:var(--tap)}
 .attn-sec.s-sick > .attn-h{color:var(--ink-2);cursor:pointer;min-height:var(--tap)} .attn-sec.s-sick > .attn-h::before{background:var(--sick-fill)}
-.fz-list{border-bottom:1px solid var(--line)}
+.fz-list{border-bottom:1px solid var(--line)} .fz-sub{font-size:.78rem;font-weight:600;color:var(--ink-2);margin:10px 4px 4px} .fz-sub .muted{font-weight:400}
 .attn-sec .alert:first-of-type{border-top:0}
 .plan-sec{overflow:hidden} .plan-in{display:flex;flex-direction:column;gap:12px;padding:4px 12px 12px} .plan-in .plan-sec{border:1px solid var(--line);border-radius:var(--r)} .plan-h{padding:12px 16px;font-weight:700;font-size:1.0625rem;background:var(--surface-2);border-bottom:1px solid var(--line);border-left:5px solid var(--line-strong)}
 .ps-write .plan-h{border-left-color:var(--warn-fill)} .ps-train .plan-h{border-left-color:var(--sick-fill)} .ps-money .plan-h{border-left-color:var(--ok-fill)} .ps-later .plan-h{color:var(--ink-2)}
@@ -2893,11 +2893,11 @@ function alertSections(list, fn) {
   const later = rest.filter(x => !['bad', 'sick', 'warn'].includes(x.tone)).sort(byName);
   const head = (t, n) => `<div class="attn-h">${t} · ${n}</div>`;
   const people = new Set([...fzIds, ...frz.filter(x => x.a).map(x => x.a.id)]);
-  const roster = fz.length ? `<ul class="list fz-list">${fz.map(({ a, f, g }) => `<li class="click" data-go="#person/${a.id}"><div class="who"><b>${h(shortName(a))}</b><span class="small">${h(a.group || '')} · с ${D.ru(g.from)} ${g.open ? '— пока болеет' : 'по ' + D.ru(g.to)} · ${f.certDate ? 'справка ' + D.ru(f.certDate) : 'справки нет'}</span></div><span class="chip sick">болеет</span></li>`).join('')}</ul>` : '';
+  const roster = fz.length ? `<div class="fz-sub">Сейчас болеют · ${fz.length} <span class="muted">— список для обзора, делать ничего не нужно</span></div><ul class="list fz-list">${fz.map(({ a, f, g }) => `<li class="click" data-go="#person/${a.id}"><div class="who"><b>${h(shortName(a))}</b><span class="small">${h(a.group || '')} · с ${D.ru(g.from)} ${g.open ? '— пока болеет' : 'по ' + D.ru(g.to)} · ${f.certDate ? 'справка ' + D.ru(f.certDate) : 'справки нет'}</span></div><span class="chip sick">болеет</span></li>`).join('')}</ul>` : '';
   return (urgent.length ? `<section class="attn-sec s-bad">${head('Срочно', urgent.length)}${urgent.map(fn).join('')}</section>` : '')
     + (soon.length ? `<section class="attn-sec s-warn">${head('Скоро', soon.length)}${soon.map(fn).join('')}</section>` : '')
     + (later.length ? `<details class="attn-later attn-sec s-later" data-later ${meta.laterOpen ? 'open' : ''}><summary class="attn-h">Можно позже · ${later.length}</summary>${later.map(fn).join('')}</details>` : '')
-    + (people.size ? `<details class="attn-later attn-sec s-sick" data-frz ${meta.frzOpen ? 'open' : ''}><summary class="attn-h">Заморозка · ${people.size} ${plural(people.size, 'человек', 'человека', 'человек')}${frz.length ? ' · пунктов ' + frz.length : ''}</summary>${roster}${frz.map(fn).join('')}</details>` : '');
+    + (people.size ? `<details class="attn-later attn-sec s-sick" data-frz ${meta.frzOpen ? 'open' : ''}><summary class="attn-h">Заморозка · ${people.size} ${plural(people.size, 'человек', 'человека', 'человек')}${frz.length ? ' · пунктов ' + frz.length : ''}</summary>${roster}${frz.length ? `<div class="fz-sub">Что сделать · ${frz.length}</div>` : ''}${frz.map(fn).join('')}</details>` : '');
 }
 /* действия пункта: первая кнопка — главная, остальные — в меню «⋯» (команды кнопок прежние) */
 function actsHTML(list, right = '') {
@@ -4210,7 +4210,18 @@ function markNotified(p, type) {
 function notifyState(p, type) {                   // null — не отмечено; stale — после отметки срок изменился (заморозка, отмена занятия)
   const n = p && p.notified && p.notified[type]; if (!n) return null;
   const r = ix.subCalc.get(p.id);
-  return { at: n.at, end: n.end, now: (r && r.end) || '', stale: !!(r && r.end && n.end && r.end !== n.end) };
+  const ch = !!(r && r.end && n.end && r.end !== n.end), hold = ch && freezeHold(p.id);
+  return { at: n.at, end: n.end, now: (r && r.end) || '', stale: ch && !hold, hold };
+}
+/* 22.10.2026: заморозка по абонементу ещё не решена (болеет, ждём возвращения или справку) — окончание пока предварительное;
+   «срок изменился» / «окончание изменилось» не показываем, пока заморозка не закрыта (справка получена или заморозки нет) */
+function freezeHold(subId) {
+  if (freezeHold.ix !== ix) { freezeHold.ix = ix; freezeHold.m = new Map(); }
+  if (freezeHold.m.has(subId)) return freezeHold.m.get(subId);
+  const p = db.subs.find(x => x.id === subId);
+  const v = !!p && db.freezes.some(f => { if (f.athleteId !== p.athleteId) return false; const q = freezeSub(ix, f); if (!q || q.id !== subId) return false;
+    const c = calcFreeze(ix, f); return c.mode === 'prov' || c.mode === 'wait' || ((c.mode === 'a' || c.mode === 'b') && !f.certDate); });
+  freezeHold.m.set(subId, v); return v;
 }
 /* метки «срок сообщён» (📅) и «предупреждён об окончании» (✉): зелёная — отправлено (дата), красная — нужно отправить */
 function notifyBadges(p, r) {
