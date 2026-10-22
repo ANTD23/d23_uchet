@@ -228,7 +228,7 @@ table.t tr.pend:hover td,table.t tr.rem1:hover td,table.t tr.rem2:hover td{filte
 .cell-m.m-nosub{color:var(--muted);font-weight:400}
 .cell-m.m-plus{background:var(--ok-bg);color:var(--ok)} .cell-m.m-n{background:var(--bad-bg);color:var(--bad)}
 .cell-m.m-b{background:var(--sick-bg);color:var(--sick)} .cell-m.m-o{background:var(--surface-2);color:var(--cancel);box-shadow:inset 0 0 0 1px var(--line)} .cell-m.m-s{background:var(--comp-bg);color:var(--comp)}
-.month td.last-sub,.month td.next-paid{cursor:pointer} .cell-m.ring-last{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--next-ring)} .cell-m.ring-next{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ok-fill)} .mlast .cell-m.ring-last,.mlast .cell-m.ring-next{margin:3px} .month td.last-sub .cell-m{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--next-ring)} .cell-m.m-none{background:none} .month td.next-paid .cell-m{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ok-fill)} .month td.next-paid.wait .cell-m,.cell-m.ring-next.wait,.next-paid-key.wait{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--bad-fill)}   /* первое занятие следующего, уже оплаченного абонемента */   /* 16.10.2026: последнее занятие — оранжевое, первое по оплаченному — зелёное (решение владельца) */
+.month td.last-sub,.month td.next-paid{cursor:pointer} .cell-m.ring-last{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--next-ring)} .cell-m.ring-next{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ok-fill)} .mlast .cell-m.ring-last,.mlast .cell-m.ring-next{margin:3px} .month td.last-sub .cell-m{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--next-ring)} .cell-m.m-none{background:none} .month td.next-paid .cell-m{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ok-fill)} .month td.cert-sub{cursor:pointer} .month td.cert-sub .cell-m,.cell-m.ring-cert,.cert-sub-key{outline:2px dashed var(--next-ring);outline-offset:2px;opacity:.75} .cert-sub-key{display:inline-block;width:12px;height:12px;vertical-align:-1px;border-radius:4px;margin-left:14px} .month td.next-paid.wait .cell-m,.cell-m.ring-next.wait,.next-paid-key.wait{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--bad-fill)}   /* первое занятие следующего, уже оплаченного абонемента */   /* 16.10.2026: последнее занятие — оранжевое, первое по оплаченному — зелёное (решение владельца) */
 .next-paid-key{display:inline-block;width:14px;height:14px;vertical-align:-2px;border-radius:5px;margin-left:14px;box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ok-fill)} .month th.fut{color:var(--ink-3);font-weight:400} .month th.miss,.month th.miss a{color:var(--ink-2)} .month th.miss{background:var(--sunk)} table.t.month th.miss{min-width:50px;box-sizing:border-box}   /* «занятие не внесено»: та же ширина, что у соседних */ .month td.miss-col{background:var(--sunk)}   /* занятие не внесено — серый столбец */ .ring-legend{margin:8px 12px} @media (max-width:860px), (pointer:coarse) and (max-height:500px){.ring-legend{margin:6px 4px 0;font-size:.75rem;line-height:1.6;white-space:normal} .ring-legend .lg-i{white-space:nowrap;display:inline-block;margin-right:8px}}   /* телефон: подпись к кольцам — одна короткая строка */
 @media print{table.month tr td.next-paid .cell-m,p span.next-paid-key,.mlast span.cell-m.ring-next{outline-style:dashed!important}}   /* на бумаге: последнее — сплошная рамка, следующий оплачен — пунктир */   /* последнее занятие абонемента — зелёное кольцо вокруг отметки */
 .last-sub-key{display:inline-block;width:14px;height:14px;vertical-align:-2px;border-radius:5px;box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--next-ring)}
@@ -969,6 +969,7 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
     r.next = nm ? nm.start : null;
     const fr = (ix.freezesByAth.get(aid) || []).map(f => ({ f, c: calcFreeze(ix, f), g: freezeRange(ix, f) }));
     const inFr = (x, d) => !!x.g && d >= x.g.from && d <= x.g.to;          // №5/№16: дни действующей заморозки
+    const frUnconf = x => !x.f.certDate && ['prov', 'wait', 'a', 'b'].includes(x.c.mode);   // 23.10.2026: справка ещё не внесена
     const carry = Math.max(0, +p.carryWas || 0) + Math.max(0, +p.carryMissed || 0);
     const cap = Math.max(0, subTotal(p) - carry);
     let used = 0;
@@ -984,14 +985,17 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
       let charged = mk === '+' || mk === 'н';
       if (mk === 'с' && m.date >= (ix.db.settings.programStart || ix.db.settings.sickCheckFrom || '') && !inTrip(ix, m.date)) charged = true;   // п. 9.6.2.1: «с» вне объявленного выезда
       if (mk === 'б' && m.mark !== 'о' && fr.some(x => x.c.mode === 'lapsed' && inFr(x, m.date))) charged = true;   // п. 9.5.8.1: отменённое клубом не списывается
+      // 23.10.2026: пока справки нет (болеет, ждём возвращения или справку), «б» списывается — срок не двигается; справка внесена — продление
+      let prov = false;
+      if (mk === 'б' && m.mark !== 'о' && !charged && fr.some(x => inFr(x, m.date) && frUnconf(x))) { charged = true; prov = true; }
       // п. 9.5.8: «б» без оформленной заморозки списывается как пропуск (после начала ведения в программе)
       if (mk === 'б' && m.date >= (ix.db.settings.sickCheckFrom || '') && !fr.some(x => inFr(x, m.date))) charged = true;
       // п. 9.5.7 «б»: после Базовой даты и до дня возобновления занятия не списываются (пока ждём возвращения — тоже)
-      if (m.mark === 'н' && fr.some(x => x.f.subId === p.id && (x.c.mode === 'b' || x.c.mode === 'wait') && x.c.base && m.date > x.c.base && (!x.c.ret || m.date < x.c.ret))) charged = false;
+      if (m.mark === 'н' && fr.some(x => x.f.subId === p.id && !frUnconf(x) && (x.c.mode === 'b' || x.c.mode === 'wait') && x.c.base && m.date > x.c.base && (!x.c.ret || m.date < x.c.ret))) charged = false;
       if (!charged) { if (used < cap) { if (mk === 'б') r.sick++; else if (mk === 'с') r.comp++; else if (mk === 'о') r.cancel++; } continue; }
       if (used >= cap) break;
       m.used = true; used++; if (m.auto) r.blank = (r.blank || 0) + 1;
-      if (mk === '+') r.was++; else if (mk === 'н' || mk === 'с') r.missed++; else { r.sick++; r.sickCharged++; }
+      if (mk === '+') r.was++; else if (mk === 'н' || mk === 'с') r.missed++; else { r.sick++; r.sickCharged++; if (prov) { r.provSick = (r.provSick || 0) + 1; (r.provDates = r.provDates || []).push(m.date); } }
       if (mk === '+' && m.mark === '+' && p.pending) (r.owedPlus = r.owedPlus || []).push(m.date);
       if (m.mark === '+') (r.plusList = r.plusList || []).push({ date: m.date, group: m.group || '', n: carry + used });   // какое по счёту посещение этой оплаты (журнал: «3/10», «р»)   // 20.10.2026: посещение в счёт «ждём оплату» — в журнале «д»
       r.lastCharged = m.date; r.lastChargedGroup = m.group || '';
@@ -1009,6 +1013,8 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
       r.end = nthTrainDay(ix, D.add(from, 1), r.remaining, groups) || ''; r.endKind = 'forecast';
       cursor = r.end ? D.add(r.end, 1) : '9999-12-31'; cursorForecast = true;
     }
+    if (r.provSick && !pkg && r.end && (r.endKind === 'forecast' || r.endKind === 'fact'))   // 23.10.2026: «при справке → …» — окончание, если справку принесут
+      r.certEnd = nthTrainDay(ix, D.add(D.max(r.end, D.add(ix.today, -1)), 1), r.provSick, groups) || '';
     { const stp = stopFor(p);                                                         // договор прекращён: неиспользованное больше не идёт, следующий может начаться
       if (stp && r.remaining > 0) { r.end = stp; r.endKind = 'terminated'; cursor = stp; cursorForecast = false; } }
     ix.subCalc.set(p.id, r); done.push([p, r]);
@@ -1071,7 +1077,7 @@ function calcFreeze(ix, f) {
   if (!base) { r.text = 'У группы не задано расписание'; return r; }
   if (rng.open) {                                                        // №16: «заморозка предварительно» — болеет, дата «по» не внесена
     r.mode = 'prov'; r.ext = trainDaysBetween(ix, f.from, D.min(base, ix.today), groups).filter(d => !skip.has(d)).length;
-    r.text = 'Предварительно: болеет с ' + D.ru(f.from) + ', дата «по» не внесена — занятия болезни пока не списываются'; return r;
+    r.text = 'Предварительно: болеет с ' + D.ru(f.from) + ', дата «по» не внесена — пока справки нет, занятия болезни списываются; справка внесена — срок продлится'; return r;
   }
   r.ext = trainDaysBetween(ix, f.from, D.min(fTo, base), groups).filter(d => !skip.has(d)).length;
   if (r.ext === 0) { r.mode = 'none'; r.text = 'Болезнь не пришлась на занятия в сроке абонемента — продлевать нечего'; return r; }
@@ -2229,7 +2235,7 @@ function startLockTimer() {
 }
 function stopLockTimer() { if (lockTimer) clearInterval(lockTimer); lockTimer = null; }
 ['click', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, () => { lastActive = Date.now(); }, true));
-document.addEventListener('click', e => { const td = e.target.closest && e.target.closest('.month td.last-sub, .month td.next-paid'); if (!td || !td.title) return; const tr = td.parentNode, i = [...tr.children].indexOf(td), th = td.closest('table').querySelector('thead tr').children[i];
+document.addEventListener('click', e => { const td = e.target.closest && e.target.closest('.month td.last-sub, .month td.next-paid, .month td.cert-sub'); if (!td || !td.title) return; const tr = td.parentNode, i = [...tr.children].indexOf(td), th = td.closest('table').querySelector('thead tr').children[i];
   toast((tr.children[0].firstChild ? tr.children[0].firstChild.textContent.trim() : '') + (th ? ', ' + th.textContent.trim().slice(0, 2) + '.' + ui.journal.month.slice(5) : '') + ': ' + td.title); }, false);   // кольца в «Месяце»: подсказка и по нажатию (на телефоне всплывающей подсказки нет)
 document.addEventListener('click', e => { const l = e.target.closest && e.target.closest('a[href]'); if (l && !/^#/.test(l.getAttribute('href') || '')) extMark(); }, true);
 document.addEventListener('visibilitychange', () => {
@@ -2709,11 +2715,13 @@ function resetZoom() {                            // вернуть масшта
 window.addEventListener('orientationchange', () => { if (route().v === 'journal') setTimeout(resetZoom, 300); });   // поворот телефона в журнале — масштаб 100%
 function noSubGap(a) {
   const c = a && ix.athCalc.get(a.id); if (!c || a.status !== 'занимается' || a.noSub || perVisitOn(a, ix.today)) return null;
-  const s = c.subCalc; if (!c.sub || (+c.sub.count || 0) <= 1 || !s || s.terminated || s.notActive || c.nextSub || c.pendingSub || s.remaining !== 0 || !s.end) return null;
+  const s = c.subCalc; if (!c.sub || (+c.sub.count || 0) <= 1 || !s || s.terminated || s.notActive || c.nextSub || c.pendingSub || s.remaining !== 0 || !s.end || s.provSick) return null;   // 23.10.2026: срок кончился из-за болезни без справки — не «не ходит»
   if ((ix.marks.get(a.id) || []).some(m => m.mark === '+' && m.date > s.end)) return null;
   const key = a.id + '|nosub|' + c.sub.id;
   return { end: s.end, sub: c.sub.id, key, ack: (db.attnDone || {})[key] || '' };
 }
+/* 23.10.2026: «при справке +N зан. → до …» — пока справки нет, «б» списывается, срок прежний */
+function certHint(s) { return s && s.provSick && s.certEnd ? `при справке +${s.provSick} ${plural(s.provSick, 'занятие', 'занятия', 'занятий')} → до ${D.ru(s.certEnd)}` : ''; }
 function attentionCalc() {
   const out = [], t = ix.today;
   for (const a of db.athletes) {
@@ -2733,15 +2741,15 @@ function attentionCalc() {
     } else if (s) {
       const single = (+c.sub.count || 0) <= 1;
       if (s.remaining < 0 && !(c.debtDates || []).length) out.push({ tone: 'bad', a, text: `${nm}: долг ${-s.remaining} ${plural(-s.remaining, 'занятие', 'занятия', 'занятий')} сверх оплаты`, tpl: 'Долг по занятиям' });
-      const ne = notifyState(c.sub, 'end'), warned = ne && !ne.stale, wtxt = warned ? ' — предупреждён ' + D.short(ne.at) : '';
+      const ne = notifyState(c.sub, 'end'), warned = ne && !ne.stale, wtxt = (s.provSick ? ' (' + certHint(s) + ')' : '') + (warned ? ' — предупреждён ' + D.short(ne.at) : '');
       if (s.pkg) {                                   // пакет разовых: без дат, только остаток
         const N = subTotal(c.sub);
         if (s.remaining === 0 && !c.nextSub) out.push({ tone: warned ? 'muted' : 'warn', a, text: `${nm}: пакет разовых использован (${N} из ${N}${s.end ? ', последнее ' + D.ru(s.end) : ''}), новой оплаты нет${wtxt}`, tpl: 'Пакет разовых использован' });
         else if (s.remaining === 1 && !c.nextSub) out.push({ tone: warned ? 'muted' : 'warn', a, text: `${nm}: пакет разовых — осталось одно занятие из ${N}${wtxt}`, tpl: 'Пакет разовых заканчивается' });
       }
-      else if (s.remaining === 0 && !c.nextSub && !single) out.push({ tone: warned ? 'muted' : 'bad', a, text: `${nm}: абонемент использован${s.end ? ' ' + D.ru(s.end) : ''}, нового нет${wtxt}`, tpl: 'Абонемент закончился', wait: true });
-      else if (s.remaining === 1 && !c.nextSub && !single) out.push({ tone: warned ? 'muted' : 'bad', a, text: `${nm}: осталось одно занятие${s.end ? ' (' + D.ru(s.end) + ')' : ''}${wtxt}`, tpl: 'Абонемент заканчивается' });
-      else if (s.remaining === 2 && !c.nextSub && !single) out.push({ tone: warned ? 'muted' : 'warn', a, text: `${nm}: осталось два занятия${s.end ? ' (последнее ' + D.ru(s.end) + ')' : ''}${wtxt}`, tpl: 'Абонемент заканчивается', rem2: true });
+      else if (s.remaining === 0 && !c.nextSub && !single) out.push({ tone: warned ? 'muted' : s.provSick ? 'sick' : 'bad', a, text: `${nm}: абонемент использован${s.end ? ' ' + D.ru(s.end) : ''}, нового нет${wtxt}`, tpl: 'Абонемент закончился', wait: true });
+      else if (s.remaining === 1 && !c.nextSub && !single) out.push({ tone: warned ? 'muted' : s.provSick ? 'sick' : 'bad', a, text: `${nm}: осталось одно занятие${s.end ? ' (' + D.ru(s.end) + ')' : ''}${wtxt}`, tpl: 'Абонемент заканчивается' });
+      else if (s.remaining === 2 && !c.nextSub && !single) out.push({ tone: warned ? 'muted' : s.provSick ? 'sick' : 'warn', a, text: `${nm}: осталось два занятия${s.end ? ' (последнее ' + D.ru(s.end) + ')' : ''}${wtxt}`, tpl: 'Абонемент заканчивается', rem2: true });
     }
     { const g = noSubGap(a); if (g && D.diff(g.end, t) >= 14) out.push({ tone: 'muted', a, text: `${nm}: не ходит 14 дней и больше после окончания абонемента (${D.ru(g.end)}), оплаты нет — поставить «приостановил» или «ушёл»?`, go: '#person/' + a.id }); }   // №34
     if (c.debtDates.length && !c.pendingSub) {
@@ -2817,7 +2825,7 @@ function attentionCalc() {
     const a = ix.ath.get(f.athleteId); if (!a) continue;
     const c = calcFreeze(ix, f);
     if (c.mode === 'err' || c.mode === 'incomplete') { out.push({ tone: 'bad', a, text: `${shortName(a)}: ошибка в заморозке ${f.from ? 'с ' + D.ru(f.from) : ''} — ${c.text}. Откройте и исправьте`, freeze: f.id }); continue; }   // №22
-    if (c.mode === 'prov') { out.push({ tone: 'sick', a, text: `${shortName(a)}: болеет с ${D.ru(f.from)} — заморозка предварительно (дата «по» не внесена); занятия болезни пока не списываются. Внесите «по» и дату справки`, freeze: f.id }); continue; }   // №16
+    if (c.mode === 'prov') { const ch = certHint(ix.subCalc.get(f.subId)); out.push({ tone: 'sick', a, text: `${shortName(a)}: болеет с ${D.ru(f.from)} — заморозка предварительно (дата «по» не внесена); пока справки нет, срок абонемента прежний${ch ? ', ' + ch : ''}. Вернётся — внесите «по» и дату справки`, freeze: f.id }); continue; }   // №16
     if (c.certAsk) out.push({ tone: 'bad', a, nocert: f.id, text: `${shortName(a)}: вернулся ${D.ru(c.ret)}${c.retGuess ? ' (по журналу)' : ''} без справки о болезни — спросить справку на занятии ${D.ru(c.askBy)}. Не принесёт — заморозки нет, ${c.ext} ${plural(c.ext, 'занятие', 'занятия', 'занятий')} болезни спишутся`, freeze: f.id });
     else if (['a', 'b', 'wait'].includes(c.mode) && !f.certDate && c.certBy && !c.askBy) out.push({ tone: 'sick', a, text: `${shortName(a)}: справка о болезни нужна ${c.certIsSession ? 'до начала занятия' : 'не позднее'} ${D.ru(c.certBy)}${c.remindBy ? ', напомнить до ' + D.ru(c.remindBy) : ''}`, freeze: f.id });
     else if (['a', 'b'].includes(c.mode) && !f.certDate && c.askBy && ix.today < c.certBy) out.push({ tone: 'sick', a, text: `${shortName(a)}: справку о болезни принести на занятие ${D.ru(c.certBy)}`, freeze: f.id });
@@ -3425,12 +3433,13 @@ function vSession(sid) {
   <div class="actbar show-m no-print"><a class="btn primary" href="#today">Готово</a></div>`;
 }
 function subRings(a) {                           // кольца: последнее занятие абонемента (факт: дата|группа, прогноз: дата) и первое занятие следующего оплаченного (дата)
-  const L = { fact: new Map(), plan: new Map() };
+  const L = { fact: new Map(), plan: new Map(), cert: new Map() };
   L.next = new Map();
   const list = ix.subsByAth.get(a.id) || [];
   list.forEach((p, i) => { if (subTotal(p) <= 1) return; const r = ix.subCalc.get(p.id); if (!r || r.terminated) return;
     const end = r.lastPaid || (r.endKind === 'forecast' ? r.end : '');
     if (r.lastPaid) L.fact.set(r.lastPaid + '|' + r.lastPaidGroup, p); else if (end) L.plan.set(end, p);
+    if (r.provSick && r.certEnd) L.cert.set(r.certEnd, p);   // 23.10.2026: пунктирное кольцо — окончание, если принесут справку
     // следующий абонемент уже оплачен — кольцо на следующем занятии по расписанию после последнего занятия этого
     const q = end && (list.slice(i + 1).find(x => !x.pending && x.payDate && (x.onlyGroup || '') === (p.onlyGroup || ''))
       || list.slice(i + 1).find(x => x.pending && (ix.subCalc.get(x.id) || {}).first && (x.onlyGroup || '') === (p.onlyGroup || '')));   // 21.10.2026: «ждём оплату», начатый посещением, — красное кольцо на первом занятии
@@ -3465,7 +3474,10 @@ function monthView(tabs, groups) {
   const nextCell = (a, L, s) => { const q = L.next.get(s.date); if (!q || !inGroupOn(a, s.group, s.date)) return '';
     if (q.pending) { anyWait = true; return ` next-paid wait" title="Новый абонемент на ${subTotal(q)} зан. — ждём оплату; первое занятие по нему`; }
     return ` next-paid" title="Следующий абонемент оплачен${q.payDate ? ' ' + D.ru(q.payDate) : ''} (${subTotal(q)} зан.) — первое занятие по нему`; };
+  let anyCert = false;
   const lastCell = (a, L, s) => { const p = L.fact.get(s.date + '|' + s.group) || (s.marks[a.id] == null && L.plan.get(s.date) && inGroupOn(a, s.group, s.date) ? L.plan.get(s.date) : null);
+    if (!p) { const q = s.marks[a.id] == null && L.cert.get(s.date) && inGroupOn(a, s.group, s.date) ? L.cert.get(s.date) : null; const r = q && ix.subCalc.get(q.id);
+      if (q && r) { anyCert = true; return ` cert-sub" title="Если принесёт справку: последнее занятие абонемента на ${subTotal(q)} зан. (+${r.provSick} ${plural(r.provSick, 'занятие', 'занятия', 'занятий')} за болезнь ${r.provDates.map(d => D.short(d)).join(', ')})`; } }
     return p ? ` last-sub" title="Последнее занятие абонемента на ${subTotal(p)} зан.${L.fact.get(s.date + '|' + s.group) ? '' : ' (по прогнозу)'}` : ''; };
   const prev = m === 1 ? (y - 1) + '-12' : y + '-' + pad(m - 1), next = m === 12 ? (y + 1) + '-01' : y + '-' + pad(m + 1);
   const head = `<thead><tr><th>ФИО</th>${sess.map(s => s.missing ? `<th class="num miss"><a href="#" data-act="open-session" data-date="${s.date}" data-group="${h(s.group)}" title="Занятие по расписанию не внесено — открыть и отметить (если тренировки не было — внесите день в «Настройки» → «Нерабочие дни»)">${D.short(s.date).slice(0, 2)}</a><br><span class="small">${DOW[D.dow(s.date)]}</span></th>` : s.future && s.date === ix.today ? `<th class="num"><a href="#" data-act="open-session" data-date="${s.date}" data-group="${h(s.group)}" title="Сегодня — открыть занятие и отметить">${D.short(s.date).slice(0, 2)}</a><br><span class="small">${DOW[D.dow(s.date)]}</span></th>` : s.future ? `<th class="num fut" title="Занятие по расписанию — ещё впереди">${D.short(s.date).slice(0, 2)}<br><span class="small">${DOW[D.dow(s.date)]}</span></th>` : `<th class="num"><a href="#session/${s.id}">${D.short(s.date).slice(0, 2)}</a><br><span class="small">${DOW[D.dow(s.date)]}</span></th>`).join('')}<th>+</th><th>н</th><th>б</th></tr></thead>`;
@@ -3481,7 +3493,7 @@ function monthView(tabs, groups) {
   <button class="btn" data-act="jmonth" data-m="${next}">→</button><select data-change="jmgroup" style="width:auto">${groups.map(g => opt(g, J.mgroup)).join('')}</select><span class="spacer"></span><button class="btn primary hide-m" data-act="print-blank">Бланк для печати</button></div></div>
   <div class="print-only"><b>${h(db.settings.club)}</b> — журнал посещаемости: ${h(J.mgroup)}, ${MONTHS[m - 1]} ${y}</div>
   <div class="card flat scroll mscroll">${sess.length ? `<table class="t month">${head}<tbody>${rows(people, false) || `<tr><td colspan="${sess.length + 4}" class="muted">В группе нет занимающихся</td></tr>`}</tbody></table>`
-    : '<div class="empty">В этом месяце у группы занятий нет.</div>'}</div>${sess.length ? '<p class="small muted ring-legend"><span class="lg-i"><span class="last-sub-key"></span> — последнее занятие<span class="hide-m"> абонемента</span></span> <span class="lg-i"><span class="next-paid-key"></span> — <span class="hide-m">следующий абонемент оплачен (первое занятие по нему); нажмите на кольцо — подробнее</span><span class="show-m">следующий оплачен</span></span>' + (anyWait ? ' <span class="lg-i"><span class="next-paid-key wait"></span> — <span class="hide-m">новый абонемент, ждём оплату (первое занятие по нему)</span><span class="show-m">ждём оплату</span></span>' : '') + ' <span class="lg-i"><b style="color:var(--warned-nm)">Фамилия</b> <span class="wn-ic">✉</span> — предупреждён</span></p>' : ''}
+    : '<div class="empty">В этом месяце у группы занятий нет.</div>'}</div>${sess.length ? '<p class="small muted ring-legend"><span class="lg-i"><span class="last-sub-key"></span> — последнее занятие<span class="hide-m"> абонемента</span></span> <span class="lg-i"><span class="next-paid-key"></span> — <span class="hide-m">следующий абонемент оплачен (первое занятие по нему); нажмите на кольцо — подробнее</span><span class="show-m">следующий оплачен</span></span>' + (anyCert ? ' <span class="lg-i"><span class="cert-sub-key"></span> — <span class="hide-m">окончание, если принесёт справку о болезни</span><span class="show-m">при справке</span></span>' : '') + (anyWait ? ' <span class="lg-i"><span class="next-paid-key wait"></span> — <span class="hide-m">новый абонемент, ждём оплату (первое занятие по нему)</span><span class="show-m">ждём оплату</span></span>' : '') + ' <span class="lg-i"><b style="color:var(--warned-nm)">Фамилия</b> <span class="wn-ic">✉</span> — предупреждён</span></p>' : ''}
   ${guests.length ? `<details class="card flat no-print"><summary style="padding:12px 16px;cursor:pointer"><b>Из других групп на занятиях этой группы: ${guests.length}</b> <span class="small muted">— если человек попал сюда по ошибке, откройте занятие по дате и проверьте группу</span></summary><div class="scroll"><table class="t month">${head}<tbody>${rows(guests, true)}</tbody></table></div></details>` : ''}`;
 }
 
@@ -3555,6 +3567,7 @@ function personSubBox(a, c) {
     l2 = s.end ? (s.endKind === 'fact' ? 'последнее занятие ' : 'до ') + D.ru(s.end) : '';
     if (s.pkg) { l1 = s.remaining === 0 ? 'пакет разовых использован' : plural(s.remaining, 'занятие осталось', 'занятия осталось', 'занятий осталось') + ' в пакете'; l2 = `пакет разовых: ${subTotal(c.sub)} зан., использовано ${Math.max(0, subTotal(c.sub) - s.remaining)}, без срока` + (s.end ? ' · последнее ' + D.ru(s.end) : ''); }
     if (c.nextSub) l2 += (l2 ? ' · ' : '') + 'следующий оплачен';
+    if (s.provSick && s.certEnd && !s.pkg) l2 += (l2 ? ' · ' : '') + certHint(s);   // 23.10.2026
   } else return '';
   return `<div class="subbox${tone ? ' ' + tone : ''}"><span class="big num">${h(big)}</span><span class="l1">${h(l1)}</span><span class="l2">${h(l2)}</span>${pct != null ? `<span class="meter" aria-hidden="true"><i style="width:${pct}%"></i></span>` : ''}</div>`;
 }
@@ -3684,6 +3697,7 @@ function vPerson(id) {
   const ringOf = m => { const p = RG.fact.get(m.date + '|' + (m.group || '')); if (p) return ['ring-last', 'последнее занятие ' + pLbl(p)];   // кольца, как в «Месяце»
     const q = RG.next.get(m.date); return q && m.mark === '+' ? ['ring-next' + (q.pending ? ' wait' : ''), qLbl(q)] : null; };
   const ahead = [...[...RG.plan].filter(([d]) => d >= ix.today).map(([d, p]) => [d, 'ring-last', 'последнее занятие ' + pLbl(p) + ' (по прогнозу)']),
+    ...[...RG.cert].filter(([d]) => d >= ix.today).map(([d, p]) => [d, 'ring-cert', 'если принесёт справку: последнее занятие ' + pLbl(p)]),
     ...[...RG.next].filter(([d]) => d >= ix.today && !(ix.marks.get(a.id) || []).some(m => m.date === d)).map(([d, q]) => [d, 'ring-next', qLbl(q) + ' (по расписанию)'])].sort((x, y) => x[0].localeCompare(y[0]));
   const ringsAhead = ahead.length ? `<div class="small muted" style="margin-top:10px">Впереди</div><div class="row" style="gap:6px 4px;margin-top:4px;flex-wrap:wrap">${ahead.map(([d, cl, t]) => `<button type="button" class="mlast" data-act="mark-info" data-txt="${h(D.ru(d) + ', ' + DOW_FULL[D.dow(d)] + ' — ' + t)}" title="${h(t)}"><span class="cell-m m-none ${cl}"></span><small>${D.short(d)}</small></button>`).join('')}</div>` : '';
   const cnt = k => marks.filter(m => m.mark === k && m.date >= D.add(ix.today, -90)).length;
@@ -3758,7 +3772,7 @@ function personSummary(a, c, freezes) {
   else if (s) {
     if (s.notActive) L.push(['Абонемент', 'оплачен, не активирован' + (s.autoDate ? ' (автоактивация ' + D.ru(s.autoDate) + ')' : '')]);
     else if (s.remaining < 0) L.push(['Абонемент', '<b style="color:var(--bad)">долг ' + (-s.remaining) + ' зан.</b>']);
-    else L.push([s.pkg ? 'Пакет разовых' : 'Абонемент', (s.remaining === 0 ? 'использован' : 'осталось <b>' + s.remaining + '</b> ' + plural(s.remaining, 'занятие', 'занятия', 'занятий') + (s.pkg ? ' из ' + subTotal(c.sub) + ', без срока' : '')) + (s.end ? (s.endKind === 'fact' ? ', последнее ' : ', до ') + D.ru(s.end) : '')]);
+    else L.push([s.pkg ? 'Пакет разовых' : 'Абонемент', (s.remaining === 0 ? 'использован' : 'осталось <b>' + s.remaining + '</b> ' + plural(s.remaining, 'занятие', 'занятия', 'занятий') + (s.pkg ? ' из ' + subTotal(c.sub) + ', без срока' : '')) + (s.end ? (s.endKind === 'fact' ? ', последнее ' : ', до ') + D.ru(s.end) : '') + (s.provSick && s.certEnd ? ` <span class="chip sick" title="Пока справки нет, занятия болезни (${s.provDates.map(d => D.short(d)).join(', ')}) списываются. Справка внесена — срок продлится">${certHint(s)}</span>` : '')]);
     if (!left && !s.notActive && (+c.sub.count || 0) > 1) {          // ушёл — сообщать о сроке и окончании уже некому
       const q = notifyState(c.sub, 'period'), e = notifyState(c.sub, 'end'), sid = c.sub.id;
       const btns = (ty, tpl) => `<span class="row no-print" style="gap:6px;margin-top:4px"><button class="btn sm" data-act="msg" data-id="${a.id}" data-sub="${sid}" data-tpl="${tpl}">Написать</button><button class="btn sm ghost" data-act="notify-mark" data-sub="${sid}" data-type="${ty}" title="Сообщение отправлено не из программы">Уже отправил</button></span>`;
@@ -4220,7 +4234,7 @@ function freezeHold(subId) {
   if (freezeHold.m.has(subId)) return freezeHold.m.get(subId);
   const p = db.subs.find(x => x.id === subId);
   const v = !!p && db.freezes.some(f => { if (f.athleteId !== p.athleteId) return false; const q = freezeSub(ix, f); if (!q || q.id !== subId) return false;
-    const c = calcFreeze(ix, f); return c.mode === 'prov' || c.mode === 'wait' || ((c.mode === 'a' || c.mode === 'b') && !f.certDate); });
+    const c = calcFreeze(ix, f); return !f.certDate && ['prov', 'wait', 'a', 'b'].includes(c.mode); });   // 23.10.2026: справка внесена — сразу «срок изменился»
   freezeHold.m.set(subId, v); return v;
 }
 /* метки «срок сообщён» (📅) и «предупреждён об окончании» (✉): зелёная — отправлено (дата), красная — нужно отправить */
