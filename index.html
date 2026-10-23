@@ -165,7 +165,12 @@ legend{padding:0 6px;font-weight:600;font-size:.9375rem}
 .seg.more-l{-webkit-mask-image:linear-gradient(90deg,transparent,#000 44px);mask-image:linear-gradient(90deg,transparent,#000 44px)}
 .seg.more-l.more-r{-webkit-mask-image:linear-gradient(90deg,transparent,#000 44px,#000 calc(100% - 44px),transparent);mask-image:linear-gradient(90deg,transparent,#000 44px,#000 calc(100% - 44px),transparent)}
 .seg-wrap{position:relative;display:inline-block;max-width:100%} .seg-arr{position:absolute;top:50%;transform:translateY(-50%);width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);display:none;place-items:center;font-size:1.1rem;line-height:1;cursor:pointer;z-index:2;box-shadow:var(--shadow-1);padding:0}
-.seg-arr.r{right:2px} .seg-arr.l{left:2px} .seg-wrap.more-r .seg-arr.r,.seg-wrap.more-l .seg-arr.l{display:grid}
+.seg-arr.r{right:2px} .seg-arr.l{left:2px}
+.tx-wrap{position:relative} .tx-wrap .seg-arr.tx{top:22px;transform:none} .tx-wrap.more-r .seg-arr.tx.r,.tx-wrap.more-l .seg-arr.tx.l{display:grid}
+.tail-x.more-r{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 48px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 48px),transparent)}
+.tail-x.more-l{-webkit-mask-image:linear-gradient(90deg,transparent,#000 48px);mask-image:linear-gradient(90deg,transparent,#000 48px)}
+.tail-x.more-l.more-r{-webkit-mask-image:linear-gradient(90deg,transparent,#000 48px,#000 calc(100% - 48px),transparent);mask-image:linear-gradient(90deg,transparent,#000 48px,#000 calc(100% - 48px),transparent)}
+@media print{.tail-x{-webkit-mask-image:none!important;mask-image:none!important}} .seg-wrap.more-r .seg-arr.r,.seg-wrap.more-l .seg-arr.l{display:grid}
 .seg button{flex:none;border:0;background:transparent;padding:0 14px;cursor:pointer;min-height:38px;border-radius:var(--r-s);font-weight:600;font-size:.9375rem;color:var(--ink-2)}
 .seg button.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-1)}
 .filters{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:12px}
@@ -295,7 +300,7 @@ ul.plan > .pl:first-child{border-top:0} .pl.t-bad{border-left-color:var(--bad-fi
 /* карточка человека */
 .person-head{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
 .kv{display:grid;grid-template-columns:max-content 1fr;gap:6px 16px;font-size:1rem}
-.kv dt{color:var(--ink-2)} .kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.kv dt{color:var(--ink-2)} .kv dd{margin:0;min-width:0;overflow-wrap:anywhere} .psum .kv dd{font-weight:600;color:var(--ink)} .psum .kv dt{font-weight:500}
 @media(max-width:600px){.kv{grid-template-columns:1fr;gap:0}.kv dt{font-size:.875rem;margin-top:10px}.kv dt:first-child{margin-top:0}}
 .card.sec .sec-head{cursor:pointer;user-select:none;min-height:var(--tap)}
 .card.sec .sec-head h2::after,.card.sec > h2.sec-head::after{content:'';display:inline-block;width:8px;height:8px;margin-left:10px;border-right:2px solid var(--ink-3);border-bottom:2px solid var(--ink-3);transform:translateY(-3px) rotate(45deg);transition:transform var(--dur)}
@@ -545,9 +550,9 @@ body.jfs .card.flat.scroll.mscroll{max-height:calc(100vh - 48px)!important;max-h
 /* ===== карточка спортсмена и форма оплаты (этап 4) ===== */
 .person-card .person-head h1{margin:0;text-wrap:balance}
 .subbox{display:grid;grid-template-columns:auto 1fr;gap:2px 16px;align-items:center;padding:14px 16px;border-radius:var(--r);background:var(--sunk);margin-top:16px}
-.subbox .big{grid-row:span 2;font-size:2.75rem;font-weight:750;line-height:1;color:var(--ink)}
-.subbox .l1{font-weight:650;font-size:1.0625rem}
-.subbox .l2{font-size:.9375rem;color:var(--ink-2)}
+.subbox .big{grid-row:span 2;font-size:3rem;font-weight:800;line-height:1;color:var(--ink)}
+.subbox .l1{font-weight:800;font-size:1.1875rem;color:var(--ink)}
+.subbox .l2{font-size:1rem;font-weight:600;color:var(--ink)}   /* 23.10.2026: пожирнее — остаток и срок видно сразу */
 .subbox .meter{grid-column:1/-1;height:6px;border-radius:3px;background:var(--surface);overflow:hidden;margin-top:8px}
 .subbox .meter i{display:block;height:100%;background:var(--accent-btn)}
 .subbox.warn .big{color:var(--warn)} .subbox.bad{background:var(--bad-bg)} .subbox.bad .big{color:var(--bad)}
@@ -555,6 +560,9 @@ body.jfs .card.flat.scroll.mscroll{max-height:calc(100vh - 48px)!important;max-h
 .person-acts > .btn,.person-acts > details > summary.btn{min-height:48px;font-size:1rem}
 .person-acts .menu-pop{left:auto;right:0}
 .contacts{margin:14px -16px -16px;border-top:1px solid var(--line)}
+.contacts-d > summary{list-style:none;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;padding:12px 16px;cursor:pointer;min-height:var(--tap)} .contacts-d > summary::-webkit-details-marker{display:none}
+.contacts-d > summary::after{content:'';margin-left:auto;align-self:center;width:8px;height:8px;border-right:2px solid var(--ink-3);border-bottom:2px solid var(--ink-3);transform:rotate(-45deg);transition:transform var(--dur)} .contacts-d[open] > summary::after{transform:rotate(45deg)}
+@media print{.contacts-d > .contact{display:flex!important}}
 .contact{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid var(--line)}
 .contact:first-child{border-top:0}
 .contact .who b{white-space:normal}
@@ -2675,7 +2683,7 @@ function render() {
   if (keep && main0 && main0.contains(keep)) { const t = document.createElement('main'); t.innerHTML = body; patched = patchKeep(main0, t, keep); }
   if (!patched) document.getElementById('app').innerHTML = `<div class="shell">${navHTML(navKey)}<main>${body}</main></div>`;
   if (v === 'person') applySections();
-  foldHints(); segTails();
+  foldHints(); segTails(); tableTails();
   const jm = v === 'journal' && ui.journal.tab === 'month';
   document.body.classList.toggle('jfs', jm && !!ui.journal.fs);           // «Во весь экран» — только в «Месяце»
   if (jm && (!render.keepScroll || render.forceFocus) && render.monthFocus != null) { const sc = document.querySelector('.mscroll'), th = sc && sc.querySelectorAll('thead th')[render.monthFocus + 1];
@@ -3822,7 +3830,9 @@ function vPerson(id) {
     <div class="row no-print person-acts">${a.status === 'приостановил' ? `<button class="btn primary" data-act="pause-return" data-id="${id}">Вернулся</button>` : ''}<button class="btn ${a.status === 'приостановил' ? '' : 'primary'}" data-act="sub-new" data-id="${id}">Оплата</button><button class="btn" data-act="msg" data-id="${id}">Написать</button>
       <details class="menu"><summary class="btn" aria-label="Другие действия">⋯ Ещё</summary><div class="menu-pop"><button class="btn" data-act="transfer-new" data-id="${id}">Перевести в другую группу</button><button class="btn" data-act="person-edit" data-id="${id}">Изменить данные</button><button class="btn" data-act="weigh-new" data-id="${id}">Записать взвешивание</button></div></details></div>
     ${a.status === 'приостановил' || (a.pauses || []).length ? `<div class="small" style="margin-top:10px">${a.status === 'приостановил' ? `<b>На перерыве${a.pauseFrom ? ' с ' + D.ru(a.pauseFrom) : ''}</b> <button class="btn sm no-print" data-act="pause-date" data-id="${id}">Изменить дату</button> — ${a.pauseFrom && a.pauseFrom > ix.today ? 'до этой даты остаётся в списке группы, потом' : ''} в списке группы не показывается. Вернулся — нажмите «Вернулся» и укажите дату.` : ''}${(a.pauses || []).length ? `<span class="muted"> Перерывы: ${a.pauses.map(p => (p.from ? D.ru(p.from) : '…') + ' — ' + D.ru(D.add(p.to, -1))).join('; ')}.</span>` : ''}</div>` : ''}
-    <div class="contacts">${personContacts(a, c)}</div></div>
+    ${(() => { const html = personContacts(a, c); if (!html || !/class="contact[ "]/.test(html) || /chip bad/.test(html) && !/btn call/.test(html)) return `<div class="contacts">${html}</div>`;   // 23.10.2026: «Родители» свёрнуты
+      const who = [a.motherPhone || a.motherName ? 'мать' : '', a.fatherPhone || a.fatherName ? 'отец' : '', a.phone ? 'спортсмен' : ''].filter(Boolean).join(', ');
+      return `<details class="contacts contacts-d"${ui.contactsOpen === a.id ? ' open' : ''} data-contacts data-id="${a.id}"><summary><b>Родители и телефоны</b><span class="small muted">${h(who)}${c.contact ? ' · основной: ' + h(fmtPhone(cleanPhone(c.contact))) : ''}</span></summary>${html}</details>`; })()}</div>
   ${personSummary(a, c, freezes)}
   ${refundCard}
   <div class="grid2">
@@ -3841,7 +3851,7 @@ function vPerson(id) {
     ${ringsAhead}<div class="small muted" style="margin-top:10px">Последние ${Math.min(24, marks.length) || ''} ${plural(Math.min(24, marks.length), 'отметка', 'отметки', 'отметок')}, новые слева · нажмите — дата и группа</div><div class="row" style="gap:6px 4px;margin-top:4px;flex-wrap:wrap">${marks.slice(0, 24).map(m => { const rg = ringOf(m); return `<button type="button" class="mlast" data-act="mark-info" data-txt="${h(D.ru(m.date) + ', ' + DOW_FULL[D.dow(m.date)] + (m.group ? ' · ' + m.group : '') + ' — ' + (m.mark === 'б' && isBS(ix, id, m.date) ? 'болел, справка внесена (бс)' : MARKS[m.mark] ? MARKS[m.mark].label : m.mark) + (m.trial ? ' (пробное)' : '') + (rg ? ' · ' + rg[1] : ''))}" title="${D.ru(m.date)} ${h(m.group)}${rg ? ' — ' + rg[1] : ''}"><span class="cell-m ${{ '+': 'm-plus', 'н': 'm-n', 'б': 'm-b', 'о': 'm-o', 'с': 'm-s' }[m.mark] || ''}${rg ? ' ' + rg[0] : ''}">${h(m.mark === 'б' && isBS(ix, id, m.date) ? 'бс' : m.mark)}</span><small>${D.short(m.date)}</small></button>`; }).join('') || '<span class="muted">Отметок нет</span>'}</div>${marks.length > 24 ? `<div class="small muted" style="margin-top:6px">Все отметки — «Печать за период» или «Посещения» → «Месяц».</div>` : ''}</div>
   </div>
   <div class="card flat${alert.subs ? ' sec-alert' : ''}"><div class="row" style="padding:14px 16px 6px"><h2 style="margin:0">Абонементы</h2><span class="spacer"></span>${R ? '' : `<button class="btn sm no-print" data-act="refuse" data-id="${id}">Отказ от договора</button>`}<button class="btn sm no-print" data-act="freeze-new" data-id="${id}">Заморозка</button><button class="btn sm no-print" data-act="sub-wait" data-id="${id}">Ждём оплату</button><button class="btn sm no-print" data-act="sub-new" data-id="${id}">Добавить</button></div>
-  ${subsCtl}${subs.length ? `<div class="scroll"><table class="t"><thead><tr><th>Действует с</th><th class="r">Занятий</th><th class="r">Сумма</th><th class="r">Был</th><th class="r">Не был</th><th class="r">Болел</th><th class="r">Остаток</th><th>Окончание</th><th></th></tr></thead><tbody>
+  ${subsCtl}${subs.length ? `<div class="scroll tail-x"><table class="t"><thead><tr><th>Действует с</th><th class="r">Занятий</th><th class="r">Сумма</th><th class="r">Был</th><th class="r">Не был</th><th class="r">Болел</th><th class="r">Остаток</th><th>Окончание</th><th></th></tr></thead><tbody>
   ${shownSubs.map(p => { const r = ix.subCalc.get(p.id); return `<tr class="click" data-act="sub-edit" data-id="${p.id}"><td class="num">${startLabel(p, r)}${p.onlyGroup ? ' <span class="chip">' + h(p.onlyGroup) + '</span>' : ''}</td><td class="r num">${p.count}${+p.bonus > 0 ? ` <span class="chip ok" title="${h(p.bonusNote || 'решение тренера')}">+${p.bonus}</span>` : ''}</td><td class="r num">${amountCell(p)}</td><td class="r num">${r.was}</td><td class="r num">${r.missed}</td><td class="r num">${r.sick}${r.sickCharged ? ' (спис. ' + r.sickCharged + ')' : ''}</td><td class="r num"><b>${r.remaining}</b></td><td class="num">${r.end ? D.ru(r.end) : (r.endKind === 'nosched' ? '<span class="small muted">нет расписания</span>' : r.endKind === 'pkg' ? '<span class="small muted">пакет, без срока</span>' : '')}</td><td><span class="chip ${r.tone}">${h(r.status)}</span>${notifyBadges(p, r)}</td></tr>`; }).join('')}</tbody></table></div>${subsMore}` : '<div class="empty">Абонементов нет</div>'}
   ${freezes.length ? `<div style="padding:8px 16px 14px"><h3>Заморозки по болезни</h3><ul class="list">${freezes.map(f => { const fc = calcFreeze(ix, f); return `<li class="click" data-act="freeze-edit" data-id="${f.id}"><div class="who"><b>${D.ru(f.from)} — ${f.to ? D.ru(f.to) : '…'}</b><span class="small">${h(fc.text)}</span></div><span class="chip ${{ 'прекращена': 'bad', 'ошибка': 'bad', 'предварительно': 'warn', 'оформлена': 'ok' }[freezeState(fc, f)] || 'sick'}">${freezeState(fc, f)}</span></li>`; }).join('')}</ul></div>` : ''}</div>
   <div class="grid2"><div class="card flat"><div class="row" style="padding:14px 16px 6px"><h2 style="margin:0">Пояса</h2><span class="spacer"></span><button class="btn sm no-print" data-act="award-new" data-id="${id}">Присвоить</button></div>
@@ -3886,7 +3896,7 @@ function personSummary(a, c, freezes) {
     if (!Object.values(k).some(Boolean) && !a.healthConsent) L.push(['Документы', '<span class="muted">не отмечены</span>']);
     else { const miss = docsMissing(a, c); if (miss.length) L.push(['Не хватает', miss.join(', ')]); }
   }
-  return `<div class="card sec-keep" style="padding-top:12px;padding-bottom:12px"><dl class="kv">${L.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></div>`;
+  return `<div class="card sec-keep psum" style="padding-top:12px;padding-bottom:12px"><dl class="kv">${L.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></div>`;
 }
 /* 23.10.2026: длинные пояснения (серый текст) свёрнуты в «ⓘ Пояснение»; абзацы с данными (class="keep") и окна — не сворачиваются */
 function foldHints() {
@@ -3903,6 +3913,18 @@ function foldHints() {
     p.before(b);
   }
 }
+/* 23.10.2026: таблица шире экрана (.tail-x) — затухание края и стрелки ‹ › ; листать можно и пальцем */
+function tableTails() {
+  document.querySelectorAll('main .tail-x').forEach(sc => {
+    let w = sc.parentElement;
+    if (!w.classList.contains('tx-wrap')) { w = document.createElement('div'); w.className = 'tx-wrap'; sc.before(w); w.append(sc);
+      const mk = (cl, t, dx) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'seg-arr tx ' + cl + ' no-print'; b.textContent = t; b.setAttribute('aria-label', cl === 'r' ? 'Прокрутить вправо' : 'Прокрутить влево');
+        b.onclick = e => { e.stopPropagation(); sc.scrollBy({ left: dx * sc.clientWidth * 0.7, behavior: 'smooth' }); }; w.append(b); };
+      mk('l', '‹', -1); mk('r', '›', 1); }
+    const upd = () => { const r = sc.scrollLeft + sc.clientWidth < sc.scrollWidth - 4, l = sc.scrollLeft > 4; sc.classList.toggle('more-r', r); sc.classList.toggle('more-l', l); w.classList.toggle('more-r', r); w.classList.toggle('more-l', l); };
+    if (!sc.dataset.tail) { sc.dataset.tail = '1'; sc.addEventListener('scroll', upd, { passive: true }); } upd();
+  });
+}
 function segTails() {                             // 23.10.2026: вкладки шире экрана — затухание и стрелки ‹ › ; выбранная вкладка — в видимой части
   document.querySelectorAll('main .seg:not(.full)').forEach(sg => {
     if (sg.scrollWidth <= sg.clientWidth + 4) return;
@@ -3914,7 +3936,7 @@ function segTails() {                             // 23.10.2026: вкладки 
     if (!sg.dataset.tail) { sg.dataset.tail = '1'; sg.addEventListener('scroll', upd, { passive: true }); } upd();
   });
 }
-addEventListener('resize', () => { clearTimeout(segTails.t); segTails.t = setTimeout(segTails, 150); });
+addEventListener('resize', () => { clearTimeout(segTails.t); segTails.t = setTimeout(() => { segTails(); tableTails(); }, 150); });
 function applySections() {                         // разделы карточки сворачиваются; что открыто — запоминается на устройстве
   const st = meta.secOpen || {};
   document.querySelectorAll('main .card').forEach(c => {
@@ -3924,7 +3946,7 @@ function applySections() {                         // разделы карто�
     const key = h2.textContent.trim().split(/\s+/)[0];
     head.classList.add('sec-head'); c.classList.add('sec'); if (!st[key] && !c.classList.contains('sec-alert')) c.classList.add('sec-closed');   // 23.10.2026: раздел с проблемой — открыт
     head.addEventListener('click', e => { if (e.target.closest('button,a,select,input,label')) return;
-      c.classList.toggle('sec-closed'); meta.secOpen = Object.assign({}, meta.secOpen || {}, { [key]: !c.classList.contains('sec-closed') }); writeMeta(); });
+      c.classList.toggle('sec-closed'); meta.secOpen = Object.assign({}, meta.secOpen || {}, { [key]: !c.classList.contains('sec-closed') }); writeMeta(); tableTails(); });
   });
 }
 
@@ -6856,6 +6878,7 @@ function showError(err) { console.error(err); notice('Ошибка: ' + (err && 
 document.addEventListener('change', safeChange);
 document.addEventListener('toggle', e => { if (e.target.matches && e.target.matches('details[data-filt]')) ui.peopleFiltOpen = e.target.open;
   if (e.target.matches && e.target.matches('details[data-later]')) { meta.laterOpen = e.target.open; writeMeta(); }
+  if (e.target.matches && e.target.matches('details[data-contacts]')) ui.contactsOpen = e.target.open ? e.target.dataset.id : '';   // открыто — только у этой карточки, пока не ушли
   if (e.target.matches && e.target.matches('details[data-frz]')) { meta.frzOpen = e.target.open; writeMeta(); }
   if (e.target.matches && e.target.matches('details[data-renew]')) ui.money.renewOpen = e.target.open;
   if (e.target.matches && e.target.matches('details[data-res]')) ui.money.resOpen = e.target.open;
