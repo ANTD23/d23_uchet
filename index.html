@@ -251,7 +251,7 @@ table.t tr.pend:hover td,table.t tr.rem1:hover td,table.t tr.rem2:hover td{filte
 .attn-sec.s-warn > .attn-h::before{background:var(--warn-fill)}
 .attn-sec.s-later > .attn-h{color:var(--ink-2);cursor:pointer;min-height:var(--tap)}
 .attn-sec.s-sick > .attn-h{color:var(--ink-2);cursor:pointer;min-height:var(--tap)} .attn-sec.s-sick > .attn-h::before{background:var(--sick-fill)}
-.fz-list{border-bottom:1px solid var(--line)} .fz-sub{font-size:.78rem;font-weight:600;color:var(--ink-2);margin:10px 4px 4px} .fz-sub .muted{font-weight:400}
+.fz-list{border-bottom:1px solid var(--line)} .fin-sec{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2);margin:20px 4px 8px} .fin-sec:first-child{margin-top:4px} table.fin-kv td{padding:5px 8px;border-bottom:1px solid var(--line)} table.fin-kv{width:100%} .fz-sub{font-size:.78rem;font-weight:600;color:var(--ink-2);margin:10px 4px 4px} .fz-sub .muted{font-weight:400}
 .attn-sec .alert:first-of-type{border-top:0}
 .plan-sec{overflow:hidden} .plan-in{display:flex;flex-direction:column;gap:12px;padding:4px 12px 12px} .plan-in .plan-sec{border:1px solid var(--line);border-radius:var(--r)} .plan-h{padding:12px 16px;font-weight:700;font-size:1.0625rem;background:var(--surface-2);border-bottom:1px solid var(--line);border-left:5px solid var(--line-strong)}
 .ps-write .plan-h{border-left-color:var(--warn-fill)} .ps-train .plan-h{border-left-color:var(--sick-fill)} .ps-money .plan-h{border-left-color:var(--ok-fill)} .ps-later .plan-h{color:var(--ink-2)}
@@ -994,7 +994,7 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
       if (m.mark === 'н' && fr.some(x => x.f.subId === p.id && !frUnconf(x) && (x.c.mode === 'b' || x.c.mode === 'wait') && x.c.base && m.date > x.c.base && (!x.c.ret || m.date < x.c.ret))) charged = false;
       if (!charged) { if (used < cap) { if (mk === 'б') r.sick++; else if (mk === 'с') r.comp++; else if (mk === 'о') r.cancel++; } continue; }
       if (used >= cap) break;
-      m.used = true; used++; if (m.auto) r.blank = (r.blank || 0) + 1;
+      m.used = true; used++; if (m.auto) r.blank = (r.blank || 0) + 1; (r.chargedDates = r.chargedDates || []).push(m.date);   // 23.10.2026: «отработано» — по датам списанных занятий
       if (mk === '+') r.was++; else if (mk === 'н' || mk === 'с') r.missed++; else { r.sick++; r.sickCharged++; if (prov) { r.provSick = (r.provSick || 0) + 1; (r.provDates = r.provDates || []).push(m.date); } }
       if (mk === '+' && m.mark === '+' && p.pending) (r.owedPlus = r.owedPlus || []).push(m.date);
       if (m.mark === '+') (r.plusList = r.plusList || []).push({ date: m.date, group: m.group || '', n: carry + used });   // какое по счёту посещение этой оплаты (журнал: «3/10», «р»)   // 20.10.2026: посещение в счёт «ждём оплату» — в журнале «д»
@@ -1489,6 +1489,15 @@ function normFin(d) {                              // настройки ден�
   if (!F.accounts.some(a => a.id === F.defAcc)) F.defAcc = F.accounts[0].id;
   if (!F.coachInit) { if (!F.coaches.length && d.settings.coachSecond) F.coaches.push({ id: 'c1', name: d.settings.coachSecond, groups: [], fixed: 0, perSession: 0, pct: 0, from: '', to: '' }); F.coachInit = true; }
   if (!Array.isArray(d.ops)) d.ops = [];
+  if (!F.perMig) {                                 // 23.10.2026: «за октябрь» в примечании расхода → «За месяц» (если месяц соседний с датой оплаты)
+    const MN = ['январ', 'феврал', 'март', 'апрел', 'ма[йя]', 'июн', 'июл', 'август', 'сентябр', 'октябр', 'ноябр', 'декабр'];
+    for (const o of d.ops) {
+      if (o.kind !== 'out' || o.period || !o.note || !o.date || (F.outCats.find(c => c.id === o.cat) || {}).nonop) continue;
+      const i = MN.findIndex(m => new RegExp('(^|\\s)за\\s+' + m, 'i').test(o.note)); if (i < 0) continue;
+      for (const k of [0, 1, -1]) { const ym = ymAdd(ymOf(o.date), k); if (+ym.slice(5) === i + 1) { if (k) o.period = ym; break; } }
+    }
+    F.perMig = 1;
+  }
   return d;
 }
 const finS = d => d.settings.fin || FIN_DEFAULT;
@@ -1549,7 +1558,8 @@ function finPeriod(d, from, to, items = moneyItems(d)) {
   const R = { incAcc: {}, inc: 0, out: 0, refunds: 0, ownIn: 0, ownOut: 0, taxable: 0, person: 0, org: 0, incCat: {}, outCat: {}, outGroup: {}, group: {}, subs: { n: 0, sum: 0 }, ones: { n: 0, sum: 0 }, payers: new Set(), subPay: { sum: 0, ids: new Set() } };
   const add = (o, k, v) => { o[k] = (o[k] || 0) + v; };
   for (const x of items) {
-    if (x.date < from || x.date > to) continue;
+    const dt = x.kind === 'out' ? expDate(x) : x.date;                 // 23.10.2026: расход — в месяц, за который он («За месяц»)
+    if (dt < from || dt > to) continue;
     if (x.kind === 'in') {
       if (x.nonop) { R.ownIn += x.amount; continue; }
       const net = x.amount - x.refund;
@@ -1668,6 +1678,35 @@ function recurOpen(d, today, items = moneyItems(d)) {   // неоплаченн�
   const from = D.max(ymOf(F.start), ymAdd(ymOf(today), -12)), out = [];
   for (const ym of ymList(from + '-01', today)) for (const x of recurDue(d, ym, items, today)) if (!x.done) out.push(x);
   return out;
+}
+/* 23.10.2026: месяц расхода — «За месяц» (если указан и отличается от месяца оплаты), иначе дата оплаты.
+   Аренда, оплаченная 29.09 за октябрь, — расход октября; зарплата за сентябрь, выплаченная в октябре, — расход сентября */
+function expDate(x) { const p = x.kind === 'out' && x.period; if (!p || p === ymOf(x.date)) return x.date; return p < ymOf(x.date) ? ymBounds(p)[1] : p + '-01'; }
+function expByCat(d, ym, items = moneyItems(d)) {      // расходы месяца по статьям (по месяцу расхода), без личных средств
+  const [a, b] = ymBounds(ym), o = {};
+  for (const x of items) { if (x.kind !== 'out' || x.nonop) continue; const dt = expDate(x); if (dt >= a && dt <= b) o[x.cat] = (o[x.cat] || 0) + x.amount; }
+  return o;
+}
+/* план расходов месяца по статьям: «План в месяц» статьи, а если не задан — сумма регулярных платежей этой статьи. Налог и личные средства — не здесь */
+function planOut(d, ym) {
+  const F = finS(d), out = {};
+  for (const c of F.outCats) {
+    if (c.nonop || c.id === 'tax' || c.off) continue;
+    const rec = (F.recur || []).filter(r => r.cat === c.id && !r.off && +r.amount > 0 && (!r.from || recurStart(r) <= ym)).reduce((n, r) => n + (+r.amount || 0), 0);
+    const v = +c.plan > 0 ? +c.plan : rec; if (v > 0) out[c.id] = v;
+  }
+  return out;
+}
+/* «отработано»: стоимость занятий, списанных за период по оплаченным абонементам и разовым (цена абонемента ÷ число занятий × списанные) */
+function earnedPeriod(ix, from, to) {
+  let sum = 0, n = 0;
+  for (const p of ix.db.subs) {
+    if (p.pending || !(+p.amount > 0)) continue;
+    const r = ix.subCalc.get(p.id); if (!r || !r.chargedDates) continue;
+    const per = +p.amount / Math.max(1, subTotal(p));
+    for (const dd of r.chargedDates) if (dd >= from && dd <= to) { sum += per; n++; }
+  }
+  return { sum: Math.round(sum), n };
 }
 /* неотработанные оплаты: сколько пришлось бы вернуть, если бы сегодня отказались все (п. 10.4) */
 function prepaidTotal(ix) {
@@ -1942,7 +1981,7 @@ function yearStats(d, ix, y, items) {
   return { y: Y, months, startN: on(D.add(a0, -1)), endN: on(D.min(b0, ix.today)), newcomers: sum('newcomers'), left: sum('left'), sessions: sum('sessions'), visits: sum('visits'),
     inc: sum('inc'), out: sum('out'), profit: sum('profit'), leads: sum('leads'), tenure, ended, renewed, moneyFrom: ps };
 }
-if (typeof module !== 'undefined') module.exports = { bdayOn, perVisitOn, freezeRange, freezeSub, isBS, freezeState, plusAfter, pausedOn, normExtra, tariffFor, tariffAudit, leadStage, leadFunnel, attendDrop, isPkg, isGuest, newbieCheck, metricsCalc, summerCalc, beltCalc, isKidOn, yearStats, LEAD_STATUSES, normFin, finS, finCat, refundShares, moneyItems, finPeriod, finBalances, finFlow, taxMonths, taxAll, recurOpen, yearIncome, uncheckedItems, coachMonth, coachDebt, recurDue, prepaidTotal, anonMoney, ymBounds, ymAdd, ymList, FIN_DEFAULT, subTotal, tripAt, refundFor, refundInfo, refundAuto, daysOn, D, buildIndex, calcFreeze, calcAdmission, calcTest, fillTemplate, groupOn, inGroupOn, nthTrainDay, payDeadline, firstSession, fullName, shortName, cleanPhone, fmtPhone, EX };
+if (typeof module !== 'undefined') module.exports = { bdayOn, expDate, expByCat, planOut, earnedPeriod, perVisitOn, freezeRange, freezeSub, isBS, freezeState, plusAfter, pausedOn, normExtra, tariffFor, tariffAudit, leadStage, leadFunnel, attendDrop, isPkg, isGuest, newbieCheck, metricsCalc, summerCalc, beltCalc, isKidOn, yearStats, LEAD_STATUSES, normFin, finS, finCat, refundShares, moneyItems, finPeriod, finBalances, finFlow, taxMonths, taxAll, recurOpen, yearIncome, uncheckedItems, coachMonth, coachDebt, recurDue, prepaidTotal, anonMoney, ymBounds, ymAdd, ymList, FIN_DEFAULT, subTotal, tripAt, refundFor, refundInfo, refundAuto, daysOn, D, buildIndex, calcFreeze, calcAdmission, calcTest, fillTemplate, groupOn, inGroupOn, nthTrainDay, payDeadline, firstSession, fullName, shortName, cleanPhone, fmtPhone, EX };
 
 /* ===== D23 CRM — интерфейс, часть 1 ===== */
 const OFFICIAL_TEMPLATES = [
@@ -4548,6 +4587,7 @@ const rubN = v => (Math.round(+v || 0)).toLocaleString('ru');
 function finItems() { if (finItems.ix !== ix) { finItems.ix = ix; finItems.v = moneyItems(db); } return finItems.v; }
 function accName(id) { const A = finS(db).accounts.find(x => x.id === id); return A ? A.name : id ? 'счёт удалён' : 'не указано'; }
 function coachName(id) { const c = finS(db).coaches.find(x => x.id === id); return c ? c.name : 'тренер удалён'; }
+function mLoc(ym) { const m = MONTHS[+ym.slice(5) - 1]; return m === 'май' ? 'мае' : m.replace(/ь$/, 'е').replace(/т$/, 'те'); }   // «в октябре», «в марте», «в мае»
 function ymRu(ym) { const [y, m] = ym.split('-').map(Number); return MONTHS[m - 1] + ' ' + y; }
 function itemWho(x) { const a = x.aid && ix.ath.get(x.aid); return a ? shortName(a) : ''; }
 function itemText(x) {
@@ -4594,6 +4634,82 @@ function incAccLine(P) {                          // №32: «в т. ч. нал�
   const ord = finS(db).accounts.map(a => a.id), pos = k => { const i = ord.indexOf(k); return k === '' ? 999 : i < 0 ? 998 : i; };
   return 'в т. ч. ' + L.sort((a, b) => pos(a[0]) - pos(b[0])).map(([k, v]) => (k ? accName(k) : 'способ оплаты не указан') + ' ' + rub(v)).join(' · ');
 }
+/* 23.10.2026: план расходов месяца с зарплатой тренеров (если по схеме начислено больше плана статьи) */
+function planOutM(ym) {
+  const P = planOut(db, ym), items = finItems();
+  if (ym <= ymOf(ix.today)) { const acc = finS(db).coaches.filter(c => coachActive(c, ym)).reduce((n, c) => n + coachMonth(db, ix, c, ym, items).accrued, 0); if (acc > (P.salary || 0)) P.salary = acc; }
+  return P;
+}
+function planLeft(ym) {                               // сколько ещё уйдёт по плану в месяце: план − уже оплачено за этот месяц (не меньше 0)
+  const P = planOutM(ym), F = expByCat(db, ym, finItems()), o = {};
+  for (const [k, v] of Object.entries(P)) { const l = Math.max(0, v - (F[k] || 0)); if (l) o[k] = l; }
+  return o;
+}
+/* плановые расходы с сегодня до даты: регулярный платёж — целиком в день срока, остальное по плану — равномерно по дням месяца */
+function planOutflow(to) {
+  const t = ix.today, F = finS(db), L = [];
+  for (const ym of ymList(t, to)) {
+    const [a, b] = ymBounds(ym), left = planLeft(ym);
+    for (const [cat, v] of Object.entries(left)) {
+      const rec = F.recur.find(r => r.cat === cat && !r.off && +r.amount > 0 && (!r.from || recurStart(r) <= ym));
+      let part = 0;
+      if (rec) part = recurDay(rec, ym) <= to ? v : 0;
+      else { const s0 = D.max(a, t), e0 = D.min(b, to); part = e0 >= s0 ? Math.round(v * (D.diff(s0, e0) + 1) / (D.diff(s0, b) + 1)) : 0; }
+      if (part > 0) L.push({ cat, ym, sum: part });
+    }
+  }
+  return L;
+}
+/* прогноз денег до даты и ожидаемый итог текущего месяца */
+function finOutlook(to) {
+  const F = finS(db), t = ix.today, ym = ymOf(t), items = finItems(), [m1, mEnd] = ymBounds(ym), rate = (+F.rate || 4) / 100;
+  const pendL = db.athletes.filter(a => a.status === 'занимается').map(a => ix.athCalc.get(a.id)).filter(c => c && c.pendingSub), pend = pendL.reduce((n, c) => n + (+c.pendingSub.amount || 0), 0);
+  const RM = renewForecast(mEnd), RD = renewForecast(to), cur = finPeriod(db, m1, mEnd, items), TA = taxAll(db, items, t), tm = TA.find(m => m.ym === ym);
+  // ожидаемый итог месяца
+  const left = planLeft(ym), leftSum = Object.values(left).reduce((n, v) => n + v, 0);
+  const taxM = (tm ? tm.left : 0) + Math.round((pend + RM.sum) * rate);
+  const month = { inc: cur.inc, pend, ren: RM.sum, renN: RM.list.length, out: cur.out, left, leftSum, tax: taxM };
+  month.result = month.inc + pend + RM.sum - cur.out - leftSum - taxM;
+  // прогноз денег до даты
+  const bal = F.start ? finBalances(db, D.max(t, F.start), items) : null, cash = bal ? Object.values(bal).reduce((n, v) => n + v, 0) : null;
+  const plan = planOutflow(to), planSum = plan.reduce((n, x) => n + x.sum, 0);
+  const overdue = (F.start ? recurOpen(db, t, items).filter(x => x.ym < ym) : []).reduce((n, x) => n + Math.max(0, (+x.r.amount || 0) - x.paid), 0);
+  const taxDue = TA.filter(m => m.due <= to && m.left > 0).reduce((n, m) => n + m.left, 0);
+  const incBy = {}; incBy[ym] = pend; for (const x of RD.list) { const k = ymOf(D.max(x.end, t)); incBy[k] = (incBy[k] || 0) + x.amount; }
+  const taxExp = Object.entries(incBy).filter(([k]) => ymAdd(k, 1) + '-28' <= to).reduce((n, [, v]) => n + Math.round(v * rate), 0);
+  const coachPast = F.coaches.reduce((n, c) => n + Math.max(0, coachDebt(db, ix, c, D.add(m1, -1), items).left), 0);
+  const fc = { to, cash, pend, ren: RD.sum, renN: RD.list.length, plan, planSum, overdue, tax: taxDue + taxExp, coachPast };
+  fc.change = pend + RD.sum - planSum - overdue - fc.tax - coachPast; fc.end = cash == null ? null : cash + fc.change;
+  // безубыточность
+  const fixed = Object.values(planOutM(ym)).reduce((n, v) => n + v, 0), need = fixed ? Math.round(fixed / (1 - rate)) : 0;
+  const P90 = finPeriod(db, D.add(t, -90), t, items), avg = P90.subs.n ? Math.round(P90.subs.sum / P90.subs.n) : +(db.settings.prices || {}).sub || 0;
+  const be = { fixed, need, avg, subs: need && avg ? Math.ceil(need / avg) : 0, paidSubs: cur.subs.n, inc: cur.inc, expInc: cur.inc + pend + RM.sum };
+  return { month, fc, be, RM, RD };
+}
+/* 23.10.2026: ожидаемые продления до даты — у кого абонемент закончится (или уже закончился за последние 2 недели), нового нет.
+   Если до даты человек успеет пройти ещё один абонемент — продлений несколько. Сумма — по последней цене
+   (если платил по тарифу — по тарифу на дату продления: ребёнок мог перейти на взрослый). «Ждём оплату» сюда не входит. */
+function renewForecast(to) {
+  const t = ix.today, L = [];
+  for (const a of db.athletes) {
+    if (a.status !== 'занимается' || a.noSub || perVisitOn(a, t)) continue;
+    const c = ix.athCalc.get(a.id); if (!c || !c.sub || c.pendingSub) continue;
+    const q = c.nextSub || c.sub, r = ix.subCalc.get(q.id), n = subTotal(q);
+    if (!r || r.terminated || r.pkg || (+q.count || 0) <= 1 || !(+q.amount > 0)) continue;
+    const groups = subGroups(ix, q);
+    let E = r.notActive ? (c.subCalc && c.subCalc.end ? nthTrainDay(ix, D.add(D.max(c.subCalc.end, D.add(t, -1)), 1), n, groups) : '') : r.end;
+    if (!E || E < D.add(t, -14)) continue;                                   // закончился давно — скорее всего, не продлит (это пункт «не ходит» на «Сегодня»)
+    const std = tariffFor(db, a, q.count, q.payDate || q.start || t), byTariff = std && std.price && +q.amount === std.price;
+    for (let k = 0; k < 24 && E && E <= to; k++) {
+      const pd = D.max(E, t), T = byTariff ? tariffFor(db, a, q.count, pd) : null, amt = T && T.price ? T.price : +q.amount;
+      L.push({ a, end: E, over: E < t, amount: amt, sick: !!(r.provSick && k === 0), k });
+      if (r.provSick || frozenNow().some(x => x.a.id === a.id)) break;          // болеет — когда вернётся, неизвестно: следующий круг не загадываем
+      E = nthTrainDay(ix, D.add(D.max(E, D.add(t, -1)), 1), n, groups);
+    }
+  }
+  L.sort((x, y) => x.end.localeCompare(y.end) || shortName(x.a).localeCompare(shortName(y.a), 'ru'));
+  return { list: L, sum: L.reduce((n, x) => n + x.amount, 0), people: new Set(L.map(x => x.a.id)).size };
+}
 function vMoneyOverview() {
   const F = finS(db), t = ix.today, items = finItems(), ym = ymOf(t), [m1] = ymBounds(ym), [p1, p2] = ymBounds(ymAdd(ym, -1));
   const cur = finPeriod(db, m1, t, items), prev = finPeriod(db, p1, p2, items);
@@ -4615,17 +4731,60 @@ function vMoneyOverview() {
   const coachCard = coaches.length ? `<div class="card flat"><div style="padding:14px 16px 6px"><h2>Тренерам</h2></div><ul class="list">${coaches.map(c => { const Dt = coachDebt(db, ix, c, D.add(ym + '-01', -1), items), m = coachMonth(db, ix, c, ym, items);
     return `<li><div class="who"><b>${h(c.name)}</b><span class="small">${MONTHS[+ym.slice(5) - 1]} (идёт): начислено ${rub(m.accrued)}, выплачено ${rub(m.paid)}</span></div><span class="num" title="За прошедшие месяцы: начислено минус выплачено">${Dt.left > 0 ? 'долг за прошлые месяцы ' + rub(Dt.left) : Dt.left < 0 ? 'переплата ' + rub(-Dt.left) : 'за прошлые месяцы рассчитались'}</span><a class="btn sm" href="#money/coaches">Открыть</a></li>`; }).join('')}</ul></div>` : '';
   const pre = prepaidTotal(ix), pend = db.athletes.filter(a => a.status === 'занимается').map(a => ix.athCalc.get(a.id)).filter(c => c.pendingSub);
-  const soon = db.athletes.filter(a => a.status === 'занимается').map(a => ({ a, c: ix.athCalc.get(a.id) })).filter(({ c }) => c.sub && c.subCalc && !c.nextSub && !c.pendingSub && (+c.sub.count || 0) > 1 && !c.subCalc.terminated && (c.subCalc.remaining <= 2 || (c.subCalc.end && c.subCalc.end <= D.add(t, 14))));
+  const mEnd = ymBounds(ym)[1], U = ui.money; if (!U.renewTo || U.renewTo < t) U.renewTo = ymBounds(ymAdd(ym, 1))[1];
+  const RM = renewForecast(mEnd), RD = renewForecast(U.renewTo), nP = (k, n) => n + ' ' + plural(n, k[0], k[1], k[2]), PR = ['продление', 'продления', 'продлений'], PP = ['человек', 'человека', 'человек'];
+  const rLine = x => `<li><div class="who"><b>${h(shortName(x.a))}</b><span class="small">${h(x.a.group || '')} · ${x.over ? '<b style="color:var(--bad)">закончился ' + D.ru(x.end) + '</b>' : (x.k ? 'следующий раз, окончание ' : 'окончание ') + D.ru(x.end)}${x.sick ? ' · болеет — при справке позже' : ''}</span></div><span class="num">${rub(x.amount)}</span></li>`;
   const cliCard = `<div class="card"><h2>Клиенты и деньги</h2><div class="stats">
-    <div class="stat"><b>${rub(pend.reduce((n, c) => n + (+c.pendingSub.amount || 0), 0))}</b><span class="small muted">ждём оплату · ${pend.length} ${plural(pend.length, 'человек', 'человека', 'человек')}</span></div>
-    <div class="stat"><b>${rub(soon.reduce((n, x) => n + (+x.c.sub.amount || 0), 0))}</b><span class="small muted">ожидаемые продления в ближайшие 2 недели · ${soon.length}</span></div>
-    <div class="stat"><b>${rub(pre.sum)}</b><span class="small muted">неотработано по оплаченным абонементам (${pre.n}) — столько вернули бы, если бы сегодня отказались все</span></div></div></div>`;
+    <div class="stat"><b>${rub(pend.reduce((n, c) => n + (+c.pendingSub.amount || 0), 0))}</b><span class="small muted">ждём оплату · ${nP(PP, pend.length)}</span></div>
+    <div class="stat"><b>${rub(RM.sum)}</b><span class="small muted">ожидаемые продления до конца месяца (${D.short(mEnd)}) · ${nP(PR, RM.list.length)}</span></div>
+    <div class="stat"><b>${rub(RD.sum)}</b><span class="small muted">ожидаемые продления до <input type="date" data-change="renew-to" value="${U.renewTo}" min="${t}" style="width:auto;padding:2px 4px;font-size:.85rem;display:inline-block"> · ${nP(PR, RD.list.length)}${RD.people !== RD.list.length ? ', ' + nP(PP, RD.people) : ''}</span></div>
+    <div class="stat"><b>${rub(pre.sum)}</b><span class="small muted">неотработано по оплаченным абонементам (${pre.n}) — столько вернули бы, если бы сегодня отказались все</span></div></div>
+    ${RD.list.length ? `<details style="margin-top:10px"${U.renewOpen ? ' open' : ''} data-renew><summary class="small"><b>Кто продлевает до ${D.ru(U.renewTo)}</b></summary><ul class="list">${RD.list.map(rLine).join('')}</ul></details>` : ''}
+    <p class="small muted" style="margin-top:8px">Продления — оценка, если продлят все: по окончанию абонемента (по прогнозу — при посещении всех занятий по расписанию), по последней цене; кто платил по тарифу — по тарифу на дату продления. Закончившиеся за последние 2 недели без новой оплаты тоже входят; «ждём оплату» — отдельно.</p></div>`;
   const last = moneyRows('0000-01-01', '9999-12-31').slice(0, 8);
-  return `${balCard}
-  <div class="card"><h2>${MONTHS[+ym.slice(5) - 1][0].toUpperCase() + MONTHS[+ym.slice(5) - 1].slice(1)} (по ${D.short(t)})</h2><div class="stats">${stat(cur.inc, 'доходы' + (cur.refunds ? ', за вычетом возвратов' : ''), 'var(--ok)')}${stat(cur.out, 'расходы', 'var(--bad)')}${stat(cur.profit, 'прибыль', cur.profit < 0 ? 'var(--bad)' : '')}</div>${incAccLine(cur) ? `<p class="small muted" style="margin-top:8px">Доходы ${h(incAccLine(cur))}</p>` : ''}
-  <p class="small muted" style="margin-top:8px">Прошлый месяц (${MONTHS[+p1.slice(5, 7) - 1]}): доходы ${rub(prev.inc)}, расходы ${rub(prev.out)}, прибыль ${rub(prev.profit)}.${cur.ownIn || cur.ownOut ? ` Личные средства в этом месяце: вложено ${rub(cur.ownIn)}, взято ${rub(cur.ownOut)} — в прибыль не входят.` : ''}</p>
-  <div class="row" style="margin-top:8px"><a class="btn sm" href="#money/report">Отчёт</a></div></div>
-  ${recCard}${taxCard}${coachCard}${cliCard}
+  /* 23.10.2026: «Сейчас» — «Этот месяц» — «Впереди» */
+  const O = finOutlook(U.renewTo), M = O.month, FC = O.fc, BE = O.be, ps = pStartOf(db), mName = MONTHS[+ym.slice(5) - 1], MName = mName[0].toUpperCase() + mName.slice(1);
+  const kv = (l, v, o = {}) => `<tr${o.b ? ' style="font-weight:700"' : ''}><td${o.i ? ' style="padding-left:22px"' : ''}>${l}</td><td class="r num" style="text-align:right;white-space:nowrap${o.col ? ';color:' + o.col : ''}">${v}</td></tr>`;
+  const sgn = (v, plus) => (v < 0 ? '−' : plus ? '+' : '') + rubN(Math.abs(v)) + ' ₽';
+  const catList = o => Object.entries(o).map(([k, v]) => h(finCat(db, 'out', k).name) + ' ' + rubN(v)).join(', ');
+  const E = earnedPeriod(ix, D.max(m1, ps), t);
+  const noAccIn = (cur.incAcc || {})[''] || 0;
+  const prevTxt = p2 < ps ? `Прошлый месяц (${MONTHS[+p1.slice(5, 7) - 1]}): доходы в программу ещё не вносились (учёт с ${D.ru(ps)}) — прибыль за него не считается.`
+    : `Прошлый месяц (${MONTHS[+p1.slice(5, 7) - 1]}${p1 < ps ? ', неполный — учёт с ' + D.ru(ps) : ''}): доходы ${rub(prev.inc)}, расходы ${rub(prev.out)}, прибыль ${rub(prev.profit)}.`;
+  const monthCard = `<div class="card"><h2>${MName} (по ${D.short(t)})</h2><div class="stats">${stat(cur.inc, 'доходы получены' + (cur.refunds ? ', за вычетом возвратов' : ''), 'var(--ok)')}${stat(cur.out, 'расходы за ' + mName, 'var(--bad)')}${stat(cur.profit, 'прибыль сейчас', cur.profit < 0 ? 'var(--bad)' : '')}${stat(M.result, 'ожидаемый итог месяца', M.result < 0 ? 'var(--bad)' : '')}</div>
+    ${noAccIn ? `<div class="banner" style="margin-top:10px"><div class="spacer">${rub(noAccIn)} доходов месяца — без способа оплаты (наличные или карта не указаны)${F.start && F.start > m1 ? `: это оплаты до начала учёта денег (${D.ru(F.start)}), на остатки они не влияют — только на разбивку` : ''}.</div><button class="btn sm" data-act="noacc-open">Разнести</button></div>` : incAccLine(cur) ? `<p class="small muted" style="margin-top:8px">Доходы ${h(incAccLine(cur))}</p>` : ''}
+    <details style="margin-top:10px"${U.resOpen ? ' open' : ''} data-res><summary class="small"><b>Как получился ожидаемый итог</b></summary><table class="t fin-kv" style="margin-top:6px"><tbody>
+      ${kv('Доходы получены', sgn(M.inc))}
+      ${M.pend ? kv('+ ждём оплату', sgn(M.pend, 1), { i: 1 }) : ''}
+      ${kv(`+ ожидаемые продления до ${D.short(mEnd)} (${M.renN})`, sgn(M.ren, 1), { i: 1 })}
+      ${kv('− расходы за ' + mName + ' (уже оплачено)', sgn(-M.out), { i: 1 })}
+      ${kv('− ещё по плану до конца месяца' + (M.leftSum ? ` <span class="small muted">(${catList(M.left)})</span>` : ''), sgn(-M.leftSum), { i: 1 })}
+      ${kv('− налог за ' + mName + ' (оценка, с ожидаемыми оплатами)', sgn(-M.tax), { i: 1 })}
+      ${kv('= ожидаемый итог месяца', sgn(M.result), { b: 1, col: M.result < 0 ? 'var(--bad)' : '' })}</tbody></table>
+      <p class="small muted" style="margin-top:6px">Оценка: если продлят все, у кого абонемент заканчивается до конца месяца, и расходы будут по плану (план статей — «Настройки» → «Статьи расходов»). Расходы считаются за месяц, к которому относятся: аренда, оплаченная заранее за ${mName}, — в ${mLoc(ym)}.</p></details>
+    <div class="stats" style="margin-top:10px">${stat(E.sum, 'отработано занятиями (' + E.n + ' ' + plural(E.n, 'занятие', 'занятия', 'занятий') + ')')}${stat(pre.sum, 'неотработано — занятия ещё впереди')}</div>
+    <p class="small muted" style="margin-top:6px">«Отработано» — стоимость проведённых в этом месяце занятий по оплаченным абонементам и разовым (цена ÷ число занятий): так месяцы честно сравниваются, даже если оплаты пришли раньше. «Доходы получены» — по дате оплаты.</p>
+    <p class="small muted" style="margin-top:8px">${prevTxt}${cur.ownIn || cur.ownOut ? ` Личные средства за ${mName}: вложено ${rub(cur.ownIn)}, взято ${rub(cur.ownOut)} — в прибыль не входят.` : ''}</p>
+    <div class="row" style="margin-top:8px"><a class="btn sm" href="#money/report">Отчёт</a></div></div>`;
+  const beCard = `<div class="card"><h2>Безубыточность</h2>${BE.fixed ? `<div class="stats">${stat(BE.fixed, 'постоянные расходы в месяц по плану')}${stat(BE.need, 'нужно дохода (с налогом ' + (+F.rate || 4) + '%)')}<div class="stat"><b>${BE.subs}</b><span class="small muted">абонементов в месяц по среднему чеку ${rub(BE.avg)}</span></div>${stat(BE.expInc - BE.need, BE.expInc >= BE.need ? 'запас в ' + mLoc(ym) + ' (с ожидаемыми оплатами)' : 'не хватает в ' + mLoc(ym) + ' (с ожидаемыми оплатами)', BE.expInc >= BE.need ? 'var(--ok)' : 'var(--bad)')}</div>
+    <p class="small muted" style="margin-top:8px">Чтобы покрыть постоянные расходы, нужно примерно ${BE.subs} ${plural(BE.subs, 'абонемент', 'абонемента', 'абонементов')} в месяц; всё, что сверх, — прибыль. В ${mLoc(ym)} оплачено ${BE.paidSubs} ${plural(BE.paidSubs, 'абонемент', 'абонемента', 'абонементов')}, доходы ${rub(BE.inc)}. Средний чек — за последние 90 дней.</p>`
+    : '<p class="small muted">Укажите план расходов в месяц по статьям («Настройки» → «Статьи расходов» → «План в месяц») или регулярные платежи — программа посчитает, сколько абонементов в месяц покрывают расходы.</p>'}</div>`;
+  const fcCard = `<div class="card"><h2>Прогноз денег до <input type="date" data-change="renew-to" value="${U.renewTo}" min="${t}" style="width:auto;padding:2px 6px;font-size:1rem;display:inline-block"></h2>
+    <div class="stats">${FC.end != null ? stat(FC.end, 'будет на ' + D.ru(FC.to) + ' (оценка)', FC.end < 0 ? 'var(--bad)' : '') : ''}${stat(FC.change, FC.change >= 0 ? 'прибавится до ' + D.short(FC.to) : 'убавится до ' + D.short(FC.to), FC.change < 0 ? 'var(--bad)' : 'var(--ok)')}</div>
+    <table class="t fin-kv" style="margin-top:8px"><tbody>
+      ${FC.cash != null ? kv('Деньги сейчас', sgn(FC.cash)) : ''}
+      ${FC.pend ? kv('+ ждём оплату', sgn(FC.pend, 1), { i: 1 }) : ''}
+      ${kv(`+ ожидаемые продления (${FC.renN})`, sgn(FC.ren, 1), { i: 1 })}
+      ${kv('− расходы по плану' + (FC.plan.length ? ` <span class="small muted">(${catList(FC.plan.reduce((o, x) => (o[x.cat] = (o[x.cat] || 0) + x.sum, o), {}))})</span>` : ''), sgn(-FC.planSum), { i: 1 })}
+      ${FC.overdue ? kv('− просроченные регулярные платежи', sgn(-FC.overdue), { i: 1, col: 'var(--bad)' }) : ''}
+      ${FC.tax ? kv('− налог к уплате до ' + D.short(FC.to), sgn(-FC.tax), { i: 1 }) : ''}
+      ${FC.coachPast ? kv('− тренерам за прошлые месяцы', sgn(-FC.coachPast), { i: 1 }) : ''}
+      ${FC.end != null ? kv('= будет на ' + D.ru(FC.to), sgn(FC.end), { b: 1, col: FC.end < 0 ? 'var(--bad)' : '' }) : kv('= изменение денег', sgn(FC.change), { b: 1 })}</tbody></table>
+    <p class="small muted" style="margin-top:6px">Оценка «если продлят все». Регулярный платёж — целиком в свой срок, остальные расходы по плану — равномерно по дням. Налог — тот, срок уплаты которого (28-е число следующего месяца) наступает до этой даты. Личные траты сюда не входят: прогноз показывает, сколько можно взять, не оставив клуб без денег на аренду.</p></div>`;
+  const sec = l => `<div class="fin-sec">${l}</div>`;
+  return `${sec('Сейчас')}${balCard}
+  ${sec('Этот месяц')}${monthCard}${beCard}${taxCard}
+  ${sec('Впереди')}${fcCard}${recCard}${coachCard}${cliCard}
   <div class="card flat"><div style="padding:14px 16px 6px" class="row"><h2 style="margin:0">Последние операции</h2><span class="spacer"></span><a class="btn sm" href="#money/ops">Все</a></div>${last.length ? `<ul class="list">${last.map(x => moneyRowHTML(x, true)).join('')}</ul>` : '<div class="empty">Операций пока нет</div>'}</div>`;
 }
 function moneyPeriod(U) {                           // период для «Операций» и «Отчёта»
@@ -4661,8 +4820,10 @@ function vMoneyOps() {
   <div class="card flat scroll hide-m"><table class="t"><thead><tr><th>Дата</th><th>Статья</th><th>Счёт</th><th class="r">Сумма, ₽</th><th></th></tr></thead><tbody>${rows.map(x => moneyRowHTML(x, false)).join('') || '<tr><td colspan="5" class="empty">Нет операций</td></tr>'}</tbody></table></div>`;
 }
 /* отчёт: разделы-таблицы, одинаковые на экране, в печати и в Word */
-function finReport(from, to) {
-  const F = finS(db), items = finItems(), P = finPeriod(db, from, to, items), S = [];
+function finReport(from0, to) {
+  const ps = pStartOf(db), from = ps && from0 < ps ? D.min(ps, D.add(to, 1)) : from0;   // 23.10.2026: до начала учёта доходов прибыль не считаем
+  const before = from > from0 ? finPeriod(db, from0, D.add(from, -1), finItems()) : null;
+  const F = finS(db), items = finItems(), P = finPeriod(db, from, to, items), S = [], Ern = earnedPeriod(ix, from, to);
   const pc = (x, y) => y ? Math.round(x / y * 100) + '%' : '';
   S.push({ title: 'Итог', head: ['', 'Сумма, ₽'], rows: [
     { c: ['Доходы' + (P.refunds ? ' (за вычетом возвратов ' + rubN(P.refunds) + ' ₽)' : ''), rubN(P.inc)] },
@@ -4670,8 +4831,10 @@ function finReport(from, to) {
     { c: ['Расходы', rubN(P.out)] },
     { c: ['Прибыль', rubN(P.profit)], b: 1 },
     ...(P.inc ? [{ c: ['Доля прибыли в доходах', pc(P.profit, P.inc)] }] : []),
-    ...(P.ownIn || P.ownOut ? [{ c: ['Личные средства: вложено в клуб', rubN(P.ownIn)] }, { c: ['Личные средства: взято на личные нужды', rubN(P.ownOut)] }] : []) ],
-    note: 'Доход — по дате оплаты, за вычетом возвратов при отказе от договора. Личные средства в доходы и расходы не входят.' });
+    ...(P.ownIn || P.ownOut ? [{ c: ['Личные средства: вложено в клуб', rubN(P.ownIn)] }, { c: ['Личные средства: взято на личные нужды', rubN(P.ownOut)] }] : []),
+    { c: ['Отработано занятиями (стоимость проведённых занятий)', rubN(Ern.sum)] } ],
+    note: 'Доход — по дате оплаты, за вычетом возвратов при отказе от договора. Расход — за месяц, к которому он относится («За месяц»; аренда, оплаченная заранее, — в своём месяце). Личные средства в доходы и расходы не входят. «Отработано» — стоимость занятий, проведённых в периоде, по оплаченным абонементам и разовым (цена ÷ число занятий).'
+      + (before ? ` Доходы в программе ведутся с ${D.ru(ps)}: период ${D.ru(from0)} — ${D.ru(D.add(from, -1))} в отчёт не входит${before.out ? ' (расходы за него — ' + rubN(before.out) + ' ₽)' : ''}.` : '') });
   const ordIn = ['_sub', '_one', ...finS(db).inCats.map(c => c.id)], pos = (L, k) => { const i = L.indexOf(k); return i < 0 ? 999 : i; };
   const inc = Object.entries(P.incCat).sort((a, b) => pos(ordIn, a[0]) - pos(ordIn, b[0]));
   S.push({ title: 'Доходы по статьям', head: ['Статья', 'Сумма, ₽', 'Доля'], rows: [...inc.map(([k, v]) => ({ c: [finCat(db, 'in', k).name, rubN(v), pc(v, P.inc)] })), { c: ['Всего', rubN(P.inc), ''], b: 1 }] });
@@ -4684,7 +4847,18 @@ function finReport(from, to) {
   }
   S.push({ title: 'Расходы по статьям', head: ['Статья', 'Сумма, ₽', 'Доля'], rows: [...rows, { c: ['Всего', rubN(P.out), ''], b: 1 }] });
   const months = ymList(from, to), shown = months.filter(ym => ym >= ymOf(pStartOf(db)) && ym <= ymOf(ix.today));
-  if (shown.length > 1) S.push({ title: 'По месяцам', head: ['Месяц', 'Доходы, ₽', 'Расходы, ₽', 'Прибыль, ₽'], rows: [...shown.map(ym => { const [a, b] = ymBounds(ym), M = finPeriod(db, D.max(a, from), D.min(b, to), items); return { c: [ymRu(ym), rubN(M.inc), rubN(M.out), rubN(M.profit)] }; }), { c: ['Всего', rubN(P.inc), rubN(P.out), rubN(P.profit)], b: 1 }] });
+  if (shown.length > 1) S.push({ title: 'По месяцам', head: ['Месяц', 'Доходы, ₽', 'Расходы, ₽', 'Прибыль, ₽', 'Отработано, ₽'], rows: [...shown.map(ym => { const [a, b] = ymBounds(ym), f1 = D.max(a, from), t1 = D.min(b, to), M = finPeriod(db, f1, t1, items); return { c: [ymRu(ym) + (ym === ymOf(ix.today) ? ' (идёт)' : ''), rubN(M.inc), rubN(M.out), rubN(M.profit), rubN(earnedPeriod(ix, f1, t1).sum)] }; }), { c: ['Всего', rubN(P.inc), rubN(P.out), rubN(P.profit), rubN(Ern.sum)], b: 1 }] });
+  { const pm = shown.filter(ym => Object.keys(planOutM(ym)).length);          // 23.10.2026: план и факт расходов
+    if (pm.length) { const pl = {}, fa = {};
+      for (const ym of pm) { for (const [k, v] of Object.entries(planOutM(ym))) pl[k] = (pl[k] || 0) + v; for (const [k, v] of Object.entries(expByCat(db, ym, items))) if (!FIN_AUTO[k] && k !== 'tax') fa[k] = (fa[k] || 0) + v; }   // возвраты до программы и налог — не плановые статьи
+      const keys = [...new Set([...Object.keys(pl), ...Object.keys(fa)])].sort((a, b) => pos(ordOut, a) - pos(ordOut, b));
+      const tp = Object.values(pl).reduce((n, v) => n + v, 0), tf = keys.reduce((n, k) => n + (fa[k] || 0), 0);
+      S.push({ title: 'Расходы: план и факт', head: ['Статья', 'План, ₽', 'Факт, ₽', 'Разница, ₽'], rows: [...keys.map(k => ({ c: [finCat(db, 'out', k).name, rubN(pl[k] || 0), rubN(fa[k] || 0), rubN((fa[k] || 0) - (pl[k] || 0))] })), { c: ['Всего', rubN(tp), rubN(tf), rubN(tf - tp)], b: 1 }],
+        note: `Месяцы: ${pm.map(ymRu).join(', ')}${pm.includes(ymOf(ix.today)) ? ' (текущий — по сегодня, часть расходов ещё впереди)' : ''}. План — «План в месяц» статьи или регулярные платежи. Разница больше нуля — потратили больше плана.` }); } }
+  { const ym = ymOf(to < ix.today ? to : ix.today), fixed = Object.values(planOutM(ym)).reduce((n, v) => n + v, 0);
+    if (fixed) { const rate = (+F.rate || 4) / 100, need = Math.round(fixed / (1 - rate)), avg = P.subs.n ? Math.round(P.subs.sum / P.subs.n) : +(db.settings.prices || {}).sub || 0, n = avg ? Math.ceil(need / avg) : 0;
+      S.push({ title: 'Безубыточность', head: ['Показатель', 'Значение'], rows: [{ c: ['Постоянные расходы в месяц по плану, ₽', rubN(fixed)] }, { c: ['Нужно дохода в месяц (с налогом ' + (+F.rate || 4) + '%), ₽', rubN(need)] }, { c: ['Средний чек абонемента за период, ₽', rubN(avg)] }, { c: ['Абонементов в месяц, чтобы покрыть расходы', String(n)], b: 1 }],
+        note: 'Всё, что сверх этого числа абонементов, — прибыль. План — на ' + ymRu(ym) + '.' }); } }
   const sess = ix.sessionsSorted.filter(s => s.date >= D.max(from, pStartOf(db)) && s.date <= to), visits = g => sess.filter(s => s.group === g).reduce((n, s) => n + Object.values(s.marks).filter(m => m === '+').length, 0);
   const groups = [...new Set([...db.settings.groups.map(g => g.name), ...Object.keys(P.group)])].filter(g => P.group[g] || visits(g));
   if (groups.length) S.push({ title: 'Оплаты по группам', head: ['Группа', 'Оплаты, ₽', 'Посещений', '₽ на посещение'], rows: groups.map(g => { const v = visits(g), m = P.group[g] || 0; return { c: [g, rubN(m), String(v), v && m ? rubN(m / v) : ''] }; }),
@@ -4797,7 +4971,7 @@ function openOp(id, pre = {}) {
   ${FS('acc', kind === 'move' ? 'Откуда' : kind === 'in' ? 'Куда поступило' : 'Чем оплачено', v.acc && !accs.some(x => x[0] === v.acc) ? [...accs, [v.acc, 'счёт удалён']] : accs, v.acc)}
   ${kind === 'move' ? FS('to', 'Куда', accs, v.to) : auto ? `<input type="hidden" name="cat" value="${h(v.cat)}"><div class="f"><span class="small muted">Статья</span><b>${h(FIN_AUTO[v.cat])}</b></div>` : `<label class="f"><span>Статья</span><select name="cat">${catOptions(kind, v.cat)}</select></label>`}
   ${kind === 'out' ? `<label class="f" data-show="salary"><span>Тренер</span><select name="coach">${[['', '— выберите —'], ...S.coaches.filter(c => !c.to || c.to >= D.add(ix.today, -62) || c.id === v.coach).map(c => [c.id, c.name])].map(([k, l]) => opt(k, v.coach, l)).join('')}</select></label>
-    <label class="f" data-show="salary tax"><span>За месяц</span><input type="month" name="period" value="${h(v.period || ymOf(ymAdd(ymOf(ix.today), -1) + '-01'))}"></label>` : ''}
+    <label class="f" data-show-period><span>За месяц</span><input type="month" name="period" value="${h(v.period || (o ? ymOf(v.date) : ''))}"></label>` : ''}
   ${kind === 'in' && !auto ? `<label class="f"><span>От кого (необязательно)</span><select name="aid">${[['', '—'], ...athleteOptions(v.aid, () => true)].map(([k, l]) => opt(k, v.aid, l)).join('')}</select></label>` : ''}
   ${kind === 'in' && S.orgs ? FS('payer', 'Плательщик', [['', 'физическое лицо'], ['org', 'организация или ИП']], v.payer) : ''}
   ${kind === 'in' && !auto ? `<label class="f wide" data-show-tax><span>Чек</span><select name="noCheck">${[['', 'нужен — доход от занятий и услуг клуба'], ['notax', 'не нужен — доход не от профессиональной деятельности (не облагается налогом)'], ['separate', 'не нужен — чек оформлен отдельно (в налог входит)']].map(([k, l]) => opt(k, v.noCheck || '', l)).join('')}</select></label>` : ''}
@@ -4816,12 +4990,13 @@ function openOp(id, pre = {}) {
       const t = o || { id: uid('o') };
       Object.assign(t, { kind, date: fd.date, amount, acc: fd.acc, note: String(fd.note || '').trim() });
       if (kind === 'move') { t.to = fd.to; delete t.cat; } else t.cat = fd.cat;
-      if (kind === 'out') { t.coach = fd.cat === 'salary' ? fd.coach : ''; t.period = fd.cat === 'salary' || fd.cat === 'tax' ? fd.period || ymOf(fd.date) : (t.rec ? t.period : ''); }
+      if (kind === 'out') { const ci = finCat(db, 'out', fd.cat); t.coach = fd.cat === 'salary' ? fd.coach : '';
+        t.period = ci.nonop ? '' : fd.cat === 'salary' || fd.cat === 'tax' || t.rec || v.rec ? fd.period || ymOf(fd.date) : (fd.period && fd.period !== ymOf(fd.date) ? fd.period : ''); }   // 23.10.2026: месяц расхода, если не месяц оплаты
       if (kind === 'in' && !auto) { t.aid = fd.aid || ''; }
       if (kind === 'in' && S.orgs) t.payer = fd.payer || '';
       if (kind === 'in' && S.checks !== false && 'check' in fd) t.check = fd.check ? (t.check || ix.today) : '';
       if (kind === 'in' && !auto) { t.noCheck = ['notax', 'separate'].includes(fd.noCheck) ? fd.noCheck : ''; if (t.noCheck) t.check = ''; }   // №37
-      if (!o && v.rec) { t.rec = v.rec; t.period = v.period; }
+      if (!o && v.rec) { t.rec = v.rec; t.period = fd.period || v.period; }
       for (const k of Object.keys(t)) if (t[k] === '' || t[k] == null) delete t[k];
       if (!o) db.ops.push(t);
       render.keepScroll = true; persist(o ? 'Операция сохранена' : kind === 'out' ? 'Расход записан' : kind === 'in' ? 'Доход записан' : 'Перевод записан');
@@ -4829,10 +5004,16 @@ function openOp(id, pre = {}) {
   const d = document.getElementById('dlg'), cs = d.querySelector('select[name=cat]');
   const sync = () => { const c = cs ? cs.value : v.cat, ci = finCat(db, kind, c);
     d.querySelectorAll('[data-show]').forEach(el => { el.style.display = el.dataset.show.split(' ').includes(c) ? '' : 'none'; });
+    d.querySelectorAll('[data-show-period]').forEach(el => { el.style.display = kind === 'out' && !ci.nonop ? '' : 'none'; });   // 23.10.2026: «За месяц» — у любого расхода (аренда заранее, счёт за прошлый месяц)
+    { const pe = d.querySelector('[name=period]'), dt = d.querySelector('[name=date]');
+      if (pe && !pe.dataset.touched) pe.value = v.period && !pe.dataset.init ? v.period : (c === 'salary' || c === 'tax') && !o ? ymAdd(ymOf(dt.value || ix.today), -1) : (o && o.period) || ymOf(dt.value || ix.today);
+      if (pe) pe.dataset.init = '1'; }
     d.querySelectorAll('[data-show-tax]').forEach(el => { el.style.display = kind === 'in' && ci.tax && !ci.nonop ? '' : 'none'; });
     const nc = d.querySelector('[name=noCheck]'); if (nc && nc.value) d.querySelectorAll('[data-need-check]').forEach(el => { el.style.display = 'none'; }); };
   if (cs) cs.addEventListener('change', sync); { const nc = d.querySelector('[name=noCheck]'); if (nc) nc.addEventListener('change', sync); } sync();
   const am = d.querySelector('[name=amount]'), co = d.querySelector('[name=coach]'), pe = d.querySelector('[name=period]');
+  if (pe) { if (v.period) pe.dataset.touched = '1'; ['input', 'change'].forEach(ev => pe.addEventListener(ev, () => { pe.dataset.touched = '1'; })); }
+  { const dt = d.querySelector('[name=date]'); if (dt && pe) dt.addEventListener('change', sync); }
   const fillPay = () => { if (o || !cs || am.dataset.touched) return; const c = cs.value;
     if (c === 'salary' && co && co.value && pe && pe.value) { const C = S.coaches.find(x => x.id === co.value); if (C) { const m = coachMonth(db, ix, C, pe.value, finItems()); am.value = m.left > 0 ? m.left : ''; } }
     if (c === 'tax' && pe && pe.value) { const m = taxMonths(db, pe.value.slice(0, 4), finItems(), ix.today).find(x => x.ym === pe.value); if (m) am.value = m.left > 0 ? m.left : ''; } };
@@ -4845,7 +5026,7 @@ function vMoneySetup() {
   const inp = (path, val, type = 'text', extra = '') => `<input type="${type}" data-change="fin" data-path="${path}" value="${h(val ?? '')}" ${extra}>`;
   const L = (label, html) => `<label class="f"><span>${label}</span>${html}</label>`;
   const catRow = (list, c, i) => `<tr><td style="white-space:nowrap"><button class="btn sm ghost" data-act="fin-move" data-list="${list}" data-i="${i}" data-d="-1" ${i ? '' : 'disabled'} aria-label="Выше" title="Выше">↑</button><button class="btn sm ghost" data-act="fin-move" data-list="${list}" data-i="${i}" data-d="1" ${i < F[list].length - 1 ? '' : 'disabled'} aria-label="Ниже" title="Ниже">↓</button></td><td><input type="text" data-change="fincat" data-list="${list}" data-i="${i}" data-k="name" value="${h(c.name)}" style="min-width:200px"></td>
-    ${list === 'outCats' ? `<td><input type="text" data-change="fincat" data-list="${list}" data-i="${i}" data-k="group" value="${h(c.group || '')}" list="fin-groups" style="min-width:150px"></td>` : `<td style="text-align:center">${c.nonop ? '<span class="small muted">не доход</span>' : `<input type="checkbox" data-change="fincat" data-list="${list}" data-i="${i}" data-k="tax" ${c.tax ? 'checked' : ''} style="width:20px;height:20px">`}</td>`}
+    ${list === 'outCats' ? `<td><input type="text" data-change="fincat" data-list="${list}" data-i="${i}" data-k="group" value="${h(c.group || '')}" list="fin-groups" style="min-width:150px"></td><td>${c.nonop || c.id === 'tax' ? `<span class="small muted" title="${c.nonop ? 'Личные средства — не расход клуба' : 'Налог программа считает сама'}">—</span>` : `<input type="number" data-change="fincat" data-list="${list}" data-i="${i}" data-k="plan" value="${+c.plan > 0 ? +c.plan : ''}" min="0" step="100" inputmode="numeric" placeholder="${(() => { const r = F.recur.filter(q => q.cat === c.id && !q.off).reduce((n, q) => n + (+q.amount || 0), 0); return r ? rubN(r) + ' (регулярные)' : ''; })()}" style="width:150px">`}</td>` : `<td style="text-align:center">${c.nonop ? '<span class="small muted">не доход</span>' : `<input type="checkbox" data-change="fincat" data-list="${list}" data-i="${i}" data-k="tax" ${c.tax ? 'checked' : ''} style="width:20px;height:20px">`}</td>`}
     <td style="text-align:center">${c.sys ? '<span class="small muted" title="Нужна программе">—</span>' : `<input type="checkbox" data-change="fincat" data-list="${list}" data-i="${i}" data-k="off" ${c.off ? 'checked' : ''} style="width:20px;height:20px">`}</td>
     <td>${c.sys || used.has(c.id) ? '' : `<button class="btn sm ghost" data-act="fincat-del" data-list="${list}" data-i="${i}" aria-label="Удалить">✕</button>`}</td></tr>`;
   return `${!F.start ? finSetupCard() : `<div class="card"><h2>Учёт денег</h2><div class="fgrid">${L('Учёт с (остатки на начало этого дня)', inp('start', F.start, 'date', 'max="' + D.add(ix.today, 1) + '"'))}${F.accounts.map(A => L(h(A.name) + ' на начало, ₽', inp('open.' + A.id, (F.open || {})[A.id] || 0, 'number', 'step="1"'))).join('')}</div></div>`}
@@ -4853,8 +5034,9 @@ function vMoneySetup() {
   <table class="t"><thead><tr><th>Название</th><th style="text-align:center" title="Чек в «Мой налог» — сразу при оплате">Наличные</th><th style="text-align:center">По умолчанию</th><th></th></tr></thead><tbody>${F.accounts.map((A, i) => `<tr><td><input type="text" data-change="finacc" data-i="${i}" value="${h(A.name)}"></td><td style="text-align:center"><input type="checkbox" data-change="finacccash" data-i="${i}" ${A.cash ? 'checked' : ''} style="width:20px;height:20px"></td><td style="text-align:center"><input type="radio" name="defacc" data-change="fin" data-path="defAcc" value="${h(A.id)}" ${F.defAcc === A.id ? 'checked' : ''} style="width:20px;height:20px"></td><td>${accUsed.has(A.id) || F.accounts.length < 2 || +(F.open || {})[A.id] || F.recur.some(r => r.acc === A.id) ? '' : `<button class="btn sm ghost" data-act="finacc-del" data-i="${i}" aria-label="Удалить">✕</button>`}</td></tr>`).join('')}</tbody></table>
   <button class="btn" data-act="finacc-add" style="margin-top:8px">Добавить счёт</button></div>
   <div class="card"><h2>Статьи расходов</h2><p class="small muted">Статьи с одинаковым разделом складываются в отчёте (например, «Коммунальные расходы»: электроэнергия, вода, вывоз мусора). Переименование не меняет прошлые записи. Ненужную статью скройте — удалить можно только неиспользованную. Стрелки ↑ ↓ меняют порядок — так статьи идут в списках и в отчёте.</p>
+  <p class="small muted"><b>План в месяц</b> — сколько в среднем уходит по статье за месяц (коммунальные, хозяйственные, реклама…). Не по факту, а ожидаемая сумма: по ней программа считает ожидаемый итог месяца, прогноз денег и безубыточность. Пусто — берутся регулярные платежи статьи (серая подсказка в поле). Если по статье уже оплачено больше плана, считается факт.</p>
   <datalist id="fin-groups">${[...new Set(F.outCats.map(c => c.group).filter(Boolean))].map(g => `<option value="${h(g)}">`).join('')}</datalist>
-  <div class="scroll"><table class="t"><thead><tr><th title="Порядок в списках и отчётах">Порядок</th><th>Статья</th><th>Раздел</th><th style="text-align:center">Скрыть</th><th></th></tr></thead><tbody>${F.outCats.map((c, i) => catRow('outCats', c, i)).join('')}</tbody></table></div>
+  <div class="scroll"><table class="t"><thead><tr><th title="Порядок в списках и отчётах">Порядок</th><th>Статья</th><th>Раздел</th><th title="Сколько в среднем уходит по статье в месяц — для прогноза, ожидаемого итога месяца и безубыточности">План в месяц, ₽</th><th style="text-align:center">Скрыть</th><th></th></tr></thead><tbody>${F.outCats.map((c, i) => catRow('outCats', c, i)).join('')}</tbody></table></div>
   <button class="btn" data-act="fincat-add" data-list="outCats" style="margin-top:8px">Добавить статью расходов</button></div>
   <div class="card"><h2>Статьи доходов</h2><p class="small muted">Абонементы и разовые посещения считаются сами из оплат. «Налог» — доход облагается налогом на профессиональный доход и нужен чек.</p>
   <div class="scroll"><table class="t"><thead><tr><th title="Порядок в списках и отчётах">Порядок</th><th>Статья</th><th style="text-align:center">Налог</th><th style="text-align:center">Скрыть</th><th></th></tr></thead><tbody>${F.inCats.map((c, i) => catRow('inCats', c, i)).join('')}</tbody></table></div>
@@ -6199,6 +6381,7 @@ const ACT = {
     else if (k === 'lastyear') { U.from = (+y - 1) + '-01-01'; U.to = (+y - 1) + '-12-31'; }
     rerender(); },
   'money-kind': el => { ui.money.kind = el.dataset.k; rerender(); },
+  'noacc-open': () => { const U = ui.money, [a, b] = ymBounds(ymOf(ix.today)); Object.assign(U, { from: a, to: b, per: 'month', kind: 'in', acc: '', cat: 'all', q: '' }); location.hash = '#money/ops'; },   // 23.10.2026: оплаты без способа оплаты
   'money-csv': el => moneyCSV(el),
   'money-print': () => openPrint('Финансовый отчёт', finReportDoc(ui.money.from, ui.money.to), 'h3{margin:12pt 0 3pt}'),
   'money-xlsx': () => { const U = ui.money;
@@ -6526,6 +6709,7 @@ async function onChange(e) {
   else if (k === 'money-acc') { ui.money.acc = v; rerender(); }
   else if (k === 'money-cat') { ui.money.cat = v; rerender(); }
   else if (k === 'money-year') { ui.money.year = v; rerender(); }
+  else if (k === 'renew-to') { if (v) { ui.money.renewTo = v; rerender(); } }
   else if (k === 'fin') { const F = finS(db), path = el.dataset.path, num = /^(rate|rateOrg|limit|deduct|before\.amount|open\.)/.test(path);
     if (path === 'start') { if (!v) { notice('Дата начала учёта нужна для остатков. Чтобы начать заново — поставьте другую дату.'); rerender(); return; } if (v > D.add(ix.today, 1)) { notice('Дата — не позже завтрашней'); rerender(); return; } }
     let val = v; if (num) { val = Math.round((+v || 0) * 100) / 100; if (val < 0 && !path.startsWith('open.')) { notice('Значение не может быть отрицательным'); rerender(); return; } }
@@ -6533,7 +6717,9 @@ async function onChange(e) {
     setPath(F, path, val); if (path === 'before.amount' && !F.before.year) F.before.year = ix.today.slice(0, 4);
     render.keepScroll = true; persist('Сохранено'); }
   else if (k === 'fincat') { const c = finS(db)[el.dataset.list][+el.dataset.i]; if (!c) return; const kk = el.dataset.k;
-    if (kk === 'name') { const nn = String(v).trim(); if (!nn) { rerender(); return; } c.name = nn; } else if (kk === 'group') c.group = String(v).trim(); else c[kk] = v ? 1 : 0;
+    if (kk === 'name') { const nn = String(v).trim(); if (!nn) { rerender(); return; } c.name = nn; } else if (kk === 'group') c.group = String(v).trim();
+    else if (kk === 'plan') { const n = Math.max(0, Math.round(+String(v).replace(/\s/g, '').replace(',', '.') || 0)); if (n) c.plan = n; else delete c.plan; }
+    else c[kk] = v ? 1 : 0;
     if (!c.off) delete c.off; render.keepScroll = true; persist('Сохранено'); }
   else if (k === 'finacccash') { const A = finS(db).accounts[+el.dataset.i]; if (!A) return; A.cash = !!v; render.keepScroll = true; persist('Сохранено'); }
   else if (k === 'finacc') { const A = finS(db).accounts[+el.dataset.i]; const nn = String(v).trim(); if (!A || !nn) { rerender(); return; } A.name = nn; render.keepScroll = true; persist('Сохранено'); }
@@ -6546,6 +6732,8 @@ document.addEventListener('change', safeChange);
 document.addEventListener('toggle', e => { if (e.target.matches && e.target.matches('details[data-filt]')) ui.peopleFiltOpen = e.target.open;
   if (e.target.matches && e.target.matches('details[data-later]')) { meta.laterOpen = e.target.open; writeMeta(); }
   if (e.target.matches && e.target.matches('details[data-frz]')) { meta.frzOpen = e.target.open; writeMeta(); }
+  if (e.target.matches && e.target.matches('details[data-renew]')) ui.money.renewOpen = e.target.open;
+  if (e.target.matches && e.target.matches('details[data-res]')) ui.money.resOpen = e.target.open;
   if (e.target.matches && e.target.matches('details[data-tid]')) { const S = new Set(meta.tournOpen || []), id = e.target.dataset.tid; if (e.target.open) S.add(id); else S.delete(id); meta.tournOpen = [...S].filter(x => (db.tourneys || []).some(T => T.id === x)); writeMeta(); } }, true);
 document.addEventListener('input', safeChange);
 
