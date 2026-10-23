@@ -159,7 +159,13 @@ label.f > span{font-weight:600}
 .fgrid .wide{grid-column:1/-1}
 fieldset{border:1px solid var(--line);border-radius:var(--r);padding:12px 16px;margin:0 0 12px}
 legend{padding:0 6px;font-weight:600;font-size:.9375rem}
-.seg{display:inline-flex;max-width:100%;overflow-x:auto;background:var(--sunk);border-radius:var(--r);padding:4px;gap:4px;border:0}
+.seg{display:inline-flex;max-width:100%;overflow-x:auto;background:var(--sunk);border-radius:var(--r);padding:4px;gap:4px;border:0;scrollbar-width:none} .seg::-webkit-scrollbar{display:none}
+/* 23.10.2026: вкладки не помещаются — край затухает и видна стрелка: можно листать */
+.seg.more-r{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 44px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 44px),transparent)}
+.seg.more-l{-webkit-mask-image:linear-gradient(90deg,transparent,#000 44px);mask-image:linear-gradient(90deg,transparent,#000 44px)}
+.seg.more-l.more-r{-webkit-mask-image:linear-gradient(90deg,transparent,#000 44px,#000 calc(100% - 44px),transparent);mask-image:linear-gradient(90deg,transparent,#000 44px,#000 calc(100% - 44px),transparent)}
+.seg-wrap{position:relative;display:inline-block;max-width:100%} .seg-arr{position:absolute;top:50%;transform:translateY(-50%);width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);display:none;place-items:center;font-size:1.1rem;line-height:1;cursor:pointer;z-index:2;box-shadow:var(--shadow-1);padding:0}
+.seg-arr.r{right:2px} .seg-arr.l{left:2px} .seg-wrap.more-r .seg-arr.r,.seg-wrap.more-l .seg-arr.l{display:grid}
 .seg button{flex:none;border:0;background:transparent;padding:0 14px;cursor:pointer;min-height:38px;border-radius:var(--r-s);font-weight:600;font-size:.9375rem;color:var(--ink-2)}
 .seg button.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-1)}
 .filters{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:12px}
@@ -295,7 +301,7 @@ ul.plan > .pl:first-child{border-top:0} .pl.t-bad{border-left-color:var(--bad-fi
 .card.sec .sec-head h2::after,.card.sec > h2.sec-head::after{content:'';display:inline-block;width:8px;height:8px;margin-left:10px;border-right:2px solid var(--ink-3);border-bottom:2px solid var(--ink-3);transform:translateY(-3px) rotate(45deg);transition:transform var(--dur)}
 .card.sec.sec-closed .sec-head h2::after,.card.sec.sec-closed > h2.sec-head::after{transform:translateY(0) rotate(-45deg)}
 .card.sec.sec-closed > :not(.sec-head){display:none!important}
-.card.sec.sec-closed{padding-bottom:0}
+.card.sec.sec-closed{padding-bottom:0} .hint-b{display:block;background:none;border:0;padding:4px 0;margin-top:6px;color:var(--ink-3);font-size:.8125rem;cursor:pointer;text-align:left} .hint-b:hover{color:var(--ink-2);text-decoration:underline} .hint-p.hint-closed{display:none} @media print{.hint-p.hint-closed{display:block!important}} .card.sec.sec-alert .sec-head h2::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bad-fill);margin-right:8px;vertical-align:2px}
 .card.sec.sec-closed > h2.sec-head{margin-bottom:14px}
 .attn-h{padding:10px 16px 4px;font-weight:700;font-size:.8125rem;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-2)}
 details.attn-later > summary{cursor:pointer;list-style:revert}
@@ -524,6 +530,10 @@ body.jfs .card.flat.scroll.mscroll{max-height:calc(100vh - 48px)!important;max-h
 .it-h .ph{font-size:.9375rem;color:var(--ink-2)}
 .it-t{margin:4px 0 10px;line-height:1.45}
 .it-a{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.it.compact{padding:8px 8px 8px 16px} .it-c{display:flex;align-items:center;gap:10px} .it-cm{flex:1;min-width:0;cursor:pointer} .it.compact .it-t{margin:2px 0 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.it.compact .ph,.it.compact .it-a{display:none} .it.compact.open .ph{display:inline} .it.compact.open .it-a{display:flex;margin-top:8px} .it.compact.open .it-t{display:block;-webkit-line-clamp:unset}
+.it-more{margin-left:auto;color:var(--ink-3);font-size:.8rem;transition:transform var(--dur)} .it.compact.open .it-more{transform:rotate(180deg)}
+@media print{.it.compact .ph,.it.compact .it-a{display:revert}}
 .done-cb{width:var(--tap);height:var(--tap);border-radius:var(--r-s);border:2px solid var(--line-strong);background:var(--surface);color:var(--ok-fill);display:inline-grid;place-items:center;cursor:pointer;font-weight:800;font-size:1.125rem;flex:none}
 .done-cb:hover{border-color:var(--ok-fill);background:var(--ok-bg)}
 .menu-pop{left:0;right:auto}
@@ -2665,6 +2675,7 @@ function render() {
   if (keep && main0 && main0.contains(keep)) { const t = document.createElement('main'); t.innerHTML = body; patched = patchKeep(main0, t, keep); }
   if (!patched) document.getElementById('app').innerHTML = `<div class="shell">${navHTML(navKey)}<main>${body}</main></div>`;
   if (v === 'person') applySections();
+  foldHints(); segTails();
   const jm = v === 'journal' && ui.journal.tab === 'month';
   document.body.classList.toggle('jfs', jm && !!ui.journal.fs);           // «Во весь экран» — только в «Месяце»
   if (jm && (!render.keepScroll || render.forceFocus) && render.monthFocus != null) { const sc = document.querySelector('.mscroll'), th = sc && sc.querySelectorAll('thead th')[render.monthFocus + 1];
@@ -2958,10 +2969,10 @@ function alertSections(list, fn) {
   const head = (t, n) => `<div class="attn-h">${t} · ${n}</div>`;
   const people = new Set([...fzIds, ...frz.filter(x => x.a).map(x => x.a.id)]);
   const roster = fz.length ? `<div class="fz-sub">Сейчас болеют · ${fz.length} <span class="muted">— список для обзора, делать ничего не нужно</span></div><ul class="list fz-list">${fz.map(({ a, f, g }) => `<li class="click" data-go="#person/${a.id}"><div class="who"><b>${h(shortName(a))}</b><span class="small">${h(a.group || '')} · с ${D.ru(g.from)} ${g.open ? '— пока болеет' : 'по ' + D.ru(g.to)} · ${f.certDate ? 'справка ' + D.ru(f.certDate) : 'справки нет'}</span></div><span class="chip sick">болеет</span></li>`).join('')}</ul>` : '';
-  return (urgent.length ? `<section class="attn-sec s-bad">${head('Срочно', urgent.length)}${urgent.map(fn).join('')}</section>` : '')
-    + (soon.length ? `<section class="attn-sec s-warn">${head('Скоро', soon.length)}${soon.map(fn).join('')}</section>` : '')
-    + (later.length ? `<details class="attn-later attn-sec s-later" data-later ${meta.laterOpen ? 'open' : ''}><summary class="attn-h">Можно позже · ${later.length}</summary>${later.map(fn).join('')}</details>` : '')
-    + (people.size ? `<details class="attn-later attn-sec s-sick" data-frz ${meta.frzOpen ? 'open' : ''}><summary class="attn-h">Заморозка · ${people.size} ${plural(people.size, 'человек', 'человека', 'человек')}${frz.length ? ' · пунктов ' + frz.length : ''}</summary>${roster}${frz.length ? `<div class="fz-sub">Что сделать · ${frz.length}</div>` : ''}${frz.map(fn).join('')}</details>` : '');
+  return (urgent.length ? `<section class="attn-sec s-bad">${head('Срочно', urgent.length)}${urgent.map(x => fn(x)).join('')}</section>` : '')
+    + (soon.length ? `<section class="attn-sec s-warn">${head('Скоро', soon.length)}${soon.map(x => fn(x, true)).join('')}</section>` : '')
+    + (later.length ? `<details class="attn-later attn-sec s-later" data-later ${meta.laterOpen ? 'open' : ''}><summary class="attn-h">Можно позже · ${later.length}</summary>${later.map(x => fn(x, true)).join('')}</details>` : '')
+    + (people.size ? `<details class="attn-later attn-sec s-sick" data-frz ${meta.frzOpen ? 'open' : ''}><summary class="attn-h">Заморозка · ${people.size} ${plural(people.size, 'человек', 'человека', 'человек')}${frz.length ? ' · пунктов ' + frz.length : ''}</summary>${roster}${frz.length ? `<div class="fz-sub">Что сделать · ${frz.length}</div>` : ''}${frz.map(x => fn(x, true)).join('')}</details>` : '');
 }
 /* действия пункта: первая кнопка — главная, остальные — в меню «⋯» (команды кнопок прежние) */
 function actsHTML(list, right = '') {
@@ -2978,11 +2989,11 @@ function attnSplit(x) {                                   // заголовок 
   else if (!nm) { const i = t.indexOf(': '); if (i > 0 && i < 60) { title = t.slice(0, i); t = t.slice(i + 2); } }
   return [title, t ? t[0].toUpperCase() + t.slice(1) : t];
 }
-function attnItem(x) {
+function attnItem(x, compact) {
   const aid = x.a && x.a.id, c = aid ? ix.athCalc.get(aid) || {} : {}, [title, body] = attnSplit(x);
   const B = (act, label, extra = '') => `<button class="btn sm" data-act="${act}"${extra}>${label}</button>`;
   const acts = [
-    x.paid ? B('sub-paid', 'Оплачено', ` data-id="${x.paid}"`) : '',
+    x.paid ? B('sub-paid', 'Оплата', ` data-id="${x.paid}"`) : '',   // 23.10.2026: оплата клиента — везде «Оплата»
     x.unpaid ? B('sub-new', 'Оплата', ` data-id="${aid}"`) : '',
     x.tpl && aid ? `<button class="btn sm" data-act="msg" data-id="${aid}" data-tpl="${h(x.tpl)}"${x.sub ? ` data-sub="${x.sub}"` : ''} data-key="${h(attnKey(x))}" data-extra='${h(JSON.stringify(x.extra || {}))}'>Написать</button>` : '',
     x.freeze ? B('freeze-edit', 'Открыть заморозку', ` data-id="${x.freeze}"`) : '',
@@ -3002,6 +3013,10 @@ function attnItem(x) {
   ];
   const done = `<button class="done-cb" data-act="attn-done" data-key="${h(attnKey(x))}" aria-label="Сделано — убрать из списка" title="Сделано — убрать из списка, пока ситуация не изменится">✓</button>`;
   const ph = c.contact ? `<span class="ph">${telLink(c.contact)}${c.contactWho && c.contactWho !== 'сам' ? ' · ' + h(c.contactWho) : ''}</span>` : '';
+  if (compact) {                                          // 23.10.2026: «Скоро», «Можно позже», «Заморозка» — одной-двумя строками; нажатие раскрывает телефон и кнопки
+    const k = attnKey(x), open = (ui.itOpen || new Set()).has(k);
+    return `<article class="it compact ${x.tone}${/ — предупреждён \d/.test(x.text) ? ' is-warned' : ''}${open ? ' open' : ''}" data-it="${h(k)}"><div class="it-c"><div class="it-cm" role="button" tabindex="0" aria-expanded="${open}" title="Показать телефон и действия"><div class="it-h">${title ? `<b>${h(title)}</b>` : ''}${ph}<span class="it-more" aria-hidden="true">▾</span></div><p class="it-t">${attnTxt(body)}</p></div>${done}</div>${actsHTML(acts)}</article>`;
+  }
   return `<article class="it ${x.tone}${/ — предупреждён \d/.test(x.text) ? ' is-warned' : ''}"><div class="it-h">${title ? `<b>${h(title)}</b>` : ''}${ph}</div><p class="it-t">${attnTxt(body)}</p>${actsHTML(acts, done)}</article>`;
 }
 function vToday() {
@@ -3024,7 +3039,7 @@ function vToday() {
   for (let k = 0; k < 7; k++) { const d = D.add(t, k); for (const a of db.athletes) if (a.status !== 'ушёл' && a.birth && bdayOn(a.birth, d)) bdays.push({ a, d, k, age: D.age(a.birth, d) }); }
   const banner = dirty() && (!meta.lastExport || Date.now() - Date.parse(meta.lastExport) > 3 * 3600e3)
     ? `<div class="banner no-print"><div class="spacer">${meta.lastExport ? 'Есть изменения после копии от ' + new Date(meta.lastExport).toLocaleString('ru', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'Копия данных ещё ни разу не сохранялась'}<span class="hide-m">. Сохраните копию, прежде чем работать на другом устройстве</span>.</div><button class="btn primary" data-act="export">Сохранить копию</button></div>` : '';
-  const quick = `<div class="quick no-print"><button class="qa" data-act="sub-new">${I.subs}Принять оплату</button><button class="qa" data-act="gsearch">${I.search}Найти спортсмена</button><button class="qa" data-act="gmsg">${I.leads}Сообщение группе</button></div>`;
+  const quick = `<div class="quick no-print"><button class="qa" data-act="sub-new">${I.subs}Оплата</button><button class="qa" data-act="gsearch">${I.search}Найти спортсмена</button><button class="qa" data-act="gmsg">${I.leads}Сообщение группе</button></div>`;
   return `${banner}
   <div class="topline"><div><h1>${DOW_FULL[dw][0].toUpperCase() + DOW_FULL[dw].slice(1)}, ${D.ru(t)}</h1><div class="muted">Занимается: ${active}${days != null ? ' · до «' + h(comp.name) + '» ' + days + ' ' + plural(days, 'день', 'дня', 'дней') : ''}</div></div></div>
   <div class="today-grid"><div class="tg-a">
@@ -3146,7 +3161,7 @@ function planRow(it) {
   const tpl = it.tpl || x.tpl, aid = it.a && it.a.id;
   const btns = actsHTML([
     tpl && aid ? `<button class="btn sm" data-act="msg" data-id="${h(aid)}" data-tpl="${h(tpl)}"${x.sub ? ` data-sub="${h(x.sub)}"` : ''} data-key="${h(it.key)}" data-extra='${h(JSON.stringify(x.extra || {}))}'>Написать</button>` : '',
-    x.paid ? `<button class="btn sm" data-act="sub-paid" data-id="${h(x.paid)}">Оплачено</button>` : '',
+    x.paid ? `<button class="btn sm" data-act="sub-paid" data-id="${h(x.paid)}">Оплата</button>` : '',
     x.unpaid && aid ? `<button class="btn sm" data-act="sub-new" data-id="${h(aid)}">Оплата</button>` : '',
     x.ret ? `<button class="btn sm" data-act="pause-return" data-id="${h(x.ret)}">Вернулся</button>` : '',
     x.brief ? `<button class="btn sm" data-act="brief-new" data-id="${h(x.brief)}">Инструктаж проведён</button>` : '',
@@ -3783,7 +3798,10 @@ function vPerson(id) {
     <div class="row no-print" style="margin-top:10px">${+R.sum > 0 && !R.paidAt ? `<button class="btn primary sm" data-act="refund-paid" data-id="${id}">Возврат выплачен</button>` : ''}${+R.sum > 0 && R.paidAt && !R.checkAt ? `<button class="btn primary sm" data-act="refund-check" data-id="${id}">Чек скорректирован</button>` : ''}
     <button class="btn sm" data-act="refund-print" data-id="${id}">Расчёт (печать)</button><button class="btn sm" data-act="msg" data-id="${id}" data-tpl="Возврат при отказе от договора" data-extra='${h(JSON.stringify(refundExtra(a)))}'>Написать</button><button class="btn sm ghost" data-act="refund-del" data-id="${id}">Удалить запись</button></div></div>` : '';
   const pubTxt = { 'да': 'можно публиковать', 'частично': '<span class="chip warn">частично — смотреть бланк</span>', 'нет': '<span class="chip bad">нельзя публиковать</span>' }[a.publish] || '<span class="chip bad">нет согласия</span>';
-  const docsCard = `<div class="card"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Документы</h2><button class="btn sm no-print" data-act="docs-edit" data-id="${id}">Отметить</button></div><dl class="kv" style="margin-top:8px">
+  const alert = (() => { const cc = c, pf = provFreeze(id, ix.today, ix.today);   // 23.10.2026: разделы с проблемой открыты сами
+    return { subs: !!((cc.debtDates || []).length || cc.pendingSub || (cc.subCalc && cc.subCalc.remaining < 0) || pf), docs: a.status !== 'ушёл' && docsMissing(a, cc).length > 0,
+      visits: !!briefNeed(a, ix.today), data: cc.med === 'просрочена' || !!cc.noParentPhone }; })();
+  const docsCard = `<div class="card${alert.docs ? ' sec-alert' : ''}"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Документы</h2><button class="btn sm no-print" data-act="docs-edit" data-id="${id}">Отметить</button></div><dl class="kv" style="margin-top:8px">
     ${kv('Пакет «домой» выдан', dk.pack ? D.ru(dk.pack) : '')}${kv('Бланк 1 — заявление, анкета', dk.b1 ? D.ru(dk.b1) : no(true))}${kv('Бланк 2.1 — здоровье', dk.b21 ? D.ru(dk.b21) : a.healthConsent ? 'получен' : no(true))}
     ${kv('Бланк 2.3 — фото', dk.b23 ? D.ru(dk.b23) : '<span class="muted">нет (необязательный)</span>')}${kv('Фото и видео', pubTxt)}${minor || dk.b3 ? kv('Бланк 3 — законный представитель', dk.b3 ? D.ru(dk.b3) : no(true)) : ''}</dl>
     <div class="row" style="justify-content:space-between;margin-top:14px"><h3 style="margin:0">Инструктаж по ТБ</h3><button class="btn sm no-print" data-act="brief-new" data-id="${id}">Инструктаж проведён</button></div>
@@ -3808,7 +3826,7 @@ function vPerson(id) {
   ${personSummary(a, c, freezes)}
   ${refundCard}
   <div class="grid2">
-  <div class="card"><h2>Данные</h2><dl class="kv">
+  <div class="card${alert.data ? ' sec-alert' : ''}"><h2>Данные</h2><dl class="kv">
     ${kv('Дата рождения', D.ru(a.birth))}${kv('Возраст', c.age != null ? c.age + ' ' + plural(c.age, 'год', 'года', 'лет') : '')}${kv('Пол', h(a.sex))}${kv('Вес', weighHTML(a, true))}
     ${kv('Телефон', telLink(a.phone))}${kv('Мать', [h(a.motherName), telLink(a.motherPhone)].filter(Boolean).join(', '))}${kv('Отец', [h(a.fatherName), telLink(a.fatherPhone)].filter(Boolean).join(', '))}
     ${kv('Связь', c.contact ? telLink(c.contact) + ' (' + c.contactWho + ')' : (c.noParentPhone ? '<span class="chip bad">нет телефона родителя</span>' : ''))}
@@ -3818,11 +3836,11 @@ function vPerson(id) {
     ${kv('Команда', a.otherTeam ? 'другая' + (a.teamName ? ' — ' + h(a.teamName) : '') + ', к аттестации не допускается' : '')}
     ${kv('Оплата', a.noSub ? 'без абонемента' : a.payPerVisit ? 'разово, за каждое посещение' + (a.payPerVisitFrom ? ' с ' + D.ru(a.payPerVisitFrom) : '') : '')}${kv('В клубе с', D.ru(a.addedAt))}${kv('Откуда узнали', h(a.source || '') + ((db.leads || []).some(L => L.aid === a.id) ? ` · <a href="#" data-act="lead-edit" data-id="${h((db.leads.find(L => L.aid === a.id) || {}).id)}">заявка</a>` : ''))}${kv('Пробное занятие', (ix.marks.get(id) || []).filter(m => m.trial).map(m => D.ru(m.date)).join(', '))}${kv('Примечание', h(a.note))}</dl>
     ${(a.transfers || []).length ? `<h3 style="margin-top:14px">Переводы</h3><ul class="list">${[...a.transfers].sort((x, y) => y.date.localeCompare(x.date)).map(t => `<li style="padding:6px 0"><div class="who small">с ${D.ru(t.date)}: ${h(t.from || '—')} → <b style="display:inline">${h(t.to)}</b></div><button class="btn sm ghost no-print" data-act="transfer-del" data-id="${id}" data-tid="${t.id}" aria-label="Удалить перевод">✕</button></li>`).join('')}</ul>` : ''}</div>
-  <div class="card"><div class="row" style="justify-content:space-between"><h2>Посещения</h2><button class="btn sm no-print" data-act="athlete-report" data-id="${id}">Печать за период</button></div><div class="stats" style="margin-bottom:10px"><div class="stat"><b>${cnt('+')}</b><span class="small muted">был, 90 дней</span></div><div class="stat"><b>${cnt('н')}</b><span class="small muted">не был</span></div><div class="stat"><b>${cnt('б')}</b><span class="small muted">болел</span></div></div>
+  <div class="card${alert.visits ? ' sec-alert' : ''}"><div class="row" style="justify-content:space-between"><h2>Посещения</h2><button class="btn sm no-print" data-act="athlete-report" data-id="${id}">Печать за период</button></div><div class="stats" style="margin-bottom:10px"><div class="stat"><b>${cnt('+')}</b><span class="small muted">был, 90 дней</span></div><div class="stat"><b>${cnt('н')}</b><span class="small muted">не был</span></div><div class="stat"><b>${cnt('б')}</b><span class="small muted">болел</span></div></div>
     <div class="small">Допуск к аттестации ${D.ru(S.attest.next)}: <b>${h(adm.status)}</b> <button class="btn sm no-print" data-act="manual-admit" data-id="${id}">Допуск вручную</button>${adm.pct != null ? ` — ${Math.round(adm.pct * 100)}% посещений, турниров ${adm.tourn}` : ''}${adm.total && !adm.late && !adm.other ? `<br>${h(admLine(adm))}` : ''}${admSubstHTML(adm) ? `<br>${admSubstHTML(adm)}` : ''}</div>
     ${ringsAhead}<div class="small muted" style="margin-top:10px">Последние ${Math.min(24, marks.length) || ''} ${plural(Math.min(24, marks.length), 'отметка', 'отметки', 'отметок')}, новые слева · нажмите — дата и группа</div><div class="row" style="gap:6px 4px;margin-top:4px;flex-wrap:wrap">${marks.slice(0, 24).map(m => { const rg = ringOf(m); return `<button type="button" class="mlast" data-act="mark-info" data-txt="${h(D.ru(m.date) + ', ' + DOW_FULL[D.dow(m.date)] + (m.group ? ' · ' + m.group : '') + ' — ' + (m.mark === 'б' && isBS(ix, id, m.date) ? 'болел, справка внесена (бс)' : MARKS[m.mark] ? MARKS[m.mark].label : m.mark) + (m.trial ? ' (пробное)' : '') + (rg ? ' · ' + rg[1] : ''))}" title="${D.ru(m.date)} ${h(m.group)}${rg ? ' — ' + rg[1] : ''}"><span class="cell-m ${{ '+': 'm-plus', 'н': 'm-n', 'б': 'm-b', 'о': 'm-o', 'с': 'm-s' }[m.mark] || ''}${rg ? ' ' + rg[0] : ''}">${h(m.mark === 'б' && isBS(ix, id, m.date) ? 'бс' : m.mark)}</span><small>${D.short(m.date)}</small></button>`; }).join('') || '<span class="muted">Отметок нет</span>'}</div>${marks.length > 24 ? `<div class="small muted" style="margin-top:6px">Все отметки — «Печать за период» или «Посещения» → «Месяц».</div>` : ''}</div>
   </div>
-  <div class="card flat"><div class="row" style="padding:14px 16px 6px"><h2 style="margin:0">Абонементы</h2><span class="spacer"></span>${R ? '' : `<button class="btn sm no-print" data-act="refuse" data-id="${id}">Отказ от договора</button>`}<button class="btn sm no-print" data-act="freeze-new" data-id="${id}">Заморозка</button><button class="btn sm no-print" data-act="sub-wait" data-id="${id}">Ждём оплату</button><button class="btn sm no-print" data-act="sub-new" data-id="${id}">Добавить</button></div>
+  <div class="card flat${alert.subs ? ' sec-alert' : ''}"><div class="row" style="padding:14px 16px 6px"><h2 style="margin:0">Абонементы</h2><span class="spacer"></span>${R ? '' : `<button class="btn sm no-print" data-act="refuse" data-id="${id}">Отказ от договора</button>`}<button class="btn sm no-print" data-act="freeze-new" data-id="${id}">Заморозка</button><button class="btn sm no-print" data-act="sub-wait" data-id="${id}">Ждём оплату</button><button class="btn sm no-print" data-act="sub-new" data-id="${id}">Добавить</button></div>
   ${subsCtl}${subs.length ? `<div class="scroll"><table class="t"><thead><tr><th>Действует с</th><th class="r">Занятий</th><th class="r">Сумма</th><th class="r">Был</th><th class="r">Не был</th><th class="r">Болел</th><th class="r">Остаток</th><th>Окончание</th><th></th></tr></thead><tbody>
   ${shownSubs.map(p => { const r = ix.subCalc.get(p.id); return `<tr class="click" data-act="sub-edit" data-id="${p.id}"><td class="num">${startLabel(p, r)}${p.onlyGroup ? ' <span class="chip">' + h(p.onlyGroup) + '</span>' : ''}</td><td class="r num">${p.count}${+p.bonus > 0 ? ` <span class="chip ok" title="${h(p.bonusNote || 'решение тренера')}">+${p.bonus}</span>` : ''}</td><td class="r num">${amountCell(p)}</td><td class="r num">${r.was}</td><td class="r num">${r.missed}</td><td class="r num">${r.sick}${r.sickCharged ? ' (спис. ' + r.sickCharged + ')' : ''}</td><td class="r num"><b>${r.remaining}</b></td><td class="num">${r.end ? D.ru(r.end) : (r.endKind === 'nosched' ? '<span class="small muted">нет расписания</span>' : r.endKind === 'pkg' ? '<span class="small muted">пакет, без срока</span>' : '')}</td><td><span class="chip ${r.tone}">${h(r.status)}</span>${notifyBadges(p, r)}</td></tr>`; }).join('')}</tbody></table></div>${subsMore}` : '<div class="empty">Абонементов нет</div>'}
   ${freezes.length ? `<div style="padding:8px 16px 14px"><h3>Заморозки по болезни</h3><ul class="list">${freezes.map(f => { const fc = calcFreeze(ix, f); return `<li class="click" data-act="freeze-edit" data-id="${f.id}"><div class="who"><b>${D.ru(f.from)} — ${f.to ? D.ru(f.to) : '…'}</b><span class="small">${h(fc.text)}</span></div><span class="chip ${{ 'прекращена': 'bad', 'ошибка': 'bad', 'предварительно': 'warn', 'оформлена': 'ok' }[freezeState(fc, f)] || 'sick'}">${freezeState(fc, f)}</span></li>`; }).join('')}</ul></div>` : ''}</div>
@@ -3870,6 +3888,33 @@ function personSummary(a, c, freezes) {
   }
   return `<div class="card sec-keep" style="padding-top:12px;padding-bottom:12px"><dl class="kv">${L.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></div>`;
 }
+/* 23.10.2026: длинные пояснения (серый текст) свёрнуты в «ⓘ Пояснение»; абзацы с данными (class="keep") и окна — не сворачиваются */
+function foldHints() {
+  const main = document.querySelector('main'); if (!main) return;
+  ui.hintOpen = ui.hintOpen || new Set();
+  for (const p of main.querySelectorAll('p.small.muted:not(.keep)')) {
+    if (p.dataset.fold || p.closest('.print-only')) continue;
+    const t = p.textContent.trim(); if (t.length < 110) continue;
+    const k = t.slice(0, 60), open = ui.hintOpen.has(k); p.dataset.fold = '1';
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'hint-b no-print'; b.textContent = 'ⓘ Пояснение'; b.setAttribute('aria-expanded', open);
+    p.classList.add('hint-p'); if (!open) p.classList.add('hint-closed');
+    b.onclick = () => { const on = !p.classList.toggle('hint-closed'); b.setAttribute('aria-expanded', on); b.textContent = on ? 'ⓘ Скрыть пояснение' : 'ⓘ Пояснение'; if (on) ui.hintOpen.add(k); else ui.hintOpen.delete(k); };
+    if (open) b.textContent = 'ⓘ Скрыть пояснение';
+    p.before(b);
+  }
+}
+function segTails() {                             // 23.10.2026: вкладки шире экрана — затухание и стрелки ‹ › ; выбранная вкладка — в видимой части
+  document.querySelectorAll('main .seg:not(.full)').forEach(sg => {
+    if (sg.scrollWidth <= sg.clientWidth + 4) return;
+    let w = sg.parentElement; if (!w.classList.contains('seg-wrap')) { w = document.createElement('div'); w.className = 'seg-wrap no-print'; sg.before(w); w.append(sg);
+      const mk = (cl, t, dx) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'seg-arr ' + cl; b.textContent = t; b.setAttribute('aria-label', cl === 'r' ? 'Дальше' : 'Назад'); b.onclick = () => sg.scrollBy({ left: dx * sg.clientWidth * 0.7, behavior: 'smooth' }); w.append(b); };
+      mk('l', '‹', -1); mk('r', '›', 1); }
+    const upd = () => { const r = sg.scrollLeft + sg.clientWidth < sg.scrollWidth - 4, l = sg.scrollLeft > 4; sg.classList.toggle('more-r', r); sg.classList.toggle('more-l', l); w.classList.toggle('more-r', r); w.classList.toggle('more-l', l); };
+    const on = sg.querySelector('.on'); if (on) { const x = on.offsetLeft - sg.offsetLeft; if (x + on.offsetWidth > sg.scrollLeft + sg.clientWidth || x < sg.scrollLeft) sg.scrollLeft = Math.max(0, x - 24); }
+    if (!sg.dataset.tail) { sg.dataset.tail = '1'; sg.addEventListener('scroll', upd, { passive: true }); } upd();
+  });
+}
+addEventListener('resize', () => { clearTimeout(segTails.t); segTails.t = setTimeout(segTails, 150); });
 function applySections() {                         // разделы карточки сворачиваются; что открыто — запоминается на устройстве
   const st = meta.secOpen || {};
   document.querySelectorAll('main .card').forEach(c => {
@@ -3877,7 +3922,7 @@ function applySections() {                         // разделы карто�
     const h2 = c.querySelector(':scope > h2, :scope > div > h2'); if (!h2) return;
     const head = h2.parentElement === c ? h2 : h2.parentElement;
     const key = h2.textContent.trim().split(/\s+/)[0];
-    head.classList.add('sec-head'); c.classList.add('sec'); if (!st[key]) c.classList.add('sec-closed');
+    head.classList.add('sec-head'); c.classList.add('sec'); if (!st[key] && !c.classList.contains('sec-alert')) c.classList.add('sec-closed');   // 23.10.2026: раздел с проблемой — открыт
     head.addEventListener('click', e => { if (e.target.closest('button,a,select,input,label')) return;
       c.classList.toggle('sec-closed'); meta.secOpen = Object.assign({}, meta.secOpen || {}, { [key]: !c.classList.contains('sec-closed') }); writeMeta(); });
   });
@@ -4075,7 +4120,7 @@ function vSubs() {
   const pLabel = U.pAll ? 'с ' + D.ru(pStart) : U.pTo < pStart ? D.ru(U.pFrom) + ' — ' + D.ru(U.pTo) + ' (до начала программы, не считается)' : D.ru(D.max(U.pFrom, pStart)) + ' — ' + D.ru(U.pTo);
   const seg = [['active', 'Действующие'], ['ending', 'Заканчиваются'], ['ended', 'Закончились'], ['pending', 'Ждём оплату'], ['debt', 'Долги'], ['period', 'Оплаты за период'], ['all', 'Все']];
   return `<div class="topline"><div><h1>Абонементы</h1><div class="muted">В списке: ${rows.length}</div></div>
-  <div class="row no-print"><button class="btn" data-act="reset-filters" data-page="subs">Сбросить фильтры</button><button class="btn primary" data-act="sub-new">Новая оплата</button><button class="btn" data-act="subs-csv" data-fmt="xlsx">В Excel</button><button class="btn" data-act="subs-csv">CSV</button></div></div>
+  <div class="row no-print"><button class="btn" data-act="reset-filters" data-page="subs">Сбросить фильтры</button><button class="btn primary" data-act="sub-new">Оплата</button><button class="btn" data-act="subs-csv" data-fmt="xlsx">В Excel</button><button class="btn" data-act="subs-csv">CSV</button></div></div>
   <div class="card no-print"><div class="row" style="align-items:flex-end">
     <div class="stat" style="min-width:180px"><b>${money(paidP).toLocaleString('ru')} ₽</b><span class="small muted">оплачено ${pLabel} · ${paidP.length} ${plural(paidP.length, 'оплата', 'оплаты', 'оплат')}${refTxt(paidP)}</span></div>
     <span class="spacer"></span>
@@ -4432,7 +4477,7 @@ function vAttest(tab) {
   <div class="card flat scroll hide-m"><table class="t"><thead><tr><th>ФИО</th><th class="hide-m">Группа</th><th class="r" title="Все занятия группы по расписанию за период, включая будущие">Занятий (100%)</th><th class="r" title="Сколько нужно посетить для допуска">Нужно</th><th class="r" title="«+», «с» и «бс» в любой группе">Посещено</th><th class="r" title="Занятий по расписанию впереди, до аттестации">Осталось</th><th class="r hide-m">Не был</th><th class="r hide-m" title="Прошедшие занятия без отметки — пропуск">Без отм.</th><th class="r hide-m" title="Болел; в скобках — со справкой">Болел</th><th class="r">Турниров</th><th class="r">Посещ.</th><th>Допуск</th><th class="hide-m" style="min-width:220px">Не хватает</th><th class="no-print"></th></tr></thead><tbody>
   ${list.map(({ a, r }) => `<tr class="click" data-go="#person/${a.id}"><td>${h(shortName(a))}</td><td class="hide-m">${h(a.group)}</td><td class="r num"${r.soft ? ` title="переходный период: с ${D.ru(db.settings.attest.softFrom)}"` : ''}>${r.total || ''}${r.soft ? '<div class="small muted">с ' + D.short(db.settings.attest.softFrom) + '</div>' : ''}</td><td class="r num">${r.total ? r.need : ''}</td><td class="r num"${r.comp ? ` title="в т. ч. соревнования: ${r.comp}"` : ''}>${r.total ? r.att : ''}</td><td class="r num">${r.total ? r.left : ''}</td><td class="r num hide-m">${r.missed || ''}</td><td class="r num hide-m">${r.unmarked || ''}</td><td class="r num hide-m">${r.sick ? r.sick + (r.sickCert ? ' (' + r.sickCert + ')' : '') : ''}</td><td class="r num">${r.tourn}</td><td class="r num">${r.pct != null ? Math.round(r.pct * 100) + '%' : ''}</td>
   <td><span class="chip ${r.status.startsWith('допущен') ? 'ok' : r.status === 'нет данных' || r.late || r.other ? 'muted' : 'bad'}" >${h(r.status)}</span></td><td class="hide-m small">${r.manual ? 'расчёт: ' + h(r.auto) + (r.manual.note ? ' · ' + h(r.manual.note) : '') : [r.needVisits ? r.needVisits + ' посещ.' + (r.cantReach ? ' (уже не набрать)' : '') : '', r.needTourn ? r.needTourn + ' турн.' : ''].filter(Boolean).join(', ') + (admSubstHTML(r) ? '<div>' + admSubstHTML(r) + '</div>' : '')}</td><td class="no-print"><button class="btn sm" data-act="manual-admit" data-id="${a.id}" title="Допуск вручную">✎</button></td></tr>`).join('')}</tbody></table></div>
-  <p class="small muted">Показано ${list.length} из ${all.length}, допущено ${ok}. Турнир — отметка «с» в журнале или участие в разделе «Турниры»; для замены посещений в категории турнира внесите место и число схваток.</p>`;
+  <p class="small muted keep">Показано ${list.length} из ${all.length}, допущено ${ok}. Турнир — отметка «с» в журнале или участие в разделе «Турниры»; для замены посещений в категории турнира внесите место и число схваток.</p>`;
 }
 function vTests() {
   const U = ui.attest;
@@ -4756,7 +4801,7 @@ function vMoneyOverview() {
   const taxDue = TA.filter(m => m.closed && m.left > 0 && m.ym >= ymOf(F.start || pStartOf(db)));
   const unch = uncheckedItems(db, items, t);
   const taxCard = `<div class="card"><h2>Налог и чеки</h2><div class="stats">${stat(yi.total, 'доход за ' + year + ' год (лимит ' + rubN(F.limit) + ')', yi.total > F.limit * 0.9 ? 'var(--bad)' : '')}
-    ${taxDue.length ? taxDue.map(m => stat(m.left, 'налог за ' + ymRu(m.ym) + ' — до ' + D.ru(m.due), m.due < t ? 'var(--bad)' : 'var(--warn)')).join('') : stat(TM.filter(m => m.ym === ym).reduce((n, m) => n + m.tax, 0), 'налог за ' + MONTHS[+ym.slice(5) - 1] + ' (накапливается, оценка)')}
+    ${taxDue.length ? taxDue.map(m => stat(m.left, 'налог за ' + ymRu(m.ym) + ' — до ' + D.ru(m.due), m.due < t ? 'var(--bad)' : 'var(--warn)')).join('') : stat(TM.filter(m => m.ym === ym).reduce((n, m) => n + m.tax, 0), 'налог за ' + MONTHS[+ym.slice(5) - 1] + ' (оценка)')}
     ${F.start && F.checks !== false ? `<div class="stat"><b style="color:${unch.length ? 'var(--warn)' : 'var(--ok)'}">${unch.length}</b><span class="small muted">${unch.length ? 'оплат без отметки о чеке' : 'все чеки отмечены'}</span></div>` : ''}</div>
     <div class="row" style="margin-top:10px"><a class="btn sm" href="#money/tax">Подробно</a></div></div>`;
   const coaches = F.coaches.filter(c => coachActive(c, ym) && ((c.groups || []).length || +c.fixed || +c.perSession || +c.pct));
@@ -4768,11 +4813,11 @@ function vMoneyOverview() {
   const rLine = x => `<li><div class="who"><b>${h(shortName(x.a))}</b><span class="small">${h(x.a.group || '')} · ${x.over ? '<b style="color:var(--bad)">закончился ' + D.ru(x.end) + '</b>' : (x.k ? 'следующий раз, окончание ' : 'окончание ') + D.ru(x.end)}${x.sick ? ' · болеет — при справке позже' : ''}</span></div><span class="num">${rub(x.amount)}</span></li>`;
   const cliCard = `<div class="card"><h2>Клиенты и деньги</h2><div class="stats">
     <div class="stat"><b>${rub(pend.reduce((n, c) => n + (+c.pendingSub.amount || 0), 0))}</b><span class="small muted">ждём оплату · ${nP(PP, pend.length)}</span></div>
-    <div class="stat"><b>${rub(RM.sum)}</b><span class="small muted">ожидаемые продления до конца месяца (${D.short(mEnd)}) · ${nP(PR, RM.list.length)}</span></div>
-    <div class="stat"><b>${rub(RD.sum)}</b><span class="small muted">ожидаемые продления до <input type="date" data-change="renew-to" value="${U.renewTo}" min="${t}" style="width:auto;padding:2px 4px;font-size:.85rem;display:inline-block"> · ${nP(PR, RD.list.length)}${RD.people !== RD.list.length ? ', ' + nP(PP, RD.people) : ''}</span></div>
-    <div class="stat"><b>${rub(pre.sum)}</b><span class="small muted">неотработано по оплаченным абонементам (${pre.n}) — столько вернули бы, если бы сегодня отказались все</span></div></div>
+    <div class="stat"><b>${rub(RM.sum)}</b><span class="small muted">продления до ${D.short(mEnd)} · ${RM.list.length}</span></div>
+    <div class="stat"><b>${rub(RD.sum)}</b><span class="small muted">продления до <input type="date" data-change="renew-to" value="${U.renewTo}" min="${t}" style="width:auto;padding:2px 4px;font-size:.85rem;display:inline-block"> · ${RD.list.length}${RD.people !== RD.list.length ? ' (' + nP(PP, RD.people) + ')' : ''}</span></div>
+    <div class="stat"><b>${rub(pre.sum)}</b><span class="small muted">неотработано · ${pre.n} абон.</span></div></div>
     ${RD.list.length ? `<details style="margin-top:10px"${U.renewOpen ? ' open' : ''} data-renew><summary class="small"><b>Кто продлевает до ${D.ru(U.renewTo)}</b></summary><ul class="list">${RD.list.map(rLine).join('')}</ul></details>` : ''}
-    <p class="small muted" style="margin-top:8px">Продления — оценка, если продлят все: по окончанию абонемента (по прогнозу — при посещении всех занятий по расписанию), по последней цене; кто платил по тарифу — по тарифу на дату продления. Закончившиеся за последние 2 недели без новой оплаты тоже входят; «ждём оплату» — отдельно.</p></div>`;
+    <p class="small muted" style="margin-top:8px">Продления — оценка, если продлят все: по окончанию абонемента (по прогнозу — при посещении всех занятий по расписанию), по последней цене; кто платил по тарифу — по тарифу на дату продления. Закончившиеся за последние 2 недели без новой оплаты тоже входят; «ждём оплату» — отдельно. «Неотработано» — сколько вернули бы, если бы сегодня от договора отказались все.</p></div>`;
   const last = moneyRows('0000-01-01', '9999-12-31').slice(0, 8);
   /* 23.10.2026: «Сейчас» — «Этот месяц» — «Впереди» */
   const O = finOutlook(U.renewTo), M = O.month, FC = O.fc, BE = O.be, ps = pStartOf(db), mName = MONTHS[+ym.slice(5) - 1], MName = mName[0].toUpperCase() + mName.slice(1);
@@ -4794,15 +4839,15 @@ function vMoneyOverview() {
       ${kv('− налог за ' + mName + ' (оценка, с ожидаемыми оплатами)', sgn(-M.tax), { i: 1 })}
       ${kv('= ожидаемый итог месяца', sgn(M.result), { b: 1, col: M.result < 0 ? 'var(--bad)' : '' })}</tbody></table>
       <p class="small muted" style="margin-top:6px">Оценка: если продлят все, у кого абонемент заканчивается до конца месяца, и расходы будут по плану (план статей — «Настройки» → «Статьи расходов»). Расходы считаются за месяц, к которому относятся: аренда, оплаченная заранее за ${mName}, — в ${mLoc(ym)}.</p></details>
-    <div class="stats" style="margin-top:10px">${stat(E.sum, 'отработано занятиями (' + E.n + ' ' + plural(E.n, 'занятие', 'занятия', 'занятий') + ')')}${stat(pre.sum, 'неотработано — занятия ещё впереди')}</div>
+    <div class="stats" style="margin-top:10px">${stat(E.sum, 'отработано · ' + E.n + ' зан.')}${stat(pre.sum, 'неотработано')}</div>
     <p class="small muted" style="margin-top:6px">«Отработано» — стоимость проведённых в этом месяце занятий по оплаченным абонементам и разовым (цена ÷ число занятий): так месяцы честно сравниваются, даже если оплаты пришли раньше. «Доходы получены» — по дате оплаты.</p>
-    <p class="small muted" style="margin-top:8px">${prevTxt}${cur.ownIn || cur.ownOut ? ` Личные средства за ${mName}: вложено ${rub(cur.ownIn)}, взято ${rub(cur.ownOut)} — в прибыль не входят.` : ''}</p>
+    <p class="small muted keep" style="margin-top:8px">${prevTxt}${cur.ownIn || cur.ownOut ? ` Личные средства за ${mName}: вложено ${rub(cur.ownIn)}, взято ${rub(cur.ownOut)} — в прибыль не входят.` : ''}</p>
     <div class="row" style="margin-top:8px"><a class="btn sm" href="#money/report">Отчёт</a></div></div>`;
-  const beCard = `<div class="card"><h2>Безубыточность</h2>${BE.fixed ? `<div class="stats">${stat(BE.fixed, 'постоянные расходы в месяц по плану')}${stat(BE.need, 'нужно дохода (с налогом ' + (+F.rate || 4) + '%)')}<div class="stat"><b>${BE.subs}</b><span class="small muted">абонементов в месяц по среднему чеку ${rub(BE.avg)}</span></div>${stat(BE.expInc - BE.need, BE.expInc >= BE.need ? 'запас в ' + mLoc(ym) + ' (с ожидаемыми оплатами)' : 'не хватает в ' + mLoc(ym) + ' (с ожидаемыми оплатами)', BE.expInc >= BE.need ? 'var(--ok)' : 'var(--bad)')}</div>
-    <p class="small muted" style="margin-top:8px">Чтобы покрыть постоянные расходы, нужно примерно ${BE.subs} ${plural(BE.subs, 'абонемент', 'абонемента', 'абонементов')} в месяц; всё, что сверх, — прибыль. В ${mLoc(ym)} оплачено ${BE.paidSubs} ${plural(BE.paidSubs, 'абонемент', 'абонемента', 'абонементов')}, доходы ${rub(BE.inc)}. Средний чек — за последние 90 дней.</p>`
-    : '<p class="small muted">Укажите план расходов в месяц по статьям («Настройки» → «Статьи расходов» → «План в месяц») или регулярные платежи — программа посчитает, сколько абонементов в месяц покрывают расходы.</p>'}</div>`;
+  const beCard = `<div class="card"><h2>Безубыточность</h2>${BE.fixed ? `<div class="stats">${stat(BE.fixed, 'расходы в месяц по плану')}${stat(BE.need, 'нужно дохода (с налогом ' + (+F.rate || 4) + '%)')}<div class="stat"><b>${BE.subs}</b><span class="small muted">абонементов в месяц (чек ${rub(BE.avg)})</span></div>${stat(BE.expInc - BE.need, BE.expInc >= BE.need ? 'запас в ' + mLoc(ym) : 'не хватает в ' + mLoc(ym), BE.expInc >= BE.need ? 'var(--ok)' : 'var(--bad)')}</div>
+    <p class="small muted keep" style="margin-top:8px">Чтобы покрыть постоянные расходы, нужно примерно ${BE.subs} ${plural(BE.subs, 'абонемент', 'абонемента', 'абонементов')} в месяц; всё, что сверх, — прибыль. В ${mLoc(ym)} оплачено ${BE.paidSubs} ${plural(BE.paidSubs, 'абонемент', 'абонемента', 'абонементов')}, доходы ${rub(BE.inc)}. Средний чек — за последние 90 дней. Запас — с ожидаемыми оплатами до конца месяца.</p>`
+    : '<p class="small muted keep">Укажите план расходов в месяц по статьям («Настройки» → «Статьи расходов» → «План в месяц») или регулярные платежи — программа посчитает, сколько абонементов в месяц покрывают расходы.</p>'}</div>`;
   const fcCard = `<div class="card"><h2>Прогноз денег до <input type="date" data-change="renew-to" value="${U.renewTo}" min="${t}" style="width:auto;padding:2px 6px;font-size:1rem;display:inline-block"></h2>
-    <div class="stats">${FC.end != null ? stat(FC.end, 'будет на ' + D.ru(FC.to) + ' (оценка)', FC.end < 0 ? 'var(--bad)' : '') : ''}${stat(FC.change, FC.change >= 0 ? 'прибавится до ' + D.short(FC.to) : 'убавится до ' + D.short(FC.to), FC.change < 0 ? 'var(--bad)' : 'var(--ok)')}</div>
+    <div class="stats">${FC.end != null ? stat(FC.end, 'будет на ' + D.short(FC.to), FC.end < 0 ? 'var(--bad)' : '') : ''}${stat(FC.change, FC.change >= 0 ? 'прибавится до ' + D.short(FC.to) : 'убавится до ' + D.short(FC.to), FC.change < 0 ? 'var(--bad)' : 'var(--ok)')}</div>
     <table class="t fin-kv" style="margin-top:8px"><tbody>
       ${FC.cash != null ? kv('Деньги сейчас', sgn(FC.cash)) : ''}
       ${FC.pend ? kv('+ ждём оплату', sgn(FC.pend, 1), { i: 1 }) : ''}
@@ -5462,7 +5507,7 @@ function vData() {
   const size = Math.round(JSON.stringify(db).length / 1024);
   return `<h1>Данные</h1>
   ${STANDALONE ? `<div class="card"><h2>Автономная версия</h2><p>Программа открыта как файл с диска и работает без интернета и без сайта. Её данные хранятся <b>отдельно</b> от версии на сайте и от других браузеров: это как ещё одно устройство. Переносите данные только копией-файлом и работайте там, куда последней загрузили свежую копию.</p>
-  <p class="small muted">Не переименовывайте и не перемещайте этот файл: в части браузеров данные привязаны к его пути. Копии отсюда сохраняются с пометкой «авт».</p></div>` : ''}
+  <p class="small muted keep">Не переименовывайте и не перемещайте этот файл: в части браузеров данные привязаны к его пути. Копии отсюда сохраняются с пометкой «авт».</p></div>` : ''}
   <div class="card"><h2>Защита PIN-кодом</h2>
   ${!window.crypto || !crypto.subtle ? (STANDALONE ? '<p class="muted">Этот браузер не даёт шифрования для файла с диска. Откройте файл в Chrome, Edge или Яндекс Браузере на компьютере.</p>' : '<p class="muted">Этот браузер не поддерживает шифрование — откройте программу по адресу https://.</p>') : pinOn() ? `
     <p>PIN включён: данные в этом браузере и сохраняемые копии зашифрованы (AES-256). Программа блокируется сразу при сворачивании и после ${lockMin()} мин. бездействия. Если окно открыла сама программа (выбор файла или папки, звонок, сообщение, печать) — после ${lockMin()} мин. вне программы.</p>
@@ -5485,7 +5530,7 @@ function vData() {
   <p class="small">Последнее изменение: ${new Date(db.updatedAt).toLocaleString('ru')}. ${meta.lastExport ? 'Копия сохранена: ' + new Date(meta.lastExport).toLocaleString('ru') + (dirty() ? ' — после неё были изменения.' : ' — актуальна.') : 'Копию ещё не сохраняли.'}</p>
   ${meta.persistent === false ? '<div class="banner">Браузер не разрешил постоянное хранение: при нехватке места на устройстве он может очистить данные программы. Сохраняйте копию после каждой тренировки. На телефоне помогает установка программы на главный экран («Добавить на главный экран»).</div>' : meta.persistent ? '<p class="small muted">Хранилище постоянное: браузер не очистит его сам при нехватке места.</p>' : ''}
   <div class="row"><button class="btn primary" data-act="export">Сохранить копию</button>${window.showDirectoryPicker ? '<button class="btn" data-act="import-latest">Загрузить последнюю копию из папки</button>' : ''}<button class="btn" data-act="import">Загрузить копию из файла…</button>${window.showDirectoryPicker ? '<button class="btn" data-act="export-new">Выбрать другую папку</button>' : ''}</div>
-  <p class="small muted" style="margin-top:10px">Имя копии: <b>D23_данные_ГГГГ-ММ-ДД_ЧЧ-ММ_${isPhone() ? 'тел' : 'пк'}.json</b> — дата, время и откуда сохранено. В списке файлов самая свежая копия оказывается последней по имени.
+  <p class="small muted keep" style="margin-top:10px">Имя копии: <b>D23_данные_ГГГГ-ММ-ДД_ЧЧ-ММ_${isPhone() ? 'тел' : 'пк'}.json</b> — дата, время и откуда сохранено. В списке файлов самая свежая копия оказывается последней по имени.
   ${window.showDirectoryPicker ? `Копии сохраняются в папку${meta.copyDirName ? ' «' + h(meta.copyDirName) + '»' : ', которую вы выберете при первом сохранении'}.` : 'На телефоне копия сохраняется в «Загрузки» — оттуда отправьте её на Яндекс Диск.'}
   ${meta.lastExportName ? '<br>Последняя сохранённая: ' + h(meta.lastExportName) + '.' : ''}${meta.lastImportName ? '<br>Последняя загруженная: ' + h(meta.lastImportName) + ' (' + new Date(meta.lastImportAt).toLocaleString('ru') + ').' : ''}</p>
   ${window.showDirectoryPicker ? `<label class="row small" style="gap:8px;margin-top:6px">Хранить в папке последние <input type="number" min="0" max="999" data-change="set" data-path="copiesKeep" value="${db.settings.copiesKeep ?? 30}" style="width:80px"> копий (0 — не удалять старые)</label>` : ''}</div>
@@ -5494,15 +5539,15 @@ function vData() {
   <li>На компьютере «Сохранить копию» кладёт новый файл с датой и временем в папку Яндекс Диска (папку выбираете один раз).</li>
   <li>На телефоне: «Загрузить копию из файла…» → Яндекс Диск → самый нижний по имени файл (самый свежий).</li>
   <li>Закончили на телефоне — «Сохранить копию» и отправьте файл из «Загрузок» на Яндекс Диск. На компьютере перед работой — «Загрузить последнюю копию из папки».</li></ol>
-  <p class="small muted">Правило одно: работаете там, куда последним загрузили свежую копию. Если загрузить файл старше текущих данных, программа предупредит.</p></div>
+  <p class="small muted keep">Правило одно: работаете там, куда последним загрузили свежую копию. Если загрузить файл старше текущих данных, программа предупредит.</p></div>
   <div class="card"><h2>Прежние версии</h2><p class="small muted">Программа сама хранит последние 5 версий в этом браузере: на начало каждого дня работы и перед загрузкой копии.</p>
   ${snaps.length ? `<ul class="list">${snaps.map((s, i) => `<li><div class="who"><b>${new Date(s.at).toLocaleString('ru')}</b><span class="small">${h(s.reason)}</span></div><button class="btn sm" data-act="snap-restore" data-i="${i}">Вернуть эту версию</button></li>`).join('')}</ul>` : '<p class="muted">Пока нет.</p>'}</div>
   <div class="card"><h2>Выгрузка таблиц</h2><div class="row"><button class="btn" data-act="people-csv" data-fmt="xlsx">Спортсмены (Excel)</button><button class="btn" data-act="subs-csv" data-fmt="xlsx">Абонементы (Excel)</button><button class="btn" data-act="visits-csv" data-fmt="xlsx">Посещения (Excel)</button></div><div class="row" style="margin-top:6px"><button class="btn sm" data-act="people-csv">Спортсмены (CSV)</button><button class="btn sm" data-act="subs-csv">Абонементы (CSV)</button><button class="btn sm" data-act="visits-csv">Посещения (CSV)</button></div>
   <p class="small muted">CSV открывается в Excel. Файлы содержат персональные данные: храните на устройстве с паролем, организаторам соревнований передавайте только объём заявки.</p></div>
   <div class="card"><h2>Обезличенная копия</h2><p>Для проверки расчётов посторонним (разработчику, юристу, ИИ): вместо ФИО — «Спортсмен 1, 2…», без телефонов, родителей, примечаний, медсправок; от даты рождения остаётся только год. Посещения, абонементы, заморозки и суммы — как есть.</p>
-  <button class="btn" data-act="export-anon">Скачать обезличенную копию</button><p class="small muted" style="margin-top:6px">Такую копию не загружайте обратно вместо своих данных — программа предупредит.</p></div>
+  <button class="btn" data-act="export-anon">Скачать обезличенную копию</button><p class="small muted keep" style="margin-top:6px">Такую копию не загружайте обратно вместо своих данных — программа предупредит.</p></div>
   ${(() => { const R = retention(), li = l => l.map(a => `<li class="click" data-go="#person/${a.id}"><div class="who"><b>${h(fullName(a))}</b><span class="small">${a.endedAt ? 'договор прекращён ' + D.ru(a.endedAt) + ', хранить до ' + D.ru(keepUntil(a.endedAt)) : 'дата прекращения договора не указана'}</span></div></li>`).join('');
-    return `<div class="card"><h2>Срок хранения персональных данных</h2><p class="small muted">По п. 12.3.1 оферты данные хранятся 3 года после прекращения договора. Дата прекращения ставится сама, когда статус меняется на «ушёл».</p>
+    return `<div class="card"><h2>Срок хранения персональных данных</h2><p class="small muted keep">По п. 12.3.1 оферты данные хранятся 3 года после прекращения договора. Дата прекращения ставится сама, когда статус меняется на «ушёл».</p>
     ${R.expired.length ? `<h3>Срок истёк — удалить (кнопка «Удалить» в карточке), затем составить акт</h3><ul class="list">${li(R.expired)}</ul>` : '<p>Истёкших сроков нет.</p>'}
     ${R.noDate.length ? `<details><summary class="small">«Ушёл» без даты прекращения договора: ${R.noDate.length}</summary><ul class="list">${li(R.noDate)}</ul></details>` : ''}</div>`; })()}
   ${destroyCardHTML()}
@@ -6686,6 +6731,11 @@ const ACT = {
     download(copyName(true).replace(/\.json$/, '_без_PIN.json'), JSON.stringify(db, null, 1), 'application/json'); },
 };
 document.addEventListener('click', e => { document.querySelectorAll('details.menu[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; }); }, true);
+/* 23.10.2026: компактный пункт «Требует внимания» — нажатие раскрывает телефон и кнопки (без перерисовки; помним до перезагрузки) */
+function itToggle(cm) { const it = cm.closest('.it.compact'); if (!it) return; const on = !it.classList.contains('open'); it.classList.toggle('open', on); cm.setAttribute('aria-expanded', on);
+  ui.itOpen = ui.itOpen || new Set(); if (on) ui.itOpen.add(it.dataset.it); else ui.itOpen.delete(it.dataset.it); }
+document.addEventListener('click', e => { const cm = e.target.closest && e.target.closest('.it-cm'); if (!cm || e.target.closest('a,button')) return; itToggle(cm); });
+document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('it-cm')) { e.preventDefault(); itToggle(e.target); } });
 document.addEventListener('toggle', e => {        // №29: меню «Ещё» целиком на экране (кнопка у левого края — меню не уходит влево)
   const d = e.target; if (!(d instanceof HTMLDetailsElement) || !d.classList.contains('menu') || !d.open) return;
   const pop = d.querySelector('.menu-pop'); if (!pop) return;
