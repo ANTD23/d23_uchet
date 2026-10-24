@@ -5620,12 +5620,21 @@ async function exportData(newDir) {
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
-  const json = await exportPayload(), name = copyName(false);
-  let file = new File([json], name, { type: 'application/json' });
-  try { if (!navigator.canShare({ files: [file] })) file = new File([json], name + '.txt', { type: 'text/plain' }); } catch (e) { file = new File([json], name + '.txt', { type: 'text/plain' }); }
+  const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
+  const mk = txt => txt ? new File([json], name + '.txt', { type: 'text/plain' }) : new File([json], name, { type: 'application/json' });
+  let file = mk(android);                                   // Android: сразу «.json.txt» — .json там не пропускается
+  if (!android) { try { if (!navigator.canShare({ files: [file] })) file = mk(true); } catch (e) { file = mk(true); } }
   try { if (!navigator.canShare({ files: [file] })) { notice('Этот браузер не умеет передавать файлы в другие приложения. Нажмите «Сохранить копию» — файл попадёт в «Загрузки», оттуда отправьте его на Яндекс Диск.'); return; } } catch (e) { notice('Этот браузер не умеет передавать файлы в другие приложения.'); return; }
-  try { extMark(); await navigator.share({ files: [file], title: file.name }); markExported(file.name); }
-  catch (e) { if (e.name !== 'AbortError') notice('Не удалось поделиться копией: ' + e.message + '. Сохраните её кнопкой «Сохранить копию».'); }
+  const fallback = e => { notice('Телефон не разрешил передать файл (' + (e && e.message || e) + '). Копия скачана в «Загрузки» — отправьте её оттуда на Яндекс Диск.'); download(file.name, json, file.type); markExported(file.name); };
+  try { extMark(); await navigator.share({ files: [file] }); markExported(file.name); return; }
+  catch (e) {
+    if (e.name === 'AbortError') return;
+    if (e.name !== 'NotAllowedError') { fallback(e); return; }
+    if (file.type !== 'text/plain') file = mk(true);
+  }
+  // 24.10.2026: «Permission denied» — пока готовилась копия, истекло разрешение от нажатия; ещё одно нажатие — и отправка сразу
+  modal('Поделиться копией', `<p>Копия готова: <b>${h(file.name)}</b>.</p><p class="small muted keep">Нажмите «Поделиться» и выберите Яндекс Диск (или Telegram, почту).</p>`, { submit: 'Поделиться',
+    onSubmit() { extMark(); navigator.share({ files: [file] }).then(() => markExported(file.name)).catch(e => { if (e.name !== 'AbortError') fallback(e); }); } });
 }
 async function pruneCopies(dir) {               // оставляем последние N копий в папке
   const keep = +db.settings.copiesKeep || 0; if (!keep) return;
