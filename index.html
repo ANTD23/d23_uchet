@@ -70,6 +70,21 @@
   --hl2:#F2C230; --hl2-bg:#3A3013; --hl2-fill:#B8860B; --gold:#F2C230; --silver:#C4C9D0; --bronze:#D08A52; --belt-edge:rgba(255,255,255,.34); --chip-ok-bg:#242830; --chip-ok-ink:#EEF0F3; --chip-ok-mark:#4CC47F;
   --shadow-1:none; --shadow-2:0 16px 40px rgba(0,0,0,.6); --focus:#F2C230;
   color-scheme:dark}}
+/* 25.10.2026: «Чёрная» — для AMOLED-экранов: фон чисто чёрный (пиксели выключены — экономия батареи), карточки чуть светлее, жёлтые кнопки как у «Тёмной» */
+@media screen{:root[data-theme="amoled"]{
+  --brand:#000000; --brand-ink:#8E959F; --accent:#EEF0F3; --accent-soft:#2A2310; --accent-btn:#F2C230; --accent-btn-ink:#1D1500;
+  --accent-btn-2:#D9A81C; --accent-btn-deep:#B8860B; --tab-mark:#F2C230;
+  --bg:#000000; --surface:#0B0C0E; --surface-2:#111316; --sunk:#000000; --line:#1F2228; --line-strong:#30343C;
+  --ink:#E9EBEE; --ink-2:#959CA6; --ink-3:#868D97;
+  --ok:#4CC47F; --ok-bg:#0E2216; --ok-fill:#1D7A44; --next-ring:#F2A03A; --warned-nm:#8FB3FF;
+  --warn:#F2C230; --warn-bg:#2A2310; --warn-fill:#B8860B;
+  --bad:#FF6B6B; --bad-bg:#2A1212; --bad-fill:#C43A3A;
+  --sick:#8FB3FF; --sick-bg:#121B30; --sick-fill:#2F5FB8;
+  --comp:#C6B0FF; --comp-bg:#1D1830; --comp-fill:#6F57AE;
+  --cancel:#A9AEB6; --cancel-fill:#4E535B;
+  --hl2:#F2C230; --hl2-bg:#2A2310; --hl2-fill:#B8860B; --gold:#F2C230; --silver:#C4C9D0; --bronze:#D08A52; --belt-edge:rgba(255,255,255,.34); --chip-ok-bg:#16181C; --chip-ok-ink:#E9EBEE; --chip-ok-mark:#4CC47F;
+  --shadow-1:none; --shadow-2:0 16px 40px rgba(0,0,0,.8); --focus:#F2C230;
+  color-scheme:dark}}
 @media screen{:root[data-theme="soft"]{
   --brand:#16171A; --brand-ink:#A4AAB2; --accent:#D4D8DD; --accent-soft:#32363C; --accent-btn:#C3C8CF; --accent-btn-ink:#1A1C1F;
   --accent-btn-2:#878E98; --accent-btn-deep:#A9AFB8; --tab-mark:#C3C8CF;
@@ -84,7 +99,7 @@
   --hl2:#DDCB8E; --hl2-bg:#353022; --hl2-fill:#B5952B; --gold:#E2B93B; --silver:#B7C0CA; --bronze:#D08A52; --belt-edge:rgba(255,255,255,.34); --chip-ok-bg:#30343A; --chip-ok-ink:#D4D8DD; --chip-ok-mark:#8CCBA4;
   --shadow-1:0 1px 2px rgba(0,0,0,.3); --shadow-2:0 16px 40px rgba(0,0,0,.45); --focus:#C3C8CF;
   color-scheme:dark}}
-@media print{:root,:root[data-theme="dark"],:root[data-theme="soft"]{   /* печать — всегда светлая палитра */
+@media print{:root,:root[data-theme="dark"],:root[data-theme="soft"],:root[data-theme="amoled"]{   /* печать — всегда светлая палитра */
   --bg:#FFFFFF; --surface:#FFFFFF; --surface-2:#FFFFFF; --sunk:#FFFFFF; --line:#999999; --line-strong:#666666;
   --ink:#000000; --ink-2:#000000; --ink-3:#000000; color-scheme:light}}
 
@@ -2406,10 +2421,10 @@ function brokenHTML() {
 }
 function writeMeta() { try { localStorage.setItem(LS_META, JSON.stringify(meta)); } catch (e) {} }
 function applyTheme() {                           // тема оформления: '' — как в системе, 'light', 'dark' (хранится на устройстве, не в данных)
-  const t = ['light', 'dark', 'soft'].includes(meta.theme) ? meta.theme : '';
+  const t = ['light', 'dark', 'soft', 'amoled'].includes(meta.theme) ? meta.theme : '';
   if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme');
-  { const dark = t === 'dark' || t === 'soft' || (!t && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches), m = document.querySelector('meta[name=theme-color]');   // цвет строки состояния на телефоне
-    if (m) m.setAttribute('content', !dark ? '#1C1F23' : t === 'soft' ? '#16171A' : '#0C0E11'); }
+  { const dark = t === 'dark' || t === 'soft' || t === 'amoled' || (!t && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches), m = document.querySelector('meta[name=theme-color]');   // цвет строки состояния на телефоне
+    if (m) m.setAttribute('content', !dark ? '#1C1F23' : t === 'soft' ? '#16171A' : t === 'amoled' ? '#000000' : '#0C0E11'); }
 }
 function snapshot(reason) {
   if (!db || !db.rev) return;
@@ -4631,10 +4646,10 @@ function vSettings() {
   const S = db.settings, A = S.attest, C = S.competition;
   const inp = (path, val, type = 'text', extra = '') => `<input type="${type}" data-change="set" data-path="${path}" value="${h(val ?? '')}" ${extra}>`;
   const L = (label, html) => `<label class="f"><span>${label}</span>${html}</label>`;
-  const th = ['light', 'dark', 'soft'].includes(meta.theme) ? meta.theme : '';
+  const th = ['light', 'dark', 'soft', 'amoled'].includes(meta.theme) ? meta.theme : '';
   return `<h1>Настройки</h1>
-  <div class="card"><h2>Оформление</h2><div class="row" style="gap:12px"><span id="theme-l">Тема</span><div class="seg full" role="group" aria-labelledby="theme-l" style="grid-template-columns:repeat(4,1fr);max-width:640px">${[['', 'Как в системе'], ['light', 'Светлая'], ['dark', 'Тёмная'], ['soft', 'Тёмная мягкая']].map(([v, l]) => `<button type="button" data-act="theme" data-v="${v}" class="${th === v ? 'on' : ''}" aria-pressed="${th === v}">${l}</button>`).join('')}</div></div>
-  <p class="small muted" style="margin:10px 0 0">«Как в системе» — тема меняется вместе с настройкой телефона или компьютера. «Тёмная» — стальная с жёлтыми кнопками; «Тёмная мягкая» — прежняя тёмная. Выбор запоминается на этом устройстве; на данные и печать не влияет.</p></div>
+  <div class="card"><h2>Оформление</h2><div class="row" style="gap:12px"><span id="theme-l">Тема</span><div class="seg full" role="group" aria-labelledby="theme-l" style="grid-template-columns:repeat(auto-fit,minmax(100px,1fr));max-width:720px">${[['', 'Как в системе'], ['light', 'Светлая'], ['dark', 'Тёмная'], ['amoled', 'Чёрная (AMOLED)'], ['soft', 'Тёмная мягкая']].map(([v, l]) => `<button type="button" data-act="theme" data-v="${v}" class="${th === v ? 'on' : ''}" aria-pressed="${th === v}">${l}</button>`).join('')}</div></div>
+  <p class="small muted" style="margin:10px 0 0">«Как в системе» — тема меняется вместе с настройкой телефона или компьютера. «Тёмная» — стальная с жёлтыми кнопками; «Чёрная (AMOLED)» — такая же, но фон чисто чёрный: на AMOLED-экране телефона чёрные точки не светятся — меньше расход батареи и глубже чёрный; «Тёмная мягкая» — прежняя тёмная. Выбор запоминается на этом устройстве; на данные и печать не влияет.</p></div>
   ${(() => { if (!ui.schedFrom) ui.schedFrom = ix.today; return ''; })()}
   <div class="card"><h2>Группы и расписание</h2>
   <label class="row small" style="gap:8px;margin:0 0 8px"><b>Изменения расписания действуют с</b><input type="date" data-change="sched-from" value="${ui.schedFrom}" style="width:auto"></label>
@@ -6474,7 +6489,7 @@ function renameGroup(oldN, newN) {
 const ACT = {
   'close': () => closeModal(),
   'today-mode': el => { meta.todayMode = el.dataset.m === 'plan' ? 'plan' : ''; writeMeta(); if (route().v === 'plan') location.hash = '#today'; else rerender(); },
-  'theme': el => { meta.theme = el.dataset.v || ''; writeMeta(); applyTheme(); rerender(); toast(meta.theme === 'dark' ? 'Тёмная тема' : meta.theme === 'soft' ? 'Тёмная мягкая тема' : meta.theme === 'light' ? 'Светлая тема' : 'Тема как в системе'); },
+  'theme': el => { meta.theme = el.dataset.v || ''; writeMeta(); applyTheme(); rerender(); toast(meta.theme === 'dark' ? 'Тёмная тема' : meta.theme === 'amoled' ? 'Чёрная тема (AMOLED)' : meta.theme === 'soft' ? 'Тёмная мягкая тема' : meta.theme === 'light' ? 'Светлая тема' : 'Тема как в системе'); },
   'nosub-ack': el => { const a = ix.ath.get(el.dataset.id), g = a && noSubGap(a); if (!g) return;   // №34
     db.attnDone = db.attnDone || {}; db.attnDone[g.key] = ix.today; render.keepScroll = true; persist(shortName(a) + ': отметки не спрашиваются до оплаты или прихода'); },
   'nosub-undo': el => { const a = ix.ath.get(el.dataset.id), g = a && noSubGap(a); if (!g || !db.attnDone) return; delete db.attnDone[g.key]; render.keepScroll = true; persist(shortName(a) + ': отметки снова спрашиваются'); },
