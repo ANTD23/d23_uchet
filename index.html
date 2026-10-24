@@ -5547,9 +5547,9 @@ function vData() {
   <div class="stats" style="margin:12px 0"><div class="stat"><b>${db.athletes.length}</b><span class="small muted">спортсменов</span></div><div class="stat"><b>${db.sessions.length}</b><span class="small muted">занятий</span></div><div class="stat"><b>${db.subs.length}</b><span class="small muted">абонементов</span></div><div class="stat"><b>${size} КБ</b><span class="small muted">объём</span></div></div>
   <p class="small">Последнее изменение: ${new Date(db.updatedAt).toLocaleString('ru')}. ${meta.lastExport ? 'Копия сохранена: ' + new Date(meta.lastExport).toLocaleString('ru') + (dirty() ? ' — после неё были изменения.' : ' — актуальна.') : 'Копию ещё не сохраняли.'}</p>
   ${meta.persistent === false ? '<div class="banner">Браузер не разрешил постоянное хранение: при нехватке места на устройстве он может очистить данные программы. Сохраняйте копию после каждой тренировки. На телефоне помогает установка программы на главный экран («Добавить на главный экран»).</div>' : meta.persistent ? '<p class="small muted">Хранилище постоянное: браузер не очистит его сам при нехватке места.</p>' : ''}
-  <div class="row"><button class="btn primary" data-act="export">Сохранить копию</button>${window.showDirectoryPicker ? '<button class="btn" data-act="import-latest">Загрузить последнюю копию из папки</button>' : ''}<button class="btn" data-act="import">Загрузить копию из файла…</button>${window.showDirectoryPicker ? '<button class="btn" data-act="export-new">Выбрать другую папку</button>' : ''}</div>
+  <div class="row"><button class="btn primary" data-act="export">Сохранить копию</button>${canShareFiles() ? '<button class="btn" data-act="export-share" title="Отправить копию в Яндекс Диск, Telegram, почту…">Поделиться копией в…</button>' : ''}${window.showDirectoryPicker ? '<button class="btn" data-act="import-latest">Загрузить последнюю копию из папки</button>' : ''}<button class="btn" data-act="import">Загрузить копию из файла…</button>${window.showDirectoryPicker ? '<button class="btn" data-act="export-new">Выбрать другую папку</button>' : ''}</div>
   <p class="small muted keep" style="margin-top:10px">Имя копии: <b>D23_данные_ГГГГ-ММ-ДД_ЧЧ-ММ_${isPhone() ? 'тел' : 'пк'}.json</b> — дата, время и откуда сохранено. В списке файлов самая свежая копия оказывается последней по имени.
-  ${window.showDirectoryPicker ? `Копии сохраняются в папку${meta.copyDirName ? ' «' + h(meta.copyDirName) + '»' : ', которую вы выберете при первом сохранении'}.` : 'На телефоне копия сохраняется в «Загрузки» — оттуда отправьте её на Яндекс Диск.'}
+  ${window.showDirectoryPicker ? `Копии сохраняются в папку${meta.copyDirName ? ' «' + h(meta.copyDirName) + '»' : ', которую вы выберете при первом сохранении'}.` : (canShareFiles() ? 'На телефоне «Сохранить копию» кладёт файл в «Загрузки», а «Поделиться копией в…» сразу открывает меню телефона — выберите Яндекс Диск (папку на Диске выбираете там же). На Android файл называется «….json.txt» — это та же копия, программа её загружает.' : 'На телефоне копия сохраняется в «Загрузки» — оттуда отправьте её на Яндекс Диск.')}
   ${meta.lastExportName ? '<br>Последняя сохранённая: ' + h(meta.lastExportName) + '.' : ''}${meta.lastImportName ? '<br>Последняя загруженная: ' + h(meta.lastImportName) + ' (' + new Date(meta.lastImportAt).toLocaleString('ru') + ').' : ''}</p>
   ${window.showDirectoryPicker ? `<label class="row small" style="gap:8px;margin-top:6px">Хранить в папке последние <input type="number" min="0" max="999" data-change="set" data-path="copiesKeep" value="${db.settings.copiesKeep ?? 30}" style="width:80px"> копий (0 — не удалять старые)</label>` : ''}</div>
   <div class="card"><h2>Как работать с компьютера и телефона через Яндекс Диск</h2>
@@ -5577,7 +5577,7 @@ function idb() { return new Promise((res, rej) => { const r = indexedDB.open('d2
 async function kvGet(k) { try { const d = await idb(); return await new Promise(r => { const q = d.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => r(q.result); q.onerror = () => r(null); }); } catch (e) { return null; } }
 async function kvSet(k, v) { try { const d = await idb(); d.transaction('kv', 'readwrite').objectStore('kv').put(v, k); } catch (e) {} }
 function markExported(name) { meta.lastExport = new Date().toISOString(); meta.exportedRev = db.rev; if (name) meta.lastExportName = name; writeMeta(); rerender(); toast(name ? 'Копия сохранена: ' + name : 'Копия сохранена'); }
-const COPY_RE = /^D23_данные_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}(-\d{2})?(_[а-яa-z]+)?\.json$/i;
+const COPY_RE = /^D23_данные_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}(-\d{2})?(_[а-яa-z]+)?\.json(\.txt)?$/i;
 function isPhone() { return /Android|iPhone|iPad/i.test(navigator.userAgent) || matchMedia('(pointer:coarse)').matches; }
 function copyName(withSec) {
   const t = new Date();
@@ -5616,6 +5616,17 @@ async function exportData(newDir) {
   download(name, json, 'application/json');
   markExported(name);
 }
+/* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
+   поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
+function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
+async function shareCopy() {
+  const json = await exportPayload(), name = copyName(false);
+  let file = new File([json], name, { type: 'application/json' });
+  try { if (!navigator.canShare({ files: [file] })) file = new File([json], name + '.txt', { type: 'text/plain' }); } catch (e) { file = new File([json], name + '.txt', { type: 'text/plain' }); }
+  try { if (!navigator.canShare({ files: [file] })) { notice('Этот браузер не умеет передавать файлы в другие приложения. Нажмите «Сохранить копию» — файл попадёт в «Загрузки», оттуда отправьте его на Яндекс Диск.'); return; } } catch (e) { notice('Этот браузер не умеет передавать файлы в другие приложения.'); return; }
+  try { extMark(); await navigator.share({ files: [file], title: file.name }); markExported(file.name); }
+  catch (e) { if (e.name !== 'AbortError') notice('Не удалось поделиться копией: ' + e.message + '. Сохраните её кнопкой «Сохранить копию».'); }
+}
 async function pruneCopies(dir) {               // оставляем последние N копий в папке
   const keep = +db.settings.copiesKeep || 0; if (!keep) return;
   const files = [];
@@ -5623,7 +5634,7 @@ async function pruneCopies(dir) {               // оставляем после
   files.sort((a, b) => b.t - a.t || b.n.localeCompare(a.n));
   for (const f of files.slice(keep)) { try { await dir.removeEntry(f.n); } catch (e) {} }
 }
-const IMPORT_RE = /^D23_данные_\d{4}-\d{2}-\d{2}.*\.json$/i;   // допускает «(1)» и «_до_загрузки»
+const IMPORT_RE = /^D23_данные_\d{4}-\d{2}-\d{2}.*\.json(\.txt)?$/i;   // «.json.txt» — копия, отправленная с Android через «Поделиться»   // допускает «(1)» и «_до_загрузки»
 async function importLatest() {                 // компьютер: самая свежая копия из папки — по метке внутри файла (№3)
   try {
     const dir = await copyDir(true); if (!dir) return importData();
@@ -5647,7 +5658,7 @@ function download(name, text, type) {
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }
 function importData() {
-  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json';
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,.txt,application/json,text/plain';
   inp.onchange = () => { const f = inp.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => applyImport(r.result, f.name); r.readAsText(f); };
   extMark(); inp.click();
 }
@@ -6552,7 +6563,7 @@ const ACT = {
   'finrec-del': async el => { const F = finS(db); if (!await ask('Удалить регулярный платёж? Внесённые оплаты останутся.')) return; F.recur.splice(+el.dataset.i, 1); render.keepScroll = true; persist('Удалено'); },
   'start-empty': async () => { if (loadError && !await ask('Повреждённые данные будут скачаны файлом и заменены пустой базой. Продолжить?')) return; keepBroken(); db = normalize(emptyDb()); noUndo = true; persist('Пустая база создана'); },
   'broken-download': () => { if (loadError) download(copyName(true).replace(/\.json$/, '_повреждённая.json'), loadError, 'application/json'); },
-  'export': () => exportData(false), 'export-new': () => exportData(true), 'import': () => importData(), 'import-latest': () => importLatest(),
+  'export': () => exportData(false), 'export-new': () => exportData(true), 'export-share': () => shareCopy().catch(showError), 'import': () => importData(), 'import-latest': () => importLatest(),
   'print': () => printMain(),
   'refuse': el => openRefuse(el.dataset.id),
   'refund-paid': el => { const a = db.athletes.find(x => x.id === el.dataset.id); if (!a || !a.refund) return;
