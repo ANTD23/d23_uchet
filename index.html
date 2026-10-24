@@ -2669,7 +2669,8 @@ function navHTML(cur) {
 /* 21.10.2026: «Месяц» на телефоне — таблица по высоте помещается между своим верхом и нижним меню, последние строки не уходят под меню */
 function fitMonth() {
   const c = document.querySelector('.mscroll'); if (!c) return;
-  if (!PHONE_MQ.matches || document.body.classList.contains('jfs')) { c.style.maxHeight = ''; return; }
+  if (document.body.classList.contains('jfs')) { c.style.maxHeight = ''; return; }   // «во весь экран» — высота по CSS: таблица до низа экрана, строки обычные
+  if (!PHONE_MQ.matches) { c.style.maxHeight = ''; return; }
   const bar = document.querySelector('.tabbar'), barH = bar && getComputedStyle(bar).display !== 'none' ? bar.getBoundingClientRect().height : 0;
   const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
   const top = c.getBoundingClientRect().top + window.scrollY;               // верх таблицы на странице (при прокрутке страницы к началу)
