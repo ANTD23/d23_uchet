@@ -489,6 +489,10 @@ details.legend-d .legend{padding:4px 0 6px}
   .card.flat.scroll.mscroll{max-height:calc(100vh - 150px);max-height:calc(100dvh - 140px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));overflow:auto;overflow-y:auto;overscroll-behavior-x:contain;overscroll-behavior-y:auto;touch-action:pan-x pan-y}   /* сильнее «.card.flat» (обрезка по вертикали) — иначе таблица не листается вниз */
   .mscroll .month thead th{position:sticky;top:0;z-index:3} .mscroll .month thead th:first-child{z-index:4}
 }
+@media (min-width:861px){   /* 25.10.2026: компьютер — «Месяц» прокручивается внутри окна, строка «ФИО и даты» прилипает сверху (высота — по окну, fitMonth) */
+  .card.flat.scroll.mscroll{overflow:auto;overscroll-behavior-y:auto}
+  .mscroll .month thead th{position:sticky;top:0;z-index:3;background:var(--surface-2);box-shadow:inset 0 -1px 0 var(--line)} .mscroll .month thead th:first-child{z-index:4}
+}
 @media print{.mscroll{max-height:none!important;overflow:visible!important}}
 /* 16.10.2026: «Месяц» на телефоне — компактная таблица, тонкая панель, «Во весь экран» */
 .nm-s{display:none}
@@ -2684,7 +2688,10 @@ function navHTML(cur) {
 function fitMonth() {
   const c = document.querySelector('.mscroll'); if (!c) return;
   if (document.body.classList.contains('jfs')) { c.style.maxHeight = ''; return; }   // «во весь экран» — высота по CSS: таблица до низа экрана, строки обычные
-  if (!PHONE_MQ.matches) { c.style.maxHeight = ''; return; }
+  if (!PHONE_MQ.matches) {                                     // компьютер: таблица до низа окна, дальше — прокрутка внутри, шапка на месте
+    const vh = window.innerHeight, top = c.getBoundingClientRect().top + window.scrollY;
+    c.style.maxHeight = Math.max(360, Math.floor(vh - top - 16)) + 'px'; return;
+  }
   const bar = document.querySelector('.tabbar'), barH = bar && getComputedStyle(bar).display !== 'none' ? bar.getBoundingClientRect().height : 0;
   const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
   const top = c.getBoundingClientRect().top + window.scrollY;               // верх таблицы на странице (при прокрутке страницы к началу)
