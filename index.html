@@ -3874,7 +3874,7 @@ function vPerson(id) {
   const tournCard = `<div class="card flat"><div style="padding:14px 16px 6px"><h2>Турниры</h2>${c.ageForEntry != null && S.competition.date && S.competition.date >= ix.today ? `<div class="small" style="margin-top:4px">Возраст на «${h(S.competition.name)}» (${D.ru(S.competition.date)}): <b>${c.ageForEntry} ${plural(c.ageForEntry, 'год', 'года', 'лет')}</b></div>` : ''}</div>${myT.length ? `<div class="tlist">${myT.map(T => { const E = tCats(T, id), best = tBest(T.res[id]);
     return `<details class="tdet"><summary><span class="who"><b>${h(T.name || 'Турнир')}</b><span class="small">${D.ru(T.date)}${T.city ? ', ' + h(T.city) : ''}</span></span>${tMedals(T, id)}</summary>
       <div class="tdet-b"><h3>${h(T.name || 'Турнир')}</h3><div class="muted">${D.ru(T.date)}${T.city ? ', ' + h(T.city) : ''}</div>
-      ${E.map(e => `<div class="tdet-e"><div class="tdet-r"><b>${e.div ? tDivName(e.div) + ' — ' : ''}${tPlaceText(e.pl)}</b></div>${tAgeText(T, e) || e.masters ? `<div class="small">Возрастная категория: ${h([tAgeText(T, e), e.masters].filter(Boolean).join(', '))}</div>` : ''}${e.level ? `<div class="small">${tLevelName(T)}: ${h(e.level)}</div>` : ''}${tWeightText(e) ? `<div class="small">Весовая категория: ${h(tWeightText(e))}</div>` : ''}</div>`).join('')}
+      ${E.map(e => `<div class="tdet-e"><div class="tdet-r"><b>${e.div ? tDivName(e.div) + ' — ' : ''}${tPlaceText(e.pl)}${e.cnt ? (e.pl ? ' из ' : ', в категории ') + e.cnt : ''}</b></div>${e.cnt || String(e.fights ?? '') !== '' ? `<div class="small">${[e.cnt ? 'Участников в категории: ' + e.cnt : '', String(e.fights ?? '') !== '' ? 'Схваток: ' + e.fights : ''].filter(Boolean).join(' · ')}</div>` : ''}${tAgeText(T, e) || e.masters ? `<div class="small">Возрастная категория: ${h([tAgeText(T, e), e.masters].filter(Boolean).join(', '))}</div>` : ''}${e.level ? `<div class="small">${tLevelName(T)}: ${h(e.level)}</div>` : ''}${tWeightText(e) ? `<div class="small">Весовая категория: ${h(tWeightText(e))}</div>` : ''}</div>`).join('')}
       <div class="row no-print" style="margin-top:10px"><button class="btn sm" data-act="tcat-edit" data-id="${T.id}" data-aid="${id}">Категории и вес</button><a class="btn sm ghost" href="#tourn">Все турниры</a></div></div></details>`; }).join('')}</div>` : '<div class="empty">Нет записей. Турниры вносятся в разделе «Турниры».</div>'}</div>`;
   const logCard = myLog.length ? `<details class="card no-print"><summary><b>История изменений</b> <span class="small muted">${myLog.length}</span></summary><ul class="list" style="margin-top:8px">${myLog.slice(0, 150).map(x => `<li style="padding:6px 0"><span class="small num" style="min-width:110px">${new Date(x.at).toLocaleString('ru', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}</span><span class="who small">${h(x.t)}</span></li>`).join('')}</ul>${myLog.length > 150 ? '<p class="small muted">Показаны последние 150.</p>' : ''}</details>` : '';
   return `<div class="topline"><div><a href="#people" class="small no-print">← Спортсмены</a></div></div>
@@ -6162,7 +6162,7 @@ function tPeopleCards(T) {
       return `<li class="tp-card${x.pl ? ' m' + x.pl : ''}">
       <div class="tp-head">${beltHTML(c.belt, c.stripes)}<div class="who"><a href="#person/${x.a.id}"><b>${h(fullName(x.a))}</b></a><span class="small">${h(x.a.group || 'без группы')}${W.length ? ' · вес ' + weighLine(W[0]) : ''}</span></div>
         ${tMedals(T, x.a.id)}</div>
-      <div class="tcats">${tCats(T, x.a.id).map((e, i) => `<div class="tcat"><div class="tcat-t">${e.div ? `<span class="tdiv">${tDivName(e.div)}</span>` : '<span class="tdiv muted" title="Раздел не указан — отметьте в «Участниках»">раздел?</span>'}${tCatText(T, e) ? '<span class="tcat-c">' + h(tCatText(T, e)) + '</span>' : ''}</div><select data-change="tcat" data-id="${T.id}" data-aid="${x.a.id}" data-i="${i}" aria-label="Место: ${h(shortName(x.a))}, ${tDivName(e.div) || 'категория'} ${i + 1}">${PLACES.map(([v, l]) => opt(v, e.pl, l)).join('')}</select><input type="number" class="tfights" data-change="tfights" data-id="${T.id}" data-aid="${x.a.id}" data-i="${i}" min="0" max="30" step="1" inputmode="numeric" placeholder="схв." title="Схваток проведено в категории (для допуска к аттестации с 16 лет)" aria-label="Схваток: ${h(shortName(x.a))}, ${tDivName(e.div) || 'категория'} ${i + 1}" value="${h(e.fights ?? '')}"></div>`).join('')}</div>
+      <div class="tcats">${tCats(T, x.a.id).map((e, i) => `<div class="tcat"><div class="tcat-t">${e.div ? `<span class="tdiv">${tDivName(e.div)}</span>` : '<span class="tdiv muted" title="Раздел не указан — отметьте в «Участниках»">раздел?</span>'}${tCatText(T, e) ? '<span class="tcat-c">' + h(tCatText(T, e)) + '</span>' : ''}${e.cnt ? `<span class="tcat-c" title="Участников в категории">· ${e.cnt} в категории</span>` : ''}</div><select data-change="tcat" data-id="${T.id}" data-aid="${x.a.id}" data-i="${i}" aria-label="Место: ${h(shortName(x.a))}, ${tDivName(e.div) || 'категория'} ${i + 1}">${PLACES.map(([v, l]) => opt(v, e.pl, l)).join('')}</select><input type="number" class="tfights" data-change="tfights" data-id="${T.id}" data-aid="${x.a.id}" data-i="${i}" min="0" max="30" step="1" inputmode="numeric" placeholder="схв." title="Схваток проведено в категории (для допуска к аттестации с 16 лет)" aria-label="Схваток: ${h(shortName(x.a))}, ${tDivName(e.div) || 'категория'} ${i + 1}" value="${h(e.fights ?? '')}"></div>`).join('')}</div>
       <div class="tp-foot no-print"><button class="btn sm" data-act="tcat-edit" data-id="${T.id}" data-aid="${x.a.id}">Категории и вес</button></div></li>`; }).join('')}</ul>` : '<div class="empty">Участники не отмечены — кнопка «Участники»</div>';
 }
 function vTourn() {
@@ -6250,6 +6250,7 @@ function tCatRow(T, a, e, adult) {
       <label class="f"><span>Весовая категория, кг</span><input type="text" data-k="weight" inputmode="decimal" placeholder="например, 30 или +80" value="${h(e.weight || '')}"></label>
       <label class="f"><span>Место</span><select data-k="pl">${PLACES.map(([v, l]) => opt(v, e.pl || '', l)).join('')}</select></label>
       <label class="f"><span>Схваток проведено</span><input type="number" data-k="fights" min="0" max="30" step="1" inputmode="numeric" value="${h(e.fights ?? '')}"></label>
+      <label class="f"><span>Участников в категории</span><input type="number" data-k="cnt" min="1" max="999" step="1" inputmode="numeric" placeholder="сколько было" value="${h(e.cnt ?? '')}"></label>
     </div>
     <button type="button" class="btn sm ghost tcat-del" aria-label="Убрать категорию">Убрать категорию</button></div>`;
 }
@@ -6272,8 +6273,11 @@ function openTournCats(tid, aid) {
       const rows = [...document.querySelectorAll('#dlg .tcat-row')];
       if (!rows.length) { notice('Оставьте хотя бы одну категорию. Чтобы убрать спортсмена из турнира — кнопка «Участники».'); return false; }
       const out = rows.map(r => { const g = k => { const el = r.querySelector(`[data-k="${k}"]`); return el ? String(el.value || '').trim() : ''; };
-        return { id: r.dataset.eid || uid('e'), div: g('div'), ageFrom: g('ageFrom'), ageTo: g('ageTo'), level: g('level'), masters: g('masters'), weight: g('weight').replace('.', ','), pl: g('pl'), fights: g('fights') }; });
+        return { id: r.dataset.eid || uid('e'), div: g('div'), ageFrom: g('ageFrom'), ageTo: g('ageTo'), level: g('level'), masters: g('masters'), weight: g('weight').replace('.', ','), pl: g('pl'), fights: g('fights'), cnt: g('cnt') }; });
       if (out.some(e => e.fights && !/^\d{1,2}$/.test(e.fights))) { notice('Схваток — целое число, например 2 или 3.'); return false; }
+      if (out.some(e => e.cnt && (!/^\d{1,3}$/.test(e.cnt) || +e.cnt < 1))) { notice('Участников в категории — целое число, например 4.'); return false; }   // 25.10.2026
+      if (out.some(e => e.cnt && e.pl && /^\d$/.test(e.pl) && +e.pl > +e.cnt)) { notice('Место больше, чем участников в категории — проверьте.'); return false; }
+      out.forEach(e => { if (!e.cnt) delete e.cnt; });
       if (out.some(e => e.weight && !/^[+\-−]?\d{1,3}(,\d{1,2})?\+?$/.test(e.weight))) { notice('Весовая категория — цифрами, например 30, 32,5 или +80.'); return false; }
       if (kg) addWeighing(a, kg, fd.wdate);
       T.cats = T.cats || {}; T.cats[aid] = out; tSync(T, aid);
@@ -6284,7 +6288,7 @@ function openTournCats(tid, aid) {
   document.getElementById('tcat-add').onclick = () => { box.insertAdjacentHTML('beforeend', tCatRow(T, a, tNewCat(T, a, tDivs(T)[0]), adult)); box.lastElementChild.querySelector('input,select').focus(); };
 }
 /* 23.10.2026: сортировка отчёта по турниру — до трёх условий, каждое по возрастанию или убыванию; «призёры отдельно» — по желанию */
-const TR_SORT_KEYS = [['pl', 'Результат'], ['name', 'Фамилия'], ['age', 'Возраст'], ['agecat', 'Возрастная категория'], ['level', 'Уровень / пояс'], ['weight', 'Весовая категория'], ['div', 'Раздел (Gi / No-Gi)'], ['sex', 'Пол'], ['group', 'Группа клуба'], ['fights', 'Количество схваток']];
+const TR_SORT_KEYS = [['pl', 'Результат'], ['name', 'Фамилия'], ['age', 'Возраст'], ['agecat', 'Возрастная категория'], ['level', 'Уровень / пояс'], ['weight', 'Весовая категория'], ['div', 'Раздел (Gi / No-Gi)'], ['sex', 'Пол'], ['group', 'Группа клуба'], ['fights', 'Количество схваток'], ['cnt', 'Участников в категории']];
 function trSortDefault() { return { keys: [{ k: 'pl', dir: 1 }, { k: 'div', dir: 1 }, { k: 'name', dir: 1 }], split: true }; }
 function trSortVal(T, x, k) {
   const e = x.e, a = x.a, num = v => { const n = parseFloat(String(v || '').replace(',', '.')); return isNaN(n) ? Infinity : n; };
@@ -6299,6 +6303,7 @@ function trSortVal(T, x, k) {
   if (k === 'sex') return a.sex || '\uffff';
   if (k === 'group') return groupOn(a, T.date || ix.today) || a.group || '\uffff';
   if (k === 'fights') return String(e.fights ?? '').trim() === '' ? Infinity : num(e.fights);
+  if (k === 'cnt') return e.cnt ? num(e.cnt) : Infinity;
   return '';
 }
 function trSortCmp(T, S) {
@@ -6323,11 +6328,12 @@ function tReportHTML(T, onlyConsent, S) {
   S = S || trSortDefault();
   const rows = tReportRows(T, onlyConsent).sort(trSortCmp(T, S)), split = S.split !== false, win = split ? rows.filter(x => x.e.pl) : rows, part = split ? rows.filter(x => !x.e.pl) : [];
   const used = new Set((S.keys || []).map(x => x.k)), showAge = used.has('age') && rows.some(x => x.a.birth), showGrp = used.has('group'), showSex = used.has('sex');
-  const showF = !!S.fights || (used.has('fights') && rows.some(x => String(x.e.fights ?? '').trim() !== ''));   // 25.10.2026: «Схваток» — по выбору
+  const showF = !!S.fights || (used.has('fights') && rows.some(x => String(x.e.fights ?? '').trim() !== ''));
+  const showC = !!S.cnt || (used.has('cnt') && rows.some(x => x.e.cnt));   // 25.10.2026: «В категории» — по выбору   // 25.10.2026: «Схваток» — по выбору
   const people = new Set(rows.map(x => x.a.id)).size, med = ['1', '2', '3'].map(k => win.filter(x => x.e.pl === k).length);
   const hasLv = rows.some(x => x.e.level), hasAge = rows.some(x => tAgeText(T, x.e) || x.e.masters), hasW = rows.some(x => tWeightText(x.e)), hasDiv = rows.some(x => x.e.div);
-  const head = `<tr><th>Результат</th><th>Фамилия, имя</th>${showAge ? '<th>Возраст</th>' : ''}${showSex ? '<th>Пол</th>' : ''}${showGrp ? '<th>Группа</th>' : ''}${hasDiv ? '<th>Раздел</th>' : ''}${hasAge ? '<th>Возрастная категория</th>' : ''}${hasLv ? `<th>${tLevelName(T)}</th>` : ''}${hasW ? '<th>Весовая категория</th>' : ''}${showF ? '<th>Схваток</th>' : ''}</tr>`;
-  const tr = x => `<tr><td><b>${tPlaceText(x.e.pl)}</b></td><td>${h(shortName(x.a))}</td>${showAge ? `<td>${x.a.birth ? D.age(x.a.birth, T.date || ix.today) : '—'}</td>` : ''}${showSex ? `<td>${h(x.a.sex || '—')}</td>` : ''}${showGrp ? `<td>${h(groupOn(x.a, T.date || ix.today) || x.a.group || '—')}</td>` : ''}${hasDiv ? `<td>${tDivName(x.e.div) || '—'}</td>` : ''}${hasAge ? `<td>${h([tAgeText(T, x.e), x.e.masters].filter(Boolean).join(', ') || '—')}</td>` : ''}${hasLv ? `<td>${h(x.e.level || '—')}</td>` : ''}${hasW ? `<td>${h(tWeightText(x.e) || '—')}</td>` : ''}${showF ? `<td>${String(x.e.fights ?? '').trim() !== '' ? h(String(x.e.fights)) : '—'}</td>` : ''}</tr>`;
+  const head = `<tr><th>Результат</th><th>Фамилия, имя</th>${showAge ? '<th>Возраст</th>' : ''}${showSex ? '<th>Пол</th>' : ''}${showGrp ? '<th>Группа</th>' : ''}${hasDiv ? '<th>Раздел</th>' : ''}${hasAge ? '<th>Возрастная категория</th>' : ''}${hasLv ? `<th>${tLevelName(T)}</th>` : ''}${hasW ? '<th>Весовая категория</th>' : ''}${showF ? '<th>Схваток</th>' : ''}${showC ? '<th>В категории</th>' : ''}</tr>`;
+  const tr = x => `<tr><td><b>${tPlaceText(x.e.pl)}</b></td><td>${h(shortName(x.a))}</td>${showAge ? `<td>${x.a.birth ? D.age(x.a.birth, T.date || ix.today) : '—'}</td>` : ''}${showSex ? `<td>${h(x.a.sex || '—')}</td>` : ''}${showGrp ? `<td>${h(groupOn(x.a, T.date || ix.today) || x.a.group || '—')}</td>` : ''}${hasDiv ? `<td>${tDivName(x.e.div) || '—'}</td>` : ''}${hasAge ? `<td>${h([tAgeText(T, x.e), x.e.masters].filter(Boolean).join(', ') || '—')}</td>` : ''}${hasLv ? `<td>${h(x.e.level || '—')}</td>` : ''}${hasW ? `<td>${h(tWeightText(x.e) || '—')}</td>` : ''}${showF ? `<td>${String(x.e.fights ?? '').trim() !== '' ? h(String(x.e.fights)) : '—'}</td>` : ''}${showC ? `<td>${x.e.cnt ? h(String(x.e.cnt)) : '—'}</td>` : ''}</tr>`;
   return `<h2>${h(T.name || 'Турнир')}</h2><p><b>${D.ru(T.date)}${T.city ? ', ' + h(T.city) : ''}</b></p>
     <p>${h(db.settings.club || 'Club D23')}. Участников: ${people}${med.some(Boolean) ? ' · медали: ' + ['золото', 'серебро', 'бронза'].map((l, i) => med[i] ? l + ' — ' + med[i] : '').filter(Boolean).join(', ') : ''}.</p>
     ${!split ? `<div class="scroll"><table class="t">${head}<tbody>${win.map(tr).join('')}</tbody></table></div>` : win.length ? `<h3>Призёры</h3><div class="scroll"><table class="t">${head}<tbody>${win.map(tr).join('')}</tbody></table></div>` : '<p>Призовых мест нет.</p>'}
@@ -6337,19 +6343,20 @@ function openTournReport(tid) {
   const T = (db.tourneys || []).find(x => x.id === tid); if (!T) return;
   const all = Object.keys(T.res || {}).map(id => ix.ath.get(id)).filter(Boolean), noCons = all.filter(a => !['да', 'частично'].includes(a.publish));
   let only = false;
-  const S = (() => { try { const v = meta.trSort; if (v && Array.isArray(v.keys)) return { keys: v.keys.slice(0, 3).map(x => ({ k: x.k || '', dir: x.dir < 0 ? -1 : 1 })), split: v.split !== false, fights: !!v.fights }; } catch (e) {} return trSortDefault(); })();
+  const S = (() => { try { const v = meta.trSort; if (v && Array.isArray(v.keys)) return { keys: v.keys.slice(0, 3).map(x => ({ k: x.k || '', dir: x.dir < 0 ? -1 : 1 })), split: v.split !== false, fights: !!v.fights, cnt: !!v.cnt }; } catch (e) {} return trSortDefault(); })();
   while (S.keys.length < 3) S.keys.push({ k: '', dir: 1 });
   const sortUI = () => `<div class="card flat no-print" style="padding:10px 12px;margin-bottom:10px"><div class="row" style="gap:6px 10px;flex-wrap:wrap;align-items:center"><b class="small">Сортировка:</b>
       ${S.keys.map((x, i) => `<span class="row" style="gap:4px;flex-wrap:nowrap"><span class="small muted">${i + 1}.</span><select data-trk="${i}" style="width:auto">${[['', i ? '—' : 'по умолчанию'], ...TR_SORT_KEYS].map(([k, l]) => opt(k, x.k, l)).join('')}</select><button type="button" class="btn sm" data-trd="${i}" title="Направление" ${x.k ? '' : 'disabled'}>${x.dir < 0 ? '↓' : '↑'}</button></span>`).join('')}
       <label class="row small" style="gap:6px"><input type="checkbox" id="tr-split" ${S.split ? 'checked' : ''} style="width:20px;height:20px"> призёры отдельно</label>
       <label class="row small" style="gap:6px"><input type="checkbox" id="tr-fights" ${S.fights ? 'checked' : ''} style="width:20px;height:20px"> количество схваток</label>
+      <label class="row small" style="gap:6px"><input type="checkbox" id="tr-cnt" ${S.cnt ? 'checked' : ''} style="width:20px;height:20px"> участников в категории</label>
       <button type="button" class="btn sm ghost" id="tr-sreset">Сбросить</button></div>
       <p class="small muted" style="margin:6px 0 0">Сначала по первому условию, при равенстве — по второму, затем по третьему. ↑ — по возрастанию (возраст: сначала младшие), ↓ — наоборот. Так же сортируется печать, Word и Excel.</p></div>`;
-  const cur = () => ({ keys: S.keys.filter(x => x.k), split: S.split, fights: S.fights });
-  const save = () => { meta.trSort = { keys: S.keys.filter(x => x.k), split: S.split, fights: !!S.fights }; writeMeta(); };
+  const cur = () => ({ keys: S.keys.filter(x => x.k), split: S.split, fights: S.fights, cnt: S.cnt });
+  const save = () => { meta.trSort = { keys: S.keys.filter(x => x.k), split: S.split, fights: !!S.fights, cnt: !!S.cnt }; writeMeta(); };
   const body = () => `${sortUI()}${noCons.length ? `<div class="banner no-print" style="display:block"><b>Согласие на публикацию (Бланк 2.3) не отмечено у ${noCons.length} из ${all.length}:</b> ${noCons.map(a => h(shortName(a))).join(', ')}.
       <label class="row" style="gap:10px;margin-top:8px;font-weight:600;flex-wrap:nowrap"><input type="checkbox" id="tr-only" ${only ? 'checked' : ''} style="width:22px;height:22px"> Только с согласием — для соцсетей и сайта</label></div>` : ''}
-    <div class="treport">${tReportHTML(T, only, cur().keys.length ? cur() : { ...trSortDefault(), split: S.split, fights: S.fights })}</div>`;
+    <div class="treport">${tReportHTML(T, only, cur().keys.length ? cur() : { ...trSortDefault(), split: S.split, fights: S.fights, cnt: S.cnt })}</div>`;
   modal('Отчёт по турниру', body(), { wide: true, extraBtn: `<button type="button" class="btn" id="tr-print">Печать</button><button type="button" class="btn" id="tr-xlsx">В Excel</button><button type="button" class="btn primary" id="tr-word">В Word</button>` });
   const redraw = () => { document.querySelector('#dlg .dlg-b').innerHTML = body(); wire(); };
   const wire = () => { const c = document.getElementById('tr-only'); if (c) c.onchange = () => { only = c.checked; redraw(); };
@@ -6357,9 +6364,10 @@ function openTournReport(tid) {
     document.querySelectorAll('#dlg [data-trd]').forEach(el => { el.onclick = () => { const x = S.keys[+el.dataset.trd]; x.dir = x.dir < 0 ? 1 : -1; save(); redraw(); }; });
     const sp = document.getElementById('tr-split'); if (sp) sp.onchange = () => { S.split = sp.checked; save(); redraw(); };
     const fg = document.getElementById('tr-fights'); if (fg) fg.onchange = () => { S.fights = fg.checked; save(); redraw(); };
-    const rs = document.getElementById('tr-sreset'); if (rs) rs.onclick = () => { const d0 = trSortDefault(); S.keys = [...d0.keys]; S.split = true; S.fights = false; delete meta.trSort; writeMeta(); redraw(); }; };
+    const cg = document.getElementById('tr-cnt'); if (cg) cg.onchange = () => { S.cnt = cg.checked; save(); redraw(); };
+    const rs = document.getElementById('tr-sreset'); if (rs) rs.onclick = () => { const d0 = trSortDefault(); S.keys = [...d0.keys]; S.split = true; S.fights = false; S.cnt = false; delete meta.trSort; writeMeta(); redraw(); }; };
   wire();
-  const RS = () => cur().keys.length ? cur() : { ...trSortDefault(), split: S.split, fights: S.fights };
+  const RS = () => cur().keys.length ? cur() : { ...trSortDefault(), split: S.split, fights: S.fights, cnt: S.cnt };
   document.getElementById('tr-print').onclick = () => openPrint('Турнир — ' + (T.name || ''), tReportHTML(T, only, RS()), 'h2{font-size:15pt;margin:0 0 4pt}h3{margin:14pt 0 4pt}');
   document.getElementById('tr-xlsx').onclick = () => { downloadBlob(`D23_турнир_${(T.name || 'турнир').replace(/[\\/:*?"<>|]+/g, ' ').trim()}_${T.date || ''}.xlsx`, xlsxBlob(htmlDocx(tReportHTML(T, only, RS())), 'Турнир')); toast('Отчёт сохранён в Excel (.xlsx)'); };
   document.getElementById('tr-word').onclick = () => { downloadBlob(`D23_турнир_${(T.name || 'турнир').replace(/[\\/:*?"<>|]+/g, ' ').trim()}_${T.date || ''}.docx`, docxBlob(htmlDocx(tReportHTML(T, only, RS())))); toast('Отчёт сохранён в Word (.docx)'); };
