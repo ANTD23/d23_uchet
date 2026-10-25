@@ -6284,7 +6284,7 @@ function openTournCats(tid, aid) {
   document.getElementById('tcat-add').onclick = () => { box.insertAdjacentHTML('beforeend', tCatRow(T, a, tNewCat(T, a, tDivs(T)[0]), adult)); box.lastElementChild.querySelector('input,select').focus(); };
 }
 /* 23.10.2026: сортировка отчёта по турниру — до трёх условий, каждое по возрастанию или убыванию; «призёры отдельно» — по желанию */
-const TR_SORT_KEYS = [['pl', 'Результат'], ['name', 'Фамилия'], ['age', 'Возраст'], ['agecat', 'Возрастная категория'], ['level', 'Уровень / пояс'], ['weight', 'Весовая категория'], ['div', 'Раздел (Gi / No-Gi)'], ['sex', 'Пол'], ['group', 'Группа клуба']];
+const TR_SORT_KEYS = [['pl', 'Результат'], ['name', 'Фамилия'], ['age', 'Возраст'], ['agecat', 'Возрастная категория'], ['level', 'Уровень / пояс'], ['weight', 'Весовая категория'], ['div', 'Раздел (Gi / No-Gi)'], ['sex', 'Пол'], ['group', 'Группа клуба'], ['fights', 'Количество схваток']];
 function trSortDefault() { return { keys: [{ k: 'pl', dir: 1 }, { k: 'div', dir: 1 }, { k: 'name', dir: 1 }], split: true }; }
 function trSortVal(T, x, k) {
   const e = x.e, a = x.a, num = v => { const n = parseFloat(String(v || '').replace(',', '.')); return isNaN(n) ? Infinity : n; };
@@ -6298,6 +6298,7 @@ function trSortVal(T, x, k) {
   if (k === 'div') return e.div === 'gi' ? 1 : e.div === 'nogi' ? 2 : 9;
   if (k === 'sex') return a.sex || '\uffff';
   if (k === 'group') return groupOn(a, T.date || ix.today) || a.group || '\uffff';
+  if (k === 'fights') return String(e.fights ?? '').trim() === '' ? Infinity : num(e.fights);
   return '';
 }
 function trSortCmp(T, S) {
@@ -6322,10 +6323,11 @@ function tReportHTML(T, onlyConsent, S) {
   S = S || trSortDefault();
   const rows = tReportRows(T, onlyConsent).sort(trSortCmp(T, S)), split = S.split !== false, win = split ? rows.filter(x => x.e.pl) : rows, part = split ? rows.filter(x => !x.e.pl) : [];
   const used = new Set((S.keys || []).map(x => x.k)), showAge = used.has('age') && rows.some(x => x.a.birth), showGrp = used.has('group'), showSex = used.has('sex');
+  const showF = !!S.fights || (used.has('fights') && rows.some(x => String(x.e.fights ?? '').trim() !== ''));   // 25.10.2026: «Схваток» — по выбору
   const people = new Set(rows.map(x => x.a.id)).size, med = ['1', '2', '3'].map(k => win.filter(x => x.e.pl === k).length);
   const hasLv = rows.some(x => x.e.level), hasAge = rows.some(x => tAgeText(T, x.e) || x.e.masters), hasW = rows.some(x => tWeightText(x.e)), hasDiv = rows.some(x => x.e.div);
-  const head = `<tr><th>Результат</th><th>Фамилия, имя</th>${showAge ? '<th>Возраст</th>' : ''}${showSex ? '<th>Пол</th>' : ''}${showGrp ? '<th>Группа</th>' : ''}${hasDiv ? '<th>Раздел</th>' : ''}${hasAge ? '<th>Возрастная категория</th>' : ''}${hasLv ? `<th>${tLevelName(T)}</th>` : ''}${hasW ? '<th>Весовая категория</th>' : ''}</tr>`;
-  const tr = x => `<tr><td><b>${tPlaceText(x.e.pl)}</b></td><td>${h(shortName(x.a))}</td>${showAge ? `<td>${x.a.birth ? D.age(x.a.birth, T.date || ix.today) : '—'}</td>` : ''}${showSex ? `<td>${h(x.a.sex || '—')}</td>` : ''}${showGrp ? `<td>${h(groupOn(x.a, T.date || ix.today) || x.a.group || '—')}</td>` : ''}${hasDiv ? `<td>${tDivName(x.e.div) || '—'}</td>` : ''}${hasAge ? `<td>${h([tAgeText(T, x.e), x.e.masters].filter(Boolean).join(', ') || '—')}</td>` : ''}${hasLv ? `<td>${h(x.e.level || '—')}</td>` : ''}${hasW ? `<td>${h(tWeightText(x.e) || '—')}</td>` : ''}</tr>`;
+  const head = `<tr><th>Результат</th><th>Фамилия, имя</th>${showAge ? '<th>Возраст</th>' : ''}${showSex ? '<th>Пол</th>' : ''}${showGrp ? '<th>Группа</th>' : ''}${hasDiv ? '<th>Раздел</th>' : ''}${hasAge ? '<th>Возрастная категория</th>' : ''}${hasLv ? `<th>${tLevelName(T)}</th>` : ''}${hasW ? '<th>Весовая категория</th>' : ''}${showF ? '<th>Схваток</th>' : ''}</tr>`;
+  const tr = x => `<tr><td><b>${tPlaceText(x.e.pl)}</b></td><td>${h(shortName(x.a))}</td>${showAge ? `<td>${x.a.birth ? D.age(x.a.birth, T.date || ix.today) : '—'}</td>` : ''}${showSex ? `<td>${h(x.a.sex || '—')}</td>` : ''}${showGrp ? `<td>${h(groupOn(x.a, T.date || ix.today) || x.a.group || '—')}</td>` : ''}${hasDiv ? `<td>${tDivName(x.e.div) || '—'}</td>` : ''}${hasAge ? `<td>${h([tAgeText(T, x.e), x.e.masters].filter(Boolean).join(', ') || '—')}</td>` : ''}${hasLv ? `<td>${h(x.e.level || '—')}</td>` : ''}${hasW ? `<td>${h(tWeightText(x.e) || '—')}</td>` : ''}${showF ? `<td>${String(x.e.fights ?? '').trim() !== '' ? h(String(x.e.fights)) : '—'}</td>` : ''}</tr>`;
   return `<h2>${h(T.name || 'Турнир')}</h2><p><b>${D.ru(T.date)}${T.city ? ', ' + h(T.city) : ''}</b></p>
     <p>${h(db.settings.club || 'Club D23')}. Участников: ${people}${med.some(Boolean) ? ' · медали: ' + ['золото', 'серебро', 'бронза'].map((l, i) => med[i] ? l + ' — ' + med[i] : '').filter(Boolean).join(', ') : ''}.</p>
     ${!split ? `<div class="scroll"><table class="t">${head}<tbody>${win.map(tr).join('')}</tbody></table></div>` : win.length ? `<h3>Призёры</h3><div class="scroll"><table class="t">${head}<tbody>${win.map(tr).join('')}</tbody></table></div>` : '<p>Призовых мест нет.</p>'}
@@ -6335,27 +6337,29 @@ function openTournReport(tid) {
   const T = (db.tourneys || []).find(x => x.id === tid); if (!T) return;
   const all = Object.keys(T.res || {}).map(id => ix.ath.get(id)).filter(Boolean), noCons = all.filter(a => !['да', 'частично'].includes(a.publish));
   let only = false;
-  const S = (() => { try { const v = meta.trSort; if (v && Array.isArray(v.keys)) return { keys: v.keys.slice(0, 3).map(x => ({ k: x.k || '', dir: x.dir < 0 ? -1 : 1 })), split: v.split !== false }; } catch (e) {} return trSortDefault(); })();
+  const S = (() => { try { const v = meta.trSort; if (v && Array.isArray(v.keys)) return { keys: v.keys.slice(0, 3).map(x => ({ k: x.k || '', dir: x.dir < 0 ? -1 : 1 })), split: v.split !== false, fights: !!v.fights }; } catch (e) {} return trSortDefault(); })();
   while (S.keys.length < 3) S.keys.push({ k: '', dir: 1 });
   const sortUI = () => `<div class="card flat no-print" style="padding:10px 12px;margin-bottom:10px"><div class="row" style="gap:6px 10px;flex-wrap:wrap;align-items:center"><b class="small">Сортировка:</b>
       ${S.keys.map((x, i) => `<span class="row" style="gap:4px;flex-wrap:nowrap"><span class="small muted">${i + 1}.</span><select data-trk="${i}" style="width:auto">${[['', i ? '—' : 'по умолчанию'], ...TR_SORT_KEYS].map(([k, l]) => opt(k, x.k, l)).join('')}</select><button type="button" class="btn sm" data-trd="${i}" title="Направление" ${x.k ? '' : 'disabled'}>${x.dir < 0 ? '↓' : '↑'}</button></span>`).join('')}
       <label class="row small" style="gap:6px"><input type="checkbox" id="tr-split" ${S.split ? 'checked' : ''} style="width:20px;height:20px"> призёры отдельно</label>
+      <label class="row small" style="gap:6px"><input type="checkbox" id="tr-fights" ${S.fights ? 'checked' : ''} style="width:20px;height:20px"> количество схваток</label>
       <button type="button" class="btn sm ghost" id="tr-sreset">Сбросить</button></div>
       <p class="small muted" style="margin:6px 0 0">Сначала по первому условию, при равенстве — по второму, затем по третьему. ↑ — по возрастанию (возраст: сначала младшие), ↓ — наоборот. Так же сортируется печать, Word и Excel.</p></div>`;
-  const cur = () => ({ keys: S.keys.filter(x => x.k), split: S.split });
-  const save = () => { meta.trSort = { keys: S.keys.filter(x => x.k), split: S.split }; writeMeta(); };
+  const cur = () => ({ keys: S.keys.filter(x => x.k), split: S.split, fights: S.fights });
+  const save = () => { meta.trSort = { keys: S.keys.filter(x => x.k), split: S.split, fights: !!S.fights }; writeMeta(); };
   const body = () => `${sortUI()}${noCons.length ? `<div class="banner no-print" style="display:block"><b>Согласие на публикацию (Бланк 2.3) не отмечено у ${noCons.length} из ${all.length}:</b> ${noCons.map(a => h(shortName(a))).join(', ')}.
       <label class="row" style="gap:10px;margin-top:8px;font-weight:600;flex-wrap:nowrap"><input type="checkbox" id="tr-only" ${only ? 'checked' : ''} style="width:22px;height:22px"> Только с согласием — для соцсетей и сайта</label></div>` : ''}
-    <div class="treport">${tReportHTML(T, only, cur().keys.length ? cur() : { ...trSortDefault(), split: S.split })}</div>`;
+    <div class="treport">${tReportHTML(T, only, cur().keys.length ? cur() : { ...trSortDefault(), split: S.split, fights: S.fights })}</div>`;
   modal('Отчёт по турниру', body(), { wide: true, extraBtn: `<button type="button" class="btn" id="tr-print">Печать</button><button type="button" class="btn" id="tr-xlsx">В Excel</button><button type="button" class="btn primary" id="tr-word">В Word</button>` });
   const redraw = () => { document.querySelector('#dlg .dlg-b').innerHTML = body(); wire(); };
   const wire = () => { const c = document.getElementById('tr-only'); if (c) c.onchange = () => { only = c.checked; redraw(); };
     document.querySelectorAll('#dlg [data-trk]').forEach(el => { el.onchange = () => { S.keys[+el.dataset.trk].k = el.value; save(); redraw(); }; });
     document.querySelectorAll('#dlg [data-trd]').forEach(el => { el.onclick = () => { const x = S.keys[+el.dataset.trd]; x.dir = x.dir < 0 ? 1 : -1; save(); redraw(); }; });
     const sp = document.getElementById('tr-split'); if (sp) sp.onchange = () => { S.split = sp.checked; save(); redraw(); };
-    const rs = document.getElementById('tr-sreset'); if (rs) rs.onclick = () => { const d0 = trSortDefault(); S.keys = [...d0.keys]; S.split = true; delete meta.trSort; writeMeta(); redraw(); }; };
+    const fg = document.getElementById('tr-fights'); if (fg) fg.onchange = () => { S.fights = fg.checked; save(); redraw(); };
+    const rs = document.getElementById('tr-sreset'); if (rs) rs.onclick = () => { const d0 = trSortDefault(); S.keys = [...d0.keys]; S.split = true; S.fights = false; delete meta.trSort; writeMeta(); redraw(); }; };
   wire();
-  const RS = () => cur().keys.length ? cur() : { ...trSortDefault(), split: S.split };
+  const RS = () => cur().keys.length ? cur() : { ...trSortDefault(), split: S.split, fights: S.fights };
   document.getElementById('tr-print').onclick = () => openPrint('Турнир — ' + (T.name || ''), tReportHTML(T, only, RS()), 'h2{font-size:15pt;margin:0 0 4pt}h3{margin:14pt 0 4pt}');
   document.getElementById('tr-xlsx').onclick = () => { downloadBlob(`D23_турнир_${(T.name || 'турнир').replace(/[\\/:*?"<>|]+/g, ' ').trim()}_${T.date || ''}.xlsx`, xlsxBlob(htmlDocx(tReportHTML(T, only, RS())), 'Турнир')); toast('Отчёт сохранён в Excel (.xlsx)'); };
   document.getElementById('tr-word').onclick = () => { downloadBlob(`D23_турнир_${(T.name || 'турнир').replace(/[\\/:*?"<>|]+/g, ' ').trim()}_${T.date || ''}.docx`, docxBlob(htmlDocx(tReportHTML(T, only, RS())))); toast('Отчёт сохранён в Word (.docx)'); };
