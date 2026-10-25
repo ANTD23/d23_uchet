@@ -1040,7 +1040,7 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
       if (mk === 'б' && m.date >= (ix.db.settings.sickCheckFrom || '') && !fr.some(x => inFr(x, m.date))) charged = true;
       // п. 9.5.7 «б»: после Базовой даты и до дня возобновления занятия не списываются (пока ждём возвращения — тоже)
       if (m.mark === 'н' && fr.some(x => x.f.subId === p.id && !frUnconf(x) && (x.c.mode === 'b' || x.c.mode === 'wait') && x.c.base && m.date > x.c.base && (!x.c.ret || m.date < x.c.ret))) charged = false;
-      if (!charged) { if (used < cap) { if (mk === 'б') r.sick++; else if (mk === 'с') r.comp++; else if (mk === 'о') r.cancel++; } continue; }
+      if (!charged) { if (used < cap) { if (mk === 'б') r.sick++; else if (mk === 'с') r.comp++; else if (mk === 'о') r.cancel++; if (mk === 'б' || mk === 'с' || mk === 'о') (r.extDates = r.extDates || []).push({ d: m.date, k: mk }); } continue; }   // 25.10.2026: даты, сдвинувшие срок
       if (used >= cap) break;
       m.used = true; used++; if (m.auto) r.blank = (r.blank || 0) + 1; (r.chargedDates = r.chargedDates || []).push(m.date);   // 23.10.2026: «отработано» — по датам списанных занятий
       if (mk === '+') r.was++; else if (mk === 'н' || mk === 'с') r.missed++; else { r.sick++; r.sickCharged++; if (prov) { r.provSick = (r.provSick || 0) + 1; (r.provDates = r.provDates || []).push(m.date); } }
@@ -1058,9 +1058,16 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
       let maxGroupDate = '';
       for (const g of groups) { const gd = ix.groupDates.get(g) || []; let k = r.next ? lowerBound(gd, r.next) - 1 : gd.length - 1; if (k >= 0 && gd[k] >= r.first && gd[k] > maxGroupDate) maxGroupDate = gd[k]; }
       const from = D.max(D.max(D.add(r.first, -1), maxGroupDate), D.add(ix.today, -1));   // невнесённые прошлые занятия не делают прогноз «в прошлом»
-      r.end = nthTrainDay(ix, D.add(from, 1), r.remaining, groups) || ''; r.endKind = 'forecast';
+      r.end = nthTrainDay(ix, D.add(from, 1), r.remaining, groups) || ''; r.endKind = 'forecast'; r._from = from;
       cursor = r.end ? D.add(r.end, 1) : '9999-12-31'; cursorForecast = true;
     }
+    if (r.extDates && r.extDates.length && !pkg && r.end && (r.endKind === 'forecast' || r.endKind === 'fact')) {   // 25.10.2026: прежний срок — если бы «с», «о», болезнь со справкой списались
+      const n = r.extDates.length, all = [...(r.chargedDates || []), ...r.extDates.map(x => x.d)].sort();
+      if (r.endKind === 'forecast' && r.remaining - n > 0) r.baseEnd = nthTrainDay(ix, D.add(r._from, 1), r.remaining - n, groups) || '';
+      else r.baseEnd = all[Math.max(0, cap - 1)] || '';
+      if (r.baseEnd && r.baseEnd >= r.end) delete r.baseEnd;
+    }
+    delete r._from;
     if (r.provSick && !pkg && r.end && (r.endKind === 'forecast' || r.endKind === 'fact'))   // 23.10.2026: «при справке → …» — окончание, если справку принесут
       r.certEnd = nthTrainDay(ix, D.add(D.max(r.end, D.add(ix.today, -1)), 1), r.provSick, groups) || '';
     { const stp = stopFor(p);                                                         // договор прекращён: неиспользованное больше не идёт, следующий может начаться
@@ -1488,9 +1495,11 @@ function fillTemplate(text, ix, a, extra = {}, subId = null) {
     'дата_окончания': D.ru(end),
     'срок_оплаты': D.ru(payBy),
     'группа': a.group || '',
+    'продление': (() => { const n = (sc.extDates || []).length; return n && sc.baseEnd ? ` Продлён на ${n} ${plural(n, 'занятие', 'занятия', 'занятий')} (${extWhy(sc, '').replace(/^ \(|\)$/g, '')}), прежний срок — до ${D.ru(sc.baseEnd)}.` : ''; })(),   // 25.10.2026
     ...extra,
   };
-  return text.replace(/\{([а-яё_]+)\}/gi, (m, k) => (k.toLowerCase() in map && map[k.toLowerCase()] !== '' ? map[k.toLowerCase()] : m));
+  const EMPTY_OK = new Set(['продление']);              // пусто — просто убрать
+  return text.replace(/\{([а-яё_]+)\}/gi, (m, k) => { k = k.toLowerCase(); return k in map && (map[k] !== '' || EMPTY_OK.has(k)) ? map[k] : m; });
 }
 
 /* ===== ДЕНЬГИ: счета, статьи, операции, отчёты, налог на профессиональный доход ===== */
@@ -2037,7 +2046,7 @@ const OFFICIAL_TEMPLATES = [
   { title: 'Новый абонемент оплачен', text: 'Здравствуйте.\n{фи}.\n✅ Срок действия нового абонемента.\nс {дата_начала} по {дата_окончания}\n✅ Абонемент оплачен.' },
   { title: 'Абонемент оплачен', text: 'Здравствуйте.\n{фи}.\n✅ Абонемент оплачен.\nОн активируется в день первого посещения, но не позднее {дата_автоактивации} (п. 9.2 договора). Даты начала и окончания сообщу после активации.' },
   { title: 'Автоактивация абонемента', text: 'Здравствуйте.\n{фи}.\nНапоминаю: оплаченный абонемент активируется автоматически {дата_автоактивации} (п. 9.2.2 договора). С этой даты начнётся период его действия.' },
-  { title: 'Абонемент продлён', text: 'Здравствуйте.\n{фи}.\nСрок действия текущего абонемента продлен, до {дата_окончания}\n✅ Срок оплаты следующего абонемента до {срок_оплаты}.' },
+  { title: 'Абонемент продлён', text: 'Здравствуйте.\n{фи}.\nСрок действия текущего абонемента продлен, до {дата_окончания}.{продление}\n✅ Срок оплаты следующего абонемента до {срок_оплаты}.' },
   { title: 'Абонемент закончился', text: 'Здравствуйте.\n{фи}.\n❌ Срок действия текущего абонемента закончился {дата_окончания}\n✅ Срок оплаты следующего абонемента до {срок_оплаты}.' },
 ];
 const NEW_TEMPLATES_5 = [
@@ -2164,6 +2173,11 @@ function normalize(d) {
     const have = new Set((d.settings.templates || []).map(t => t.title));
     d.settings.templates = [...(d.settings.templates || []), ...NEW_TEMPLATES_11.filter(o => !have.has(o.title)).map(o => ({ ...o }))];
     d.settings.tplVersion = 11;
+  }
+  if ((d.settings.tplVersion || 1) === 11) {          // 25.10.2026: «Абонемент продлён» — причина и прежний срок ({продление}), если шаблон не меняли
+    const T = (d.settings.templates || []).find(t => t.title === 'Абонемент продлён');
+    if (T && T.text === 'Здравствуйте.\n{фи}.\nСрок действия текущего абонемента продлен, до {дата_окончания}\n✅ Срок оплаты следующего абонемента до {срок_оплаты}.') T.text = 'Здравствуйте.\n{фи}.\nСрок действия текущего абонемента продлен, до {дата_окончания}.{продление}\n✅ Срок оплаты следующего абонемента до {срок_оплаты}.';
+    d.settings.tplVersion = 12;
   }
   normFin(d); normExtra(d);
   return d;
@@ -2813,6 +2827,16 @@ function noSubGap(a) {
 }
 /* 23.10.2026: «при справке +N зан. → до …» — пока справки нет, «б» списывается, срок прежний */
 function certHint(s) { return s && s.provSick && s.certEnd ? `при справке +${s.provSick} ${plural(s.provSick, 'занятие', 'занятия', 'занятий')} → до ${D.ru(s.certEnd)}` : ''; }
+function extNote(r) {                              // 25.10.2026: «увеличен на 1 занятие — соревнования 24.10; прежний срок — до 31.10.2026»
+  const n = (r && r.extDates || []).length; if (!n || !r.baseEnd) return '';
+  return `увеличен на ${n} ${plural(n, 'занятие', 'занятия', 'занятий')} — ${extWhy(r, '').replace(/^ \(|\)$/g, '')}; прежний срок — до ${D.ru(r.baseEnd)}`;
+}
+function extWhy(r, after) {                         // «(соревнования 24.10, отмена 30.10, болезнь со справкой 12.10)» — что сдвинуло срок
+  const L = (r.extDates || []).filter(x => !after || x.d > after); if (!L.length) return '';
+  const K = { 'с': 'соревнования', 'о': 'отмена занятия', 'б': 'болезнь' }, g = {};
+  for (const x of L) (g[x.k] = g[x.k] || []).push(D.short(x.d));
+  return ' (' + Object.entries(g).map(([k, v]) => K[k] + ' ' + v.join(', ')).join('; ') + ')';
+}
 function attentionCalc() {
   const out = [], t = ix.today;
   for (const a of db.athletes) {
@@ -2902,12 +2926,20 @@ function attentionCalc() {
     const since = a.pauseFrom ? D.max(a.pauseFrom, last) : last;
     if (!since || D.diff(since, t) > 60) out.push({ tone: 'muted', a, ret: a.id, text: `${shortName(a)}: «приостановил»${since ? ' с ' + D.ru(since) : ''} — если не вернётся, поставьте «ушёл» (срок хранения данных, п. 12.3.1)` });
   }
+  for (const p of db.subs) {                       // 25.10.2026: срок сдвинулся («с», «о», болезнь со справкой), а срок клиенту через программу не сообщали — напомнить
+    const a = ix.ath.get(p.athleteId), r = ix.subCalc.get(p.id); if (!a || !r || p.pending || a.status === 'ушёл' || r.terminated || r.notActive || r.pkg || (+p.count || 0) <= 1) continue;
+    if (notifyState(p, 'period') || !r.end || r.end < t || freezeHold(p.id)) continue;
+    const ca = ix.athCalc.get(a.id) || {}; if (ca.sub !== p && ca.nextSub !== p) continue;
+    const ev = (r.extDates || []).filter(x => x.d >= D.add(t, -14)); if (!ev.length) continue;   // свежие (за 2 недели) — старые уже не новость
+    const n = (r.extDates || []).length;
+    out.push({ tone: 'warn', a, text: `${shortName(a)}: срок абонемента продлён на ${n} ${plural(n, 'занятие', 'занятия', 'занятий')}${extWhy(r, '')}${r.baseEnd ? ': было до ' + D.ru(r.baseEnd) + ',' : ' —'} теперь ${D.ru(r.first)} — ${D.ru(r.end)}, сообщите новый срок`, tpl: 'Абонемент продлён', sub: p.id });
+  }
   for (const p of db.subs) {                       // активация абонементов (п. 9.2.3, 9.3.7)
     const a = ix.ath.get(p.athleteId), r = ix.subCalc.get(p.id); if (!a || !r || p.pending || a.status === 'ушёл' || r.terminated || (+p.count || 0) <= 1) continue;   // разовые оплаты — без уведомлений об активации
     if (r.notActive && r.autoDate && r.autoNotifyBy && D.add(r.autoNotifyBy, -3) <= t) out.push({ tone: r.autoNotifyBy <= t ? 'bad' : 'warn', a, text: `${shortName(a)}: абонемент не активирован — автоактивация ${D.ru(r.autoDate)}, сообщить до ${D.ru(r.autoNotifyBy)} (п. 9.2.3)`, tpl: 'Автоактивация абонемента', sub: p.id });
     const q = notifyState(p, 'period'), ca = ix.athCalc.get(a.id) || {};
     if (!r.notActive && r.first && r.end && r.end >= t && r.remaining > 1 && (ca.sub === p || ca.nextSub === p) && (q ? q.stale : r.first >= (db.settings.notifyFrom || '9999') && D.max(r.first, p.payDate || '') >= D.add(t, -14))) {   // новый — оплачен или начат за последние 2 недели
-      if (q) out.push({ tone: 'warn', a, text: `${shortName(a)}: срок абонемента изменился — теперь ${D.ru(r.first)} — ${D.ru(r.end)}, сообщите новый срок`, tpl: 'Абонемент продлён', sub: p.id });
+      if (q) out.push({ tone: 'warn', a, text: `${shortName(a)}: срок абонемента изменился${extWhy(r, q.at)}: было до ${D.ru(q.end)}, теперь ${D.ru(r.first)} — ${D.ru(r.end)}, сообщите новый срок`, tpl: 'Абонемент продлён', sub: p.id });
       else if (r.actKind === 'visit' || r.actKind === 'auto') out.push({ tone: 'bad', a, text: `${shortName(a)}: абонемент активирован ${D.ru(r.first)}${r.actKind === 'auto' ? ' (автоматически)' : ''} — сообщите период ${D.ru(r.first)} — ${D.ru(r.end)} (п. 9.3.7)`, tpl: 'Новый абонемент оплачен', sub: p.id });
       else out.push({ tone: r.first <= t ? 'bad' : 'warn', a, text: `${shortName(a)}: ${p.payDate ? 'оплатил абонемент ' + D.ru(p.payDate) : 'новый абонемент'} — сообщите срок действия ${D.ru(r.first)} — ${D.ru(r.end)}`, tpl: 'Новый абонемент оплачен', sub: p.id });
     }
@@ -3864,7 +3896,7 @@ function vPerson(id) {
   </div>
   <div class="card flat${alert.subs ? ' sec-alert' : ''}"><div class="row" style="padding:14px 16px 6px"><h2 style="margin:0">Абонементы</h2><span class="spacer"></span>${R ? '' : `<button class="btn sm no-print" data-act="refuse" data-id="${id}">Отказ от договора</button>`}<button class="btn sm no-print" data-act="freeze-new" data-id="${id}">Заморозка</button><button class="btn sm no-print" data-act="sub-wait" data-id="${id}">Ждём оплату</button><button class="btn sm no-print" data-act="sub-new" data-id="${id}">Добавить</button></div>
   ${subsCtl}${subs.length ? `<div class="scroll tail-x"><table class="t"><thead><tr><th>Действует с</th><th class="r">Занятий</th><th class="r">Сумма</th><th class="r">Был</th><th class="r">Не был</th><th class="r">Болел</th><th class="r">Остаток</th><th>Окончание</th><th></th></tr></thead><tbody>
-  ${shownSubs.map(p => { const r = ix.subCalc.get(p.id); return `<tr class="click" data-act="sub-edit" data-id="${p.id}"><td class="num">${startLabel(p, r)}${p.onlyGroup ? ' <span class="chip">' + h(p.onlyGroup) + '</span>' : ''}</td><td class="r num">${p.count}${+p.bonus > 0 ? ` <span class="chip ok" title="${h(p.bonusNote || 'решение тренера')}">+${p.bonus}</span>` : ''}</td><td class="r num">${amountCell(p)}</td><td class="r num">${r.was}</td><td class="r num">${r.missed}</td><td class="r num">${r.sick}${r.sickCharged ? ' (спис. ' + r.sickCharged + ')' : ''}</td><td class="r num"><b>${r.remaining}</b></td><td class="num">${r.end ? D.ru(r.end) : (r.endKind === 'nosched' ? '<span class="small muted">нет расписания</span>' : r.endKind === 'pkg' ? '<span class="small muted">пакет, без срока</span>' : '')}</td><td><span class="chip ${r.tone}">${h(r.status)}</span>${notifyBadges(p, r)}</td></tr>`; }).join('')}</tbody></table></div>${subsMore}` : '<div class="empty">Абонементов нет</div>'}
+  ${shownSubs.map(p => { const r = ix.subCalc.get(p.id); return `<tr class="click" data-act="sub-edit" data-id="${p.id}"><td class="num">${startLabel(p, r)}${p.onlyGroup ? ' <span class="chip">' + h(p.onlyGroup) + '</span>' : ''}</td><td class="r num">${p.count}${+p.bonus > 0 ? ` <span class="chip ok" title="${h(p.bonusNote || 'решение тренера')}">+${p.bonus}</span>` : ''}</td><td class="r num">${amountCell(p)}</td><td class="r num">${r.was}</td><td class="r num">${r.missed}</td><td class="r num">${r.sick}${r.sickCharged ? ' (спис. ' + r.sickCharged + ')' : ''}</td><td class="r num"><b>${r.remaining}</b></td><td class="num">${r.end ? D.ru(r.end) + (r.baseEnd ? `<div class="small muted" title="${h('Срок ' + extNote(r))}">было ${D.short(r.baseEnd)}, +${r.extDates.length}</div>` : '') : (r.endKind === 'nosched' ? '<span class="small muted">нет расписания</span>' : r.endKind === 'pkg' ? '<span class="small muted">пакет, без срока</span>' : '')}</td><td><span class="chip ${r.tone}">${h(r.status)}</span>${notifyBadges(p, r)}</td></tr>`; }).join('')}</tbody></table></div>${subsMore}` : '<div class="empty">Абонементов нет</div>'}
   ${freezes.length ? `<div style="padding:8px 16px 14px"><h3>Заморозки по болезни</h3><ul class="list">${freezes.map(f => { const fc = calcFreeze(ix, f); return `<li class="click" data-act="freeze-edit" data-id="${f.id}"><div class="who"><b>${D.ru(f.from)} — ${f.to ? D.ru(f.to) : '…'}</b><span class="small">${h(fc.text)}</span></div><span class="chip ${{ 'прекращена': 'bad', 'ошибка': 'bad', 'предварительно': 'warn', 'оформлена': 'ok' }[freezeState(fc, f)] || 'sick'}">${freezeState(fc, f)}</span></li>`; }).join('')}</ul></div>` : ''}</div>
   <div class="grid2"><div class="card flat"><div class="row" style="padding:14px 16px 6px"><h2 style="margin:0">Пояса</h2><span class="spacer"></span><button class="btn sm no-print" data-act="award-new" data-id="${id}">Присвоить</button></div>
   ${awards.length ? `<ul class="list">${awards.map(w => `<li class="click" data-act="award-edit" data-id="${w.id}">${beltHTML(w.belt, w.stripes)}<div class="who"><b>${h(w.belt)}${w.stripes ? ', ' + w.stripes + ' стр.' : ''}</b><span class="small">${D.ru(w.date)} · ${h(w.by)}</span></div></li>`).join('')}</ul>` : '<div class="empty">Присвоений нет</div>'}</div>
@@ -3883,7 +3915,7 @@ function personSummary(a, c, freezes) {
   else if (s) {
     if (s.notActive) L.push(['Абонемент', 'оплачен, не активирован' + (s.autoDate ? ' (автоактивация ' + D.ru(s.autoDate) + ')' : '')]);
     else if (s.remaining < 0) L.push(['Абонемент', '<b style="color:var(--bad)">долг ' + (-s.remaining) + ' зан.</b>']);
-    else L.push([s.pkg ? 'Пакет разовых' : 'Абонемент', (s.remaining === 0 ? 'использован' : 'осталось <b>' + s.remaining + '</b> ' + plural(s.remaining, 'занятие', 'занятия', 'занятий') + (s.pkg ? ' из ' + subTotal(c.sub) + ', без срока' : '')) + (s.end ? (s.endKind === 'fact' ? ', последнее ' : ', до ') + D.ru(s.end) : '') + (s.provSick && s.certEnd ? ` <span class="chip sick" title="Пока справки нет, занятия болезни (${s.provDates.map(d => D.short(d)).join(', ')}) списываются. Справка внесена — срок продлится">${certHint(s)}</span>` : '')]);
+    else L.push([s.pkg ? 'Пакет разовых' : 'Абонемент', (s.remaining === 0 ? 'использован' : 'осталось <b>' + s.remaining + '</b> ' + plural(s.remaining, 'занятие', 'занятия', 'занятий') + (s.pkg ? ' из ' + subTotal(c.sub) + ', без срока' : '')) + (s.end ? (s.endKind === 'fact' ? ', последнее ' : ', до ') + D.ru(s.end) : '') + (extNote(s) ? `<div class="small" style="font-weight:500;color:var(--ink-2)">Срок ${h(extNote(s))}</div>` : '') + (s.provSick && s.certEnd ? ` <span class="chip sick" title="Пока справки нет, занятия болезни (${s.provDates.map(d => D.short(d)).join(', ')}) списываются. Справка внесена — срок продлится">${certHint(s)}</span>` : '')]);
     if (!left && !s.notActive && (+c.sub.count || 0) > 1) {          // ушёл — сообщать о сроке и окончании уже некому
       const q = notifyState(c.sub, 'period'), e = notifyState(c.sub, 'end'), sid = c.sub.id;
       const btns = (ty, tpl) => `<span class="row no-print" style="gap:6px;margin-top:4px"><button class="btn sm" data-act="msg" data-id="${a.id}" data-sub="${sid}" data-tpl="${tpl}">Написать</button><button class="btn sm ghost" data-act="notify-mark" data-sub="${sid}" data-type="${ty}" title="Сообщение отправлено не из программы">Уже отправил</button></span>`;
@@ -4178,7 +4210,7 @@ function vSubs() {
   ${rows.map(({ p, r, a }) => { const hl = p.pending ? ' pend' : latestIds.has(p.id) && !ix.athCalc.get(a.id).nextSub && !ix.athCalc.get(a.id).pendingSub && !r.terminated && (r.remaining === 1 || r.remaining === 2) ? ' rem' + r.remaining : '';
   return `<tr class="click${hl}" data-act="sub-edit" data-id="${p.id}"><td><b class="nm">${h(shortName(a))}</b><div class="small muted">${h(p.onlyGroup || a.group)}</div></td><td class="hide-m num">${D.ru(p.payDate)}</td><td class="num">${startLabel(p, r, true)}</td>
   <td class="r num">${p.count}</td><td class="r num hide-m">${amountCell(p)}</td><td class="r num hide-m">${r.was}</td><td class="r num hide-m">${r.missed}</td><td class="r num hide-m">${r.sick}</td>
-  <td class="r num"><b>${r.remaining}</b></td><td class="num">${r.end ? D.ru(r.end) : (r.endKind === 'nosched' ? '<span class="small muted">нет расписания</span>' : r.endKind === 'pkg' ? '<span class="small muted">пакет, без срока</span>' : '')}</td><td><span class="chip ${r.tone}">${h(r.status)}</span>${notifyBadges(p, r)}</td></tr>`; }).join('') || '<tr><td colspan="11" class="empty">Нет абонементов в этом списке</td></tr>'}</tbody></table></div>
+  <td class="r num"><b>${r.remaining}</b></td><td class="num">${r.end ? D.ru(r.end) + (r.baseEnd ? `<div class="small muted" title="${h('Срок ' + extNote(r))}">было ${D.short(r.baseEnd)}, +${r.extDates.length}</div>` : '') : (r.endKind === 'nosched' ? '<span class="small muted">нет расписания</span>' : r.endKind === 'pkg' ? '<span class="small muted">пакет, без срока</span>' : '')}</td><td><span class="chip ${r.tone}">${h(r.status)}</span>${notifyBadges(p, r)}</td></tr>`; }).join('') || '<tr><td colspan="11" class="empty">Нет абонементов в этом списке</td></tr>'}</tbody></table></div>
   <p class="small muted">Списывается «был» и «не был» (п. 9.4). «Болел» не списывается, пока заморозка не прекращена (п. 9.5). Окончание — прогноз по расписанию группы и нерабочим дням (п. 9.3).</p>`;
 }
 function openSub(id, athleteId) {
@@ -4687,7 +4719,7 @@ function vSettings() {
   <p class="small muted">Переименовали источник или причину — у спортсменов, кому они уже проставлены, останется прежнее название (оно видно в карточке и в «Показателях» отдельной строкой).</p></div>
   <div class="card"><h2>Контроль новичка</h2><p class="small muted">Пункт «Новичок» в «Требует внимания»: человек пришёл недавно и ходит меньше, чем нужно, чтобы втянуться. Большинство уходящих новичков уходит в первые недели — написать или поговорить лучше сразу.</p>
   <div class="fgrid">${L('Первые дни в клубе, дн.', inp('newbie.days', S.newbie.days, 'number', 'min="7" max="60"'))}${L('…за них посещений не меньше', inp('newbie.minVisits', S.newbie.minVisits, 'number', 'min="1" max="10"'))}${L('Пропусков подряд — сигнал', inp('newbie.missRow', S.newbie.missRow, 'number', 'min="1" max="6"'))}${L('Сколько дней считать новичком', inp('newbie.watch', S.newbie.watch, 'number', 'min="14" max="120"'))}</div></div>
-  <div class="card"><h2>Шаблоны сообщений</h2><p class="small muted">Подстановки: {имя}, {фи}, {фио}, {остаток}, {долг}, {занятий}, {дата_начала}, {дата_окончания}, {срок_оплаты}, {группа}.</p>
+  <div class="card"><h2>Шаблоны сообщений</h2><p class="small muted">Подстановки: {имя}, {фи}, {фио}, {остаток}, {долг}, {занятий}, {дата_начала}, {дата_окончания}, {срок_оплаты}, {группа}, {продление} — «Продлён на 1 занятие (соревнования 24.10), прежний срок — до …» (если продления не было — пусто).</p>
   ${S.templates.map((t, i) => `<fieldset><legend>${h(t.title)}</legend><input type="text" data-change="tpl" data-i="${i}" data-k="title" value="${h(t.title)}" style="margin-bottom:6px"><textarea data-change="tpl" data-i="${i}" data-k="text">${h(t.text)}</textarea><button class="btn sm danger" data-act="tpl-del" data-i="${i}" style="margin-top:6px">Удалить шаблон</button></fieldset>`).join('')}
   <button class="btn" data-act="tpl-add">Добавить шаблон</button></div>`;
 }
