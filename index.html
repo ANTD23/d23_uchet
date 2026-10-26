@@ -5846,12 +5846,14 @@ function openBlank() {
   const body = `<div class="fgrid">${FS('group', 'Группа', G, J.mgroup)}${FS('month', 'Месяц', MONTHS.map((n, i) => [i + 1, n]), m)}${F('year', 'Год', y, 'number', 'min="2020" max="2100"')}
   ${F('from', 'Печатать с №', 1, 'number', 'min="1"')}${F('perPage', 'Строк на листе', 22, 'number', 'min="5" max="30"')}${F('rightPad', 'Запас справа, мм', db.settings.blankRightPad ?? 4, 'number', 'min="0" max="30" step="1"')}</div>
   <p class="small muted" style="margin-top:6px">Запас справа сужает таблицу, если принтер обрезает правую рамку. Значение запоминается.</p>
+  ${FS('layout', 'Колонки справа', [['sub', 'Учёт абонемента: Текущий, Продление, Количество, Следующий месяц, О.пр, Дата, Н.Бн'], ['notes', 'Примечания — одна широкая колонка (в 1,5 раза шире ФИО)']], db.settings.blankLayout || 'sub', 'style="max-width:100%"')}
   <label class="row" style="gap:8px;margin-top:10px"><input type="checkbox" name="filled" style="width:20px;height:20px"> Заполнить уже поставленные отметки (для прошедшего месяца)</label>
   <p class="small muted" id="blank-info" style="margin-top:10px"></p>`;
   modal('Бланк для печати', body, { submit: 'Печать', onSubmit(fd) {
     const rp = Math.min(30, Math.max(0, Math.round(+fd.rightPad) || 0));
-    if (db.settings.blankRightPad !== rp) { db.settings.blankRightPad = rp; persist(); }
-    printBlank(fd.group, fd.year + '-' + pad(+fd.month), Math.max(1, +fd.from || 1), Math.min(30, Math.max(5, +fd.perPage || 22)), !!fd.filled, rp);
+    const lay = fd.layout === 'notes' ? 'notes' : 'sub';
+    if (db.settings.blankRightPad !== rp || (db.settings.blankLayout || 'sub') !== lay) { db.settings.blankRightPad = rp; db.settings.blankLayout = lay; persist(); }   // выбор колонок запоминается
+    printBlank(fd.group, fd.year + '-' + pad(+fd.month), Math.max(1, +fd.from || 1), Math.min(30, Math.max(5, +fd.perPage || 22)), !!fd.filled, rp, lay);
   } });
   const info = () => { const f = $('#dlg-form'); const g = f.group.value, ym = f.year.value + '-' + pad(+f.month.value); const [a, b] = monthBounds(ym);
     const n = blankPeople(g, a, b).length, pp = Math.max(5, +f.perPage.value || 22), from = Math.max(1, +f.from.value || 1);
@@ -5859,7 +5861,7 @@ function openBlank() {
     $('#blank-info').textContent = `В группе ${n} чел. С № ${from} печатается ${left} ${plural(left, 'человек', 'человека', 'человек')}: ${Math.max(1, Math.ceil(left / pp))} ${plural(Math.max(1, Math.ceil(left / pp)), 'лист', 'листа', 'листов')} по ${pp} строк. На каждом листе — шапка с группой, месяцем и годом.`; };
   $('#dlg-form').addEventListener('input', info); $('#dlg-form').addEventListener('change', info); info();
 }
-function printBlank(g, ym, fromNo, perPage, filled, rightPad = 4) {
+function printBlank(g, ym, fromNo, perPage, filled, rightPad = 4, layout = 'sub') {   // 26.10.2026: layout 'notes' — вместо колонок учёта абонемента одна «Примечания» (в 1,5 раза шире ФИО)
   const [y, m] = ym.split('-').map(Number), [first, last] = monthBounds(ym);
   const dates = new Set();
   for (let d = first; d <= last; d = D.add(d, 1)) if (isTrainDay(ix, d, [g])) dates.add(d);
@@ -5879,18 +5881,20 @@ function printBlank(g, ym, fromNo, perPage, filled, rightPad = 4) {
     return t; };
   const isOne = (a) => perVisitOn(a, last) || cols.some(d => { const tg = payMarks(a.id).tag.get(d + '|' + g); return tg && rawOf(a, d) === '+'; });
   // ширины, мм: страница А4 альбом 297, поля 25 слева и 7 справа
-  const W = 297 - 25 - 7 - rightPad, fixed = { no: 8, fio: 54, tot: 11, extra: [17, 17, 7, 17, 7, 17, 7] };
+  const notes = layout === 'notes';
+  const W = 297 - 25 - 7 - rightPad, fixed = { no: 8, fio: 54, tot: 11, extra: notes ? [] : [17, 17, 7, 17, 7, 17, 7] };
   const extraSum = fixed.extra.reduce((s, x) => s + x, 0);
-  let fio = fixed.fio, dw = (W - fixed.no - fio - fixed.tot - extraSum) / cols.length;
-  if (dw < 6) { fio = Math.max(40, fio - (6 - dw) * cols.length); dw = (W - fixed.no - fio - fixed.tot - extraSum) / cols.length; }
+  let fio = fixed.fio, nw = notes ? fio * 1.5 : 0, dw = (W - fixed.no - fio - nw - fixed.tot - extraSum) / cols.length;
+  if (dw < 6) { fio = Math.max(notes ? 36 : 40, fio - (6 - dw) * cols.length / (notes ? 2.5 : 1)); nw = notes ? fio * 1.5 : 0; dw = (W - fixed.no - fio - nw - fixed.tot - extraSum) / cols.length; }
   dw = Math.min(dw, 12);
+  if (notes) nw = W - fixed.no - fio - fixed.tot - dw * cols.length;   // остаток ширины — примечаниям (не меньше 1,5 ФИО)
   const PAGE_H = 210 - 9 - 9 - 1.5, TITLE_H = 12, HEAD_H = 16, FOOT_H = 6;
   const rowH = ((PAGE_H - TITLE_H - HEAD_H - FOOT_H) / perPage).toFixed(2);
   const extraNames = ['Текущий', 'Продление', 'Количество', 'Следующий месяц', 'О.пр', 'Дата', 'Н.Бн'];
   const head = `<div class="ttl"><div><div class="h1">ЖУРНАЛ ПОСЕЩАЕМОСТИ</div><div>${h(db.settings.club)}</div></div>
     <div class="meta"><span>Группа: <b>${h(g)}</b></span><span>Месяц: <b>${MONTHS[m - 1]}</b></span><span>Год: <b>${y}</b></span></div></div>`;
-  const thead = `<colgroup><col style="width:${fixed.no}mm"><col style="width:${fio}mm"><col style="width:${fixed.tot}mm">${cols.map(() => `<col style="width:${dw.toFixed(2)}mm">`).join('')}${fixed.extra.map(x => `<col style="width:${x}mm">`).join('')}</colgroup>
-    <thead><tr class="hd"><th class="b">№</th><th class="fio">Фамилия Имя</th><th>Итого</th>${cols.map(d => `<th class="dt">${+d.slice(8)}<br><span>${DOW[D.dow(d)].toLowerCase()}</span></th>`).join('')}${extraNames.map((n, i) => `<th class="ex${i === 0 ? ' b' : ''}${[2, 4, 6].includes(i) ? ' rot' : ''}"><div>${n}</div></th>`).join('')}</tr></thead>`;
+  const thead = `<colgroup><col style="width:${fixed.no}mm"><col style="width:${fio}mm"><col style="width:${fixed.tot}mm">${cols.map(() => `<col style="width:${dw.toFixed(2)}mm">`).join('')}${fixed.extra.map(x => `<col style="width:${x}mm">`).join('')}${notes ? `<col style="width:${nw.toFixed(2)}mm">` : ''}</colgroup>
+    <thead><tr class="hd"><th class="b">№</th><th class="fio">Фамилия Имя</th><th>Итого</th>${cols.map(d => `<th class="dt">${+d.slice(8)}<br><span>${DOW[D.dow(d)].toLowerCase()}</span></th>`).join('')}${notes ? '<th class="b">Примечания</th>' : extraNames.map((n, i) => `<th class="ex${i === 0 ? ' b' : ''}${[2, 4, 6].includes(i) ? ' rot' : ''}"><div>${n}</div></th>`).join('')}</tr></thead>`;
   const pages = [];
   for (let i = 0; i < Math.max(1, people.length); i += perPage) {
     const chunk = people.slice(i, i + perPage);
@@ -5899,7 +5903,7 @@ function printBlank(g, ym, fromNo, perPage, filled, rightPad = 4) {
       const x = chunk[k];
       const ms = x ? cols.map(d => markOf(x.a, d)) : cols.map(() => '');
       const tot = x ? cols.filter(d => rawOf(x.a, d) === '+').length : 0;   // все посещения: «+», «р», «д», «3/10»
-      rows.push(`<tr><td class="b c">${x ? x.no : ''}</td><td class="fio">${x ? h(shortName(x.a)) + (isOne(x.a) ? ' (р)' : '') + (warnedOf(x.a) ? ' ✉' : '') : ''}</td><td class="c">${tot || ''}</td>${ms.map(v => `<td class="c${v.length > 2 ? ' sm' : ''}">${h(v)}</td>`).join('')}${fixed.extra.map((_, j) => `<td${j === 0 ? ' class="b"' : ''}></td>`).join('')}</tr>`);
+      rows.push(`<tr><td class="b c">${x ? x.no : ''}</td><td class="fio">${x ? h(shortName(x.a)) + (isOne(x.a) ? ' (р)' : '') + (warnedOf(x.a) ? ' ✉' : '') : ''}</td><td class="c">${tot || ''}</td>${ms.map(v => `<td class="c${v.length > 2 ? ' sm' : ''}">${h(v)}</td>`).join('')}${notes ? '<td class="b"></td>' : fixed.extra.map((_, j) => `<td${j === 0 ? ' class="b"' : ''}></td>`).join('')}</tr>`);
     }
     pages.push(`<section class="page">${head}<table>${thead}<tbody>${rows.join('')}</tbody></table>
       <div class="foot"><span class="lg">+ был · н не был · б болел · бс болел, справка · о отменено · с соревн.${filled ? ' · д не оплачено · р разово · 3/10 пакет · +0 бесплатно · [ ] первое и последнее занятие абонемента' : ''}</span><span>Тренер: ____________________</span></div></section>`);
