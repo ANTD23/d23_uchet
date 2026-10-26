@@ -5905,12 +5905,12 @@ function printBlank(g, ym, fromNo, perPage, filled, rightPad = 4, layout = 'sub'
     const rows = [];
     for (let k = 0; k < perPage; k++) {
       const x = chunk[k];
-      const ms = x ? cols.map(d => markOf(x.a, d)) : cols.map(() => '');
+      const ms = x ? cols.map(d => markOf(x.a, d) || (!inGroupOn(x.a, g, d) ? '–' : '')) : cols.map(() => '');   // 26.10.2026: «–» — в этот день человек не в этой группе (перевод)
       const tot = x ? cols.filter(d => rawOf(x.a, d) === '+').length : 0;   // все посещения: «+», «р», «д», «3/10»
       rows.push(`<tr><td class="b c">${x ? x.no : ''}</td><td class="fio">${x ? h(shortName(x.a)) + (isOne(x.a) ? ' (р)' : '') + (warnedOf(x.a) ? ' ✉' : '') : ''}</td><td class="c">${tot || ''}</td>${ms.map(v => `<td class="c${v.length > 2 ? ' sm' : ''}">${h(v)}</td>`).join('')}${notes ? '<td class="b"></td>' : fixed.extra.map((_, j) => `<td${j === 0 ? ' class="b"' : ''}></td>`).join('')}</tr>`);
     }
     pages.push(`<section class="page">${head}<table>${thead}<tbody>${rows.join('')}</tbody></table>
-      <div class="foot"><span class="lg">+ был · н не был · б болел · бс болел, справка · о отменено · с соревн.${filled ? ' · д не оплачено · р разово · 3/10 пакет · +0 бесплатно · [ ] первое и последнее занятие абонемента' : ''}</span><span>Тренер: ____________________</span></div></section>`);
+      <div class="foot"><span class="lg">+ был · н не был · б болел · бс болел, справка · о отменено · с соревн.${people.some(x => cols.some(d => !inGroupOn(x.a, g, d))) ? ' · – не в группе' : ''}${filled ? ' · д не оплачено · р разово · 3/10 пакет · +0 бесплатно · [ ] первое и последнее занятие абонемента' : ''}</span><span>Тренер: ____________________</span></div></section>`);
   }
   openPrint(`Журнал ${g} ${MONTHS[m - 1]} ${y}`, pages.join(''), `
     @page{size:A4 landscape;margin:0}
