@@ -5840,28 +5840,32 @@ function blankPeople(g, first, last) {            // в печатный бла�
     .sort((a, b) => fullName(a).localeCompare(fullName(b), 'ru'));
 }
 function monthBounds(ym) { const [y, m] = ym.split('-').map(Number); return [ym + '-01', D.add(m === 12 ? (y + 1) + '-01-01' : y + '-' + pad(m + 1) + '-01', -1)]; }
+const BLANK_AVAIL = 210 - 9 - 9 - 1.5 - 12 - 16 - 6;    // мм под строки на листе А4 альбом (без шапки, заголовков столбцов и подписи)
+function blankMaxRows(rowH) { return Math.max(1, Math.floor(BLANK_AVAIL / rowH + 1e-6)); }
 function openBlank() {
   const J = ui.journal, [y, m] = J.month.split('-').map(Number);
   const G = db.settings.groups.map(g => g.name);
   const body = `<div class="fgrid">${FS('group', 'Группа', G, J.mgroup)}${FS('month', 'Месяц', MONTHS.map((n, i) => [i + 1, n]), m)}${F('year', 'Год', y, 'number', 'min="2020" max="2100"')}
-  ${F('from', 'Печатать с №', 1, 'number', 'min="1"')}${F('perPage', 'Строк на листе', 22, 'number', 'min="5" max="30"')}${F('rightPad', 'Запас справа, мм', db.settings.blankRightPad ?? 4, 'number', 'min="0" max="30" step="1"')}</div>
-  <p class="small muted" style="margin-top:6px">Запас справа сужает таблицу, если принтер обрезает правую рамку. Значение запоминается.</p>
+  ${F('from', 'Печатать с №', 1, 'number', 'min="1"')}${F('perPage', 'Строк на листе', db.settings.blankPerPage ?? 22, 'number', 'min="1" max="30"')}${F('rowH', 'Высота строки, мм', db.settings.blankRowH ?? 7, 'number', 'min="5" max="20" step="0.5"')}${F('rightPad', 'Запас справа, мм', db.settings.blankRightPad ?? 4, 'number', 'min="0" max="30" step="1"')}</div>
+  <p class="small muted" style="margin-top:6px">Высота строки постоянная: меньше строк — таблица короче, а не строки выше (обычно 7 мм; крупнее писать — 8–9 мм). Запас справа сужает таблицу, если принтер обрезает правую рамку. Всё запоминается.</p>
   ${FS('layout', 'Колонки справа', [['sub', 'Учёт абонемента: Текущий, Продление, Количество, Следующий месяц, О.пр, Дата, Н.Бн'], ['notes', 'Примечания — одна широкая колонка (в 1,5 раза шире ФИО)']], db.settings.blankLayout || 'sub', 'style="max-width:100%"')}
   <label class="row" style="gap:8px;margin-top:10px"><input type="checkbox" name="filled" style="width:20px;height:20px"> Заполнить уже поставленные отметки (для прошедшего месяца)</label>
   <p class="small muted" id="blank-info" style="margin-top:10px"></p>`;
   modal('Бланк для печати', body, { submit: 'Печать', onSubmit(fd) {
     const rp = Math.min(30, Math.max(0, Math.round(+fd.rightPad) || 0));
-    const lay = fd.layout === 'notes' ? 'notes' : 'sub';
-    if (db.settings.blankRightPad !== rp || (db.settings.blankLayout || 'sub') !== lay) { db.settings.blankRightPad = rp; db.settings.blankLayout = lay; persist(); }   // выбор колонок запоминается
-    printBlank(fd.group, fd.year + '-' + pad(+fd.month), Math.max(1, +fd.from || 1), Math.min(30, Math.max(5, +fd.perPage || 22)), !!fd.filled, rp, lay);
+    const lay = fd.layout === 'notes' ? 'notes' : 'sub', rh = Math.min(20, Math.max(5, Math.round((+String(fd.rowH).replace(',', '.') || 7) * 2) / 2));
+    const pp = Math.min(blankMaxRows(rh), Math.max(1, Math.round(+fd.perPage) || 22));
+    if (db.settings.blankRightPad !== rp || (db.settings.blankLayout || 'sub') !== lay || db.settings.blankRowH !== rh || db.settings.blankPerPage !== pp) { Object.assign(db.settings, { blankRightPad: rp, blankLayout: lay, blankRowH: rh, blankPerPage: pp }); persist(); }   // запоминается
+    printBlank(fd.group, fd.year + '-' + pad(+fd.month), Math.max(1, +fd.from || 1), pp, !!fd.filled, rp, lay, rh);
   } });
   const info = () => { const f = $('#dlg-form'); const g = f.group.value, ym = f.year.value + '-' + pad(+f.month.value); const [a, b] = monthBounds(ym);
-    const n = blankPeople(g, a, b).length, pp = Math.max(5, +f.perPage.value || 22), from = Math.max(1, +f.from.value || 1);
+    const rh = Math.min(20, Math.max(5, +String(f.rowH.value).replace(',', '.') || 7)), mx = blankMaxRows(rh), pp = Math.min(mx, Math.max(1, +f.perPage.value || 22)), from = Math.max(1, +f.from.value || 1), n = blankPeople(g, a, b).length;
+    const capped = (+f.perPage.value || 22) > mx;
     const left = Math.max(0, n - from + 1);
-    $('#blank-info').textContent = `В группе ${n} чел. С № ${from} печатается ${left} ${plural(left, 'человек', 'человека', 'человек')}: ${Math.max(1, Math.ceil(left / pp))} ${plural(Math.max(1, Math.ceil(left / pp)), 'лист', 'листа', 'листов')} по ${pp} строк. На каждом листе — шапка с группой, месяцем и годом.`; };
+    $('#blank-info').textContent = `В группе ${n} чел. С № ${from} печатается ${left} ${plural(left, 'человек', 'человека', 'человек')}: ${Math.max(1, Math.ceil(left / pp))} ${plural(Math.max(1, Math.ceil(left / pp)), 'лист', 'листа', 'листов')} по ${pp} ${plural(pp, 'строке', 'строки', 'строк')} высотой ${String(rh).replace('.', ',')} мм.${capped ? ` При такой высоте на лист помещается не больше ${mx} строк.` : ''} На каждом листе — шапка с группой, месяцем и годом.`; };
   $('#dlg-form').addEventListener('input', info); $('#dlg-form').addEventListener('change', info); info();
 }
-function printBlank(g, ym, fromNo, perPage, filled, rightPad = 4, layout = 'sub') {   // 26.10.2026: layout 'notes' — вместо колонок учёта абонемента одна «Примечания» (в 1,5 раза шире ФИО)
+function printBlank(g, ym, fromNo, perPage, filled, rightPad = 4, layout = 'sub', rowHmm = 0) {   // 26.10.2026: rowHmm — высота строки постоянная (мм); не задана — строки делят лист   // 26.10.2026: layout 'notes' — вместо колонок учёта абонемента одна «Примечания» (в 1,5 раза шире ФИО)
   const [y, m] = ym.split('-').map(Number), [first, last] = monthBounds(ym);
   const dates = new Set();
   for (let d = first; d <= last; d = D.add(d, 1)) if (isTrainDay(ix, d, [g])) dates.add(d);
@@ -5889,7 +5893,7 @@ function printBlank(g, ym, fromNo, perPage, filled, rightPad = 4, layout = 'sub'
   dw = Math.min(dw, 12);
   if (notes) nw = W - fixed.no - fio - fixed.tot - dw * cols.length;   // остаток ширины — примечаниям (не меньше 1,5 ФИО)
   const PAGE_H = 210 - 9 - 9 - 1.5, TITLE_H = 12, HEAD_H = 16, FOOT_H = 6;
-  const rowH = ((PAGE_H - TITLE_H - HEAD_H - FOOT_H) / perPage).toFixed(2);
+  const rowH = (rowHmm ? Math.min(rowHmm, (PAGE_H - TITLE_H - HEAD_H - FOOT_H) / perPage) : (PAGE_H - TITLE_H - HEAD_H - FOOT_H) / perPage).toFixed(2);
   const extraNames = ['Текущий', 'Продление', 'Количество', 'Следующий месяц', 'О.пр', 'Дата', 'Н.Бн'];
   const head = `<div class="ttl"><div><div class="h1">ЖУРНАЛ ПОСЕЩАЕМОСТИ</div><div>${h(db.settings.club)}</div></div>
     <div class="meta"><span>Группа: <b>${h(g)}</b></span><span>Месяц: <b>${MONTHS[m - 1]}</b></span><span>Год: <b>${y}</b></span></div></div>`;
