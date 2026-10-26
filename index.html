@@ -3682,7 +3682,7 @@ function vPeople() {
   const sel = (k, items, label) => `<label class="f"><span>${label}</span><select data-change="pf" data-k="${k}">${items.map(x => opt(x, F[k])).join('')}</select></label>`;
   const num = (k, label, ph) => `<label class="f"><span>${label}</span><input type="number" inputmode="numeric" data-change="pf" data-k="${k}" value="${h(F[k])}" placeholder="${ph}"></label>`;
   return `<div class="topline"><div><h1>Спортсмены</h1><div class="muted">${list.length} из ${db.athletes.length}</div></div>
-    <div class="row no-print"><button class="btn" data-act="reset-filters" data-page="people">Сбросить фильтры</button><button class="btn primary" data-act="person-new">Добавить</button><button class="btn" data-act="people-print">Печать списка</button><button class="btn" data-act="people-entry">Список для заявки</button><button class="btn" data-act="weigh-list">Взвешивание</button><button class="btn" data-act="people-csv" data-fmt="xlsx">В Excel</button><button class="btn" data-act="people-csv">CSV</button></div></div>
+    <div class="row no-print"><button class="btn" data-act="reset-filters" data-page="people">Сбросить фильтры</button><button class="btn primary" data-act="person-new">Добавить</button><button class="btn" data-act="people-print">Печать списка</button><button class="btn" data-act="parents-list" title="ФИО родителей и телефоны — печать, Word, Excel">Список родителей</button><button class="btn" data-act="people-entry">Список для заявки</button><button class="btn" data-act="weigh-list">Взвешивание</button><button class="btn" data-act="people-csv" data-fmt="xlsx">В Excel</button><button class="btn" data-act="people-csv">CSV</button></div></div>
   <div class="card no-print"><input type="search" placeholder="Поиск: фамилия, имя, родитель, телефон" data-change="pf" data-k="q" value="${h(F.q)}" style="margin-bottom:10px">
   <details class="filt" ${!PHONE_MQ.matches || ui.peopleFiltOpen ? 'open' : ''} data-filt><summary>Фильтры${['group', 'belt', 'sex'].some(k => F[k] !== 'все') || F.status !== 'занимается' || F.ageFrom || F.ageTo || F.yFrom || F.yTo ? ' (включены)' : ''}</summary>
   <div class="filters">${sel('status', ['все', ...S.statuses], 'Статус')}${sel('group', ['все', ...S.groups.map(g => g.name)], 'Группа')}${sel('belt', ['все', ...S.belts], 'Пояс')}${sel('sex', ['все', 'М', 'Ж'], 'Пол')}
@@ -5797,6 +5797,37 @@ function printMain(title) {                               // печать тек
   const m = document.querySelector('main'); if (!m) return;
   openPrint(title || document.title, m.innerHTML, css + 'body{font-size:11pt;background:#fff}', { app: true });
 }
+/* 26.10.2026: список родителей с телефонами — для печати, Word, Excel */
+function parentsHTML(who, byGroup) {
+  const base = who === 'shown' ? filteredPeople() : db.athletes.filter(a => a.status === 'занимается');
+  const ph = x => fmtPhone(cleanPhone(x)) || '';
+  const rows = base.filter(a => (a.motherName || '').trim() || cleanPhone(a.motherPhone) || (a.fatherName || '').trim() || cleanPhone(a.fatherPhone))
+    .sort((x, y) => (byGroup ? (groupOn(x, ix.today) || x.group || '\uffff').localeCompare(groupOn(y, ix.today) || y.group || '\uffff', 'ru') : 0) || fullName(x).localeCompare(fullName(y), 'ru'));
+  const main = a => (ix.athCalc.get(a.id) || {}).contactWho || '';
+  const tr = (a, i) => `<tr><td>${i + 1}</td><td>${h(fullName(a))}</td>${byGroup ? '' : `<td>${h(groupOn(a, ix.today) || a.group || '')}</td>`}<td>${h(a.motherName || '')}${main(a) === 'мать' ? ' *' : ''}</td><td style="white-space:nowrap">${h(ph(a.motherPhone))}</td><td>${h(a.fatherName || '')}${main(a) === 'отец' ? ' *' : ''}</td><td style="white-space:nowrap">${h(ph(a.fatherPhone))}</td></tr>`;
+  const head = `<tr><th>№</th><th>Спортсмен</th>${byGroup ? '' : '<th>Группа</th>'}<th>Мать</th><th>Телефон</th><th>Отец</th><th>Телефон</th></tr>`;
+  let body = '';
+  if (byGroup) { const G = new Map(); rows.forEach(a => { const g = groupOn(a, ix.today) || a.group || 'без группы'; if (!G.has(g)) G.set(g, []); G.get(g).push(a); });
+    body = [...G].map(([g, L]) => `<h3>${h(g)} · ${L.length}</h3><table class="t">${head}${L.map(tr).join('')}</table>`).join(''); }
+  else body = `<table class="t">${head}${rows.map(tr).join('')}</table>`;
+  return { n: rows.length, html: `<h2>Родители — список с телефонами</h2><p>${h(db.settings.club)}. ${who === 'shown' ? 'Спортсмены из списка с выбранными фильтрами' : 'Все занимающиеся'}, у кого внесены родители: ${rows.length}. На ${D.ru(ix.today)}.</p>${rows.length ? body : '<p>Никого нет — родители не внесены.</p>'}<p style="font-size:9pt">* — основной контакт. Список содержит персональные данные: не оставляйте его на виду, после использования уничтожьте.</p>` };
+}
+function openParentsList() {
+  let who = 'all', byGroup = true;
+  const body = () => { const R = parentsHTML(who, byGroup); return `<div class="row no-print" style="gap:8px 14px;flex-wrap:wrap;margin-bottom:8px">
+      <label class="row small" style="gap:6px"><input type="radio" name="pl-who" value="all" ${who === 'all' ? 'checked' : ''} style="width:20px;height:20px"> все занимающиеся</label>
+      <label class="row small" style="gap:6px"><input type="radio" name="pl-who" value="shown" ${who === 'shown' ? 'checked' : ''} style="width:20px;height:20px"> как в списке (с фильтрами)</label>
+      <label class="row small" style="gap:6px"><input type="checkbox" id="pl-grp" ${byGroup ? 'checked' : ''} style="width:20px;height:20px"> по группам</label></div><div class="treport">${R.html}</div>`; };
+  modal('Список родителей', body(), { wide: true, extraBtn: `<button type="button" class="btn" id="pl-print">Печать</button><button type="button" class="btn" id="pl-xlsx">В Excel</button><button type="button" class="btn primary" id="pl-word">В Word</button>` });
+  const wire = () => { document.querySelectorAll('#dlg [name=pl-who]').forEach(r => { r.onchange = () => { who = r.value; redraw(); }; });
+    const g = document.getElementById('pl-grp'); if (g) g.onchange = () => { byGroup = g.checked; redraw(); }; };
+  const redraw = () => { document.querySelector('#dlg .dlg-b').innerHTML = body(); wire(); };
+  wire();
+  const nm = ext => `D23_родители_${D.today()}.${ext}`;
+  document.getElementById('pl-print').onclick = () => openPrint('Родители — список', parentsHTML(who, byGroup).html, 'h2{font-size:15pt;margin:0 0 4pt}h3{margin:12pt 0 4pt}table{width:100%}td,th{font-size:10pt;padding:3pt 4pt}');
+  document.getElementById('pl-xlsx').onclick = () => { downloadBlob(nm('xlsx'), xlsxBlob(htmlDocx(parentsHTML(who, byGroup).html), 'Родители')); toast('Список сохранён в Excel (.xlsx)'); };
+  document.getElementById('pl-word').onclick = () => { downloadBlob(nm('docx'), docxBlob(htmlDocx(parentsHTML(who, byGroup).html))); toast('Список сохранён в Word (.docx)'); };
+}
 function openPrint(title, html, css = '', opt = {}) {
   extMark(); const w = window.open('', '_blank');
   if (!w) { notice('Браузер заблокировал окно печати. Разрешите всплывающие окна для этой страницы.'); return; }
@@ -6812,7 +6843,7 @@ const ACT = {
   'hol-del': el => { db.settings.holidays = db.settings.holidays.filter(x => x.date !== el.dataset.date); render.keepScroll = true; persist(); },
   'tpl-add': () => { db.settings.templates.push({ title: 'Новый шаблон', text: 'Здравствуйте! ' }); render.keepScroll = true; persist(); },
   'tpl-del': async el => { if (await ask('Удалить шаблон?')) { db.settings.templates.splice(+el.dataset.i, 1); render.keepScroll = true; persist(); } },
-  'people-print': () => printMain('Спортсмены'), 'people-entry': () => printEntry(), 'weigh-list': () => openWeighList(),
+  'people-print': () => printMain('Спортсмены'), 'parents-list': () => openParentsList(), 'people-entry': () => printEntry(), 'weigh-list': () => openWeighList(),
   'people-csv': async el => { if (pinOn() && !await ask('Файл не шифруется: в файле будут открытые персональные данные. Продолжить?')) return; const rows = [['ФИО', 'Пол', 'Дата рождения', 'Возраст', 'Группа', 'Вторая группа', 'Статус', 'Пояс', 'Страйпы', 'Вес', 'Телефон', 'Мать', 'Тел. матери', 'Отец', 'Тел. отца', 'Медсправка до', 'Примечание']];
     (location.hash.startsWith('#people') ? filteredPeople() : db.athletes).forEach(a => { const c = ix.athCalc.get(a.id); rows.push([fullName(a), a.sex, D.ru(a.birth), c.age ?? '', a.group, a.group2, a.status, c.belt, c.stripes || '', a.weight, a.phone, a.motherName, a.motherPhone, a.fatherName, a.fatherPhone, D.ru(a.medUntil), a.note]); });
     saveRows('D23_спортсмены_' + ix.today, rows, el, 'Спортсмены'); },
