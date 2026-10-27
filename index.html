@@ -1498,6 +1498,7 @@ function fillTemplate(text, ix, a, extra = {}, subId = null) {
     'дата_начала': p && subFirst(ix, p) ? D.ru(subFirst(ix, p)) : '',
     'дата_автоактивации': sc.autoDate ? D.ru(sc.autoDate) : '',
     'дата_окончания': D.ru(end),
+    'окончание_нового': sc.end ? D.ru(sc.end) : '',    // 27.10.2026: окончание этого (нового, в т. ч. «ждём оплату») абонемента
     'срок_оплаты': D.ru(payBy),
     'группа': a.group || '',
     'продление': (() => { const n = (sc.extDates || []).length; return n && sc.baseEnd ? ` Продлён на ${n} ${plural(n, 'занятие', 'занятия', 'занятий')} (${extWhy(sc, '').replace(/^ \(|\)$/g, '')}), прежний срок — до ${D.ru(sc.baseEnd)}.` : ''; })(),   // 25.10.2026
@@ -2068,6 +2069,9 @@ const NEW_TEMPLATES_10 = [
   { title: 'Пакет разовых заканчивается', text: 'Здравствуйте.\n{фи}.\nПо оплаченному пакету разовых занятий осталось одно занятие. Чтобы заниматься дальше, оплатите новый пакет или разовое посещение.' },
   { title: 'Пакет разовых использован', text: 'Здравствуйте.\n{фи}.\nОплаченный пакет разовых занятий использован полностью. Следующее посещение — по оплате: разовое занятие или новый пакет.' },
 ];
+const NEW_TEMPLATES_13 = [   // 27.10.2026: абонемент закончился, пришёл без оплаты — новый абонемент начат посещением
+  { title: 'Новый абонемент — ждём оплату', text: 'Здравствуйте.\n{фи}.\n✅ Срок действия нового абонемента.\nс {дата_начала} по {окончание_нового}\n✅ Напоминаем об оплате.' },
+];
 const NEW_TEMPLATES_11 = [
   { title: 'Пакет разовых оплачен', text: 'Здравствуйте.\n{фи}.\n✅ Оплачен пакет разовых занятий: {занятий}.\nЗанятие списывается только когда вы пришли, срока у пакета нет. Сколько осталось — подскажу в любой момент, а когда останется одно занятие — напомню.' },
 ];
@@ -2183,6 +2187,11 @@ function normalize(d) {
     const T = (d.settings.templates || []).find(t => t.title === 'Абонемент продлён');
     if (T && T.text === 'Здравствуйте.\n{фи}.\nСрок действия текущего абонемента продлен, до {дата_окончания}\n✅ Срок оплаты следующего абонемента до {срок_оплаты}.') T.text = 'Здравствуйте.\n{фи}.\nСрок действия текущего абонемента продлен, до {дата_окончания}.{продление}\n✅ Срок оплаты следующего абонемента до {срок_оплаты}.';
     d.settings.tplVersion = 12;
+  }
+  if ((d.settings.tplVersion || 1) === 12) {          // 27.10.2026: «Новый абонемент — ждём оплату»
+    const have = new Set((d.settings.templates || []).map(t => t.title));
+    d.settings.templates = [...(d.settings.templates || []), ...NEW_TEMPLATES_13.filter(o => !have.has(o.title)).map(o => ({ ...o }))];
+    d.settings.tplVersion = 13;
   }
   normFin(d); normExtra(d);
   return d;
@@ -2861,9 +2870,9 @@ function attentionCalc() {
     if (c.pendingSub) {
       const n = c.pendingCalc ? c.pendingCalc.charged : 0;
       const nb = c.pendingSub.waitFrom && c.pendingCalc && c.pendingCalc.first ? D.add(c.pendingCalc.first, 21) : '';   // №12 (О12, К2): новичок — 21 день с первого посещения
-      if (nb && t < nb) out.push({ tone: 'warn', a, text: `${nm}: новичок, ждём оплату с ${D.ru(c.pendingCalc.first)} — оплатить до ${D.ru(nb)}${n ? ' (занятий ' + n + ')' : ''}${pendWarnTxt(c.pendingSub)}`, tpl: 'Абонемент закончился', sub: c.pendingSub.id, paid: c.pendingSub.id });
-      else if (nb) out.push({ tone: 'bad', a, text: `${nm}: новичок, 21 день с первого посещения (${D.ru(c.pendingCalc.first)}) прошёл, оплаты нет — долг ${n} ${plural(n, 'занятие', 'занятия', 'занятий')}${pendWarnTxt(c.pendingSub)}`, tpl: 'Абонемент закончился', sub: c.pendingSub.id, paid: c.pendingSub.id });
-      else out.push({ tone: 'bad', a, text: `${nm}: ждём оплату${c.pendingCalc && c.pendingCalc.first ? ' с ' + D.ru(c.pendingCalc.first) : ''}${n ? ', в долг ' + n + ' ' + plural(n, 'занятие', 'занятия', 'занятий') : ''}${pendWarnTxt(c.pendingSub)}`, tpl: 'Абонемент закончился', sub: c.pendingSub.id, paid: c.pendingSub.id });
+      if (nb && t < nb) out.push({ tone: 'warn', a, text: `${nm}: новичок, ждём оплату с ${D.ru(c.pendingCalc.first)} — оплатить до ${D.ru(nb)}${n ? ' (занятий ' + n + ')' : ''}${pendWarnTxt(c.pendingSub)}`, tpl: c.pendingCalc && c.pendingCalc.first && c.pendingCalc.end ? 'Новый абонемент — ждём оплату' : 'Абонемент закончился', sub: c.pendingSub.id, paid: c.pendingSub.id });
+      else if (nb) out.push({ tone: 'bad', a, text: `${nm}: новичок, 21 день с первого посещения (${D.ru(c.pendingCalc.first)}) прошёл, оплаты нет — долг ${n} ${plural(n, 'занятие', 'занятия', 'занятий')}${pendWarnTxt(c.pendingSub)}`, tpl: c.pendingCalc && c.pendingCalc.first && c.pendingCalc.end ? 'Новый абонемент — ждём оплату' : 'Абонемент закончился', sub: c.pendingSub.id, paid: c.pendingSub.id });
+      else out.push({ tone: 'bad', a, text: `${nm}: ждём оплату${c.pendingCalc && c.pendingCalc.first ? ' с ' + D.ru(c.pendingCalc.first) : ''}${n ? ', в долг ' + n + ' ' + plural(n, 'занятие', 'занятия', 'занятий') : ''}${pendWarnTxt(c.pendingSub)}`, tpl: c.pendingCalc && c.pendingCalc.first && c.pendingCalc.end ? 'Новый абонемент — ждём оплату' : 'Абонемент закончился', sub: c.pendingSub.id, paid: c.pendingSub.id });
     } else if (s) {
       const single = (+c.sub.count || 0) <= 1;
       if (s.remaining < 0 && !(c.debtDates || []).length) out.push({ tone: 'bad', a, text: `${nm}: долг ${-s.remaining} ${plural(-s.remaining, 'занятие', 'занятия', 'занятий')} сверх оплаты`, tpl: 'Долг по занятиям' });
@@ -2880,7 +2889,7 @@ function attentionCalc() {
     { const g = noSubGap(a); if (g && D.diff(g.end, t) >= 14) out.push({ tone: 'muted', a, text: `${nm}: не ходит 14 дней и больше после окончания абонемента (${D.ru(g.end)}), оплаты нет — поставить «приостановил» или «ушёл»?`, go: '#person/' + a.id }); }   // №34
     if (c.debtDates.length && !c.pendingSub) {
       const n = c.debtDates.length;
-      out.push({ tone: 'bad', a, text: `${nm}: не оплачено ${n} ${plural(n, 'посещение', 'посещения', 'посещений')} (${c.debtDates.map(d => D.short(d)).join(', ')})${c.subCalc && c.subCalc.remaining < 0 ? ' — абонемент закончился' : ''}`, unpaid: true, tpl: c.subCalc ? 'Абонемент закончился' : null });
+      out.push({ tone: 'bad', a, text: `${nm}: не оплачено ${n} ${plural(n, 'посещение', 'посещения', 'посещений')} (${c.debtDates.map(d => D.short(d)).join(', ')})${c.debtDates.every(d => perVisitOn(a, d)) ? ' — оплата разово' : c.subCalc && c.subCalc.remaining < 0 ? ' — абонемент закончился' : ''}`, unpaid: true, tpl: c.debtDates.every(d => perVisitOn(a, d)) ? ((db.settings.templates || []).find(x => /^Долг по занятию/.test(x.title)) || {}).title || null : c.subCalc ? 'Абонемент закончился' : null });   // 27.10.2026: разово — свой шаблон о долге, если есть
     }
     { const cut = db.settings.programStart || db.settings.sickCheckFrom || '';
       const bad = (ix.marks.get(a.id) || []).filter(m => m.mark === 'с' && m.date >= cut && !tripOf(m.date)).map(m => m.date);
@@ -3504,6 +3513,28 @@ function debtText(aid, except) { const c = ix.athCalc.get(aid), a = ix.ath.get(a
   return a && dd.length ? `${shortName(a)}: не оплачено ${dd.length} ${plural(dd.length, 'посещение', 'посещения', 'посещений')} (${dd.map(d => D.ru(d)).join(', ')}) — запросите оплату.` : ''; }
 function debtRemind(aid, date) { const k = aid + '|' + date; debtRemind.seen = debtRemind.seen || new Set(); if (debtRemind.seen.has(k)) return;
   const t = debtText(aid, date); if (!t) return; debtRemind.seen.add(k); setTimeout(() => notice('Долг: ' + t), 60); }
+/* 27.10.2026: пришёл, а абонемент закончился (или его нет) и оплаты нет — спросить, как поступить */
+function endedNeed(aid, date) { const a = ix.ath.get(aid), c = ix.athCalc.get(aid);
+  if (!a || a.noSub || perVisitOn(a, date) || !c || c.pendingSub || !c.sub) return false;   // новичок без абонементов — свой порядок (пробное, 21 день)
+  return (c.debtDates || []).includes(date) || (ix.unpaid.get(aid) || []).includes(date); }
+function endedAsk(list, date) { const q = (list || []).filter(Boolean); if (!q.length) return;
+  endedAsk.seen = endedAsk.seen || new Set();
+  setTimeout(() => { const next = () => { while (q.length) { const aid = q.shift(), k = aid + '|' + date; if (endedAsk.seen.has(k) || !endedNeed(aid, date)) continue; endedAsk.seen.add(k); endedDlg(aid, date, next); return; } }; next(); }, 120); }
+function endedDlg(aid, date, next) {
+  const a = ix.ath.get(aid), c = ix.athCalc.get(aid), p = c.sub, r = p && ix.subCalc.get(p.id);
+  const why = !p ? 'абонемента нет' : r && r.pkg ? 'пакет разовых использован' : 'абонемент закончился' + (r && r.end && r.end < date ? ' ' + D.ru(r.end) : r && r.end ? ' (последнее занятие ' + D.ru(r.end) + ')' : '');
+  const other = [...(c.debtDates || []), ...(ix.unpaid.get(aid) || [])].filter((d, i, l) => d !== date && l.indexOf(d) === i);
+  const opt1 = (act, title, sub, primary) => `<button type="button" class="btn${primary ? ' primary' : ''}" data-act="${act}" data-id="${aid}" data-date="${date}" style="display:block;width:100%;text-align:left;height:auto;white-space:normal;padding:10px 14px;margin-top:8px"><b>${title}</b><br><span class="small" style="font-weight:400">${sub}</span></button>`;
+  const body = `<p><b>${h(fullName(a))}</b>: ${h(why)}. Посещение ${D.ru(date)} не оплачено — как поступить?</p>
+  ${other.length ? `<p class="small"><b>Ещё не оплачено:</b> ${other.map(d => D.ru(d)).join(', ')}.</p>` : ''}
+  ${opt1('ended-wait', 'Новый абонемент — ждём оплату', `Абонемент на ${subTotal({ count: db.settings.defaultCount || 12 })} зан. начнётся с этого занятия (${D.short(date)}); программа предложит сообщение с новым сроком и напоминанием об оплате.`, true)}
+  ${opt1('ended-pay', 'Оплатил сейчас — внести оплату', 'Откроется окно «Оплата»; занятие войдёт в новый абонемент.')}
+  ${opt1('ended-once', 'Перевести на оплату разово', `В карточке — «Оплата разово» с ${D.short(date)}; это занятие — разовое, в долг, пока не оплачено.`)}
+  <p class="small muted" style="margin-top:12px">«Решу позже» — посещение останется неоплаченным: красная «д» в журнале и пункт в «Срочно» на «Сегодня».</p>`;
+  endedDlg.next = next;
+  modal('Абонемент закончился', body, { closeText: 'Решу позже' });
+  const d = document.getElementById('dlg'); if (d) d.addEventListener('close', () => { const n = endedDlg.next; endedDlg.next = null; if (n) setTimeout(n, 150); }, { once: true }); }
+function waitMsg(aid, subId) { setTimeout(() => { const r = ix.subCalc.get(subId); if (r && r.first && r.end) openMsg(aid, 'Новый абонемент — ждём оплату', {}, subId); }, 120); }
 function debtOn(aid, date) { const c = ix.athCalc.get(aid); return !!(c && ((c.debtDates || []).includes(date) || owedPlus(c).includes(date))); }
 function hasDebt(aid) { const c = ix.athCalc.get(aid); return !!(c && ((c.debtDates || []).length || owedPlus(c).length)); }
 /* 23.10.2026: заморозка без справки (предварительная) — болеет, ждём возвращения или справку; пересекается с периодом from..to */
@@ -4402,7 +4433,7 @@ let msgAttnKey = '';
 /* какие шаблоны что означают: «end» — предупреждение об окончании, «period» — сообщён срок действия */
 const NOTIFY_TPL = { 'Абонемент заканчивается': 'end', 'Абонемент закончился': 'end', 'Осталось одно занятие': 'end', 'Осталось одно занятие (официально)': 'end', 'Абонемент использован': 'end',
   'Новый абонемент оплачен': 'period', 'Абонемент продлён': 'period', 'Оплата принята': 'period',
-  'Пакет разовых заканчивается': 'end', 'Пакет разовых использован': 'end' };   // пакет разовых: срока нет — только «об окончании»
+  'Пакет разовых заканчивается': 'end', 'Пакет разовых использован': 'end', 'Новый абонемент — ждём оплату': 'end' };   // пакет разовых: срока нет — только «об окончании»
 const NOTIFY_TXT = { end: 'Отметить в карточке: предупреждён об окончании абонемента', period: 'Отметить в карточке: срок действия абонемента сообщён' };
 let msgCtx = null;
 function notifySub(aid, type, subId) {            // к какому абонементу относится сообщение
@@ -4472,7 +4503,7 @@ function openMsg(aid, tplTitle, extra = {}, subId = null, attnK = '') {
   modal('Сообщение', body, { extraBtn: `<button type="button" class="btn primary" data-act="msg-copy">Скопировать</button>${navigator.share ? '<button type="button" class="btn" data-act="msg-share">Поделиться…</button>' : ''}${phone ? `<a class="btn" id="msg-sms">SMS</a>` : ''}` });
   const upd = () => { const t = $('#msg-text').value; const sms = $('#msg-sms');
     if (sms) sms.href = 'sms:+7' + phone + '?body=' + encodeURIComponent(t); };
-  const recUpd = () => { const tt = T[+$('#msg-tpl').value], ty = tt && NOTIFY_TPL[tt.title]; $('#msg-rec-l').style.display = ty ? '' : 'none'; if (ty) $('#msg-rec-t').textContent = NOTIFY_TXT[ty] + ' (после «Скопировать», «Поделиться» или SMS)'; };
+  const recUpd = () => { const tt = T[+$('#msg-tpl').value], ty = tt && NOTIFY_TPL[tt.title]; $('#msg-rec-l').style.display = ty ? '' : 'none'; if (ty) $('#msg-rec-t').textContent = (tt.title === 'Новый абонемент — ждём оплату' ? 'Отметить в карточке: сообщение о новом сроке и об оплате отправлено' : NOTIFY_TXT[ty]) + ' (после «Скопировать», «Поделиться» или SMS)'; };
   $('#msg-tpl').onchange = e => { $('#msg-text').value = fill(+e.target.value); upd(); recUpd(); }; recUpd();
   $('#msg-text').oninput = upd; upd();
   const sms = $('#msg-sms'); if (sms) sms.addEventListener('click', msgSent);
@@ -4738,7 +4769,7 @@ function vSettings() {
   <p class="small muted">Переименовали источник или причину — у спортсменов, кому они уже проставлены, останется прежнее название (оно видно в карточке и в «Показателях» отдельной строкой).</p></div>
   <div class="card"><h2>Контроль новичка</h2><p class="small muted">Пункт «Новичок» в «Требует внимания»: человек пришёл недавно и ходит меньше, чем нужно, чтобы втянуться. Большинство уходящих новичков уходит в первые недели — написать или поговорить лучше сразу.</p>
   <div class="fgrid">${L('Первые дни в клубе, дн.', inp('newbie.days', S.newbie.days, 'number', 'min="7" max="60"'))}${L('…за них посещений не меньше', inp('newbie.minVisits', S.newbie.minVisits, 'number', 'min="1" max="10"'))}${L('Пропусков подряд — сигнал', inp('newbie.missRow', S.newbie.missRow, 'number', 'min="1" max="6"'))}${L('Сколько дней считать новичком', inp('newbie.watch', S.newbie.watch, 'number', 'min="14" max="120"'))}</div></div>
-  <div class="card"><h2>Шаблоны сообщений</h2><p class="small muted">Подстановки: {имя}, {фи}, {фио}, {остаток}, {долг}, {занятий}, {дата_начала}, {дата_окончания}, {срок_оплаты}, {группа}, {продление} — «Продлён на 1 занятие (соревнования 24.10), прежний срок — до …» (если продления не было — пусто).</p>
+  <div class="card"><h2>Шаблоны сообщений</h2><p class="small muted">Подстановки: {имя}, {фи}, {фио}, {остаток}, {долг}, {занятий}, {дата_начала}, {дата_окончания}, {срок_оплаты}, {группа}, {окончание_нового} — окончание нового абонемента «ждём оплату» (в {дата_окончания} у него — окончание прежнего), {продление} — «Продлён на 1 занятие (соревнования 24.10), прежний срок — до …» (если продления не было — пусто).</p>
   ${S.templates.map((t, i) => `<fieldset><legend>${h(t.title)}</legend><input type="text" data-change="tpl" data-i="${i}" data-k="title" value="${h(t.title)}" style="margin-bottom:6px"><textarea data-change="tpl" data-i="${i}" data-k="text">${h(t.text)}</textarea><button class="btn sm danger" data-act="tpl-del" data-i="${i}" style="margin-top:6px">Удалить шаблон</button></fieldset>`).join('')}
   <button class="btn" data-act="tpl-add">Добавить шаблон</button></div>`;
 }
@@ -6751,18 +6782,20 @@ const ACT = {
     if (el.dataset.m === '+' && cur !== '+') { const a = ix.ath.get(el.dataset.aid), nd = a && briefNeed(a, s.date); if (nd) setTimeout(() => toast(`${shortName(a)}: нет записи о ${nd.kind === 'первичный' ? 'первичном' : 'внеплановом'} инструктаже — проведите до занятия и возьмите подпись в журнале`), 50); }
     if (el.dataset.m !== '+' && s.trial) delete s.trial[el.dataset.aid];
     if (el.dataset.m === 'с' && cur !== 'с' && !tripOf(s.date)) toast('Внимание: ' + D.ru(s.date) + ' не входит ни в один объявленный период выезда (п. 9.6.2.1). Внесите выезд в Настройках → Соревнования или поставьте другую отметку.');
-    render.keepScroll = true; persist(); },
+    const askE = el.dataset.m === '+' && cur !== '+' ? [el.dataset.aid] : [];
+    render.keepScroll = true; persist(); endedAsk(askE, s.date); },
   'mark-all': async el => { const s = db.sessions.find(x => x.id === el.dataset.id); const m = el.dataset.m; const before = JSON.stringify(s.marks);
     if (m === 'о' && !await ask('Отметить занятие отменённым для всех? Оно не спишется ни у кого.')) return;
     if (m === '+') { const n = sessionMembers(s).filter(a => !s.marks[a.id] && !perVisitOn(a, s.date) && a.status !== 'приостановил').length;
       if (!n) { toast('Все уже отмечены'); return; }
       if (!await ask(`Поставить «был» всем неотмеченным (${n} ${plural(n, 'человек', 'человека', 'человек')})?`)) return; }
     setTimeout(() => undoToast(m === 'о' ? 'Занятие отменено' : 'Отмечено', () => { s.marks = JSON.parse(before); render.keepScroll = true; persist('Отметки возвращены'); }), 0);
-    sessionMembers(s).forEach(a => { if (m === 'о') { if (!perVisitOn(a, s.date)) s.marks[a.id] = m; } else if (!s.marks[a.id] && !perVisitOn(a, s.date) && !(m === '+' && a.status === 'приостановил')) s.marks[a.id] = sickOn(a.id, s.date) ? 'б' : m; }); render.keepScroll = true; persist(); },
+    const askE = [];
+    sessionMembers(s).forEach(a => { if (m === 'о') { if (!perVisitOn(a, s.date)) s.marks[a.id] = m; } else if (!s.marks[a.id] && !perVisitOn(a, s.date) && !(m === '+' && a.status === 'приостановил')) { s.marks[a.id] = sickOn(a.id, s.date) ? 'б' : m; if (s.marks[a.id] === '+') askE.push(a.id); } }); render.keepScroll = true; persist(); endedAsk(askE, s.date); },
   'mark-rest': el => { const s = db.sessions.find(x => x.id === el.dataset.id); const before = JSON.stringify(s.marks);
     setTimeout(() => undoToast('Остальным поставлено «н»', () => { s.marks = JSON.parse(before); render.keepScroll = true; persist('Отметки возвращены'); }), 0);
     sessionMembers(s).forEach(a => { if (!s.marks[a.id] && !perVisitOn(a, s.date)) s.marks[a.id] = sickOn(a.id, s.date) ? 'б' : 'н'; }); render.keepScroll = true; persist(); },
-  'session-add': el => { const id = $('#add-to-session').value; if (!id) return; const s = db.sessions.find(x => x.id === el.dataset.id); debtRemind(id, s.date); s.marks[id] = '+'; ui.openOthers = s.id; render.keepScroll = true; persist('Добавлен на занятие'); },
+  'session-add': el => { const id = $('#add-to-session').value; if (!id) return; const s = db.sessions.find(x => x.id === el.dataset.id); debtRemind(id, s.date); s.marks[id] = '+'; ui.openOthers = s.id; render.keepScroll = true; persist('Добавлен на занятие'); endedAsk([id], s.date); },
   'session-del': async el => { const s = db.sessions.find(x => x.id === el.dataset.id); const n = Object.keys(s.marks).length;
     if (!await ask(`Удалить занятие ${D.ru(s.date)}${n ? ' и ' + n + ' отметок' : ''}?`)) return; db.sessions = db.sessions.filter(x => x !== s); location.hash = '#journal'; persist('Занятие удалено'); },
   'move-own': async el => { const s = db.sessions.find(x => x.id === el.dataset.sid);
@@ -6795,7 +6828,12 @@ const ACT = {
     if (ex) { openSub(ex.id); return; }
     const last = [...(ix.subsByAth.get(aid) || [])].pop();
     const t = { id: uid('p'), athleteId: aid, payDate: '', start: '', waitFrom: last ? '' : ((ix.unpaid.get(aid) || [])[0] || ix.today),   /* №12: новичок — с первого посещения */ count: db.settings.defaultCount || 12, amount: last ? last.amount : 0, onlyGroup: '', carryWas: 0, carryMissed: 0, note: '', pending: true };
-    db.subs.push(t); persist('Записано «ждём оплату»'); },
+    db.subs.push(t); persist('Записано «ждём оплату»'); waitMsg(aid, t.id); },
+  'ended-wait': el => { endedDlg.next = null; closeModal(); ACT['sub-wait'](el); },
+  'ended-pay': el => { endedDlg.next = null; closeModal(); openSub(null, el.dataset.id); },
+  'ended-once': async el => { endedDlg.next = null; closeModal(); const a = db.athletes.find(x => x.id === el.dataset.id); if (!a) return;
+    a.payPerVisit = true; a.payPerVisitFrom = el.dataset.date; persist(shortName(a) + ': оплата разово с ' + D.ru(el.dataset.date));
+    if (await uiDialog(`${shortName(a)}: оплата разово с ${D.ru(el.dataset.date)}. Занятие ${D.ru(el.dataset.date)} оплачено сейчас?`, { ok: 'Да, внести оплату', cancelText: 'Нет, в долг' })) openSub(null, a.id); },
   'sub-paid': el => { const p = db.subs.find(x => x.id === el.dataset.id); if (!p) return;
     closeModal(); const rr = ix.subCalc.get(p.id); if (!p.start && rr && rr.first) p.start = rr.first; p.pending = false; p.payDate = ix.today; if (p.notified && p.notified.end) { p.notified = { ...p.notified }; delete p.notified.end; }   /* №30-Б */ if (!p.acc) p.acc = ((ix.subsByAth.get(p.athleteId) || []).filter(q => q.acc).pop() || {}).acc || finS(db).defAcc;
     persist('Оплата отмечена'); setTimeout(() => openSub(p.id), 50); },
