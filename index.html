@@ -2836,6 +2836,8 @@ function noSubGap(a) {
 }
 /* 23.10.2026: «при справке +N зан. → до …» — пока справки нет, «б» списывается, срок прежний */
 function certHint(s) { return s && s.provSick && s.certEnd ? `при справке +${s.provSick} ${plural(s.provSick, 'занятие', 'занятия', 'занятий')} → до ${D.ru(s.certEnd)}` : ''; }
+function extTip(p) { const r = p && ix.subCalc.get(p.id); if (!r || !r.baseEnd || !(r.extDates || []).length) return '';   // «+N продлён» для колец окончания
+  return ` · +${r.extDates.length} продлён${extWhy(r, '')}, было до ${D.short(r.baseEnd)}`; }
 function extNote(r) {                              // 25.10.2026: «увеличен на 1 занятие — соревнования 24.10; прежний срок — до 31.10.2026»
   const n = (r && r.extDates || []).length; if (!n || !r.baseEnd) return '';
   return `увеличен на ${n} ${plural(n, 'занятие', 'занятия', 'занятий')} — ${extWhy(r, '').replace(/^ \(|\)$/g, '')}; прежний срок — до ${D.ru(r.baseEnd)}`;
@@ -3629,7 +3631,7 @@ function monthView(tabs, groups) {
   const lastCell = (a, L, s) => { const p = L.fact.get(s.date + '|' + s.group) || (s.marks[a.id] == null && L.plan.get(s.date) && inGroupOn(a, s.group, s.date) ? L.plan.get(s.date) : null);
     if (!p) { const q = s.marks[a.id] == null && L.cert.get(s.date) && inGroupOn(a, s.group, s.date) ? L.cert.get(s.date) : null; const r = q && ix.subCalc.get(q.id);
       if (q && r) { anyCert = true; return ` cert-sub" title="Если принесёт справку: последнее занятие абонемента на ${subTotal(q)} зан. (+${r.provSick} ${plural(r.provSick, 'занятие', 'занятия', 'занятий')} за болезнь ${r.provDates.map(d => D.short(d)).join(', ')})`; } }
-    return p ? ` last-sub" title="Последнее занятие абонемента на ${subTotal(p)} зан.${L.fact.get(s.date + '|' + s.group) ? '' : ' (по прогнозу)'}` : ''; };
+    return p ? ` last-sub" title="Последнее занятие абонемента на ${subTotal(p)} зан.${L.fact.get(s.date + '|' + s.group) ? '' : ' (по прогнозу)'}${h(extTip(p))}` : ''; };
   const prev = m === 1 ? (y - 1) + '-12' : y + '-' + pad(m - 1), next = m === 12 ? (y + 1) + '-01' : y + '-' + pad(m + 1);
   const head = `<thead><tr><th>ФИО</th>${sess.map(s => s.missing ? `<th class="num miss"><a href="#" data-act="open-session" data-date="${s.date}" data-group="${h(s.group)}" title="Занятие по расписанию не внесено — открыть и отметить (если тренировки не было — внесите день в «Настройки» → «Нерабочие дни»)">${D.short(s.date).slice(0, 2)}</a><br><span class="small">${DOW[D.dow(s.date)]}</span></th>` : s.future && s.date === ix.today ? `<th class="num"><a href="#" data-act="open-session" data-date="${s.date}" data-group="${h(s.group)}" title="Сегодня — открыть занятие и отметить">${D.short(s.date).slice(0, 2)}</a><br><span class="small">${DOW[D.dow(s.date)]}</span></th>` : s.future ? `<th class="num fut" title="Занятие по расписанию — ещё впереди">${D.short(s.date).slice(0, 2)}<br><span class="small">${DOW[D.dow(s.date)]}</span></th>` : `<th class="num"><a href="#session/${s.id}">${D.short(s.date).slice(0, 2)}</a><br><span class="small">${DOW[D.dow(s.date)]}</span></th>`).join('')}<th>+</th><th>н</th><th>б</th></tr></thead>`;
   const rows = (list, showGroup) => list.map(a => { const ms = sess.map(s => s.marks[a.id] || ''); const cnt = k => ms.filter(x => x === k).length; const L = lastOf(a);
@@ -3845,9 +3847,9 @@ function vPerson(id) {
   const freezes = (ix.freezesByAth.get(id) || []);
   const adm = calcAdmission(ix, a);
   const RG = subRings(a), pLbl = p => `абонемента на ${subTotal(p)} зан.`, qLbl = q => q.pending ? `новый абонемент на ${subTotal(q)} зан. — ждём оплату; первое занятие по нему` : `следующий абонемент оплачен${q.payDate ? ' ' + D.ru(q.payDate) : ''} (${subTotal(q)} зан.) — первое занятие по нему`;
-  const ringOf = m => { const p = RG.fact.get(m.date + '|' + (m.group || '')); if (p) return ['ring-last', 'последнее занятие ' + pLbl(p)];   // кольца, как в «Месяце»
+  const ringOf = m => { const p = RG.fact.get(m.date + '|' + (m.group || '')); if (p) return ['ring-last', 'последнее занятие ' + pLbl(p) + extTip(p)];   // кольца, как в «Месяце»
     const q = RG.next.get(m.date); return q && m.mark === '+' ? ['ring-next' + (q.pending ? ' wait' : ''), qLbl(q)] : null; };
-  const ahead = [...[...RG.plan].filter(([d]) => d >= ix.today).map(([d, p]) => [d, 'ring-last', 'последнее занятие ' + pLbl(p) + ' (по прогнозу)']),
+  const ahead = [...[...RG.plan].filter(([d]) => d >= ix.today).map(([d, p]) => [d, 'ring-last', 'последнее занятие ' + pLbl(p) + ' (по прогнозу)' + extTip(p)]),
     ...[...RG.cert].filter(([d]) => d >= ix.today).map(([d, p]) => [d, 'ring-cert', 'если принесёт справку: последнее занятие ' + pLbl(p)]),
     ...[...RG.next].filter(([d]) => d >= ix.today && !(ix.marks.get(a.id) || []).some(m => m.date === d)).map(([d, q]) => [d, 'ring-next', qLbl(q) + ' (по расписанию)'])].sort((x, y) => x[0].localeCompare(y[0]));
   const ringsAhead = ahead.length ? `<div class="small muted" style="margin-top:10px">Впереди</div><div class="row" style="gap:6px 4px;margin-top:4px;flex-wrap:wrap">${ahead.map(([d, cl, t]) => `<button type="button" class="mlast" data-act="mark-info" data-txt="${h(D.ru(d) + ', ' + DOW_FULL[D.dow(d)] + ' — ' + t)}" title="${h(t)}"><span class="cell-m m-none ${cl}"></span><small>${D.short(d)}</small></button>`).join('')}</div>` : '';
