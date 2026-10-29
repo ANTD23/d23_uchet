@@ -929,7 +929,9 @@ function computeSubs(ix) {
     const shared = withBlankCells(ix, aid, (ix.marks.get(aid) || []).map(m => ({ ...m, used: !!(m.trial && trialIsFree(ix.db.settings, m.trialV, m.date)) })));   // №38: бесплатное пробное — не списывается и не долг   // одна отметка — одно списание на все цепочки
     const hasMain = chains.has('');
     const order = [...chains.keys()].sort((a, b) => (a === '') - (b === ''));       // сначала «только на группу», основной последним
-    for (const og of order) calcChain(ix, aid, og, chains.get(og), shared, hasMain);
+    const fin = [];                                                                 // 29.10.2026: долги — после всех цепочек, иначе «только на группу» забирала посещение,
+    for (const og of order) fin.push(calcChain(ix, aid, og, chains.get(og), shared, hasMain));   // которое покрывает новая основная оплата (Плешков: разовая 27.10 «Разово» + разовая 29.10)
+    for (const f of fin) f();
   }
 }
 /* ---------- заморозка: к чему привязана и какие дни покрывает (№5, №11, №16) ---------- */
@@ -1075,6 +1077,7 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
       if (stp && r.remaining > 0) { r.end = stp; r.endKind = 'terminated'; cursor = stp; cursorForecast = false; } }
     ix.subCalc.set(p.id, r); done.push([p, r]);
   }
+  return () => {
   // посещения без действующего абонемента — долг того абонемента, после которого они были
   for (const m of marks) {
     if (m.used || m.mark !== '+') continue;
@@ -1093,6 +1096,7 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
     }
     if (!r.notActive && r.end && r.endKind === 'forecast' && r.end >= ix.today) r.notifyBy = D.max(ix.today, D.add(r.end, -7)); // п. 9.2.3
   }
+  };
 }
 function currentSub(ix, aid) {               // последний активированный абонемент (без «только на группу» в приоритете)
   const l = (ix.subsByAth.get(aid) || []).filter(p => { const f = subFirst(ix, p); return f && f <= ix.today; });
@@ -2246,6 +2250,10 @@ function normalize(d) {
     if (G) for (const a of d.athletes) if (a.group === 'Разово' && a.status !== 'ушёл' && !a.noSub && !a.payPerVisit) a.payPerVisit = true;
     d.settings.pvRazovo = '2026-10-28';
   }
+  if (!d.settings.pvRazovo2) {                         // 29.10.2026: и те, кто был «ушёл» и вернулся в «Разово» (Плешков)
+    if ((d.settings.groups || []).some(g => g.name === 'Разово')) for (const a of d.athletes) if (a.group === 'Разово' && !a.noSub && !a.payPerVisit) a.payPerVisit = true;
+    d.settings.pvRazovo2 = '2026-10-29';
+  }
   normFin(d); normExtra(d);
   return d;
 }
@@ -3032,7 +3040,7 @@ function attentionCalc() {
       const c = ix.athCalc.get(a.id); return c.sub && (+c.sub.count || 0) > 1 && c.subCalc && !c.subCalc.notActive && !c.subCalc.pkg && c.subCalc.first <= ss.date; });   // 21.10.2026: у пакета разовых пропуск не списывается — отметку не требуем
     const gapNow = who.filter(a => { const g = noSubGap(a); return g && ss.date > g.end; });   // №34
     for (const a of gapNow) { const g = noSubGap(a); if (g.ack) continue; const e = gapMap.get(a.id) || { a, g, d: [], s: '' }; e.d.push(ss.date); e.s = ss.id; gapMap.set(a.id, e); }
-    who = who.filter(a => !gapNow.includes(a) && !(sickOpen(a.id, ss.date) && sickSpent(a.id, ss.date)));   // 28.10.2026: болеет (дата «по» не внесена), а абонемент уже кончился — отметка ничего не меняет, не просим
+    who = who.filter(a => !gapNow.includes(a) && !(sickOpen(a.id, ss.date) && sickSpent(a.id, ss.date)) && !waitFirst(a.id, ss.date));   // 29.10.2026: новый оплачен, ждёт первого посещения — тоже не просим   // 28.10.2026: болеет (дата «по» не внесена), а абонемент уже кончился — отметка ничего не меняет, не просим
     if (who.length) out.push({ tone: 'warn', text: `${D.ru(ss.date)}, ${ss.group}: нет отметки у ${who.length} чел. (${who.slice(0, 4).map(shortName).join(', ')}${who.length > 4 ? '…' : ''}) — поставьте «+», «н» или «б»`, session: ss.id });
   }
   for (const { a, g, d, s } of gapMap.values()) out.push({ tone: 'warn', a, text: `${shortName(a)}: нет отметки ${d.map(x => D.short(x)).join(', ')} — абонемент закончился ${D.ru(g.end)}, новый не оплачен. Его не было или отметку пропустили?`, session: s, nosub: a.id });   // №34
@@ -3595,6 +3603,10 @@ function sickDue(f, c) {                           // 28.10.2026: болезнь
   return { base: c.base, by: D.add(c.base, 15), ext: c.ext || 0 };
 }
 const sickDueTxt = (u, cert) => `по договору заморозка — только до конца срока абонемента (${D.ru(u.base)}): вернуться нужно до ${D.ru(u.by)}${cert ? ' со справкой' : ''}, иначе ${u.ext ? u.ext + ' ' + plural(u.ext, 'занятие', 'занятия', 'занятий') + ' болезни спишутся' : 'продление сгорит'} (п. 9.5.4–9.5.5). Сохранить их можно своим решением: когда вернётся, в окне абонемента — «Добавить занятий (бесплатно)» с причиной`;
+function waitFirst(aid, date) {                    // 29.10.2026: прежний абонемент закончился, новый оплачен, но ещё не начался (ждёт первого посещения) — отметка ничего не меняет
+  const c = ix.athCalc.get(aid), r = c && c.subCalc, q = c && c.nextSub; if (!r || !q || r.remaining > 0 || !r.end || r.end >= date) return false;
+  const f = subFirst(ix, q); return !f || f > date;
+}
 function sickOpen(aid, date) { return db.freezes.some(f => f.athleteId === aid && f.from && f.from <= date && !f.to && !f.returned && !f.noCert); }   // 28.10.2026: болеет сейчас, конец болезни не известен
 function sickSpent(aid, date) { const c = ix.athCalc.get(aid), r = c && c.subCalc; return !!(r && r.remaining <= 0 && r.end && r.end < date && !c.nextSub && !c.pendingSub); }   // занятие после окончания абонемента, нового нет
 function debtOn(aid, date) { const c = ix.athCalc.get(aid); return !!(c && ((c.debtDates || []).includes(date) || owedPlus(c).includes(date))); }
@@ -3728,10 +3740,10 @@ function monthView(tabs, groups) {
   const prev = m === 1 ? (y - 1) + '-12' : y + '-' + pad(m - 1), next = m === 12 ? (y + 1) + '-01' : y + '-' + pad(m + 1);
   const head = `<thead><tr><th>ФИО</th>${sess.map(s => s.missing ? `<th class="num miss"><a href="#" data-act="open-session" data-date="${s.date}" data-group="${h(s.group)}" title="Занятие по расписанию не внесено — открыть и отметить (если тренировки не было — внесите день в «Настройки» → «Нерабочие дни»)">${D.short(s.date).slice(0, 2)}</a><br><span class="small">${DOW[D.dow(s.date)]}</span></th>` : s.future && s.date === ix.today ? `<th class="num"><a href="#" data-act="open-session" data-date="${s.date}" data-group="${h(s.group)}" title="Сегодня — открыть занятие и отметить">${D.short(s.date).slice(0, 2)}</a><br><span class="small">${DOW[D.dow(s.date)]}</span></th>` : s.future ? `<th class="num fut" title="Занятие по расписанию — ещё впереди">${D.short(s.date).slice(0, 2)}<br><span class="small">${DOW[D.dow(s.date)]}</span></th>` : `<th class="num"><a href="#session/${s.id}">${D.short(s.date).slice(0, 2)}</a><br><span class="small">${DOW[D.dow(s.date)]}</span></th>`).join('')}<th>+</th><th>н</th><th>б</th></tr></thead>`;
   const rows = (list, showGroup) => list.map(a => { const ms = sess.map(s => s.marks[a.id] || ''); const cnt = k => ms.filter(x => x === k).length; const L = lastOf(a);
-    const off = sess.map(s => !showGroup && !inGroupOn(a, J.mgroup, s.date)); const per = showGroup ? '' : period(a); const ng = noSubGap(a), nsub = d => !!(ng && ng.ack && d > ng.end && d <= ix.today);   // №34
+    const off = sess.map(s => !showGroup && !inGroupOn(a, J.mgroup, s.date)); const per = showGroup ? '' : period(a); const ng = noSubGap(a), nsub = d => !!(ng && ng.ack && d > ng.end && d <= ix.today) || (d <= ix.today && waitFirst(a.id, d));   // №34; 29.10.2026: новый оплачен, ещё не начался
     const W = warnedOf(a);
     const dn = hasDebt(a.id), tdc = [W ? 'wn' : '', dn ? 'debt-nm' : ''].filter(Boolean).join(' ');
-    return `<tr><td${tdc ? ` class="${tdc}"` : ''}${dn ? ' title="Есть неоплаченные посещения"' : ''}><span class="nm-f">${h(shortName(a))}</span><span class="nm-s">${h((a.last || '') + (a.first ? ' ' + a.first[0] + '.' : ''))}</span>${warnedIc(W, a)}${(() => { const pi = provIc(a, J.month + '-01', ymBounds(J.month)[1]); if (pi) anyProv = true; return pi; })()}${showGroup ? ' <span class="small muted">' + h(a.group || '') + '</span>' : ''}${per ? ' <span class="small muted mper">' + per + '</span>' : ''}</td>${ms.map((x, i) => { const lc = lastCell(a, L, sess[i]) || nextCell(a, L, sess[i]), mc = sess[i].missing && !off[i] ? ' miss-col' : ''; return `<td${off[i] || lc || mc ? ` class="${off[i] ? 'off' : ''}${mc}${lc}"` : ''}>${x === '+' && debtOn(a.id, sess[i].date) ? '<span class="cell-m m-debt" title="Был, посещение не оплачено — после оплаты станет «+»">д</span>' : x === '+' && payMarks(a.id).tag.get(sess[i].date + '|' + sess[i].group) ? (tg => tg.kind === 'pkg' ? `<span class="cell-m m-plus m-pkg" title="Пакет разовых: ${tg.n}-е из ${tg.N}">${tg.n}/${tg.N}</span>` : '<span class="cell-m m-plus" title="Оплачено разово">р</span>')(payMarks(a.id).tag.get(sess[i].date + '|' + sess[i].group)) : x === '+' && freeOn(a, sess[i].date, sess[i].group) ? '<span class="cell-m m-free" title="Был, бесплатно (без абонемента)">+0</span>' : x ? `<span class="cell-m ${cls[x] || ''}">${h(x === 'б' && isBS(ix, a.id, sess[i].date) ? 'бс' : x)}</span>` : lc ? '<span class="cell-m m-none"></span>' : nsub(sess[i].date) && !off[i] ? '<span class="cell-m m-nosub" title="Абонемент закончился, новый не оплачен">—</span>' : ''}</td>`; }).join('')}<td class="num">${cnt('+')}</td><td class="num">${cnt('н')}</td><td class="num">${cnt('б')}</td></tr>`; }).join('');
+    return `<tr><td${tdc ? ` class="${tdc}"` : ''}${dn ? ' title="Есть неоплаченные посещения"' : ''}><span class="nm-f">${h(shortName(a))}</span><span class="nm-s">${h((a.last || '') + (a.first ? ' ' + a.first[0] + '.' : ''))}</span>${warnedIc(W, a)}${(() => { const pi = provIc(a, J.month + '-01', ymBounds(J.month)[1]); if (pi) anyProv = true; return pi; })()}${showGroup ? ' <span class="small muted">' + h(a.group || '') + '</span>' : ''}${per ? ' <span class="small muted mper">' + per + '</span>' : ''}</td>${ms.map((x, i) => { const lc = lastCell(a, L, sess[i]) || nextCell(a, L, sess[i]), mc = sess[i].missing && !off[i] ? ' miss-col' : ''; return `<td${off[i] || lc || mc ? ` class="${off[i] ? 'off' : ''}${mc}${lc}"` : ''}>${x === '+' && debtOn(a.id, sess[i].date) ? '<span class="cell-m m-debt" title="Был, посещение не оплачено — после оплаты станет «+»">д</span>' : x === '+' && payMarks(a.id).tag.get(sess[i].date + '|' + sess[i].group) ? (tg => tg.kind === 'pkg' ? `<span class="cell-m m-plus m-pkg" title="Пакет разовых: ${tg.n}-е из ${tg.N}">${tg.n}/${tg.N}</span>` : '<span class="cell-m m-plus" title="Оплачено разово">р</span>')(payMarks(a.id).tag.get(sess[i].date + '|' + sess[i].group)) : x === '+' && freeOn(a, sess[i].date, sess[i].group) ? '<span class="cell-m m-free" title="Был, бесплатно (без абонемента)">+0</span>' : x ? `<span class="cell-m ${cls[x] || ''}">${h(x === 'б' && isBS(ix, a.id, sess[i].date) ? 'бс' : x)}</span>` : lc ? '<span class="cell-m m-none"></span>' : nsub(sess[i].date) && !off[i] ? `<span class="cell-m m-nosub" title="${waitFirst(a.id, sess[i].date) ? 'Абонемент закончился, новый оплачен — начнётся с первого посещения' : 'Абонемент закончился, новый не оплачен'}">—</span>` : ''}</td>`; }).join('')}<td class="num">${cnt('+')}</td><td class="num">${cnt('н')}</td><td class="num">${cnt('б')}</td></tr>`; }).join('');
   { const li = sess.map(s => s.date).filter(d => d <= ix.today).length - 1; render.monthFocus = li >= 0 ? li : 0; }   // прокрутка к сегодняшнему (последнему прошедшему) занятию
   return `<div class="jfs-bar no-print"><button class="btn" data-act="jmonth" data-m="${prev}" aria-label="Предыдущий месяц">←</button><b>${MONTHS[m - 1][0].toUpperCase() + MONTHS[m - 1].slice(1)} ${y}</b><button class="btn" data-act="jmonth" data-m="${next}" aria-label="Следующий месяц">→</button><select data-change="jmgroup" aria-label="Группа">${groups.map(g => opt(g, J.mgroup)).join('')}</select><span class="spacer"></span><button class="btn" data-act="jfs" aria-label="Выйти из полноэкранного режима">✕</button></div>
   <div class="topline jm-top"><h1>Посещения — ${MONTHS[m - 1]} ${y}</h1><div class="row jm-tabs">${tabs}<button class="btn show-m" data-act="jfs" title="Во весь экран" aria-label="Во весь экран">⛶</button><details class="menu show-m"><summary class="btn" aria-label="Другие действия">⋯</summary><div class="menu-pop"><button class="btn" data-act="print-blank">Бланк для печати</button></div></details></div></div>
@@ -4231,6 +4243,7 @@ function openPerson(id, pre = {}, onNew = null) {
       if (fd.status === 'приостановил') { const pe = pauseFromCheck({ addedAt: fd.addedAt, pauses: id ? (ix.ath.get(id) || {}).pauses : [] }, fd.pauseFrom || ix.today); if (pe) { notice(pe); return false; } }
       const t = id ? db.athletes.find(x => x.id === id) : { id: uid('a') };
       const wasLeft = !!id && t.status === 'ушёл', wasPaused = !!id && t.status === 'приостановил';
+      const wasGroup = id ? t.group : '';   // 29.10.2026: перевод в «Разово» (или новый в «Разово») — сразу «Оплата разово»
       const w0 = id ? (weighings(t)[0] || {}).kg || '' : '';
       for (const k of PERSON_FIELDS) t[k] = (fd[k] || '').trim();
       t.source = sourceFromForm(fd) || '';
@@ -4242,7 +4255,7 @@ function openPerson(id, pre = {}, onNew = null) {
       if (t.status === 'приостановил') t.pauseFrom = fd.pauseFrom || (wasPaused ? t.pauseFrom || '' : ix.today);   // №28: дата перерыва — из поля «На перерыве с» (по умолчанию сегодня)
       if (wasPaused && t.status !== 'приостановил') { t.pauses = [...(t.pauses || []), { from: t.pauseFrom || '', to: ix.today }]; delete t.pauseFrom; if (t.status === 'занимается') setTimeout(() => debtRemind(t.id, ix.today), 300); }
       t.healthConsent = !!fd.healthConsent;
-      t.noSub = !!fd.noSub; { const wasPV = !!t.payPerVisit; t.payPerVisit = !!fd.payPerVisit;   // №13-Б: дата, с которой действует «оплата разово»
+      t.noSub = !!fd.noSub; { const wasPV = !!t.payPerVisit; t.payPerVisit = !!fd.payPerVisit || (t.group === 'Разово' && wasGroup !== 'Разово' && !t.noSub);   // №13-Б: дата, с которой действует «оплата разово»
         const hist = !!id && ((ix.subsByAth.get(id) || []).some(q => (+q.count || 0) > 1) || (ix.marks.get(id) || []).length > 0);
         if (!t.payPerVisit) delete t.payPerVisitFrom;
         else { const v = fd.payPerVisitFrom || (!wasPV && hist ? ix.today : ''); if (v) t.payPerVisitFrom = v; else delete t.payPerVisitFrom; } } t.otherTeam = !!fd.otherTeam; t.teamName = (fd.teamName || '').trim();
