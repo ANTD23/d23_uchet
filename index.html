@@ -1648,6 +1648,7 @@ function finBalances(d, upto, items = moneyItems(d)) {
       if (x.kind === 'in') add(x.acc, x.amount);
       else if (x.kind === 'out') add(x.acc, -x.amount);
       else if (x.kind === 'move') { add(x.acc, -x.amount); add(x.to, x.amount); }
+      else if (x.kind === 'adj') add(x.acc, x.amount);                       // 30.10.2026: корректировка остатка (со знаком), не доход и не расход
     }
     if (x.refund && x.refundAt && x.refundAt >= F.start && x.refundAt <= upto) add(x.refundAcc || x.acc, -x.refund);
   }
@@ -1659,16 +1660,17 @@ function finFlow(d, from, to, items = moneyItems(d)) {
   const F = finS(d); if (!F.start) return null;
   const f = D.max(from, F.start); if (f > to) return null;
   const start = finBalances(d, D.add(f, -1), items) || Object.fromEntries(F.accounts.map(A => [A.id, +(F.open || {})[A.id] || 0]));
-  const end = finBalances(d, to, items), inn = {}, out = {}, add = (o, k, v) => { o[k] = (o[k] || 0) + v; };
+  const end = finBalances(d, to, items), inn = {}, out = {}, adj = {}, add = (o, k, v) => { o[k] = (o[k] || 0) + v; };
   const key = acc => acc && F.accounts.some(A => A.id === acc) ? acc : '';
   for (const x of items) {
     if (x.date >= f && x.date <= to) {
       if (x.kind === 'in') add(inn, key(x.acc), x.amount); else if (x.kind === 'out') add(out, key(x.acc), x.amount);
       else if (x.kind === 'move') { add(out, key(x.acc), x.amount); add(inn, key(x.to), x.amount); }
+      else if (x.kind === 'adj') add(adj, key(x.acc), x.amount);
     }
     if (x.refund && x.refundAt >= f && x.refundAt <= to) add(out, key(x.refundAcc || x.acc), x.refund);
   }
-  return { from: f, to, start, end, inn, out };
+  return { from: f, to, start, end, inn, out, adj };
 }
 /* налог на профессиональный доход по месяцам (оценка; точную сумму присылает ФНС до 12-го числа, уплатить до 28-го) */
 function taxMonths(d, year, items = moneyItems(d), today = '') {
@@ -4852,7 +4854,7 @@ function mLoc(ym) { const m = MONTHS[+ym.slice(5) - 1]; return m === 'май' ? 
 function ymRu(ym) { const [y, m] = ym.split('-').map(Number); return MONTHS[m - 1] + ' ' + y; }
 function itemWho(x) { const a = x.aid && ix.ath.get(x.aid); return a ? shortName(a) : ''; }
 function itemText(x) {
-  const c = x.kind === 'move' ? { name: 'Перевод: ' + accName(x.acc) + ' → ' + accName(x.to) } : x.kind === 'refund' ? { name: 'Возврат при отказе' } : finCat(db, x.kind, x.cat);
+  const c = x.kind === 'adj' ? { name: 'Корректировка суммы на счёте' } : x.kind === 'move' ? { name: 'Перевод: ' + accName(x.acc) + ' → ' + accName(x.to) } : x.kind === 'refund' ? { name: 'Возврат при отказе' } : finCat(db, x.kind, x.cat);
   const who = itemWho(x);
   return { title: c.name + (x.cat === 'salary' && x.coach ? ' — ' + coachName(x.coach) : '') + (x.period && (x.cat === 'salary' || x.cat === 'tax') ? ' за ' + ymRu(x.period) : ''),
     sub: [who, x.src === 'sub' && x.group ? x.group : '', x.note, x.anon ? 'без имени' : ''].filter(Boolean).join(' · ') };
@@ -4865,10 +4867,10 @@ function moneyRows(from, to) {                      // строки движен
   }
   return L.reverse().sort((a, b) => b.date.localeCompare(a.date));          // новые сверху, в пределах дня — последние внесённые
 }
-const sign = x => x.kind === 'in' ? 1 : x.kind === 'move' ? 0 : -1;
+const sign = x => x.kind === 'in' ? 1 : x.kind === 'move' ? 0 : x.kind === 'adj' ? Math.sign(x.amount) : -1;
 function moneyRowHTML(x, mobile) {
   const t = itemText(x), s = sign(x), col = s > 0 ? 'var(--ok)' : s < 0 ? 'var(--bad)' : 'var(--muted)';
-  const amt = `<b class="num" style="color:${col};white-space:nowrap">${s > 0 ? '+' : s < 0 ? '−' : ''}${rubN(x.amount)}</b>${x.refund ? `<div class="small muted" style="white-space:nowrap">возврат −${rubN(x.refund)}</div>` : ''}`;
+  const amt = `<b class="num" style="color:${col};white-space:nowrap">${s > 0 ? '+' : s < 0 ? '−' : ''}${rubN(Math.abs(x.amount))}</b>${x.refund ? `<div class="small muted" style="white-space:nowrap">возврат −${rubN(x.refund)}</div>` : ''}`;
   const act = (x.kind === 'refund' || x.src === 'ref') && ix.ath.get(x.aid) ? `data-act="refund-acc" data-id="${h(x.aid)}"` : x.src === 'sub' ? `data-act="sub-edit" data-id="${h(x.id)}"` : x.src === 'ref' ? '' : `data-act="op-edit" data-id="${h(x.id)}"`;
   const chk = x.kind === 'in' && x.noCheck ? `<span class="chip muted" title="${x.noCheck === 'notax' ? 'Доход не от профессиональной деятельности — не облагается налогом, чек не нужен' : 'Чек оформлен отдельно'}">без чека</span>` : x.kind === 'in' && x.tax && finS(db).checks !== false && x.date >= (finS(db).start || '9999') ? (x.check ? '<span class="chip ok" title="Чек в «Мой налог» выбит">чек</span>' : '<span class="chip warn" title="Чек в «Мой налог» не отмечен">нет чека</span>') : '';
   if (mobile) return `<li class="click" ${act}><div class="who"><b>${h(t.title)}</b><span class="small">${[D.short(x.date), x.kind === 'move' ? '' : accName(x.acc), t.sub].filter(Boolean).map(h).join(' · ')}</span></div><div style="text-align:right">${amt}${chk ? '<div>' + chk + '</div>' : ''}</div></li>`;
@@ -4977,7 +4979,7 @@ function vMoneyOverview() {
   const bal = F.start ? finBalances(db, D.max(t, F.start), items) : null;
   const stat = (v, l, col) => `<div class="stat"><b${col ? ` style="color:${col}"` : ''}>${rub(v)}</b><span class="small muted">${l}</span></div>`;
   const balCard = !F.start ? finSetupCard() : `<div class="card"><h2>Деньги сейчас</h2><div class="stats">${stat(Object.values(bal).reduce((n, v) => n + v, 0), 'всего')}${Object.entries(bal).map(([k, v]) => stat(v, k ? h(accName(k)) : '<span style="color:var(--bad)">способ оплаты не указан</span>', v < 0 ? 'var(--bad)' : '')).join('')}</div>
-    <p class="small muted" style="margin-top:8px">${F.start > t ? 'Учёт начнётся с ' + D.ru(F.start) + ': пока показаны остатки на начало этого дня.' : 'С ' + D.ru(F.start) + '.'} Если не сходится с кошельком или банком — проверьте, все ли расходы внесены, или внесите перевод между счетами.${bal[''] ? ' У части оплат не указано, наличными или переводом: откройте их в «Операциях» (фильтр «Счёт: не указано»).' : ''}</p></div>`;
+    <p class="small muted" style="margin-top:8px">${F.start > t ? 'Учёт начнётся с ' + D.ru(F.start) + ': пока показаны остатки на начало этого дня.' : 'С ' + D.ru(F.start) + '.'} Если не сходится с кошельком или банком — проверьте, все ли расходы внесены, или внесите перевод между счетами; если разницу не найти — «Исправить сумму на счёте».${bal[''] ? ' У части оплат не указано, наличными или переводом: откройте их в «Операциях» (фильтр «Счёт: не указано»).' : ''}</p><div class="row no-print" style="margin-top:8px"><button class="btn sm" data-act="adj-new">Исправить сумму на счёте</button></div></div>`;
   const R = [...(F.start ? recurOpen(db, t, items).filter(x => x.ym < ym) : []), ...recurDue(db, ym, items, t)];   // долги прошлых месяцев + текущий месяц
   const recCard = R.length ? `<div class="card flat"><div style="padding:14px 16px 6px"><h2>Регулярные платежи</h2></div><ul class="list">${R.map(x => { const c = finCat(db, 'out', x.r.cat), done = x.done, late = !done && x.date < t;
     return `<li><div class="who"><b>${h(c.name)}${x.r.note ? ' · ' + h(x.r.note) : ''} — ${MONTHS[+x.ym.slice(5) - 1]}</b><span class="small">${done ? 'оплачено ' + rub(x.paid) : (late ? '<b style="color:var(--bad)">срок прошёл ' + D.ru(x.date) + '</b>' : 'до ' + D.ru(x.date)) + (!done && x.paid ? ', внесено ' + rub(x.paid) : '')}</span></div><span class="num">${rub(x.r.amount)}</span>${done ? '<span class="chip ok">✓</span>' : `<button class="btn sm${late ? ' primary' : ''}" data-act="op-new" data-kind="out" data-rec="${h(x.r.id)}" data-period="${x.ym}" data-amount="${Math.max(0, (+x.r.amount || 0) - x.paid)}">Оплачено</button>`}</li>`; }).join('')}</ul></div>` : '';
@@ -5126,8 +5128,9 @@ function finReport(from0, to) {
     note: 'Оплаты — абонементы и разовые, оплаченные в периоде, по группе абонемента (или основной группе человека). Посещения — с начала ведения программы. «₽ на посещение» — грубая оценка: оплата и посещения могут относиться к разным месяцам.' });
   const fl = finFlow(db, from, to, items);
   if (fl) { const keys = [...new Set([...F.accounts.map(A => A.id), ...Object.keys(fl.end || {})])];
-    S.push({ title: 'Деньги на счетах', head: ['Счёт', 'На начало, ₽', 'Поступило, ₽', 'Выплачено, ₽', 'На конец, ₽'], rows: [...keys.map(k => ({ c: [k ? accName(k) : 'не указано', rubN((fl.start || {})[k]), rubN(fl.inn[k]), rubN(fl.out[k]), rubN((fl.end || {})[k])] })),
-      { c: ['Всего', ...[fl.start, fl.inn, fl.out, fl.end].map(o => rubN(Object.values(o || {}).reduce((n, v) => n + v, 0)))], b: 1 }],
+    const hasAdj = Object.values(fl.adj || {}).some(Boolean);   // 30.10.2026: корректировки — отдельным столбцом
+    S.push({ title: 'Деньги на счетах', head: ['Счёт', 'На начало, ₽', 'Поступило, ₽', 'Выплачено, ₽', ...(hasAdj ? ['Корректировка, ₽'] : []), 'На конец, ₽'], rows: [...keys.map(k => ({ c: [k ? accName(k) : 'не указано', rubN((fl.start || {})[k]), rubN(fl.inn[k]), rubN(fl.out[k]), ...(hasAdj ? [fl.adj[k] ? (fl.adj[k] > 0 ? '+' : '−') + rubN(Math.abs(fl.adj[k])) : ''] : []), rubN((fl.end || {})[k])] })),
+      { c: ['Всего', ...[fl.start, fl.inn, fl.out, ...(hasAdj ? [fl.adj] : []), fl.end].map(o => rubN(Object.values(o || {}).reduce((n, v) => n + v, 0)))], b: 1 }],
       note: fl.from > from ? 'Остатки считаются с начала учёта денег — ' + D.ru(fl.from) + '. Переводы между своими счетами входят в «поступило» и «выплачено» по каждому счёту, в итоге они взаимно погашаются.' : 'Переводы между своими счетами входят в «поступило» и «выплачено» по каждому счёту, в итоге они взаимно погашаются.' }); }
   const payers = P.subPay.ids.size;
   S.push({ title: 'Клиенты', head: ['Показатель', 'Значение'], rows: [
@@ -5215,6 +5218,35 @@ function catOptions(kind, cur) {
   if (kind === 'in') return L.map(c => opt(c.id, cur, c.name)).join('');
   const groups = [...new Set(L.map(c => c.group || c.name))];
   return groups.map(g => { const cs = L.filter(c => (c.group || c.name) === g); return cs.length === 1 && cs[0].name === g ? opt(cs[0].id, cur, cs[0].name) : `<optgroup label="${h(g)}">${cs.map(c => opt(c.id, cur, c.name)).join('')}</optgroup>`; }).join('');
+}
+/* 30.10.2026: корректировка суммы на счёте — фактический остаток на дату; разница записывается операцией «корректировка» (не доход и не расход, налог не меняет) */
+function openAdj(id, acc0) {
+  const S = finS(db), o = id ? db.ops.find(x => x.id === id && x.kind === 'adj') : null;
+  if (!S.start) { notice('Сначала задайте начало учёта денег и остатки на начало («Деньги» → «Настройки»).'); return; }
+  const items0 = finItems().filter(x => !(x.src === 'op' && x.id === id));
+  const v = o || { date: ix.today, acc: acc0 || S.defAcc || (S.accounts[0] || {}).id || '', amount: 0, note: '' };
+  const calc = (acc, date) => { const b = finBalances(db, D.max(date || ix.today, S.start), items0) || {}; return Math.round(b[acc] || 0); };
+  const body = `<div class="fgrid">${FS('acc', 'Счёт', S.accounts.map(A => [A.id, A.name]), v.acc)}${F('date', 'На дату', v.date, 'date', 'required min="' + S.start + '" max="' + ix.today + '"')}
+    <div class="f wide"><span>По программе на этот день</span><b class="num" id="adj-calc" style="font-size:1.25rem"></b></div>
+    ${F('real', 'На самом деле, ₽', o ? calc(v.acc, v.date) + (+o.amount || 0) : '', 'number', 'required step="1" inputmode="numeric"')}
+    <div class="f wide"><span>Разница</span><b class="num" id="adj-diff" style="font-size:1.25rem">—</b></div>
+    <label class="f wide"><span>Причина (необязательно)</span><input type="text" name="note" value="${h(v.note || '')}" placeholder="например, не внесён расход на хозтовары"></label></div>
+    <p class="small muted" style="margin-top:8px">Программа запишет разницу операцией «Корректировка суммы на счёте» в «Операциях». Это не доход и не расход: на налог, прибыль и отчёт «Доходы и расходы» не влияет, меняет только сумму на счёте. Сначала проверьте, все ли расходы и переводы внесены — корректировка нужна, когда разницу не найти.</p>`;
+  modal(o ? 'Корректировка суммы на счёте' : 'Исправить сумму на счёте', body, { submit: 'Сохранить',
+    extraBtn: o ? `<button type="button" class="btn danger" data-act="op-del" data-id="${o.id}">Удалить</button>` : '',
+    onSubmit(fd) {
+      const base = calc(fd.acc, fd.date), real = Math.round(+fd.real), delta = real - base;
+      if (!isFinite(real) || String(fd.real).trim() === '') { notice('Укажите, сколько на самом деле на счёте.'); return false; }
+      if (!delta) { notice('Сумма совпадает с программой — исправлять нечего.'); return false; }
+      const t = o || { id: uid('o'), kind: 'adj' }; Object.assign(t, { date: fd.date, acc: fd.acc, amount: delta, note: String(fd.note || '').trim(), cat: '' });
+      if (!o) db.ops.push(t);
+      render.keepScroll = true; persist(`Корректировка: ${accName(fd.acc)} ${delta > 0 ? '+' : '−'}${rubN(Math.abs(delta))} ₽`);
+    } });
+  const upd = () => { const acc = $('#dlg [name=acc]').value, date = $('#dlg [name=date]').value, base = calc(acc, date), r = $('#dlg [name=real]').value;
+    $('#adj-calc').textContent = rubN(base) + ' ₽'; const d = r === '' ? null : Math.round(+r) - base;
+    $('#adj-diff').textContent = d == null ? '—' : d === 0 ? 'нет' : (d > 0 ? '+' : '−') + rubN(Math.abs(d)) + ' ₽'; $('#adj-diff').style.color = d > 0 ? 'var(--ok)' : d < 0 ? 'var(--bad)' : ''; };
+  for (const n of ['acc', 'date', 'real']) { const e = $('#dlg [name=' + n + ']'); if (e) { e.addEventListener('input', upd); e.addEventListener('change', upd); } }
+  upd();
 }
 function openOp(id, pre = {}) {
   const S = finS(db), o = id ? db.ops.find(x => x.id === id) : null;
@@ -5315,7 +5347,7 @@ async function moneyCSV(el) {
   if (pinOn() && !await ask('Файл не шифруется: в файле будут фамилии плательщиков. Продолжить?')) return;
   const U = ui.money, rows = [['Дата', 'Вид', 'Статья', 'Описание', 'Счёт', 'Сумма', 'Возврат', 'Чек', 'Примечание']];
   const txt = v => /^[=+\-@\t\r]/.test(String(v || '')) ? "'" + v : (v || '');            // текст не должен стать формулой в Excel
-  moneyRows(U.from, U.to).reverse().forEach(x => { const t = itemText(x); rows.push([D.ru(x.date), { in: 'доход', out: 'расход', move: 'перевод', refund: 'возврат' }[x.kind], txt(t.title), txt(itemWho(x)), txt(x.kind === 'move' ? accName(x.acc) + ' → ' + accName(x.to) : accName(x.acc)), (sign(x) < 0 ? -1 : 1) * x.amount, x.refund || '', x.kind === 'in' ? (x.check ? 'да' : 'нет') : '', txt(x.note)]); });
+  moneyRows(U.from, U.to).reverse().forEach(x => { const t = itemText(x); rows.push([D.ru(x.date), { in: 'доход', out: 'расход', move: 'перевод', refund: 'возврат', adj: 'корректировка' }[x.kind], txt(t.title), txt(itemWho(x)), txt(x.kind === 'move' ? accName(x.acc) + ' → ' + accName(x.to) : accName(x.acc)), x.kind === 'adj' ? x.amount : (sign(x) < 0 ? -1 : 1) * x.amount, x.refund || '', x.kind === 'in' ? (x.check ? 'да' : 'нет') : '', txt(x.note)]); });
   saveRows('D23_деньги_' + U.from + '_' + U.to, rows, el, 'Операции');
 }
 function finAttention(out) {                        // пункты «Требует внимания» по деньгам
@@ -6737,7 +6769,8 @@ const ACT = {
   'year-xlsx': el => { downloadBlob('D23_итоги_' + el.dataset.y + '_года.xlsx', xlsxBlob(htmlDocx(yearDoc(el.dataset.y)), 'Итоги ' + el.dataset.y)); toast('Итоги года сохранены в Excel (.xlsx)'); },
   'year-word': el => { downloadBlob('D23_итоги_' + el.dataset.y + '_года.docx', docxBlob(htmlDocx(yearDoc(el.dataset.y)))); toast('Итоги года сохранены в Word (.docx)'); },
   'op-new': el => openOp(null, { kind: el.dataset.kind, cat: el.dataset.cat, coach: el.dataset.coach, period: el.dataset.period, amount: el.dataset.amount, rec: el.dataset.rec }),
-  'op-edit': el => openOp(el.dataset.id),
+  'op-edit': el => { const o = db.ops.find(x => x.id === el.dataset.id); if (o && o.kind === 'adj') openAdj(o.id); else openOp(el.dataset.id); },
+  'adj-new': el => openAdj(null, el.dataset.acc || ''),
   'refund-acc': el => openRefundAcc(el.dataset.id),
   'acc-bulk': async el => { const U = ui.money, L = moneyFiltered(U).filter(x => (x.kind === 'in' || x.kind === 'out') && x.src !== 'ref' && !x.acc);
     if (!L.length || !await ask(`Указать «${accName(el.dataset.acc)}» у ${L.length} ${plural(L.length, 'операции', 'операций', 'операций')} за ${D.ru(U.from)} — ${D.ru(U.to)}? Проверьте, что все они действительно так оплачены.`)) return;
