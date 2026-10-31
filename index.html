@@ -1238,8 +1238,8 @@ function calcAthlete(ix, a) {
   r.nextSub = upcomingSub(ix, a.id);
   r.pendingSub = pendingSub(ix, a.id);
   r.pendingCalc = r.pendingSub ? ix.subCalc.get(r.pendingSub.id) : null;
-  // все неоплаченные посещения: сверх текущего абонемента + без абонемента вообще
-  r.debtDates = [...((r.subCalc && r.subCalc.remaining < 0 && r.subCalc.debtDates) || []), ...r.unpaid].sort();
+  // все неоплаченные посещения — по ВСЕМ оплатам человека (31.10.2026: долг мог лечь на разовую «только на группу», а не на последнюю оплату — Плешков)
+  r.debtDates = [...new Set([...(ix.subsByAth.get(a.id) || []).flatMap(p => { const q = ix.subCalc.get(p.id); return q && !q.terminated && q.remaining < 0 && q.debtDates ? q.debtDates : []; }), ...r.unpaid])].sort();
   return r;
 }
 
