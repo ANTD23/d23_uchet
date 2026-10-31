@@ -17,7 +17,7 @@
   --accent-btn:#1A7A58; --accent-btn-ink:#FFFFFF;   /* главные кнопки — изумруд */
   --accent-btn-2:#2FA77A; --accent-btn-deep:#145F45; --tab-mark:#7FD7B0;   /* полоса и плитка ближайшего турнира, метка вкладки */
   /* нейтральные */
-  --bg:#F3F4F6; --surface:#FFFFFF; --surface-2:#F8F9FA; --sunk:#ECEEF1; --line:#DDE1E5; --line-strong:#C5CBD1;
+  --fresh:#FFF6D8; --fresh-line:#E6CF85; --fresh-ink:#7A5A00; --bg:#F3F4F6; --surface:#FFFFFF; --surface-2:#F8F9FA; --sunk:#ECEEF1; --line:#DDE1E5; --line-strong:#C5CBD1;
   --ink:#15181B; --ink-2:#4A525A; --ink-3:#5F6871;
   /* смысловые: текст / фон / заливка под белым текстом */
   --ok:#1F6B3F;   --ok-bg:#E2F2E8;   --ok-fill:#23804B;   --next-ring:#D9730D; --warned-nm:#1F5FBF;   /* кольцо «следующий абонемент оплачен» */
@@ -45,7 +45,7 @@
 @media screen and (prefers-color-scheme:dark){:root:not([data-theme="light"]):not([data-theme="soft"]){
   --brand:#0C0E11; --brand-ink:#99A1AC; --accent:#EEF0F3; --accent-soft:#3A3013; --accent-btn:#F2C230; --accent-btn-ink:#1D1500;
   --accent-btn-2:#D9A81C; --accent-btn-deep:#B8860B; --tab-mark:#F2C230;
-  --bg:#101216; --surface:#191C21; --surface-2:#1F2329; --sunk:#0C0E11; --line:#2C3139; --line-strong:#3E444E;
+  --fresh:#272314; --fresh-line:#5C4B1A; --fresh-ink:#F2C230; --bg:#101216; --surface:#191C21; --surface-2:#1F2329; --sunk:#0C0E11; --line:#2C3139; --line-strong:#3E444E;
   --ink:#EEF0F3; --ink-2:#99A1AC; --ink-3:#8C949F;
   --ok:#4CC47F; --ok-bg:#15301F; --ok-fill:#1F8148; --next-ring:#F2A03A; --warned-nm:#8FB3FF;
   --warn:#F2C230; --warn-bg:#3A3013; --warn-fill:#B8860B;
@@ -59,7 +59,7 @@
 @media screen{:root[data-theme="dark"]{
   --brand:#0C0E11; --brand-ink:#99A1AC; --accent:#EEF0F3; --accent-soft:#3A3013; --accent-btn:#F2C230; --accent-btn-ink:#1D1500;
   --accent-btn-2:#D9A81C; --accent-btn-deep:#B8860B; --tab-mark:#F2C230;
-  --bg:#101216; --surface:#191C21; --surface-2:#1F2329; --sunk:#0C0E11; --line:#2C3139; --line-strong:#3E444E;
+  --fresh:#272314; --fresh-line:#5C4B1A; --fresh-ink:#F2C230; --bg:#101216; --surface:#191C21; --surface-2:#1F2329; --sunk:#0C0E11; --line:#2C3139; --line-strong:#3E444E;
   --ink:#EEF0F3; --ink-2:#99A1AC; --ink-3:#8C949F;
   --ok:#4CC47F; --ok-bg:#15301F; --ok-fill:#1F8148; --next-ring:#F2A03A; --warned-nm:#8FB3FF;
   --warn:#F2C230; --warn-bg:#3A3013; --warn-fill:#B8860B;
@@ -74,7 +74,7 @@
 @media screen{:root[data-theme="amoled"]{
   --brand:#000000; --brand-ink:#8E959F; --accent:#EEF0F3; --accent-soft:#2A2310; --accent-btn:#F2C230; --accent-btn-ink:#1D1500;
   --accent-btn-2:#D9A81C; --accent-btn-deep:#B8860B; --tab-mark:#F2C230;
-  --bg:#000000; --surface:#0B0C0E; --surface-2:#111316; --sunk:#000000; --line:#1F2228; --line-strong:#30343C;
+  --fresh:#15120A; --fresh-line:#4A3D15; --fresh-ink:#F2C230; --bg:#000000; --surface:#0B0C0E; --surface-2:#111316; --sunk:#000000; --line:#1F2228; --line-strong:#30343C;
   --ink:#E9EBEE; --ink-2:#959CA6; --ink-3:#868D97;
   --ok:#4CC47F; --ok-bg:#0E2216; --ok-fill:#1D7A44; --next-ring:#F2A03A; --warned-nm:#8FB3FF;
   --warn:#F2C230; --warn-bg:#2A2310; --warn-fill:#B8860B;
@@ -88,7 +88,7 @@
 @media screen{:root[data-theme="soft"]{
   --brand:#16171A; --brand-ink:#A4AAB2; --accent:#D4D8DD; --accent-soft:#32363C; --accent-btn:#C3C8CF; --accent-btn-ink:#1A1C1F;
   --accent-btn-2:#878E98; --accent-btn-deep:#A9AFB8; --tab-mark:#C3C8CF;
-  --bg:#1C1E21; --surface:#24272B; --surface-2:#2A2D32; --sunk:#16181A; --line:#363A41; --line-strong:#4A4F57;
+  --fresh:#2E2B22; --fresh-line:#5C5440; --fresh-ink:#E4D49E; --bg:#1C1E21; --surface:#24272B; --surface-2:#2A2D32; --sunk:#16181A; --line:#363A41; --line-strong:#4A4F57;
   --ink:#D4D8DD; --ink-2:#A3A9B1; --ink-3:#9399A2;
   --ok:#8CCBA4; --ok-bg:#22322A; --ok-fill:#33764F; --next-ring:#F0A04B; --warned-nm:#7FB2FF;
   --warn:#DDBA7A; --warn-bg:#383124; --warn-fill:#B58224;
@@ -100,7 +100,7 @@
   --shadow-1:0 1px 2px rgba(0,0,0,.3); --shadow-2:0 16px 40px rgba(0,0,0,.45); --focus:#C3C8CF;
   color-scheme:dark}}
 @media print{:root,:root[data-theme="dark"],:root[data-theme="soft"],:root[data-theme="amoled"]{   /* печать — всегда светлая палитра */
-  --bg:#FFFFFF; --surface:#FFFFFF; --surface-2:#FFFFFF; --sunk:#FFFFFF; --line:#999999; --line-strong:#666666;
+  --fresh:#FFFFFF; --fresh-line:#000000; --fresh-ink:#000000; --bg:#FFFFFF; --surface:#FFFFFF; --surface-2:#FFFFFF; --sunk:#FFFFFF; --line:#999999; --line-strong:#666666;
   --ink:#000000; --ink-2:#000000; --ink-3:#000000; color-scheme:light}}
 
 *{box-sizing:border-box}
@@ -555,6 +555,7 @@ body.jfs .card.flat.scroll.mscroll{max-height:calc(100vh - 48px)!important;max-h
 .it-h .ph{font-size:.9375rem;color:var(--ink-2)}
 .it-t{margin:4px 0 10px;line-height:1.45}
 .it-a{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.it.fresh{background:var(--fresh);border-color:var(--fresh-line)} .it-new{font-size:.72rem;font-weight:700;letter-spacing:.02em;color:var(--fresh-ink);border:1px solid var(--fresh-line);border-radius:var(--r-pill);padding:0 7px;margin-left:6px;vertical-align:1px;white-space:nowrap} @media print{.it.fresh{background:none}.it-new{border-color:#000;color:#000}}
 .it.compact{padding:8px 8px 8px 16px} .it-c{display:flex;align-items:center;gap:10px} .it-cm{flex:1;min-width:0;cursor:pointer} .it.compact .it-t{margin:2px 0 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .it.compact .ph,.it.compact .it-a{display:none} .it.compact.open .ph{display:inline} .it.compact.open .it-a{display:flex;margin-top:8px} .it.compact.open .it-t{display:block;-webkit-line-clamp:unset}
 .it-more{margin-left:auto;color:var(--ink-3);font-size:.8rem;transition:transform var(--dur)} .it.compact.open .it-more{transform:rotate(180deg)}
@@ -3133,6 +3134,29 @@ function attnSplit(x) {                                   // заголовок 
   else if (!nm) { const i = t.indexOf(': '); if (i > 0 && i < 60) { title = t.slice(0, i); t = t.slice(i + 2); } }
   return [title, t ? t[0].toUpperCase() + t.slice(1) : t];
 }
+/* 31.10.2026: свежие пункты (появились сегодня или вчера) — другим фоном. Когда пункт впервые появился — в данных (db.attnSeen),
+   поэтому одинаково на телефоне и компьютере после переноса копии; при загрузке копии даты объединяются (берётся более ранняя) */
+function attnSeenUpd(all) {
+  const t = ix.today, live = new Set(all.map(attnKey)); let ch = false;
+  if (!db.attnSeen || typeof db.attnSeen !== 'object') {
+    if (meta.attnSeen) { db.attnSeen = { ...meta.attnSeen }; delete meta.attnSeen; writeMeta(); }   // версия 31.10 вечером хранила на устройстве
+    else {                                             // первый запуск: новыми считаем только пункты, где упомянута сегодняшняя или вчерашняя дата
+      db.attnSeen = {}; const re = new RegExp('(^|\\D)(' + [t, D.add(t, -1)].map(d => d.slice(8, 10) + '\\.' + d.slice(5, 7)).join('|') + ')(\\D|$)');
+      for (const x of all) db.attnSeen[attnKey(x)] = re.test(x.text) ? t : '2000-01-01'; }
+    ch = true;
+  }
+  const S = db.attnSeen;
+  for (const k of live) if (!S[k]) { S[k] = t; ch = true; }
+  for (const [k, d] of Object.entries(S)) if (!live.has(k) && d < D.add(t, -60)) { delete S[k]; ch = true; }
+  if (ch) quietSave();
+}
+function quietSave() {                               // записать служебное (без новой версии данных и без «есть изменения после копии»)
+  if (staleTab || readRev() !== revMark) return;
+  try { const json = JSON.stringify(db); storeDb(json); if (undoFor === db) undoJson = json; } catch (e) { console.warn(e); }
+}
+function mergeSeen(a, b) { const o = { ...(a || {}) }; for (const [k, d] of Object.entries(b || {})) if (!o[k] || d < o[k]) o[k] = d; return o; }
+function attnFresh(x) { if (/ — предупреждён \d/.test(x.text)) return false;   // уже написали клиенту — не «новое»
+  const d = db.attnSeen && db.attnSeen[attnKey(x)]; return !!d && d >= D.add(ix.today, -1); }
 function attnItem(x, compact) {
   const aid = x.a && x.a.id, c = aid ? ix.athCalc.get(aid) || {} : {}, [title, body] = attnSplit(x);
   const B = (act, label, extra = '') => `<button class="btn sm" data-act="${act}"${extra}>${label}</button>`;
@@ -3158,11 +3182,12 @@ function attnItem(x, compact) {
   ];
   const done = `<button class="done-cb" data-act="attn-done" data-key="${h(attnKey(x))}" aria-label="Сделано — убрать из списка" title="Сделано — убрать из списка, пока ситуация не изменится">✓</button>`;
   const ph = c.contact ? `<span class="ph">${telLink(c.contact)}${c.contactWho && c.contactWho !== 'сам' ? ' · ' + h(c.contactWho) : ''}</span>` : '';
+  const fr = attnFresh(x);
   if (compact) {                                          // 23.10.2026: «Скоро», «Можно позже», «Заморозка» — одной-двумя строками; нажатие раскрывает телефон и кнопки
     const k = attnKey(x), open = (ui.itOpen || new Set()).has(k);
-    return `<article class="it compact ${x.tone}${/ — предупреждён \d/.test(x.text) ? ' is-warned' : ''}${open ? ' open' : ''}" data-it="${h(k)}"><div class="it-c"><div class="it-cm" role="button" tabindex="0" aria-expanded="${open}" title="Показать телефон и действия"><div class="it-h">${title ? `<b>${h(title)}</b>` : ''}${ph}<span class="it-more" aria-hidden="true">▾</span></div><p class="it-t">${attnTxt(body)}</p></div>${done}</div>${actsHTML(acts)}</article>`;
+    return `<article class="it compact ${x.tone}${/ — предупреждён \d/.test(x.text) ? ' is-warned' : ''}${open ? ' open' : ''}${fr ? ' fresh' : ''}" data-it="${h(k)}"><div class="it-c"><div class="it-cm" role="button" tabindex="0" aria-expanded="${open}" title="Показать телефон и действия"><div class="it-h">${title ? `<b>${h(title)}</b>` : ''}${fr ? '<span class="it-new">новое</span>' : ''}${ph}<span class="it-more" aria-hidden="true">▾</span></div><p class="it-t">${attnTxt(body)}</p></div>${done}</div>${actsHTML(acts)}</article>`;
   }
-  return `<article class="it ${x.tone}${/ — предупреждён \d/.test(x.text) ? ' is-warned' : ''}"><div class="it-h">${title ? `<b>${h(title)}</b>` : ''}${ph}</div><p class="it-t">${attnTxt(body)}</p>${actsHTML(acts, done)}</article>`;
+  return `<article class="it ${x.tone}${/ — предупреждён \d/.test(x.text) ? ' is-warned' : ''}${fr ? ' fresh' : ''}"><div class="it-h">${title ? `<b>${h(title)}</b>` : ''}${fr ? '<span class="it-new">новое</span>' : ''}${ph}</div><p class="it-t">${attnTxt(body)}</p>${actsHTML(acts, done)}</article>`;
 }
 function vToday() {
   const t = ix.today, dw = D.dow(t);
@@ -3175,7 +3200,7 @@ function vToday() {
     const n = s ? Object.values(s.marks).filter(m => m === '+').length : 0;
     return `<button class="btn ${s ? '' : 'primary'}" data-act="open-session" data-date="${t}" data-group="${h(g)}">${s ? h(g || 'без группы') + ' · отмечено ' + n : 'Отметить «' + h(g) + '»'}</button>`;
   }).join('');
-  const all = attention(), doneMap = db.attnDone || {};
+  const all = attention(), doneMap = db.attnDone || {}; attnSeenUpd(all);
   const al = all.filter(x => !doneMap[attnKey(x)]), done = all.filter(x => doneMap[attnKey(x)]);
   const comp = [...(db.tourneys || [])].filter(T => T.date && T.date >= t).sort((x, y) => x.date.localeCompare(y.date))[0] || db.settings.competition;   // 31.10.2026: ближайший турнир из «Турниров»
   const days = comp.date && comp.date >= t ? D.diff(t, comp.date) : null;
@@ -5901,7 +5926,7 @@ function validateDb(d) {                         // минимальная пр�
   { const S = d.settings || {};
     if (S.trips != null && (!Array.isArray(S.trips) || S.trips.some(x => !x || !['from', 'to', 'announced', 'ext'].every(k => okD(x[k]))))) return 'выезд на соревнования с неверной датой';
     if (S.holidays != null && (!Array.isArray(S.holidays) || S.holidays.some(x => !x || !iso.test(x.date || '')))) return 'нерабочий день с неверной датой'; }
-  if (d.ops != null && (!Array.isArray(d.ops) || d.ops.some(o => !o || !o.id || !iso.test(o.date || '') || !(+o.amount >= 0)))) return 'операция с деньгами с неверными данными';
+  if (d.ops != null && (!Array.isArray(d.ops) || d.ops.some(o => !o || !o.id || !iso.test(o.date || '') || !(o.kind === 'adj' ? isFinite(+o.amount) && +o.amount !== 0 : +o.amount >= 0)))) return 'операция с деньгами с неверными данными';
   return '';
 }
 async function applyImport(text, fname) {
@@ -5934,6 +5959,7 @@ async function applyImport(text, fname) {
     snapshot('перед загрузкой копии');
   }
   keepBroken();
+  if (db && (db.attnSeen || d.attnSeen)) d.attnSeen = mergeSeen(d.attnSeen, db.attnSeen);   // 31.10.2026: «новое» — общее для устройств
   db = normalize(d);
   { const w = storeDb(JSON.stringify(db)); writeRev(); hideStale(); if (w) setTimeout(() => toast(w), 3000); }   // №2: загруженная копия — новая версия для других вкладок
   meta.exportedRev = db.rev; meta.lastExport = meta.lastExport || new Date().toISOString(); meta.lastImportName = fname; meta.lastImportAt = new Date().toISOString(); writeMeta();
@@ -6619,7 +6645,7 @@ function anonDb() {
   });
   d.subs.forEach(p => { p.note = ''; }); d.freezes.forEach(f => { f.note = ''; }); (d.ops || []).forEach(o => { o.note = ''; }); ((d.settings.fin || {}).coaches || []).forEach((c, i) => { c.name = 'Тренер ' + (i + 1); });
   d.tests.forEach(t => { t.note = ''; });
-  d.log = []; d.destroyLog = []; d.attnDone = {}; d.planLog = {};   // №3: в плане на день — имена и тексты пунктов
+  d.log = []; d.destroyLog = []; d.attnDone = {}; d.attnSeen = {}; d.planLog = {};   // №3: в плане на день — имена и тексты пунктов
   d.settings.operatorName = ''; d.settings.operatorAddress = '';
   (d.leads || []).forEach(L => { for (const k of ['name', 'contactName', 'phone', 'note', 'lostReason']) delete L[k]; });
   d.anon = true;
@@ -6729,6 +6755,7 @@ function stripPerson(d, id) {                   // удалить человек
   // №3: в ключах «сделано» и в плане на день — ФИО и текст пунктов, в т. ч. общих («нет отметки у … (Фамилия Имя, …)»)
   const nm = [A0 && shortName(A0), A0 && fullName(A0)].filter(x => x && x.trim().length > 2), has = t => nm.some(n => String(t || '').includes(n));
   if (d.attnDone) for (const k of Object.keys(d.attnDone)) if (k.startsWith(id + '|') || has(k)) delete d.attnDone[k];
+  if (d.attnSeen) for (const k of Object.keys(d.attnSeen)) if (k.startsWith(id + '|') || has(k)) delete d.attnSeen[k];
   if (d.planLog && d.planLog.items) for (const [k, v] of Object.entries(d.planLog.items)) if (k.startsWith(id + '|') || (v && v.aid === id) || has(k) || has(v && v.text)) delete d.planLog.items[k];
 }
 function setPath(obj, path, val) { const ks = path.split('.'); let o = obj; while (ks.length > 1) o = o[ks.shift()]; o[ks[0]] = val; }
