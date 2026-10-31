@@ -3066,6 +3066,8 @@ function attentionCalc() {
   if (noGroup.length) out.push({ tone: 'warn', text: `${noGroup.length} ${plural(noGroup.length, 'занятие', 'занятия', 'занятий')} без группы (${noGroup.map(s => D.short(s.date)).join(', ')}) — выберите группу`, session: noGroup[0].id });
   const comp = db.settings.competition;
   if (comp.date && comp.date < t) out.push({ tone: 'muted', text: `Дата соревнований «${comp.name}» прошла — обновите в настройках`, go: '#settings' });
+  for (const T of db.tourneys || []) if (T.date && T.date >= t && D.diff(t, T.date) <= 14 && !tripAt(ix, T.date))   // 31.10.2026: турнир скоро, а выезд не внесён
+    out.push({ tone: 'warn', text: `Турнир «${T.name || 'Турнир'}» ${D.ru(T.date)} (${inDays(D.diff(t, T.date))}) — выезд не внесён в настройках: «с» в эти дни спишутся как пропуск. Внесите выезд`, tripFor: T.id });
   const R = retention();
   if (R.expired.length) out.push({ tone: 'muted', a: R.expired[0], text: `Истёк срок хранения данных (п. 12.3.1): ${R.expired.length} ${plural(R.expired.length, 'человек', 'человека', 'человек')} — раздел «Данные»` });
   finAttention(out); leadAttention(out);
@@ -3146,6 +3148,7 @@ function attnItem(x, compact) {
     x.session ? `<a class="btn sm" href="#session/${x.session}">${x.nosub ? 'Отметить' : 'Открыть занятие'}</a>` : '',
     x.nosub ? B('nosub-ack', 'Не был — не спрашивать до оплаты', ` data-id="${x.nosub}"`) : '',
     x.go ? `<a class="btn sm" href="${x.go}">Открыть</a>` : '',
+    x.tripFor ? B('trip-for', 'Внести выезд', ` data-id="${h(x.tripFor)}"`) : '',
     x.ret ? B('pause-return', 'Вернулся', ` data-id="${x.ret}"`) : '',
     x.lead ? B('lead-edit', 'Заявка', ` data-id="${h(x.lead)}"`) : '',
     x.wait ? B('sub-wait', 'Ждём оплату', ` data-id="${aid}"`) : '',
@@ -3174,7 +3177,7 @@ function vToday() {
   }).join('');
   const all = attention(), doneMap = db.attnDone || {};
   const al = all.filter(x => !doneMap[attnKey(x)]), done = all.filter(x => doneMap[attnKey(x)]);
-  const comp = db.settings.competition;
+  const comp = [...(db.tourneys || [])].filter(T => T.date && T.date >= t).sort((x, y) => x.date.localeCompare(y.date))[0] || db.settings.competition;   // 31.10.2026: ближайший турнир из «Турниров»
   const days = comp.date && comp.date >= t ? D.diff(t, comp.date) : null;
   const active = db.athletes.filter(a => a.status === 'занимается').length;
   const bdays = [];
@@ -3183,7 +3186,7 @@ function vToday() {
     ? `<div class="banner no-print"><div class="spacer">${meta.lastExport ? 'Есть изменения после копии от ' + new Date(meta.lastExport).toLocaleString('ru', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'Копия данных ещё ни разу не сохранялась'}<span class="hide-m">. Сохраните копию, прежде чем работать на другом устройстве</span>.</div><button class="btn primary" data-act="export">Сохранить копию</button></div>` : '';
   const quick = `<div class="quick no-print"><button class="qa" data-act="sub-new">${I.subs}Оплата</button><button class="qa" data-act="gsearch">${I.search}Найти спортсмена</button><button class="qa" data-act="gmsg">${I.leads}Сообщение группе</button></div>`;
   return `${banner}
-  <div class="topline"><div><h1>${DOW_FULL[dw][0].toUpperCase() + DOW_FULL[dw].slice(1)}, ${D.ru(t)}</h1><div class="muted">Занимается: ${active}${days != null ? ' · до «' + h(comp.name) + '» ' + days + ' ' + plural(days, 'день', 'дня', 'дней') : ''}</div></div></div>
+  <div class="topline"><div><h1>${DOW_FULL[dw][0].toUpperCase() + DOW_FULL[dw].slice(1)}, ${D.ru(t)}</h1><div class="muted">Занимается: ${active}${days != null ? ' · «' + h(comp.name) + '» — ' + inDays(days) : ''}</div></div></div>
   <div class="today-grid"><div class="tg-a">
   <div class="card"><h2>Тренировки сегодня</h2>
     ${hol ? `<p class="muted">Нерабочий день: ${h(hol)}. Занятия не идут в срок абонементов.</p>` : ''}
@@ -3291,7 +3294,7 @@ function planWho(it) {                                    // имя и теле�
 }
 function planRecurText(r) {
   const t = ix.today, n = D.diff(t, r.due);
-  return `${rubN(r.amt)} ₽ — ${n < 0 ? 'СРОК ПРОШЁЛ ' + D.ru(r.due) : n === 0 ? 'оплатить СЕГОДНЯ' : 'оплатить через ' + n + ' ' + plural(n, 'день', 'дня', 'дней') + ', до ' + D.ru(r.due)} (${ymRu(r.ym)})`;
+  return `${rubN(r.amt)} ₽ — ${n < 0 ? 'СРОК ПРОШЁЛ ' + D.ru(r.due) : n === 0 ? 'оплатить СЕГОДНЯ' : 'оплатить ' + inDays(n) + ', до ' + D.ru(r.due)} (${ymRu(r.ym)})`;
 }
 function planRow(it) {
   const x = it.x || {}, w = planWho(it), rc = x.recur;
@@ -6353,9 +6356,27 @@ function tMedals(T, aid) {                                // крупный бе
 }
 function tPlaceText(pl) { return pl ? pl + ' место' : 'участник'; }
 const MONTHS_SHORT = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+/* 31.10.2026: выезд для турнира — чтобы «с» в эти дни не списывались (п. 9.6.2.1); предлагается при добавлении турнира, кнопка — в «Турнирах», пункт — на «Сегодня» */
+function openTripFor(tid, next) {
+  const T = (db.tourneys || []).find(x => x.id === tid); if (!T) { if (next) next(); return; }
+  const body = `<p class="small" style="margin-top:0">В «Настройки» → «Соревнования» нет выезда на ${D.ru(T.date)}. Без него «с» в эти дни списывается как пропуск и продления нет (п. 9.6.2.1 оферты). Внести выезд?</p>
+  <div class="fgrid">${F('name', 'Соревнование', T.name || '')}${F('from', 'Отъезд', T.date, 'date', 'required')}${F('to', 'Возвращение', T.date, 'date', 'required')}${F('ann', 'Дата объявления в чате', ix.today, 'date', 'required')}</div>
+  <p class="small muted">Период — день отъезда, дни соревнования и день возвращения. Объявить в чате клуба нужно не позднее чем за 3 дня до отъезда, в том числе если сами не едете.</p>`;
+  let done = false; const fin = () => { if (done) return; done = true; if (next) setTimeout(next, 80); };
+  modal('Выезд на соревнование', body, { submit: 'Внести выезд', closeText: 'Не сейчас', async onSubmit(fd) {
+    if (!fd.from || !fd.to) { notice('Укажите даты отъезда и возвращения.'); return false; }
+    if (fd.to < fd.from) { notice('Дата возвращения раньше даты отъезда.'); return false; }
+    if (fd.from > T.date || fd.to < T.date) { notice(`Дата турнира ${D.ru(T.date)} должна входить в период выезда.`); return false; }
+    if (fd.ann && D.diff(fd.ann, fd.from) < 3 && !await ask('Даты объявлены меньше чем за 3 дня до отъезда (п. 9.6.3 оферты). Всё равно внести?')) return false;
+    db.settings.trips = db.settings.trips || [];
+    db.settings.trips.push({ id: uid('t'), name: String(fd.name || '').trim() || T.name || '', from: fd.from, to: fd.to, announced: fd.ann || '', ext: '', tid: T.id });
+    render.keepScroll = true; persist('Выезд внесён'); fin(); } });
+  const d = document.getElementById('dlg'); if (d) d.addEventListener('close', fin, { once: true });
+}
+function inDays(n) { return n === 0 ? 'сегодня' : n === 1 ? 'завтра' : n === 2 ? 'послезавтра' : 'через ' + n + ' ' + plural(n, 'день', 'дня', 'дней'); }   // 31.10.2026: «завтра», а не «через 1 день»
 function tWhen(T) {                                       // «через 12 дней» / «сегодня» / «прошёл»
   if (!T.date) return ''; const n = D.diff(ix.today, T.date);
-  return n > 0 ? 'через ' + n + ' ' + plural(n, 'день', 'дня', 'дней') : n === 0 ? 'сегодня' : n >= -2 ? 'идёт или только что прошёл' : 'прошёл';
+  return n >= 0 ? inDays(n) : n >= -2 ? 'идёт или только что прошёл' : 'прошёл';
 }
 function tPeopleCards(T) {
   const rows = Object.entries(T.res || {}).map(([aid, v]) => ({ a: ix.ath.get(aid), v, pl: tBest(v) })).filter(x => x.a).sort((x, y) => (x.pl || '9').localeCompare(y.pl || '9') || fullName(x.a).localeCompare(fullName(y.a), 'ru'));
@@ -6382,10 +6403,10 @@ function vTourn() {
     return `<details class="tcard${up ? ' up' : ''}" data-tid="${T.id}" ${open.has(T.id) ? 'open' : ''}>
       <summary><span class="tdate" aria-hidden="true"><b>${+dd || '—'}</b><span>${MONTHS_SHORT[+mm - 1] || ''}</span><small>${yy || ''}</small></span>
         <span class="tinfo"><b class="tname">${h(T.name || 'Турнир')}</b>
-          <span class="tmeta">${T.city ? `<span class="tcity"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>${h(T.city)}</span>` : ''}<span class="twhen${up ? ' up' : ''}">${D.ru(T.date)} · ${tWhen(T)}</span></span>
+          <span class="tmeta">${T.city ? `<span class="tcity"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>${h(T.city)}</span>` : ''}<span class="twhen${up ? ' up' : ''}">${D.ru(T.date)} · ${tWhen(T)}</span></span>${up && !tripAt(ix, T.date) ? `<span class="small" style="color:var(--warn);display:block;margin-top:2px">выезд не внесён — «с» спишутся</span>` : ''}
           <span class="tstats"><span class="tst">${ids.length} ${plural(ids.length, 'участник', 'участника', 'участников')}</span>${divs.map(([k, n]) => `<span class="tst">${tDivName(k)} ${n}</span>`).join('')}${med.some(Boolean) ? `<span class="tst tmed">${med.map((n, i) => n ? `<i class="md m${i + 1}" title="${i + 1} место"></i>${n}` : '').filter(Boolean).join(' ')}</span>` : ''}</span></span>
         <span class="tchev" aria-hidden="true"></span></summary>
-      <div class="tbody"><div class="row no-print tacts"><button class="btn sm" data-act="tourn-people" data-id="${T.id}">Участники</button><button class="btn sm" data-act="tourn-report" data-id="${T.id}">Отчёт</button><button class="btn sm ghost" data-act="tourn-edit" data-id="${T.id}">Изменить турнир</button></div>
+      <div class="tbody"><div class="row no-print tacts">${up && !tripAt(ix, T.date) ? `<button class="btn sm primary" data-act="trip-for" data-id="${T.id}">Внести выезд</button>` : ''}<button class="btn sm" data-act="tourn-people" data-id="${T.id}">Участники</button><button class="btn sm" data-act="tourn-report" data-id="${T.id}">Отчёт</button><button class="btn sm ghost" data-act="tourn-edit" data-id="${T.id}">Изменить турнир</button></div>
         ${tSchemeText(T) ? `<div class="small muted tscheme">${h(tSchemeText(T))}</div>` : ''}
         ${tPeopleCards(T)}</div></details>`;
   };
@@ -6408,7 +6429,8 @@ function openTourn(id) {
       t.ageMode = fd.ageMode === 'year' ? 'year' : 'age'; t.level = fd.level === 'levels' || fd.level === 'belts' ? fd.level : '';
       if (!id) { db.tourneys = db.tourneys || []; db.tourneys.push(t); meta.tournOpen = [...new Set([...(meta.tournOpen || []), t.id])]; writeMeta(); }
       render.keepScroll = true; persist(id ? 'Сохранено' : 'Турнир добавлен');
-      if (!id) setTimeout(() => openTournPeople(t.id), 50);
+      const nextP = () => { if (!id) openTournPeople(t.id); };   // 31.10.2026: нет выезда на дату турнира — предложить внести
+      if (t.date && t.date >= ix.today && !tripAt(ix, t.date)) setTimeout(() => openTripFor(t.id, nextP), 50); else if (!id) setTimeout(nextP, 50);
     } });
 }
 function openTournPeople(id) {
@@ -7004,6 +7026,7 @@ const ACT = {
   'group-del': async el => { const g = db.settings.groups[+el.dataset.i]; const used = db.athletes.filter(a => a.group === g.name || a.group2 === g.name).length + db.sessions.filter(s => s.group === g.name).length;
     if (used && !await ask(`Группа «${g.name}» используется (${used}). Удалить её из списка? Записи в журнале и у спортсменов останутся с этим названием.`)) return; db.settings.groups.splice(+el.dataset.i, 1); render.keepScroll = true; persist(); },
   'hol-add': () => { const d = $('#hol-date').value; if (!d) return; db.settings.holidays = db.settings.holidays.filter(x => x.date !== d); db.settings.holidays.push({ date: d, reason: $('#hol-reason').value.trim() || 'нерабочий день' }); render.keepScroll = true; persist('Добавлено'); },
+  'trip-for': el => openTripFor(el.dataset.id),
   'trip-add': async () => { const from = $('#trip-from').value, to = $('#trip-to').value, ann = $('#trip-ann').value;
     if (!from || !to) { notice('Укажите даты отъезда и возвращения.'); return; }
     if (to < from) { notice('Дата возвращения раньше даты отъезда.'); return; }
