@@ -5763,7 +5763,7 @@ function tariffHook(p) {
 function vData() {
   let snaps = []; try { snaps = JSON.parse(bigGet(LS_SNAP) || '[]'); } catch (e) {}
   const size = Math.round(JSON.stringify(db).length / 1024);
-  return `<h1>Данные</h1>
+  return `<h1>Данные</h1><p class="small muted" style="margin:-6px 0 12px">Версия программы: ${APP_VER}</p>
   ${STANDALONE ? `<div class="card"><h2>Автономная версия</h2><p>Программа открыта как файл с диска и работает без интернета и без сайта. Её данные хранятся <b>отдельно</b> от версии на сайте и от других браузеров: это как ещё одно устройство. Переносите данные только копией-файлом и работайте там, куда последней загрузили свежую копию.</p>
   <p class="small muted keep">Не переименовывайте и не перемещайте этот файл: в части браузеров данные привязаны к его пути. Копии отсюда сохраняются с пометкой «авт».</p></div>` : ''}
   <div class="card"><h2>Защита PIN-кодом</h2>
@@ -5787,7 +5787,7 @@ function vData() {
   <div class="stats" style="margin:12px 0"><div class="stat"><b>${db.athletes.length}</b><span class="small muted">спортсменов</span></div><div class="stat"><b>${db.sessions.length}</b><span class="small muted">занятий</span></div><div class="stat"><b>${db.subs.length}</b><span class="small muted">абонементов</span></div><div class="stat"><b>${size} КБ</b><span class="small muted">объём</span></div></div>
   <p class="small">Последнее изменение: ${new Date(db.updatedAt).toLocaleString('ru')}. ${meta.lastExport ? 'Копия сохранена: ' + new Date(meta.lastExport).toLocaleString('ru') + (dirty() ? ' — после неё были изменения.' : ' — актуальна.') : 'Копию ещё не сохраняли.'}</p>
   ${meta.persistent === false ? '<div class="banner">Браузер не разрешил постоянное хранение: при нехватке места на устройстве он может очистить данные программы. Сохраняйте копию после каждой тренировки. На телефоне помогает установка программы на главный экран («Добавить на главный экран»).</div>' : meta.persistent ? '<p class="small muted">Хранилище постоянное: браузер не очистит его сам при нехватке места.</p>' : ''}
-  <p class="small muted" style="margin:0 0 8px">Версия программы: ${APP_VER}</p><div class="row"><button class="btn primary" data-act="export">Сохранить копию</button>${canShareFiles() ? '<button class="btn" data-act="export-share" title="Отправить копию в Яндекс Диск, Telegram, почту…">Поделиться копией в…</button>' : ''}${window.showDirectoryPicker ? '<button class="btn" data-act="import-latest">Загрузить последнюю копию из папки</button>' : ''}<button class="btn" data-act="import">Загрузить копию из файла…</button>${window.showDirectoryPicker ? '<button class="btn" data-act="export-new">Выбрать другую папку</button>' : ''}</div>
+  <div class="row"><button class="btn primary" data-act="export">Сохранить копию</button>${canShareFiles() ? '<button class="btn" data-act="export-share" title="Отправить копию в Яндекс Диск, Telegram, почту…">Поделиться копией в…</button>' : ''}${window.showDirectoryPicker ? '<button class="btn" data-act="import-latest">Загрузить последнюю копию из папки</button>' : ''}<button class="btn" data-act="import">Загрузить копию из файла…</button>${window.showDirectoryPicker ? '<button class="btn" data-act="export-new">Выбрать другую папку</button>' : ''}</div>
   <p class="small muted keep" style="margin-top:10px">Имя копии: <b>D23_данные_ГГГГ-ММ-ДД_ЧЧ-ММ_${isPhone() ? 'тел' : 'пк'}.json</b> — дата, время и откуда сохранено. В списке файлов самая свежая копия оказывается последней по имени.
   ${window.showDirectoryPicker ? `Копии сохраняются в папку${meta.copyDirName ? ' «' + h(meta.copyDirName) + '»' : ', которую вы выберете при первом сохранении'}.` : (canShareFiles() ? 'На телефоне «Сохранить копию» кладёт файл в «Загрузки», а «Поделиться копией в…» сразу открывает меню телефона — выберите Яндекс Диск (папку на Диске выбираете там же). На Android файл называется «….json.txt» — это та же копия, программа её загружает.' : 'На телефоне копия сохраняется в «Загрузки» — оттуда отправьте её на Яндекс Диск.')}
   ${meta.lastExportName ? '<br>Последняя сохранённая: ' + h(meta.lastExportName) + '.' : ''}${meta.lastImportName ? '<br>Последняя загруженная: ' + h(meta.lastImportName) + ' (' + new Date(meta.lastImportAt).toLocaleString('ru') + ').' : ''}</p>
@@ -5858,7 +5858,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '01.11.2026 (v116)';   // показывается в «Данные» — чтобы видеть, обновилась ли программа
+const APP_VER = '01.11.2026 (v117)';   // показывается в «Данные» — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
