@@ -3208,7 +3208,7 @@ function vToday() {
   const bdays = [];
   for (let k = 0; k < 7; k++) { const d = D.add(t, k); for (const a of db.athletes) if (a.status !== 'ушёл' && a.birth && bdayOn(a.birth, d)) bdays.push({ a, d, k, age: D.age(a.birth, d) }); }
   const banner = dirty() && (!meta.lastExport || Date.now() - Date.parse(meta.lastExport) > 3 * 3600e3)
-    ? `<div class="banner no-print"><div class="spacer">${meta.lastExport ? 'Есть изменения после копии от ' + new Date(meta.lastExport).toLocaleString('ru', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'Копия данных ещё ни разу не сохранялась'}<span class="hide-m">. Сохраните копию, прежде чем работать на другом устройстве</span>.</div><button class="btn primary" data-act="export">Сохранить копию</button></div>` : '';
+    ? `<div class="banner no-print"><div class="spacer">${meta.lastExport ? 'Есть изменения после копии от ' + new Date(meta.lastExport).toLocaleString('ru', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'Копия данных ещё ни разу не сохранялась'}<span class="hide-m">. Сохраните копию, прежде чем работать на другом устройстве</span>.</div>${canShareFiles() ? '<button class="btn primary" data-act="export-share" title="Отправить копию в Яндекс Диск, Telegram, почту…">Поделиться в…</button><button class="btn" data-act="export" title="Сохранить копию файлом на этом устройстве">Сохранить</button>' : '<button class="btn primary" data-act="export">Сохранить копию</button>'}</div>` : '';   // 01.11.2026: на телефоне — сразу «Поделиться в…» (Яндекс Диск)
   const quick = `<div class="quick no-print"><button class="qa" data-act="sub-new">${I.subs}Оплата</button><button class="qa" data-act="gsearch">${I.search}Найти спортсмена</button><button class="qa" data-act="gmsg">${I.leads}Сообщение группе</button></div>`;
   return `${banner}
   <div class="topline"><div><h1>${DOW_FULL[dw][0].toUpperCase() + DOW_FULL[dw].slice(1)}, ${D.ru(t)}</h1><div class="muted">Занимается: ${active}${days != null ? ' · «' + h(comp.name) + '» — ' + inDays(days) : ''}</div></div></div>
@@ -6369,7 +6369,7 @@ function tLevelName(T) { return T.level === 'belts' ? 'Пояс' : 'Уровен
 function tMedals(T, aid) {                                // крупный бейдж — лучший результат; под ним поменьше — остальные призовые места
   const P = tCats(T, aid).filter(e => ['1', '2', '3'].includes(e.pl)).sort((x, y) => x.pl.localeCompare(y.pl) || (x.div || '').localeCompare(y.div || ''));
   if (!P.length) return '<div class="tp-medals"><span class="tp-medal">участник</span></div>';
-  const many = P.length > 1;
+  const many = P.length > 1 || new Set(tCats(T, aid).map(e => e.div || '')).size > 1;   // 01.11.2026: выступал в Gi и No-Gi — раздел пишем и при одной медали
   const extra = e => {                                     // уточнение — только если в одном разделе несколько медалей: вес, а если вес одинаковый — возраст
     const same = P.filter(x => x.div === e.div); if (same.length < 2) return '';
     const w = tWeightText(e), a = tAgeText(T, e);
