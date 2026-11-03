@@ -1722,9 +1722,10 @@ function coachMonth(d, ix, c, ym, items = moneyItems(d)) {
   const sess = on ? ix.sessionsSorted.filter(s => G.has(s.group) && inRange(s.date) && Object.values(s.marks || {}).some(m => m === '+')) : [];
   const income = on ? items.filter(x => x.kind === 'in' && (x.cat === '_sub' || x.cat === '_one') && G.has(x.group) && inRange(x.date)).reduce((n, x) => n + x.amount - x.refund, 0) : 0;
   const parts = { fixed: on ? +c.fixed || 0 : 0, sessions: sess.length, perSession: +c.perSession || 0, income, pct: +c.pct || 0 };
-  const accrued = Math.round(parts.fixed + parts.sessions * parts.perSession + income * parts.pct / 100);
+  const skip = (c.skip || []).includes(ym);           // 04.11.2026: «не начислять в этом месяце» (отпуск, перерыв)
   const paid = items.filter(x => x.kind === 'out' && x.cat === 'salary' && x.coach === c.id && (x.period || ymOf(x.date)) === ym).reduce((n, x) => n + x.amount, 0);
-  return { ym, ...parts, accrued, paid, left: accrued - paid };
+  const accrued = c.irregular ? paid : skip ? 0 : Math.round(parts.fixed + parts.sessions * parts.perSession + income * parts.pct / 100);   // «по факту»: сколько выплатили, столько и начислено — долга нет
+  return { ym, ...parts, accrued, paid, left: accrued - paid, skip, irregular: !!c.irregular };
 }
 function coachDebt(d, ix, c, upto, items = moneyItems(d)) {   // начислено минус выплачено с начала учёта (по завершённые и текущий месяц)
   const from = ymOf(D.max(c.from || '', D.max(finS(d).start || '', pStartOf(d)))); if (!from) return { months: [], left: 0 };
@@ -4479,9 +4480,11 @@ function openFreeze(id, athleteId) {
   if (!f && (a.payPerVisit || a.noSub || !subs.length)) { notice('Без абонемента заморозки нет: у человека нет абонемента' + (a.payPerVisit ? ' (оплата разово)' : a.noSub ? ' (без абонемента)' : '') + '. «б» в журнале будет считаться пропуском.'); return; }
   const cur = ix.athCalc.get(aid).sub;
   const v = f || { subId: cur ? cur.id : (subs[0] || {}).id, from: '', to: '', returned: '', certDate: '', note: '' };
+  if (!f) { const ex = db.freezes.find(x => x.subId === v.subId);   // 04.11.2026: заморозка по этому абонементу уже есть — не даём завести вторую
+    if (ex) { (async () => { if (await ask(`По текущему абонементу заморозка уже оформлена (с ${D.ru(ex.from)}${ex.to ? ' по ' + D.ru(ex.to) : ''}). По п. 9.5.1 она одна за период абонемента. Открыть её, чтобы изменить даты?`, { ok: 'Открыть заморозку' })) openFreeze(ex.id); })(); return; } }
   const fc = f ? calcFreeze(ix, f) : null;
   const body = `<p><b>${h(fullName(a))}</b></p><div class="fgrid">
-  ${FS('subId', 'Абонемент', subs.map(p => [p.id, (subFirst(ix, p) ? 'с ' + D.ru(subFirst(ix, p)) : 'не активирован, оплата ' + D.ru(p.payDate)) + ', ' + p.count + ' зан.']), v.subId, 'class="wide"')}
+  ${FS('subId', 'Абонемент', subs.map(p => [p.id, (subFirst(ix, p) ? 'с ' + D.ru(subFirst(ix, p)) : 'не активирован, оплата ' + D.ru(p.payDate)) + ', ' + p.count + ' зан.' + (db.freezes.some(x => x.subId === p.id && x !== f) ? ' — заморозка уже есть' : '')]), v.subId, 'class="wide"')}
   ${F('from', 'Болел с (по справке)', v.from, 'date', 'required')}${F('to', 'по (включительно; пусто — ещё болеет, «✕» — очистить)', v.to, 'date')}
   ${F('returned', 'Вернулся на занятия', v.returned, 'date')}${F('certDate', 'Справка получена', v.certDate, 'date')}
   ${F('expect', 'Ждём примерно к (если известно)', v.expect || '', 'date')}<p class="small muted wide" style="margin:-4px 0 0">Например, травма и срок восстановления известен: до этой даты программа не напоминает уточнить, как дела; дата прошла — напомнит. Не известно — оставьте пустым: через 2 недели болезни программа предложит уточнить у родителей.</p>${(() => { const U = f && sickDue(f, fc); return U ? `<p class="small wide" style="margin:0"><b>Болеет дольше срока абонемента.</b> ${h(sickDueTxt(U).replace(/^п/, 'П'))}.</p>` : ''; })()}
@@ -4496,6 +4499,8 @@ function openFreeze(id, athleteId) {
     extraBtn: f ? `<button type="button" class="btn danger" data-act="freeze-del" data-id="${f.id}">Удалить</button>${!f.certDate ? (f.noCert ? `<button type="button" class="btn" data-act="freeze-nocert-undo" data-id="${f.id}" title="Отметка «справки не будет» от ${D.ru(f.noCert)}">Отменить «справки не будет»</button>` : `<button type="button" class="btn" data-act="freeze-nocert" data-id="${f.id}" title="Человек сказал, что справки не будет: заморозки нет, занятия болезни списываются">Справки не будет</button>`) : ''}<button type="button" class="btn" data-act="freeze-mark" data-id="${f.id}">Проставить «б» в журнале</button><button type="button" class="btn" data-act="msg" data-id="${aid}" data-sub="${f.subId}" data-tpl="Абонемент продлён">Сообщение</button>` : '',
     async onSubmit(fd) {
       if (!fd.subId || !freezeSub(ix, { subId: fd.subId, athleteId: aid })) { notice('Выберите абонемент: без абонемента заморозки нет.'); return false; }   // №5
+      if (db.freezes.some(x => x.subId === fd.subId && x !== f)) {   // 04.11.2026: и при правке (сменили абонемент на тот, где заморозка уже есть)
+        notice('По п. 9.5.1 заморозка оформляется однократно за период абонемента — для этого абонемента она уже есть.'); return false; }
       if (fd.to && fd.to < fd.from) { notice('Дата окончания болезни раньше начала'); return false; }
       if (fd.returned && fd.returned <= (fd.to || fd.from)) { notice('Дата «Вернулся» должна быть позже последнего дня болезни.'); return false; }   // №22
       { const tmp = { id: 'tmp', athleteId: aid, subId: fd.subId, from: fd.from, to: fd.to || fd.from }, fp = freezeSub(ix, tmp), first = subFirst(ix, fp), cf = calcFreeze(ix, tmp);   // №9: только в сроке действующего абонемента
@@ -4503,7 +4508,6 @@ function openFreeze(id, athleteId) {
         if (fd.from < first) { notice(`Начало болезни раньше начала абонемента (${D.ru(first)}). Заморозка возможна только в сроке действующего абонемента.`); return false; }
         if (cf.base && (fd.to || fd.from) > cf.base) { notice(`Заморозка возможна только до окончания срока абонемента — ${D.ru(cf.base)}. Поставьте «по» не позже этой даты.`); return false; } }
       if (!a.healthConsent && !await ask('В карточке не отмечено согласие на сведения о здоровье. Период болезни и справка — сведения о здоровье (п. 12.2 оферты).\n\nСохранить заморозку всё равно? (Лучше сначала получить согласие и отметить его в карточке.)')) return false;
-      if (!f && db.freezes.some(x => x.subId === fd.subId)) { notice('По п. 9.5.1 заморозка оформляется однократно за период абонемента — для этого абонемента она уже есть.'); return false; }
       const t = f || { id: uid('f'), athleteId: aid };
       Object.assign(t, { subId: fd.subId, from: fd.from, to: fd.to, returned: fd.returned, certDate: fd.certDate, note: fd.note.trim() }); if (fd.expect && !fd.to && !fd.returned) t.expect = fd.expect; else delete t.expect;   // 28.10.2026
       if (t.certDate) delete t.noCert;                 // справку всё-таки принесли — отметка «справки не будет» снимается
@@ -5224,32 +5228,39 @@ function vMoneyTax() {
   ${unch.length ? `<ul class="list">${unch.map(x => { const tt = itemText(x); return `<li><div class="who"><b>${h(itemWho(x) || tt.title)}</b><span class="small">${D.ru(x.date)} · ${h(tt.title)} · ${h(accName(x.acc))} · чек до ${D.ru(x.checkBy)}</span></div><span class="num">${rub(x.amount - x.refund)}</span>${x.late ? '<span class="chip bad">срок прошёл</span>' : ''}<button class="btn sm" data-act="check-mark" data-src="${h(x.src)}" data-id="${h(x.id)}">Чек выбит</button></li>`; }).join('')}</ul>` : F.start && F.checks !== false ? '<div class="empty">Все чеки отмечены</div>' : ''}</div>`;
 }
 function coachScheme(c) {
+  if (c.irregular) return 'по факту: выплаты когда нужно и сколько нужно, без начисления по месяцам' + ((c.groups || []).length ? ' · группы: ' + c.groups.join(', ') : '');
   const p = [+c.fixed ? rubN(c.fixed) + ' ₽ в месяц' : '', +c.perSession ? rubN(c.perSession) + ' ₽ за занятие' : '', +c.pct ? c.pct + '% от оплат групп' : ''].filter(Boolean);
   return (p.join(' + ') || 'без схемы — суммы выплат вносите вручную') + ((c.groups || []).length ? ' · группы: ' + c.groups.join(', ') : '');
 }
 function vMoneyCoaches() {
   const F = finS(db), t = ix.today, items = finItems();
-  return `${F.coaches.map(c => { const Dt = coachDebt(db, ix, c, t, items), months = Dt.months.slice(-6).reverse(), Dc = coachDebt(db, ix, c, D.add(ymOf(t) + '-01', -1), items);
+  return `${F.coaches.map(c => { const Dt = coachDebt(db, ix, c, t, items), months = Dt.months.slice(c.irregular ? -12 : -6).reverse(), Dc = coachDebt(db, ix, c, D.add(ymOf(t) + '-01', -1), items);
+    const payAll = Math.max(0, Dt.left);   // 04.11.2026: выплата на любую сумму, не привязанная к одному месяцу
+    const pays = items.filter(x => x.kind === 'out' && x.cat === 'salary' && x.coach === c.id).slice(-12).reverse();
     return `<div class="card flat"><div style="padding:14px 16px 6px" class="row"><div><h2 style="margin:0">${h(c.name)}${c.to ? ` <span class="chip">по ${D.ru(c.to)}</span>` : ''}</h2><div class="small muted">${h(coachScheme(c))}${c.from ? ' · с ' + D.ru(c.from) : ''}</div></div><span class="spacer"></span>
-    <b class="num" title="За прошедшие месяцы: начислено минус выплачено">${Dc.left > 0 ? 'долг за прошлые месяцы ' + rub(Dc.left) : Dc.left < 0 ? 'переплата ' + rub(-Dc.left) : ''}</b><button class="btn sm" data-act="coach-edit" data-id="${h(c.id)}">Схема оплаты</button></div>
-    ${months.length ? `<div class="scroll"><table class="t"><thead><tr><th>Месяц</th><th class="r">Занятий</th><th class="r">Оплаты групп, ₽</th><th class="r">Начислено, ₽</th><th class="r">Выплачено, ₽</th><th class="r">Остаток, ₽</th><th></th></tr></thead><tbody>
-    ${months.map(m => `<tr><td>${ymRu(m.ym)}${m.ym === ymOf(t) ? ' <span class="small muted">(идёт)</span>' : ''}</td><td class="r num">${m.sessions}</td><td class="r num">${rubN(m.income)}</td><td class="r num"><b>${rubN(m.accrued)}</b></td><td class="r num">${rubN(m.paid)}</td><td class="r num">${rubN(m.left)}</td>
-    <td>${m.left > 0 ? `<button class="btn sm" data-act="op-new" data-kind="out" data-cat="salary" data-coach="${h(c.id)}" data-period="${m.ym}" data-amount="${m.left}">Выплатить</button>` : ''}</td></tr>`).join('')}</tbody></table></div>` : '<p class="small muted" style="padding:0 16px 12px">Начните учёт денег на вкладке «Обзор».</p>'}</div>`; }).join('')}
+    ${c.irregular ? '' : `<b class="num" title="За прошедшие месяцы: начислено минус выплачено">${Dc.left > 0 ? 'долг за прошлые месяцы ' + rub(Dc.left) : Dc.left < 0 ? 'переплата ' + rub(-Dc.left) : ''}</b>`}<button class="btn sm primary" data-act="op-new" data-kind="out" data-cat="salary" data-coach="${h(c.id)}" data-period="${ymOf(t)}" ${payAll && !c.irregular ? `data-amount="${payAll}"` : ''} title="Выплата на любую сумму">Выплатить</button><button class="btn sm" data-act="coach-edit" data-id="${h(c.id)}">Схема оплаты</button></div>
+    ${c.irregular ? (pays.length ? `<ul class="list">${pays.map(x => `<li class="click" data-act="op-edit" data-id="${h(x.id)}"><div class="who"><b>${D.ru(x.date)}</b><span class="small">${x.period && x.period !== ymOf(x.date) ? 'за ' + ymRu(x.period) + ' · ' : ''}${h(accName(x.acc))}${x.note ? ' · ' + h(x.note) : ''}</span></div><b class="num">${rub(x.amount)}</b></li>`).join('')}</ul>` : '<p class="small muted" style="padding:0 16px 12px">Выплат ещё не было. «Выплатить» — когда платите, на любую сумму.</p>')
+    : months.length ? `<div class="scroll"><table class="t"><thead><tr><th>Месяц</th><th class="r">Занятий</th><th class="r">Оплаты групп, ₽</th><th class="r">Начислено, ₽</th><th class="r">Выплачено, ₽</th><th class="r">Остаток, ₽</th><th></th></tr></thead><tbody>
+    ${months.map(m => `<tr><td>${ymRu(m.ym)}${m.ym === ymOf(t) ? ' <span class="small muted">(идёт)</span>' : ''}${m.skip ? ' <span class="chip muted">не начисляется</span>' : ''}</td><td class="r num">${m.sessions}</td><td class="r num">${rubN(m.income)}</td><td class="r num"><b>${rubN(m.accrued)}</b></td><td class="r num">${rubN(m.paid)}</td><td class="r num">${rubN(m.left)}</td>
+    <td style="white-space:nowrap">${m.left > 0 ? `<button class="btn sm" data-act="op-new" data-kind="out" data-cat="salary" data-coach="${h(c.id)}" data-period="${m.ym}" data-amount="${m.left}">Выплатить</button>` : ''}<button class="btn sm ghost" data-act="coach-skip" data-id="${h(c.id)}" data-ym="${m.ym}" title="${m.skip ? 'Снова начислять за этот месяц' : 'Не начислять за этот месяц (отпуск, перерыв, договорились иначе)'}">${m.skip ? 'Начислять' : 'Не начислять'}</button></td></tr>`).join('')}</tbody></table></div>` : '<p class="small muted" style="padding:0 16px 12px">Начните учёт денег на вкладке «Обзор».</p>'}</div>`; }).join('')}
   <div class="card"><button class="btn" data-act="coach-edit">Добавить тренера</button>
-  <p class="small muted" style="margin-top:8px">Начислено = фикс в месяц + проведённые занятия его групп × ставка + процент от оплат абонементов и разовых его групп за месяц. Схемы можно сочетать. Проведённое занятие — где есть хотя бы одна отметка «+». Если в группе ведут два тренера или нужна разовая поправка — просто внесите выплату на нужную сумму, остаток пересчитается.</p></div>`;
+  <p class="small muted" style="margin-top:8px">Начислено = фикс в месяц + проведённые занятия его групп × ставка + процент от оплат абонементов и разовых его групп за месяц. Схемы можно сочетать. Проведённое занятие — где есть хотя бы одна отметка «+». Если в группе ведут два тренера или нужна разовая поправка — просто внесите выплату на нужную сумму, остаток пересчитается.</p>
+  <p class="small muted">Гибко (с 04.11.2026): «Выплатить» вверху — выплата на любую сумму, хоть за несколько месяцев сразу (долг считается по всем месяцам вместе). «Не начислять» в строке месяца — за этот месяц ничего не начисляется (отпуск, перерыв). Тренеру, которому платите от случая к случаю, в «Схеме оплаты» отметьте «Платить по факту, не каждый месяц»: без начисления и без долга, только список выплат.</p></div>`;
 }
 function openCoach(id) {
   const S = finS(db), c = id ? S.coaches.find(x => x.id === id) : null, v = c || { name: '', groups: [], fixed: '', perSession: '', pct: '', from: ix.today, to: '' };
   const paid = c && finItems().some(x => x.cat === 'salary' && x.coach === c.id);
   modal(c ? 'Тренер: ' + c.name : 'Новый тренер', `<div class="fgrid">${F('name', 'ФИО', v.name, 'text', 'required')}${F('from', 'Работает с', v.from || '', 'date')}${F('to', 'Работал по (пусто — работает)', v.to || '', 'date')}
     ${F('fixed', 'Фикс в месяц, ₽', v.fixed || '', 'number', 'min="0" step="1" inputmode="numeric"')}${F('perSession', 'За проведённое занятие, ₽', v.perSession || '', 'number', 'min="0" step="1" inputmode="numeric"')}${F('pct', 'Процент от оплат групп, %', v.pct || '', 'number', 'min="0" max="100" step="0.5" inputmode="decimal"')}
+    <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="irregular" ${v.irregular ? 'checked' : ''} style="width:20px;height:20px"><span><b>Платить по факту, не каждый месяц</b><br><span class="small">Без начисления по месяцам: вносите выплату, когда платите, на любую сумму. Программа не считает долг и не напоминает. Схема ниже тогда не используется.</span></span></label>
     <div class="wide"><div class="small" style="margin-bottom:4px"><b>Группы тренера</b> — для расчёта по занятиям и проценту</div><div class="row" style="gap:6px 14px">${db.settings.groups.map(g => `<label class="row small" style="gap:6px"><input type="checkbox" name="groups[]" value="${h(g.name)}" ${(v.groups || []).includes(g.name) ? 'checked' : ''} style="width:18px;height:18px">${h(g.name)}</label>`).join('')}</div></div></div>`,
   { extraBtn: c ? `<button type="button" class="btn danger" data-act="coach-del" data-id="${h(c.id)}" ${paid ? 'title="Есть выплаты — укажите дату «работал по»"' : ''}>Удалить</button>` : '', onSubmit(fd) {
     const nm = String(fd.name || '').trim(); if (!nm) { notice('Укажите ФИО'); return false; }
     if (+fd.pct > 100 || +fd.pct < 0 || +fd.fixed < 0 || +fd.perSession < 0) { notice('Проверьте суммы и процент'); return false; }
+    fd.irregular = !!document.querySelector('#dlg [name=irregular]:checked');
     if (fd.to && fd.from && fd.to < fd.from) { notice('Дата «по» раньше даты «с»'); return false; }
     const t = c || { id: uid('c') };
-    Object.assign(t, { name: nm, from: fd.from || '', to: fd.to || '', fixed: +fd.fixed || 0, perSession: +fd.perSession || 0, pct: +fd.pct || 0, groups: fd.__multi['groups[]'] || [] });
+    Object.assign(t, { name: nm, from: fd.from || '', to: fd.to || '', fixed: +fd.fixed || 0, perSession: +fd.perSession || 0, pct: +fd.pct || 0, groups: fd.__multi['groups[]'] || [], irregular: !!fd.irregular });
     if (!c) S.coaches.push(t);
     render.keepScroll = true; persist('Тренер сохранён'); } });
 }
@@ -5863,7 +5874,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '01.11.2026 (v118)';   // показывается в «Данные» — чтобы видеть, обновилась ли программа
+const APP_VER = '04.11.2026 (v119)';   // показывается в «Данные» — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -6842,6 +6853,7 @@ const ACT = {
   'op-new': el => openOp(null, { kind: el.dataset.kind, cat: el.dataset.cat, coach: el.dataset.coach, period: el.dataset.period, amount: el.dataset.amount, rec: el.dataset.rec }),
   'coach-more-add': () => { const S = db.settings; S.coachesMore = [...(S.coachesMore || []), '']; render.keepScroll = true; render(); setTimeout(() => { const l = document.querySelectorAll('[data-change="coach-more"]'); if (l.length) l[l.length - 1].focus(); }, 30); },   // 30.10.2026: ещё тренеры
   'coach-more-del': async el => { const S = db.settings, i = +el.dataset.i, n = (S.coachesMore || [])[i]; if (n && !await ask(`Убрать тренера «${n}» из списка? Записи об инструктажах, которые он проводил, останутся.`)) return; S.coachesMore = (S.coachesMore || []).filter((_, k) => k !== i); render.keepScroll = true; persist('Тренер убран'); },
+  'coach-skip': el => { const c = finS(db).coaches.find(x => x.id === el.dataset.id); if (!c) return; const ym = el.dataset.ym, L = new Set(c.skip || []); if (L.has(ym)) L.delete(ym); else L.add(ym); c.skip = [...L].sort(); render.keepScroll = true; persist(L.has(ym) ? c.name + ': за ' + ymRu(ym) + ' не начисляется' : c.name + ': за ' + ymRu(ym) + ' снова начисляется'); },
   'op-edit': el => { const o = db.ops.find(x => x.id === el.dataset.id); if (o && o.kind === 'adj') openAdj(o.id); else openOp(el.dataset.id); },
   'adj-new': el => openAdj(null, el.dataset.acc || ''),
   'refund-acc': el => openRefundAcc(el.dataset.id),
