@@ -3104,18 +3104,34 @@ function frozenNow() {
     if (!by.has(a.id) || by.get(a.id).g.from < g.from) by.set(a.id, { a, f, g }); }
   return [...by.values()].sort((x, y) => shortName(x.a).localeCompare(shortName(y.a), 'ru'));
 }
+/* 04.11.2026: болеет, но заморозка не оформлена — последние отметки подряд «б» (не дольше 3 недель назад) */
+function sickLooseNow(skip) {
+  const t = ix.today, out = [];
+  for (const a of db.athletes) { if (a.status === 'ушёл' || skip.has(a.id) || (a.payPerVisit && !a.payPerVisitFrom)) continue;
+    const ms = (ix.marks.get(a.id) || []).filter(m => m.date <= t && m.mark && !perVisitOn(a, m.date)).slice().sort((x, y) => x.date.localeCompare(y.date));
+    const run = []; for (let i = ms.length - 1; i >= 0 && ms[i].mark === 'б'; i--) run.unshift(ms[i]);
+    if (!run.length || D.diff(run[run.length - 1].date, t) > 21) continue;
+    const fr = ix.freezesByAth.get(a.id) || [];
+    if (fr.some(f => { const g = freezeRange(ix, f); return g && run[run.length - 1].date >= g.from && run[run.length - 1].date <= g.to; })) continue;
+    out.push({ a, from: run[0].date, n: run.length }); }
+  return out.sort((x, y) => shortName(x.a).localeCompare(shortName(y.a), 'ru'));
+}
 function alertSections(list, fn) {
   const nm = x => x.a ? shortName(x.a) : '\uffff';
   const byName = (x, y) => nm(x).localeCompare(nm(y), 'ru');
-  const fz = frozenNow(), fzIds = new Set(fz.map(x => x.a.id));
+  const fz = frozenNow(), fzIds = new Set(fz.map(x => x.a.id)), lz = sickLooseNow(fzIds);
   const isFz = x => x.tone === 'sick' || (x.a && fzIds.has(x.a.id) && x.tone !== 'bad');   // болезнь и всё, кроме срочного, по тем, кто болеет, — в «Заморозку»
   const frz = list.filter(isFz).sort(byName), rest = list.filter(x => !isFz(x));
   const urgent = rest.filter(x => x.tone === 'bad').sort(byName);
   const soon = rest.filter(x => x.tone === 'warn').sort(byName);
   const later = rest.filter(x => !['bad', 'sick', 'warn'].includes(x.tone)).sort(byName);
   const head = (t, n) => `<div class="attn-h">${t} · ${n}</div>`;
-  const people = new Set([...fzIds, ...frz.filter(x => x.a).map(x => x.a.id)]);
-  const roster = fz.length ? `<div class="fz-sub">Сейчас болеют · ${fz.length} <span class="muted">— список для обзора, делать ничего не нужно</span></div><ul class="list fz-list">${fz.map(({ a, f, g }) => `<li class="click" data-go="#person/${a.id}"><div class="who"><b>${h(shortName(a))}</b><span class="small">${h(a.group || '')} · с ${D.ru(g.from)} ${g.open ? '— пока болеет' : 'по ' + D.ru(g.to)} · ${f.certDate ? 'справка ' + D.ru(f.certDate) : 'справки нет'}</span></div><span class="chip sick">болеет</span></li>`).join('')}</ul>` : '';
+  const people = new Set([...fzIds, ...lz.map(x => x.a.id), ...frz.filter(x => x.a).map(x => x.a.id)]);
+  const rosterAll = [...fz.map(x => ({ ...x, k: 'f' })), ...lz.map(x => ({ ...x, k: 'l' }))].sort((x, y) => shortName(x.a).localeCompare(shortName(y.a), 'ru'));
+  const rosterLi = x => x.k === 'f'
+    ? `<li class="click" data-go="#person/${x.a.id}"><div class="who"><b>${h(shortName(x.a))}</b><span class="small">${h(x.a.group || '')} · с ${D.ru(x.g.from)} ${x.g.open ? '— пока болеет' : 'по ' + D.ru(x.g.to)} · ${x.f.certDate ? 'справка ' + D.ru(x.f.certDate) : 'справки нет'}</span></div><span class="chip sick">болеет</span></li>`
+    : `<li class="click" data-go="#person/${x.a.id}"><div class="who"><b>${h(shortName(x.a))}</b><span class="small">${h(x.a.group || '')} · «б» с ${D.ru(x.from)} (${x.n} ${plural(x.n, 'занятие', 'занятия', 'занятий')}) · заморозка не оформлена — см. «Что сделать» ниже</span></div><span class="chip warn">нет заморозки</span></li>`;
+  const roster = rosterAll.length ? `<div class="fz-sub">Сейчас болеют · ${rosterAll.length} <span class="muted">— список для обзора${lz.length ? '' : ', делать ничего не нужно'}</span></div><ul class="list fz-list">${rosterAll.map(rosterLi).join('')}</ul>` : '';
   return (urgent.length ? `<section class="attn-sec s-bad">${head('Срочно', urgent.length)}${urgent.map(x => fn(x)).join('')}</section>` : '')
     + (soon.length ? `<section class="attn-sec s-warn">${head('Скоро', soon.length)}${soon.map(x => fn(x, true)).join('')}</section>` : '')
     + (later.length ? `<details class="attn-later attn-sec s-later" data-later ${meta.laterOpen ? 'open' : ''}><summary class="attn-h">Можно позже · ${later.length}</summary>${later.map(x => fn(x, true)).join('')}</details>` : '')
@@ -5874,7 +5890,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '04.11.2026 (v119)';   // показывается в «Данные» — чтобы видеть, обновилась ли программа
+const APP_VER = '04.11.2026 (v120)';   // показывается в «Данные» — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
