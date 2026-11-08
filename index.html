@@ -2917,6 +2917,7 @@ function openSearch() {
   q.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const f = res.querySelector('li[data-go]'); if (f) location.hash = f.dataset.go; } });
   show(); setTimeout(() => q.focus(), 30);
 }
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target && e.target.name === 'wq') { e.preventDefault(); const b = e.target.parentElement.querySelector('[data-act=weigh-quick]'); if (b) b.click(); } });   // 08.11.2026: вес — Enter = «Записать»
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.body.classList.contains('jfs') && !document.querySelector('dialog[open]')) { ui.journal.fs = false; render(); } });
 document.addEventListener('keydown', e => {
   if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -2999,7 +3000,7 @@ function attentionCalc() {
     }
     { const cut = pStartOf(db);
       const bad = (ix.marks.get(a.id) || []).filter(m => m.mark === 'с' && m.date >= cut && !tripOf(m.date)).map(m => m.date);
-      if (bad.length) out.push({ tone: 'bad', a, text: `${nm}: отметка «с» вне объявленного периода выезда (${bad.map(d => D.short(d)).join(', ')}) — по п. 9.6.2.1 такое занятие списывается: исправьте отметку или внесите выезд в Настройках` }); }
+      if (bad.length) out.push({ tone: 'bad', a, text: `${nm}: отметка «с» вне объявленного периода выезда (${bad.map(d => D.short(d)).join(', ')}) — по п. 9.6.2.1 такое занятие списывается: исправьте отметку или внесите выезд в «Турниры» → «Ближайшее соревнование и выезды»` }); }
     if (c.med === 'просрочена') out.push({ tone: 'bad', a, text: `${nm}: медсправка просрочена (${D.ru(a.medUntil)}) — к занятиям не допускать` });
     else if (c.med === 'истекает') out.push({ tone: 'warn', a, text: `${nm}: медсправка до ${D.ru(a.medUntil)}` });
     if (c.noParentPhone) out.push({ tone: 'muted', a, text: `${nm}: нет телефона родителя` });
@@ -4087,6 +4088,8 @@ function vPerson(id) {
         ${refundCard}${a.refund ? '' : `<div class="row no-print sub-acts">${AB('leave-return', 'ab-pay', '↺', 'Вернулся')}</div>`}</div>`
     : `${a.status === 'приостановил' ? `<div class="sub-state small"><b>На перерыве${a.pauseFrom ? ' с ' + D.ru(a.pauseFrom) : ''}</b> — ${a.pauseFrom && a.pauseFrom > ix.today ? 'до этой даты остаётся в списке группы, потом' : ''} в списке группы не показывается. Вернулся — «Вернулся» и дата.</div>` : ''}
       <div class="row no-print sub-acts">${a.status === 'приостановил' ? AB('pause-return', 'ab-pay', '↺', 'Вернулся') + AB('pause-date', 'ab-pause', '⏸', 'Дата перерыва') : ''}${AB('sub-new', a.status === 'приостановил' ? 'ab-plain' : 'ab-pay', '＋', 'Новый<span class="hide-m"> абонемент</span>')}${AB('freeze-new', 'ab-frz', '❄', 'Заморозка')}${a.status === 'приостановил' ? '' : AB('pause-new', 'ab-pause', '⏸', 'Перерыв')}${AB('sub-wait', 'ab-wait', '⏳', 'Ждём оплату')}${AB('leave-new', 'ab-stop', '✕', 'Уход / отказ')}</div>`;
+  const payMode = a.noSub ? 'без абонемента' : a.payPerVisit ? 'разово, за каждое посещение' + (a.payPerVisitFrom ? ' с ' + D.ru(a.payPerVisitFrom) : '') : 'абонемент';
+  const payModeTxt = a.status === 'ушёл' ? '' : `<div class="small sub-state">Способ оплаты: <b>${payMode}</b> <button class="btn sm no-print" data-act="paymode" data-id="${id}">Изменить</button></div>`;
   const pausesTxt = (a.pauses || []).length ? `<div class="small muted sub-state">Перерывы: ${a.pauses.map(p => (p.from ? D.ru(p.from) : '…') + ' — ' + D.ru(D.add(p.to, -1))).join('; ')}.</div>` : '';
   const pubTxt = { 'да': 'можно публиковать', 'частично': '<span class="chip warn">частично — смотреть бланк</span>', 'нет': '<span class="chip bad">нельзя публиковать</span>' }[a.publish] || '<span class="chip bad">нет согласия</span>';
   const alert = (() => { const cc = c, pf = provFreeze(id, ix.today, ix.today);   // 23.10.2026: разделы с проблемой открыты сами
@@ -4111,24 +4114,22 @@ function vPerson(id) {
     <div class="row" style="gap:12px;margin-top:12px">${beltHTML(c.belt, c.stripes, true)}<span class="small muted">${c.belt ? h(c.belt) + (c.stripes ? ', ' + c.stripes + ' ' + plural(c.stripes, 'страйп', 'страйпа', 'страйпов') : '') + (c.beltSet ? ' с ' + D.ru(c.beltDate) + (c.monthsSince != null ? ' (' + c.monthsSince + ' мес.)' : '') : ' — запись о присвоении не внесена') : 'Пояс не присвоен'}</span></div></div></div>
     ${personSubBox(a, c)}
     <div class="row no-print person-acts">${a.status === 'ушёл' ? '' : `<button class="btn primary" data-act="sub-new" data-id="${id}">Оплата</button>`}<button class="btn" data-act="msg" data-id="${id}">Написать</button>
-      <details class="menu"><summary class="btn" aria-label="Другие действия">⋯ Ещё</summary><div class="menu-pop"><button class="btn" data-act="transfer-new" data-id="${id}">Перевести в другую группу</button><button class="btn" data-act="person-edit" data-id="${id}">Изменить данные</button><button class="btn" data-act="weigh-new" data-id="${id}">Записать взвешивание</button></div></details></div>
+      <details class="menu"><summary class="btn" aria-label="Другие действия">⋯ Ещё</summary><div class="menu-pop"><button class="btn" data-act="transfer-new" data-id="${id}">Перевести в другую группу</button><button class="btn" data-act="person-edit" data-id="${id}">Изменить данные</button></div></details></div>
 
     ${(() => { const html = personContacts(a, c); if (!html || !/class="contact[ "]/.test(html) || /chip bad/.test(html) && !/btn call/.test(html)) return `<div class="contacts">${html}</div>`;   // 23.10.2026: «Родители» свёрнуты
       const who = [cleanPhone(a.motherPhone) ? 'мать' : '', cleanPhone(a.fatherPhone) ? 'отец' : '', cleanPhone(a.phone) ? 'спортсмен' : ''].filter(Boolean).join(', ');   // те, у кого есть телефон
       return `<details class="contacts contacts-d"${ui.contactsOpen === a.id ? ' open' : ''} data-contacts data-id="${a.id}"><summary><b>Родители и телефоны</b><span class="small muted">${h(who)}${c.contact ? ' · основной: ' + h(fmtPhone(cleanPhone(c.contact))) : ''}</span>${c.noParentPhone ? '<span class="chip bad">нет телефона родителя</span>' : ''}</summary>${html}</details>`; })()}</div>
-  ${personSummary(a, c, freezes)}
-  <div class="grid2">
   <div class="card${alert.data ? ' sec-alert' : ''}"><h2>Данные</h2><dl class="kv">
-    ${kv('Дата рождения', [D.ru(a.birth), c.age != null ? c.age + ' ' + plural(c.age, 'год', 'года', 'лет') : '', a.sex ? String(a.sex).toLowerCase() : ''].filter(Boolean).join(' · '))}${!a.birth && a.sex ? kv('Пол', h(a.sex)) : ''}${kv('Вес', weighHTML(a, true))}
+    ${kv('Дата рождения', [D.ru(a.birth), c.age != null ? c.age + ' ' + plural(c.age, 'год', 'года', 'лет') : '', a.sex ? String(a.sex).toLowerCase() : ''].filter(Boolean).join(' · '))}${!a.birth && a.sex ? kv('Пол', h(a.sex)) : ''}${kv('Вес', weighHTML(a, false) + `<span class="row no-print" style="gap:6px;margin-top:6px;flex-wrap:nowrap"><input type="text" name="wq" inputmode="decimal" placeholder="кг" aria-label="Новый вес, кг" style="width:84px;min-height:34px;padding:4px 8px"><button class="btn sm" data-act="weigh-quick" data-id="${id}">Записать</button><button class="btn sm ghost" data-act="weigh-new" data-id="${id}" title="Взвешивание другой датой">другой датой…</button></span>`)}
     ${kv('Договор прекращён', a.endedAt ? D.ru(a.endedAt) + ' · хранить до ' + D.ru(keepUntil(a.endedAt)) : '')}
     ${kv('Команда', a.otherTeam ? 'другая' + (a.teamName ? ' — ' + h(a.teamName) : '') + ', к аттестации не допускается' : '')}
-    ${kv('Оплата', a.noSub ? 'без абонемента' : a.payPerVisit ? 'разово, за каждое посещение' + (a.payPerVisitFrom ? ' с ' + D.ru(a.payPerVisitFrom) : '') : '')}${kv('В клубе с', D.ru(a.addedAt))}${kv('Откуда узнали', h(a.source || '') + ((db.leads || []).some(L => L.aid === a.id) ? ` · <a href="#" data-act="lead-edit" data-id="${h((db.leads.find(L => L.aid === a.id) || {}).id)}">заявка</a>` : ''))}${kv('Пробное занятие', (ix.marks.get(id) || []).filter(m => m.trial).map(m => D.ru(m.date)).join(', '))}${kv('Примечание', h(a.note))}</dl>
+    ${kv('В клубе с', D.ru(a.addedAt))}${kv('Откуда узнали', h(a.source || '') + ((db.leads || []).some(L => L.aid === a.id) ? ` · <a href="#" data-act="lead-edit" data-id="${h((db.leads.find(L => L.aid === a.id) || {}).id)}">заявка</a>` : ''))}${kv('Пробное занятие', (ix.marks.get(id) || []).filter(m => m.trial).map(m => D.ru(m.date)).join(', '))}${kv('Примечание', h(a.note))}</dl>
     ${(a.transfers || []).length ? `<h3 style="margin-top:14px">Переводы</h3><ul class="list">${[...a.transfers].sort((x, y) => y.date.localeCompare(x.date)).map(t => `<li style="padding:6px 0"><div class="who small">с ${D.ru(t.date)}: ${h(t.from || '—')} → <b style="display:inline">${h(t.to)}</b></div><button class="btn sm ghost no-print" data-act="transfer-del" data-id="${id}" data-tid="${t.id}" aria-label="Удалить перевод">✕</button></li>`).join('')}</ul>` : ''}</div>
+  ${personSummary(a, c, freezes)}
   <div class="card${alert.visits ? ' sec-alert' : ''}"><div class="row" style="justify-content:space-between"><h2>Посещения</h2><button class="btn sm no-print" data-act="athlete-report" data-id="${id}">Печать за период</button></div><div class="stats" style="margin-bottom:10px"><div class="stat"><b>${cnt('+')}</b><span class="small muted">был, 90 дней</span></div><div class="stat"><b>${cnt('н')}</b><span class="small muted">не был</span></div><div class="stat"><b>${cnt('б')}</b><span class="small muted">болел</span></div></div>
     <div class="small">Допуск к аттестации ${D.ru(S.attest.next)}: <b>${h(adm.status)}</b> <button class="btn sm no-print" data-act="manual-admit" data-id="${id}">Допуск вручную</button>${adm.pct != null ? ` — ${Math.round(adm.pct * 100)}% посещений` : ''}${adm.adult && !adm.late && !adm.other && !adm.manual ? '<br>С 16 лет посещаемость для допуска не требуется.' : adm.total && !adm.late && !adm.other ? `<br>${h(admLine(adm))}` : ''}${admT3(adm) ? `<br>${h(admT3(adm))}` : ''}</div>
     ${ringsAhead}<div class="small muted" style="margin-top:10px">Последние ${Math.min(24, marks.length) || ''} ${plural(Math.min(24, marks.length), 'отметка', 'отметки', 'отметок')}, новые слева · нажмите — дата и группа</div><div class="row" style="gap:6px 4px;margin-top:4px;flex-wrap:wrap">${marks.slice(0, 24).map(m => { const rg = ringOf(m); return `<button type="button" class="mlast" data-act="mark-info" data-txt="${h(D.ru(m.date) + ', ' + DOW_FULL[D.dow(m.date)] + (m.group ? ' · ' + m.group : '') + ' — ' + (m.mark === 'б' && isBS(ix, id, m.date) ? 'болел, справка внесена (бс)' : MARKS[m.mark] ? MARKS[m.mark].label : m.mark) + (m.trial ? ' (пробное)' : '') + (rg ? ' · ' + rg[1] : ''))}" title="${D.ru(m.date)} ${h(m.group)}${rg ? ' — ' + rg[1] : ''}"><span class="cell-m ${{ '+': 'm-plus', 'н': 'm-n', 'б': 'm-b', 'о': 'm-o', 'с': 'm-s' }[m.mark] || ''}${rg ? ' ' + rg[0] : ''}">${h(m.mark === 'б' && isBS(ix, id, m.date) ? 'бс' : m.mark)}</span><small>${D.short(m.date)}</small></button>`; }).join('') || '<span class="muted">Отметок нет</span>'}</div>${marks.length > 24 ? `<div class="small muted" style="margin-top:6px">Все отметки — «Печать за период» или «Посещения» → «Месяц».</div>` : ''}</div>
-  </div>
-  <div class="card flat${alert.subs ? ' sec-alert' : ''}${a.status === 'ушёл' ? ' sub-left' : ''}"><div class="row sub-head" style="padding:14px 16px 10px"><h2 style="margin:0">Абонементы</h2><span class="spacer"></span><div class="sub-box">${subActs}${pausesTxt}</div></div>
+  <div class="card flat${alert.subs ? ' sec-alert' : ''}${a.status === 'ушёл' ? ' sub-left' : ''}"><div class="row sub-head" style="padding:14px 16px 10px"><h2 style="margin:0">Абонементы</h2><span class="spacer"></span><div class="sub-box">${payModeTxt}${subActs}${pausesTxt}</div></div>
   ${subsCtl}${subs.length ? `<div class="scroll tail-x"><table class="t"><thead><tr><th>Действует с</th><th class="r">Занятий</th><th class="r">Сумма</th><th class="r">Был</th><th class="r">Не был</th><th class="r">Болел</th><th class="r">Остаток</th><th>Окончание</th><th></th></tr></thead><tbody>
   ${shownSubs.map(p => { const r = ix.subCalc.get(p.id); return `<tr class="click" data-act="sub-edit" data-id="${p.id}"><td class="num">${startLabel(p, r)}${p.onlyGroup ? ' <span class="chip">' + h(p.onlyGroup) + '</span>' : ''}</td><td class="r num">${p.count}${+p.bonus > 0 ? ` <span class="chip ok" title="${h(p.bonusNote || 'решение тренера')}">+${p.bonus}</span>` : ''}</td><td class="r num">${amountCell(p)}</td><td class="r num">${r.was}</td><td class="r num">${r.missed}</td><td class="r num">${r.sick}${r.sickCharged ? ' (спис. ' + r.sickCharged + ')' : ''}</td><td class="r num"><b>${r.remaining}</b></td><td class="num">${r.end ? D.ru(r.end) + (r.baseEnd ? `<div class="small muted" title="${h('Срок ' + extNote(r))}">было ${D.short(r.baseEnd)}, +${r.extDates.length}</div>` : '') : (r.endKind === 'nosched' ? '<span class="small muted">нет расписания</span>' : r.endKind === 'pkg' ? '<span class="small muted">пакет, без срока</span>' : '')}</td><td><span class="chip ${r.tone}">${h(r.status)}</span>${notifyBadges(p, r)}</td></tr>`; }).join('')}</tbody></table></div>${subsMore}` : '<div class="empty">Абонементов нет</div>'}
   ${freezes.length ? `<div style="padding:8px 16px 14px"><h3>Заморозки по болезни</h3><ul class="list">${freezes.map(f => { const fc = calcFreeze(ix, f); return `<li class="click" data-act="freeze-edit" data-id="${f.id}"><div class="who"><b>${D.ru(f.from)} — ${f.to ? D.ru(f.to) : '…'}</b><span class="small">${h(fc.text)}</span></div><span class="chip ${{ 'прекращена': 'bad', 'ошибка': 'bad', 'предварительно': 'warn', 'оформлена': 'ok' }[freezeState(fc, f)] || 'sick'}">${freezeState(fc, f)}</span></li>`; }).join('')}</ul></div>` : ''}</div>
@@ -4222,7 +4223,7 @@ function applySections() {                         // разделы карто�
     const h2 = c.querySelector(':scope > h2, :scope > div > h2'); if (!h2) return;
     const head = h2.parentElement === c ? h2 : h2.parentElement;
     const key = h2.textContent.trim().split(/\s+/)[0];
-    head.classList.add('sec-head'); c.classList.add('sec'); if (!st[key]) c.classList.add('sec-closed');   // раздел с проблемой — свёрнут, но с красной точкой
+    head.classList.add('sec-head'); c.classList.add('sec'); if (!(st[key] ?? key === 'Данные')) c.classList.add('sec-closed');   // 08.11.2026: «Данные» (вес) — по умолчанию открыты   // раздел с проблемой — свёрнут, но с красной точкой
     head.addEventListener('click', e => { if (e.target.closest('button,a,select,input,label,.sub-box')) return;
       c.classList.toggle('sec-closed'); meta.secOpen = Object.assign({}, meta.secOpen || {}, { [key]: !c.classList.contains('sec-closed') }); writeMeta(); tableTails(); });
   });
@@ -4306,18 +4307,18 @@ function athleteOptions(cur, filter = a => a.status !== 'ушёл') {
 function personForm(a) {
   const S = db.settings;
   return `<div class="fgrid">${F('last', 'Фамилия', a.last, 'text', 'required')}${F('first', 'Имя', a.first)}${F('middle', 'Отчество', a.middle)}
-  ${FS('sex', 'Пол', [['', '—'], 'М', 'Ж'], a.sex)}${F('birth', 'Дата рождения', a.birth, 'date')}${F('weight', 'Вес, кг (последнее взвешивание)', a.weight, 'text', 'inputmode="decimal"')}
-  ${FS('group', 'Группа', [['', '—'], ...S.groups.map(g => g.name)], a.group)}${FS('group2', 'Вторая группа', [['', '—'], ...S.groups.map(g => g.name)], a.group2)}${a.id ? `<label class="f"><span>Статус</span><input type="text" value="${h(a.status === 'приостановил' ? 'приостановил (на перерыве)' : a.status || 'занимается')}" disabled title="Меняется кнопками в «Абонементах»"><input type="hidden" name="status" value="${h(a.status || 'занимается')}"><span class="small muted" style="font-weight:400">меняется кнопками в «Абонементах»: «Перерыв», «Уход / отказ», «Вернулся»</span></label>` : FS('status', 'Статус', S.statuses, a.status || 'занимается')}<label class="f" id="pf-wrap" style="${a.status === 'приостановил' ? '' : 'display:none'}"><span>На перерыве с</span><input type="date" name="pauseFrom" value="${h(a.status === 'приостановил' ? a.pauseFrom || '' : (typeof ix !== 'undefined' && ix ? ix.today : ''))}"></label>
+  ${FS('sex', 'Пол', [['', '—'], 'М', 'Ж'], a.sex)}${F('birth', 'Дата рождения', a.birth, 'date')}${a.id ? '' : F('weight', 'Вес, кг', a.weight, 'text', 'inputmode="decimal"')}
+  ${a.id ? `<label class="f"><span>Группа</span><input type="text" value="${h(a.group || '—')}" disabled><input type="hidden" name="group" value="${h(a.group || '')}"><span class="small muted" style="font-weight:400">меняется через «Ещё → Перевести в другую группу» — с датой, чтобы прошлые занятия остались в прежней группе</span></label>` : FS('group', 'Группа', [['', '—'], ...S.groups.map(g => g.name)], a.group)}${FS('group2', 'Вторая группа', [['', '—'], ...S.groups.map(g => g.name)], a.group2)}${a.id ? `<label class="f"><span>Статус</span><input type="text" value="${h(a.status === 'приостановил' ? 'приостановил (на перерыве)' : a.status || 'занимается')}" disabled title="Меняется кнопками в «Абонементах»"><input type="hidden" name="status" value="${h(a.status || 'занимается')}"><span class="small muted" style="font-weight:400">меняется кнопками в «Абонементах»: «Перерыв», «Уход / отказ», «Вернулся»</span></label>` : FS('status', 'Статус', S.statuses, a.status || 'занимается')}<label class="f" id="pf-wrap" style="${a.status === 'приостановил' ? '' : 'display:none'}"><span>На перерыве с</span><input type="date" name="pauseFrom" value="${h(a.status === 'приостановил' ? a.pauseFrom || '' : (typeof ix !== 'undefined' && ix ? ix.today : ''))}"></label>
   ${F('phone', 'Телефон спортсмена (с 15 лет)', a.phone, 'tel')}${F('motherName', 'ФИО матери', a.motherName)}${F('motherPhone', 'Телефон матери', a.motherPhone, 'tel')}
   ${F('fatherName', 'ФИО отца', a.fatherName)}${F('fatherPhone', 'Телефон отца', a.fatherPhone, 'tel')}${FS('mainContact', 'Основной контакт', [['', 'автоматически'], 'мать', 'отец', 'спортсмен'], a.mainContact)}
   <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="otherTeam" ${a.otherTeam ? 'checked' : ''} style="width:20px;height:20px"><span><b>Другая команда</b> — занимается в клубе, но не член команды D23: к аттестации не допускается, в заявку на турнир не попадает.</span></label>
   ${F('teamName', 'Название команды (если другая)', a.teamName || '')}
-  <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="payPerVisit" ${a.payPerVisit ? 'checked' : ''} style="width:20px;height:20px"><span><b>Оплата разово</b> — ходит в группу, но платит за каждое посещение. В журнале ставится только «+», пропуски не отмечаются и не списываются, «Остальным «н»» его пропускает; в допуске к аттестации пропуск — пустая клетка на проведённом занятии его группы. Неоплаченные посещения видны как долг.</span></label>
+  ${a.id ? '' : `  <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="payPerVisit" ${a.payPerVisit ? 'checked' : ''} style="width:20px;height:20px"><span><b>Оплата разово</b> — ходит в группу, но платит за каждое посещение. В журнале ставится только «+», пропуски не отмечаются и не списываются, «Остальным «н»» его пропускает; в допуске к аттестации пропуск — пустая клетка на проведённом занятии его группы. Неоплаченные посещения видны как долг.</span></label>
   ${F('payPerVisitFrom', 'Оплата разово — с даты (пусто — за всё время)', a.payPerVisitFrom || '', 'date')}
   <p class="small muted wide" style="margin:-4px 0 0">Отметки до этой даты считаются как при абонементе. Если человек переходит с абонемента на разовую оплату — при включении галочки подставится сегодняшняя дата.</p>
   <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="noSub" ${a.noSub ? 'checked' : ''} style="width:20px;height:20px"><span><b>Без абонемента</b> — занимается бесплатно или по особой договорённости. Программа не будет напоминать об оплате.</span></label>
-  <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="healthConsent" ${a.healthConsent ? 'checked' : ''} style="width:20px;height:20px"><span><b>Согласие на сведения о здоровье</b> получено (Бланк № 2.1). Без него медсправку и периоды болезни не вносить (п. 12.1.1, 12.2 оферты).</span></label>
-  ${F('medUntil', 'Медсправка действует до', a.medUntil, 'date')}${F('addedAt', 'В клубе с (начало занятий)', a.addedAt || (a.id ? '' : ix.today), 'date')}
+  <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="healthConsent" ${a.healthConsent ? 'checked' : ''} style="width:20px;height:20px"><span><b>Согласие на сведения о здоровье</b> получено (Бланк № 2.1). Без него медсправку и периоды болезни не вносить (п. 12.1.1, 12.2 оферты).</span></label>`}
+  ${a.id ? '' : F('medUntil', 'Медсправка действует до', a.medUntil, 'date')}${F('addedAt', 'В клубе с (начало занятий)', a.addedAt || (a.id ? '' : ix.today), 'date')}
   ${FS('source', 'Откуда узнали о клубе' + (a.id ? '' : ' *'), [['', '—'], ...(S.sources || []), ...(a.source && !(S.sources || []).includes(a.source) ? [a.source] : []), [SRC_NEW, '+ другой источник…']], a.source || '')}
   <label class="f" id="src-new-wrap" style="display:none"><span>Новый источник (добавится в список)</span><input type="text" name="sourceNew" placeholder="например: Telegram, реклама ВКонтакте"></label>
   ${F('endedAt', 'Договор прекращён (для статуса «ушёл»)', a.endedAt || '', 'date')}
@@ -4328,6 +4329,7 @@ function personForm(a) {
   <p class="small muted">Диагнозы и медицинские подробности сюда не пишите — только дату действия справки.</p>`;
 }
 const PERSON_FIELDS = ['last', 'first', 'middle', 'sex', 'birth', 'weight', 'group', 'group2', 'status', 'phone', 'motherName', 'motherPhone', 'fatherName', 'fatherPhone', 'mainContact', 'medUntil', 'addedAt', 'endedAt', 'note', 'source', 'leaveReason', 'leaveNote'];
+const PERSON_NEW_ONLY = new Set(['weight', 'medUntil']);   // 08.11.2026: у существующего — вес в «Данных», медсправка в «Документах»
 const SRC_NEW = '__new';
 /* «+ другой источник…»: новый источник из поля — в список настроек; возвращает значение для карточки */
 function sourceFromForm(fd) {
@@ -4350,7 +4352,7 @@ function openPerson(id, pre = {}, onNew = null) {
   modal(id ? 'Изменить данные' : 'Новый спортсмен', personForm(a), {
     extraBtn: id ? `<button type="button" class="btn danger" data-act="person-del" data-id="${id}">Удалить</button>` : '',
     async onSubmit(fd) {
-      if (fd.medUntil && !fd.healthConsent) { notice('Дата медсправки — сведения о здоровье. Отметьте, что согласие получено, или очистите дату.'); return false; }
+      if (!id && fd.medUntil && !fd.healthConsent) { notice('Дата медсправки — сведения о здоровье. Отметьте, что согласие получено, или очистите дату.'); return false; }
       const norm = s => String(s || '').trim().toLowerCase().replace(/ё/g, 'е');
       const twin = db.athletes.find(x => x.id !== id && norm(x.last) === norm(fd.last) && norm(x.first) === norm(fd.first) && (!fd.birth || !x.birth || x.birth === fd.birth));
       if (twin && !await ask(`Уже есть: ${fullName(twin)}${twin.birth ? ', ' + D.ru(twin.birth) : ''} (${twin.status}). Это другой человек?\n\nЕсли тот же — нажмите «Отмена» и откройте его карточку.`)) return false;
@@ -4363,20 +4365,20 @@ function openPerson(id, pre = {}, onNew = null) {
       const wasLeft = !!id && t.status === 'ушёл', wasPaused = !!id && t.status === 'приостановил';
       const wasGroup = id ? t.group : '';   // 29.10.2026: перевод в «Разово» (или новый в «Разово») — сразу «Оплата разово»
       const w0 = id ? (weighings(t)[0] || {}).kg || '' : '';
-      for (const k of PERSON_FIELDS) t[k] = (fd[k] || '').trim();
+      for (const k of PERSON_FIELDS) { if (id && PERSON_NEW_ONLY.has(k)) continue; t[k] = (fd[k] || '').trim(); }
       t.source = sourceFromForm(fd) || '';
       if (t.status !== 'ушёл') { t.leaveReason = ''; t.leaveNote = ''; }
       t.guest = !!fd.guest;
-      if (t.weight && t.weight.replace('.', ',') !== w0) { const nw = t.weight; t.weight = w0; addWeighing(t, nw, ix.today); }   // новый вес в форме — взвешивание сегодняшним днём
+      if (!id && t.weight && t.weight.replace('.', ',') !== w0) { const nw = t.weight; t.weight = w0; addWeighing(t, nw, ix.today); }   // новый вес в форме — взвешивание сегодняшним днём
       if (t.status === 'ушёл' && !t.endedAt && !wasLeft) t.endedAt = ix.today;          // п. 12.3.1: от этой даты — 3 года хранения
       if (t.status !== 'ушёл') t.endedAt = '';
       if (t.status === 'приостановил') t.pauseFrom = fd.pauseFrom || (wasPaused ? t.pauseFrom || '' : ix.today);   // №28: дата перерыва — из поля «На перерыве с» (по умолчанию сегодня)
       if (wasPaused && t.status !== 'приостановил') { t.pauses = [...(t.pauses || []), { from: t.pauseFrom || '', to: ix.today }]; delete t.pauseFrom; if (t.status === 'занимается') setTimeout(() => debtRemind(t.id, ix.today), 300); }
-      t.healthConsent = !!fd.healthConsent;
-      t.noSub = !!fd.noSub; { const wasPV = !!t.payPerVisit; t.payPerVisit = !!fd.payPerVisit || (t.group === 'Разово' && wasGroup !== 'Разово' && !t.noSub);   // №13-Б: дата, с которой действует «оплата разово»
+      if (!id) t.healthConsent = !!fd.healthConsent;
+      if (!id) { t.noSub = !!fd.noSub; { const wasPV = !!t.payPerVisit; t.payPerVisit = !!fd.payPerVisit || (t.group === 'Разово' && wasGroup !== 'Разово' && !t.noSub);   // №13-Б: дата, с которой действует «оплата разово»
         const hist = !!id && ((ix.subsByAth.get(id) || []).some(q => (+q.count || 0) > 1) || (ix.marks.get(id) || []).length > 0);
         if (!t.payPerVisit) delete t.payPerVisitFrom;
-        else { const v = fd.payPerVisitFrom || (!wasPV && hist ? ix.today : ''); if (v) t.payPerVisitFrom = v; else delete t.payPerVisitFrom; } } t.otherTeam = !!fd.otherTeam; t.teamName = (fd.teamName || '').trim();
+        else { const v = fd.payPerVisitFrom || (!wasPV && hist ? ix.today : ''); if (v) t.payPerVisitFrom = v; else delete t.payPerVisitFrom; } } } t.otherTeam = !!fd.otherTeam; t.teamName = (fd.teamName || '').trim();
       if (!id) db.athletes.push(t);
       if (!id && onNew) onNew(t);
       persist(id ? 'Сохранено' : 'Спортсмен добавлен');
@@ -4721,6 +4723,7 @@ function openTransfer(aid) {
     t.transfers.push({ id: uid('g'), date: fd.date, from: fd.from, to: fd.to });
     const last = [...t.transfers].sort((x, y) => x.date.localeCompare(y.date)).pop();
     t.group = last.to;
+    if (fd.to === 'Разово' && !t.payPerVisit && !t.noSub) { t.payPerVisit = true; t.payPerVisitFrom = fd.date; }   // как раньше при смене группы в «Изменить данные»
     persist('Переведён в «' + fd.to + '» с ' + D.ru(fd.date));
   } });
 }
@@ -4748,11 +4751,12 @@ function unpaidList() {
 /* ---------- АТТЕСТАЦИЯ ---------- */
 function vAttest(tab) {
   const U = ui.attest; if (tab) U.tab = tab;
-  const tabs = [['admission', 'Допуск'], ['tests', 'Нормативы'], ['belts', 'Пояса'], ['norms', 'Таблица норм']];
+  const tabs = [['admission', 'Допуск'], ['tests', 'Нормативы'], ['belts', 'Пояса'], ['norms', 'Таблица норм'], ['setup', 'Настройки']];
   const head = `<div class="topline"><h1>Аттестация</h1><div class="seg no-print">${tabs.map(([k, l]) => `<button data-go="#attest/${k}" class="${U.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>`;
   if (U.tab === 'tests') return head + vTests();
   if (U.tab === 'belts') return head + vBelts();
   if (U.tab === 'norms') return head + vNorms();
+  if (U.tab === 'setup') return head + attestSetupHTML();
   const A = db.settings.attest;
   const groups = ['все', ...db.settings.groups.map(g => g.name)];
   const q = (U.q || '').trim().toLowerCase().replace(/ё/g, 'е');
@@ -4764,7 +4768,7 @@ function vAttest(tab) {
   const AF = U.adm || 'все';
   const list = all.filter(x => (!q || fullName(x.a).toLowerCase().replace(/ё/g, 'е').includes(q)) && admOk[AF](x.r));
   const ok = list.filter(x => x.r.status.startsWith('допущен')).length;
-  return head + `<div class="card no-print"><div class="row"><div class="spacer grow-m">Период: <b>${D.ru(A.prev)} — ${D.ru(A.next)}</b>, нужно ${A.threshold}% занятий по расписанию. <a href="#settings">Изменить</a><details class="small" style="margin-top:6px"><summary style="cursor:pointer">Как считается допуск</summary><div style="margin-top:6px">Посещаемость — требование только до ${A.attendMaxAge ?? 15} лет включительно (возраст на дату аттестации): 100% — все занятия группы по расписанию за период, включая будущие; нерабочие дни и занятия, отменённые клубом («о»), не считаются. Нужно ${A.threshold}% (посещение — «+», «с», «бс» в любой группе; у разовика — его «+» в любой группе)${A.softFrom && A.softFor === A.next ? '; переходный период: лучший результат из всего периода и периода с ' + D.ru(A.softFrom) : ''}. Болезнь засчитывается, только если в заморозке внесена дата справки («бс»). Прошедшее занятие без отметки — пропуск. С ${(+(A.attendMaxAge ?? 15)) + 1} лет допуск без требований к посещаемости. Кто начал заниматься после ${D.ru(A.prev)}, ждёт следующую аттестацию; выступающие за другую команду не допускаются. Турниры — не условие допуска, а этап 3 аттестации: с ${A.tournamentsMinAge ?? 9} до ${A.tournamentsMaxAge ?? 15} лет включительно не меньше ${A.minTournaments || 0} за период${+A.minTournaments ? '' : ' (сейчас 0 — в этот раз не требуются)'}.</div></details></div>
+  return head + `<div class="card no-print"><div class="row"><div class="spacer grow-m">Период: <b>${D.ru(A.prev)} — ${D.ru(A.next)}</b>, нужно ${A.threshold}% занятий по расписанию. <a href="#attest/setup">Изменить</a><details class="small" style="margin-top:6px"><summary style="cursor:pointer">Как считается допуск</summary><div style="margin-top:6px">Посещаемость — требование только до ${A.attendMaxAge ?? 15} лет включительно (возраст на дату аттестации): 100% — все занятия группы по расписанию за период, включая будущие; нерабочие дни и занятия, отменённые клубом («о»), не считаются. Нужно ${A.threshold}% (посещение — «+», «с», «бс» в любой группе; у разовика — его «+» в любой группе)${A.softFrom && A.softFor === A.next ? '; переходный период: лучший результат из всего периода и периода с ' + D.ru(A.softFrom) : ''}. Болезнь засчитывается, только если в заморозке внесена дата справки («бс»). Прошедшее занятие без отметки — пропуск. С ${(+(A.attendMaxAge ?? 15)) + 1} лет допуск без требований к посещаемости. Кто начал заниматься после ${D.ru(A.prev)}, ждёт следующую аттестацию; выступающие за другую команду не допускаются. Турниры — не условие допуска, а этап 3 аттестации: с ${A.tournamentsMinAge ?? 9} до ${A.tournamentsMaxAge ?? 15} лет включительно не меньше ${A.minTournaments || 0} за период${+A.minTournaments ? '' : ' (сейчас 0 — в этот раз не требуются)'}.</div></details></div>
   <button class="btn" data-act="reset-filters" data-page="attest">Сбросить фильтры</button><button class="btn" data-act="print">Печать</button></div>
   <div class="filters" style="margin-top:10px;margin-bottom:0"><label class="f"><span>Группа</span><select data-change="attest-group">${groups.map(g => opt(g, U.group)).join('')}</select></label>
   <label class="f"><span>Фамилия</span><input type="search" class="srch-b" data-change="attest-q" value="${h(U.q || '')}" placeholder="Поиск"></label>
@@ -4941,24 +4945,12 @@ function vSettings() {
   <div class="grid2"><div class="card"><h2>Нерабочие дни</h2><p class="small muted">Праздники, выезды на соревнования, ремонт — дни, когда занятий нет у всего клуба. В срок абонемента не засчитываются.</p>
   <ul class="list" style="max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:8px">${[...S.holidays].sort((a, b) => a.date.localeCompare(b.date)).map(x => `<li><span class="num" style="width:90px">${D.ru(x.date)}</span><span class="who small">${h(x.reason)}</span><button class="btn sm ghost" data-act="hol-del" data-date="${x.date}" aria-label="Удалить">✕</button></li>`).join('') || '<li class="muted">Нет</li>'}</ul>
   <div class="row" style="margin-top:8px"><input type="date" id="hol-date" style="width:auto"><input type="text" id="hol-reason" placeholder="Причина" style="flex:1;min-width:120px"><button class="btn" data-act="hol-add">Добавить</button></div></div>
-  <div class="card"><h2>Соревнования</h2><div class="fgrid">${L('Название', inp('competition.name', C.name))}${L('Дата', inp('competition.date', C.date, 'date'))}${L('Город', inp('competition.city', C.city))}
-  ${L('Возраст на турнире', `<select data-change="set" data-path="competition.ageMode">${['на дату соревнований', 'по году рождения (на 31.12)'].map(x => opt(x, C.ageMode)).join('')}</select>`)}</div>
-  <h2 style="margin-top:16px">Выезды на соревнования (п. 9.6 оферты)</h2>
-  <p class="small muted">Внесите даты, которые вы объявили в чате клуба до поездки — не позднее чем за 3 дня до отъезда, в том числе когда сами не едете. Период: день отъезда, дни соревнования, день возвращения. Границы определяют только объявленные даты: болезнь или иное отсутствие тренера после окончания периода его не продлевает. Дату продления вносите, только если объявили её до окончания периода (задержка транспорта, решение организатора). Отметка «с» допустима только внутри периода; вне его занятие списывается.</p>
-  ${(() => {                                         // 26.10.2026: прошлые выезды (закончились больше 2 месяцев назад) — свёрнуты; данные и расчёт «с» не меняются
-    const all = [...(S.trips || [])].map((x, i) => ({ x, i })).sort((p, q) => (q.x.from || '').localeCompare(p.x.from || '')), cut = D.add(ix.today, -60);
-    const recent = all.filter(({ x }) => D.max(x.to || '', x.ext || '') >= cut || !x.to), old = all.filter(o => !recent.includes(o));
-    const li = ({ x, i }) => `<li style="flex-wrap:wrap;gap:6px"><span class="who" style="flex:1 1 200px"><b>${h(x.name || 'Соревнование')}</b><br><span class="small">${D.ru(x.from)} — ${D.ru(x.to)}${x.ext && x.ext > x.to ? ' · <b>продлён до ' + D.ru(x.ext) + '</b>' : ''}${x.announced ? ' · объявлено ' + D.ru(x.announced) : ''}</span></span><label class="small row" style="gap:4px">продление до<input type="date" data-change="trip" data-i="${i}" data-k="ext" value="${h(x.ext || '')}" style="width:auto"></label><button class="btn sm ghost" data-act="trip-del" data-i="${i}" aria-label="Удалить">✕</button></li>`;
-    return `<ul class="list" style="border:1px solid var(--line);border-radius:8px">${recent.map(li).join('') || '<li class="muted">Предстоящих и недавних выездов нет</li>'}</ul>`
-      + (old.length ? `<details class="trips-old" data-tripsold ${ui.tripsOld ? 'open' : ''} style="margin-top:8px"><summary class="small" style="cursor:pointer;padding:6px 0"><b>Прошлые выезды · ${old.length}</b> <span class="muted">— хранятся: по ним проверяются отметки «с»</span></summary><ul class="list" style="border:1px solid var(--line);border-radius:8px">${old.map(li).join('')}</ul></details>` : '');
-  })()}
-  <div class="fgrid" style="margin-top:8px">${L('Соревнование', '<input type="text" id="trip-name" placeholder="' + h(C.name || '') + '">')}${L('Отъезд', '<input type="date" id="trip-from">')}${L('Возвращение', '<input type="date" id="trip-to">')}${L('Дата объявления в чате', '<input type="date" id="trip-ann">')}</div>
-  <div class="row" style="margin-top:8px"><button class="btn" data-act="trip-add">Добавить выезд</button></div></div>
-  <div class="card"><h2>Аттестация</h2><div class="fgrid">${L('Предыдущая аттестация', inp('attest.prev', A.prev, 'date'))}${L('Предстоящая аттестация', inp('attest.next', A.next, 'date'))}</div>
-  <details data-attrules ${ui.attRules ? 'open' : ''} style="margin-top:10px"><summary style="cursor:pointer;padding:6px 0"><b>Правила допуска</b> <span class="small muted">— порог ${h(String(A.threshold ?? ''))}%${+A.minTournaments > 0 ? ', турниров не меньше ' + A.minTournaments : ''}, нажмите, чтобы изменить</span></summary><div class="fgrid" style="margin-top:8px">
-  ${L('Порог допуска, %', inp('attest.threshold', A.threshold, 'number'))}${L('Минимум турниров (этап 3)', inp('attest.minTournaments', A.minTournaments, 'number'))}${L('Турниры (этап 3) с (лет)', inp('attest.tournamentsMinAge', A.tournamentsMinAge ?? 9, 'number'))}${L('Турниры (этап 3) до (лет, включительно)', inp('attest.tournamentsMaxAge', A.tournamentsMaxAge ?? 15, 'number'))}
-  ${L('Посещаемость требуется до (лет, включительно)', inp('attest.attendMaxAge', A.attendMaxAge ?? 15, 'number'))}${L('Переходный период: посещаемость также считать с', `<input type="date" data-change="soft" value="${h(A.softFor === A.next ? A.softFrom || '' : '')}">`)}${L('Послабление на страйп', inp('attest.reliefCoef', A.reliefCoef, 'number', 'step="0.05"'))}${L('Пятое упражнение обязательно со сдач с (п. 1.7)', inp('attest.fifthFrom', A.fifthFrom || '', 'date'))}</div></details></div></div>
-  <div class="card"><h2>Клуб</h2><div class="fgrid">${L('Клуб и адрес', inp('club', S.club))}${L('Главный тренер', inp('coachMain', S.coachMain))}${L('Второй тренер', inp('coachSecond', S.coachSecond))}${(S.coachesMore || []).map((n, i) => `<label class="f"><span>Тренер ${i + 3}</span><span class="row" style="gap:6px;flex-wrap:nowrap"><input type="text" data-change="coach-more" data-i="${i}" value="${h(n)}" placeholder="Фамилия И. О." style="flex:1;font-weight:400"><button type="button" class="btn sm ghost" data-act="coach-more-del" data-i="${i}" aria-label="Убрать тренера" title="Убрать">✕</button></span></label>`).join('')}<div class="f" style="justify-content:flex-end"><button type="button" class="btn sm" data-act="coach-more-add">+ Добавить тренера</button></div>${L('Кем присваивается пояс', inp('awardedBy', S.awardedBy))}${L('Оператор персональных данных (ФИО полностью, для актов)', inp('operatorName', S.operatorName || S.awardedBy))}${L('Адрес оператора для актов', inp('operatorAddress', S.operatorAddress || ''))}${L('Занятий в абонементе по умолчанию', inp('defaultCount', S.defaultCount, 'number'))}${L('Начало ведения программы (суммы оплат считаются с этой даты)', inp('programStart', S.programStart || S.sickCheckFrom, 'date', 'data-noclr'))}${L('Цель: взрослых (18+) занимается', inp('adultTarget', S.adultTarget ?? 16, 'number', 'min="0"'))}${L('«Показатели» считать с (раньше — неточный перенос из Excel)', inp('statsFrom', S.statsFrom || '', 'date'))}${L('Инструктаж проверять с (раньше — только бумажный журнал)', inp('briefFrom', S.briefFrom || '', 'date'))}
+  <div class="card"><h2>Перенесено</h2><ul class="list">
+    <li><a href="#tourn">Соревнования и выезды (п. 9.6 оферты) → «Турниры»</a></li>
+    <li><a href="#attest/setup">Аттестация: даты и правила допуска → «Аттестация» → «Настройки»</a></li>
+    <li><a href="#money/coaches">Тренеры (для документов и оплаты) → «Деньги» → «Тренеры»</a></li>
+    <li><a href="#money/setup">Деньги: счета, статьи, регулярные платежи, налог → «Деньги» → «Настройки»</a></li></ul></div></div>
+  <div class="card"><h2>Клуб</h2><div class="fgrid">${L('Клуб и адрес', inp('club', S.club))}<div class="f"><span>Тренеры</span><div>${h(coachList().join(', ') || '—')} · <a href="#money/coaches">изменить в «Деньги» → «Тренеры»</a></div></div>${L('Кем присваивается пояс', inp('awardedBy', S.awardedBy))}${L('Оператор персональных данных (ФИО полностью, для актов)', inp('operatorName', S.operatorName || S.awardedBy))}${L('Адрес оператора для актов', inp('operatorAddress', S.operatorAddress || ''))}${L('Занятий в абонементе по умолчанию', inp('defaultCount', S.defaultCount, 'number'))}${L('Начало ведения программы (суммы оплат считаются с этой даты)', inp('programStart', S.programStart || S.sickCheckFrom, 'date', 'data-noclr'))}${L('Цель: взрослых (18+) занимается', inp('adultTarget', S.adultTarget ?? 16, 'number', 'min="0"'))}${L('«Показатели» считать с (раньше — неточный перенос из Excel)', inp('statsFrom', S.statsFrom || '', 'date'))}${L('Инструктаж проверять с (раньше — только бумажный журнал)', inp('briefFrom', S.briefFrom || '', 'date'))}
   <label class="f wide"><span>Пояса (по одному в строке, по порядку)</span><textarea data-change="belts" style="min-height:120px">${h(S.belts.join('\n'))}</textarea></label></div></div>
   <div class="card"><h2>Цены (Приложение № 1 к оферте)</h2><p class="small muted">По ним программа подставляет сумму в окне оплаты: на ${S.prices.count} занятий — детский тариф, если на дату оплаты ещё нет ${S.prices.kidUnder} лет (Положение о льготах, п. 3.1), иначе базовый; одно занятие — разовое посещение. Сумму в окне оплаты можно изменить — по договорённости.</p>
   <div class="fgrid">${L('Разовое посещение, ₽', inp('prices.single', S.prices.single, 'number', 'min="0" step="10"'))}${L('Абонемент на ' + S.prices.count + ' занятий, ₽', inp('prices.sub', S.prices.sub, 'number', 'min="0" step="10"'))}${L('Детский абонемент, ₽', inp('prices.subKid', S.prices.subKid, 'number', 'min="0" step="10"'))}${L('Детский — пока не исполнилось, лет', inp('prices.kidUnder', S.prices.kidUnder, 'number', 'min="1" max="18"'))}</div></div>
@@ -5318,9 +5310,15 @@ function coachScheme(c) {
   const p = [+c.fixed ? rubN(c.fixed) + ' ₽ в месяц' : '', +c.perSession ? rubN(c.perSession) + ' ₽ за занятие' : '', +c.pct ? c.pct + '% от оплат групп' : ''].filter(Boolean);
   return (p.join(' + ') || 'без схемы — суммы выплат вносите вручную') + ((c.groups || []).length ? ' · группы: ' + c.groups.join(', ') : '');
 }
+function coachNamesHTML() {                        // 08.11.2026: имена тренеров (документы, инструктаж) — здесь, рядом с оплатой
+  const S = db.settings;
+  const inp = (path, val, type = 'text', extra = '') => `<input type="${type}" data-change="set" data-path="${path}" value="${h(val ?? '')}" ${extra}>`;
+  const L = (label, html) => `<label class="f"><span>${label}</span>${html}</label>`;
+  return `<div class="card"><h2>Тренеры клуба</h2><p class="small muted" style="margin:0 0 8px">Имена — для документов, протоколов и журнала инструктажа. Оплата тренерам — ниже, по каждому тренеру своя схема.</p><div class="fgrid">${L('Главный тренер', inp('coachMain', S.coachMain))}${L('Второй тренер', inp('coachSecond', S.coachSecond))}${(S.coachesMore || []).map((n, i) => `<label class="f"><span>Тренер ${i + 3}</span><span class="row" style="gap:6px;flex-wrap:nowrap"><input type="text" data-change="coach-more" data-i="${i}" value="${h(n)}" placeholder="Фамилия И. О." style="flex:1;font-weight:400"><button type="button" class="btn sm ghost" data-act="coach-more-del" data-i="${i}" aria-label="Убрать тренера" title="Убрать">✕</button></span></label>`).join('')}<div class="f" style="justify-content:flex-end"><button type="button" class="btn sm" data-act="coach-more-add">+ Добавить тренера</button></div></div></div>`;
+}
 function vMoneyCoaches() {
   const F = finS(db), t = ix.today, items = finItems();
-  return `${F.coaches.map(c => { const Dt = coachDebt(db, ix, c, t, items), months = Dt.months.slice(c.irregular ? -12 : -6).reverse(), Dc = coachDebt(db, ix, c, D.add(ymOf(t) + '-01', -1), items);
+  return `${coachNamesHTML()}${F.coaches.map(c => { const Dt = coachDebt(db, ix, c, t, items), months = Dt.months.slice(c.irregular ? -12 : -6).reverse(), Dc = coachDebt(db, ix, c, D.add(ymOf(t) + '-01', -1), items);
     const payAll = Math.max(0, Dt.left);   // 04.11.2026: выплата на любую сумму, не привязанная к одному месяцу
     const pays = items.filter(x => x.kind === 'out' && x.cat === 'salary' && x.coach === c.id).slice(-12).reverse();
     return `<div class="card flat"><div style="padding:14px 16px 6px" class="row"><div><h2 style="margin:0">${h(c.name)}${c.to ? ` <span class="chip">по ${D.ru(c.to)}</span>` : ''}</h2><div class="small muted">${h(coachScheme(c))}${c.from ? ' · с ' + D.ru(c.from) : ''}</div></div><span class="spacer"></span>
@@ -5336,7 +5334,7 @@ function vMoneyCoaches() {
 function openCoach(id) {
   const S = finS(db), c = id ? S.coaches.find(x => x.id === id) : null, v = c || { name: '', groups: [], fixed: '', perSession: '', pct: '', from: ix.today, to: '' };
   const paid = c && finItems().some(x => x.cat === 'salary' && x.coach === c.id);
-  modal(c ? 'Тренер: ' + c.name : 'Новый тренер', `<div class="fgrid">${F('name', 'ФИО', v.name, 'text', 'required')}${F('from', 'Работает с', v.from || '', 'date')}${F('to', 'Работал по (пусто — работает)', v.to || '', 'date')}
+  modal(c ? 'Тренер: ' + c.name : 'Новый тренер', `<div class="fgrid">${F('name', 'ФИО', v.name, 'text', 'required list="coach-names"') + `<datalist id="coach-names">${coachList().map(n => `<option value="${h(n)}">`).join('')}</datalist>`}${F('from', 'Работает с', v.from || '', 'date')}${F('to', 'Работал по (пусто — работает)', v.to || '', 'date')}
     ${F('fixed', 'Фикс в месяц, ₽', v.fixed || '', 'number', 'min="0" step="1" inputmode="numeric"')}${F('perSession', 'За проведённое занятие, ₽', v.perSession || '', 'number', 'min="0" step="1" inputmode="numeric"')}${F('pct', 'Процент от оплат групп, %', v.pct || '', 'number', 'min="0" max="100" step="0.5" inputmode="decimal"')}
     <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="irregular" ${v.irregular ? 'checked' : ''} style="width:20px;height:20px"><span><b>Платить по факту, не каждый месяц</b><br><span class="small">Без начисления по месяцам: вносите выплату, когда платите, на любую сумму. Программа не считает долг и не напоминает. Схема ниже тогда не используется.</span></span></label>
     <div class="wide"><div class="small" style="margin-bottom:4px"><b>Группы тренера</b> — для расчёта по занятиям и проценту</div><div class="row" style="gap:6px 14px">${db.settings.groups.map(g => `<label class="row small" style="gap:6px"><input type="checkbox" name="groups[]" value="${h(g.name)}" ${(v.groups || []).includes(g.name) ? 'checked' : ''} style="width:18px;height:18px">${h(g.name)}</label>`).join('')}</div></div></div>`,
@@ -5960,7 +5958,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '08.11.2026 (v127)';   // показывается в «Данные» — чтобы видеть, обновилась ли программа
+const APP_VER = '08.11.2026 (v128)';   // показывается в «Данные» — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -6332,9 +6330,13 @@ function openDocs(id) {
   modal('Документы: ' + shortName(a), `<p class="small muted">Ставьте дату, когда бланк получен подписанным. Пусто — не получен.</p>
   <div class="fgrid">${F('pack', 'Пакет «домой» выдан', k.pack || '', 'date')}${F('b1', 'Бланк 1 — заявление и анкета', k.b1 || '', 'date')}${F('b21', 'Бланк 2.1 — сведения о здоровье', k.b21 || '', 'date')}
   ${F('b23', 'Бланк 2.3 — фото и распространение', k.b23 || '', 'date')}${FS('publish', 'Публиковать фото и видео', [['', 'нет бланка — не публиковать'], ['да', 'можно (всё разрешено)'], ['частично', 'частично — смотреть бланк'], ['нет', 'нельзя']], a.publish || '')}
-  ${F('b3', 'Бланк 3 — законный представитель' + (minor ? '' : ' (до 18 лет)'), k.b3 || '', 'date')}</div>
+  ${F('b3', 'Бланк 3 — законный представитель' + (minor ? '' : ' (до 18 лет)'), k.b3 || '', 'date')}
+  <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="healthConsent" ${a.healthConsent ? 'checked' : ''} style="width:20px;height:20px"><span><b>Согласие на сведения о здоровье</b> получено (Бланк № 2.1). Без него медсправку и периоды болезни не вносить (п. 12.1.1, 12.2 оферты).</span></label>
+  ${F('medUntil', 'Медсправка действует до', a.medUntil || '', 'date')}</div>
   <p class="small muted">Дата Бланка 2.1 сама ставит галочку «Согласие на сведения о здоровье получено». Если пакет выдан, а бланки не вернулись за 2 недели, программа напомнит в «Требует внимания».</p>`, { async onSubmit(fd) {
+    if (fd.medUntil && !fd.healthConsent && !fd.b21) { notice('Дата медсправки — сведения о здоровье. Отметьте, что согласие получено (или дату Бланка 2.1), или очистите дату.'); return false; }
     a.docs = { pack: fd.pack || '', b1: fd.b1 || '', b21: fd.b21 || '', b23: fd.b23 || '', b3: fd.b3 || '' };
+    a.healthConsent = !!fd.healthConsent; a.medUntil = fd.medUntil || '';   // 08.11.2026: медсправка и согласие — здесь, в «Документах»
     a.publish = fd.publish || '';
     if (fd.b23 && !fd.publish && !await ask('Бланк 2.3 получен, но не выбрано, что разрешено публиковать. Сохранить так (фото не публиковать)?')) return false;
     if (fd.b21) a.healthConsent = true;
@@ -6382,6 +6384,32 @@ function refundExtra(a) {
   return { 'дата_отказа': D.ru(R.date), 'сумма_возврата': (+R.sum || 0).toLocaleString('ru'), 'срок_возврата': D.ru(R.due), 'расчёт': refundLines(R.lines || []) || 'не списанных занятий нет' };
 }
 function refundHow(R) { return R.how === 'другое' ? R.howNote || 'другое' : [R.how, R.howNote].filter(Boolean).join(': '); }   // «сообщение в MAX: …» / при «другое» — примечание
+/* 08.11.2026: способ оплаты — в «Абонементах»: абонемент / разово (с даты) / без абонемента */
+function openPayMode(id) {
+  const a = db.athletes.find(x => x.id === id); if (!a) return;
+  const cur = a.noSub ? 'nosub' : a.payPerVisit ? 'pv' : 'sub';
+  const hist = (ix.subsByAth.get(id) || []).some(q => (+q.count || 0) > 1) || (ix.marks.get(id) || []).length > 0;
+  const RB = (v, t, d) => `<label class="row wide" style="gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--sunk);cursor:pointer"><input type="radio" name="mode" value="${v}" ${cur === v ? 'checked' : ''} style="width:20px;height:20px;margin-top:2px"><span><b>${t}</b><br><span class="small muted">${d}</span></span></label>`;
+  modal('Способ оплаты: ' + shortName(a), `<div class="fgrid">
+    ${RB('sub', 'Абонемент', 'Обычный режим: абонемент на несколько занятий, отметки «+», «н», «б» списываются по абонементу.')}
+    ${RB('pv', 'Оплата разово', 'Ходит в группу, но платит за каждое посещение. В журнале — только «+», пропуски не отмечаются и не списываются; у фамилии значок «Р».')}
+    <div class="wide" id="pm-pv" style="${cur === 'pv' ? '' : 'display:none'}">${F('payPerVisitFrom', 'Оплата разово — с даты (пусто — за всё время)', a.payPerVisitFrom || (cur === 'pv' ? '' : hist ? ix.today : ''), 'date')}<p class="small muted" style="margin:4px 0 0">Отметки до этой даты считаются как при абонементе.</p></div>
+    ${RB('nosub', 'Без абонемента', 'Занимается бесплатно или по особой договорённости. Программа не будет напоминать об оплате.')}</div>`,
+  { onSubmit(fd) {
+      a.noSub = fd.mode === 'nosub'; a.payPerVisit = fd.mode === 'pv';
+      if (a.payPerVisit && fd.payPerVisitFrom) a.payPerVisitFrom = fd.payPerVisitFrom; else delete a.payPerVisitFrom;
+      render.keepScroll = true; persist('Способ оплаты: ' + (a.noSub ? 'без абонемента' : a.payPerVisit ? 'разово' : 'абонемент')); } });
+  const d = document.getElementById('dlg'), box = d.querySelector('#pm-pv');
+  d.querySelectorAll('input[name=mode]').forEach(r => r.addEventListener('change', () => { box.style.display = d.querySelector('input[name=mode]:checked').value === 'pv' ? '' : 'none'; }));
+}
+/* 08.11.2026: вес — прямо в «Данных»: поле и «Записать» (сегодняшним днём) */
+function weighQuick(el) {
+  const a = db.athletes.find(x => x.id === el.dataset.id); if (!a) return;
+  const inp = el.parentElement.querySelector('input[name=wq]'), v = String(inp && inp.value || '').trim().replace('.', ',');
+  if (!v) { if (inp) inp.focus(); return; }
+  const n = parseFloat(v.replace(',', '.')); if (isNaN(n) || n <= 0 || n > 250) { notice('Вес — число в килограммах, например 32,5'); return; }
+  addWeighing(a, v, ix.today); render.keepScroll = true; persist(shortName(a) + ': вес ' + v + ' кг');
+}
 /* 08.11.2026 (вариант А): «Перерыв» — из «Абонементов», без «Изменить данные» */
 function openPause(id) {
   const a = db.athletes.find(x => x.id === id); if (!a || a.status !== 'занимается') return;
@@ -6549,6 +6577,34 @@ function tPeopleCards(T) {
       <div class="tcats">${tCats(T, x.a.id).map((e, i) => `<div class="tcat"><div class="tcat-t">${e.div ? `<span class="tdiv">${tDivName(e.div)}</span>` : '<span class="tdiv muted" title="Раздел не указан — отметьте в «Участниках»">раздел?</span>'}${tCatText(T, e) ? '<span class="tcat-c">' + h(tCatText(T, e)) + '</span>' : ''}${e.cnt ? `<span class="tcat-c" title="Участников в категории">· ${e.cnt} в категории</span>` : ''}</div><select data-change="tcat" data-id="${T.id}" data-aid="${x.a.id}" data-i="${i}" aria-label="Место: ${h(shortName(x.a))}, ${tDivName(e.div) || 'категория'} ${i + 1}">${PLACES.map(([v, l]) => opt(v, e.pl, l)).join('')}</select><input type="number" class="tfights" data-change="tfights" data-id="${T.id}" data-aid="${x.a.id}" data-i="${i}" min="0" max="30" step="1" inputmode="numeric" placeholder="схв." title="Схваток проведено в категории (для допуска к аттестации с 16 лет)" aria-label="Схваток: ${h(shortName(x.a))}, ${tDivName(e.div) || 'категория'} ${i + 1}" value="${h(e.fights ?? '')}"></div>`).join('')}</div>
       <div class="tp-foot no-print"><button class="btn sm" data-act="tcat-edit" data-id="${T.id}" data-aid="${x.a.id}">Категории и вес</button></div></li>`; }).join('')}</ul>` : '<div class="empty">Участники не отмечены — кнопка «Участники»</div>';
 }
+/* 08.11.2026: перенесено из «Настроек» — соревнования и выезды (в «Турниры»), правила аттестации (в «Аттестацию»), тренеры (в «Деньги») */
+function compSetupHTML() {
+  const S = db.settings, A = S.attest, C = S.competition;
+  const inp = (path, val, type = 'text', extra = '') => `<input type="${type}" data-change="set" data-path="${path}" value="${h(val ?? '')}" ${extra}>`;
+  const L = (label, html) => `<label class="f"><span>${label}</span>${html}</label>`;
+  return `  <div class="card no-print" id="trips"><h2>Ближайшее соревнование и выезды</h2><div class="fgrid">${L('Название', inp('competition.name', C.name))}${L('Дата', inp('competition.date', C.date, 'date'))}${L('Город', inp('competition.city', C.city))}
+  ${L('Возраст на турнире', `<select data-change="set" data-path="competition.ageMode">${['на дату соревнований', 'по году рождения (на 31.12)'].map(x => opt(x, C.ageMode)).join('')}</select>`)}</div>
+  <h2 style="margin-top:16px">Выезды на соревнования (п. 9.6 оферты)</h2>
+  <p class="small muted">Внесите даты, которые вы объявили в чате клуба до поездки — не позднее чем за 3 дня до отъезда, в том числе когда сами не едете. Период: день отъезда, дни соревнования, день возвращения. Границы определяют только объявленные даты: болезнь или иное отсутствие тренера после окончания периода его не продлевает. Дату продления вносите, только если объявили её до окончания периода (задержка транспорта, решение организатора). Отметка «с» допустима только внутри периода; вне его занятие списывается.</p>
+  ${(() => {                                         // 26.10.2026: прошлые выезды (закончились больше 2 месяцев назад) — свёрнуты; данные и расчёт «с» не меняются
+    const all = [...(S.trips || [])].map((x, i) => ({ x, i })).sort((p, q) => (q.x.from || '').localeCompare(p.x.from || '')), cut = D.add(ix.today, -60);
+    const recent = all.filter(({ x }) => D.max(x.to || '', x.ext || '') >= cut || !x.to), old = all.filter(o => !recent.includes(o));
+    const li = ({ x, i }) => `<li style="flex-wrap:wrap;gap:6px"><span class="who" style="flex:1 1 200px"><b>${h(x.name || 'Соревнование')}</b><br><span class="small">${D.ru(x.from)} — ${D.ru(x.to)}${x.ext && x.ext > x.to ? ' · <b>продлён до ' + D.ru(x.ext) + '</b>' : ''}${x.announced ? ' · объявлено ' + D.ru(x.announced) : ''}</span></span><label class="small row" style="gap:4px">продление до<input type="date" data-change="trip" data-i="${i}" data-k="ext" value="${h(x.ext || '')}" style="width:auto"></label><button class="btn sm ghost" data-act="trip-del" data-i="${i}" aria-label="Удалить">✕</button></li>`;
+    return `<ul class="list" style="border:1px solid var(--line);border-radius:8px">${recent.map(li).join('') || '<li class="muted">Предстоящих и недавних выездов нет</li>'}</ul>`
+      + (old.length ? `<details class="trips-old" data-tripsold ${ui.tripsOld ? 'open' : ''} style="margin-top:8px"><summary class="small" style="cursor:pointer;padding:6px 0"><b>Прошлые выезды · ${old.length}</b> <span class="muted">— хранятся: по ним проверяются отметки «с»</span></summary><ul class="list" style="border:1px solid var(--line);border-radius:8px">${old.map(li).join('')}</ul></details>` : '');
+  })()}
+  <div class="fgrid" style="margin-top:8px">${L('Соревнование', '<input type="text" id="trip-name" placeholder="' + h(C.name || '') + '">')}${L('Отъезд', '<input type="date" id="trip-from">')}${L('Возвращение', '<input type="date" id="trip-to">')}${L('Дата объявления в чате', '<input type="date" id="trip-ann">')}</div>
+  <div class="row" style="margin-top:8px"><button class="btn" data-act="trip-add">Добавить выезд</button></div></div>`;
+}
+function attestSetupHTML() {
+  const S = db.settings, A = S.attest, C = S.competition;
+  const inp = (path, val, type = 'text', extra = '') => `<input type="${type}" data-change="set" data-path="${path}" value="${h(val ?? '')}" ${extra}>`;
+  const L = (label, html) => `<label class="f"><span>${label}</span>${html}</label>`;
+  return `  <div class="card"><h2>Даты и правила аттестации</h2><div class="fgrid">${L('Предыдущая аттестация', inp('attest.prev', A.prev, 'date'))}${L('Предстоящая аттестация', inp('attest.next', A.next, 'date'))}</div>
+  <details data-attrules open style="margin-top:10px"><summary style="cursor:pointer;padding:6px 0"><b>Правила допуска</b> <span class="small muted">— порог ${h(String(A.threshold ?? ''))}%${+A.minTournaments > 0 ? ', турниров не меньше ' + A.minTournaments : ''}, нажмите, чтобы изменить</span></summary><div class="fgrid" style="margin-top:8px">
+  ${L('Порог допуска, %', inp('attest.threshold', A.threshold, 'number'))}${L('Минимум турниров (этап 3)', inp('attest.minTournaments', A.minTournaments, 'number'))}${L('Турниры (этап 3) с (лет)', inp('attest.tournamentsMinAge', A.tournamentsMinAge ?? 9, 'number'))}${L('Турниры (этап 3) до (лет, включительно)', inp('attest.tournamentsMaxAge', A.tournamentsMaxAge ?? 15, 'number'))}
+  ${L('Посещаемость требуется до (лет, включительно)', inp('attest.attendMaxAge', A.attendMaxAge ?? 15, 'number'))}${L('Переходный период: посещаемость также считать с', `<input type="date" data-change="soft" value="${h(A.softFor === A.next ? A.softFrom || '' : '')}">`)}${L('Послабление на страйп', inp('attest.reliefCoef', A.reliefCoef, 'number', 'step="0.05"'))}${L('Пятое упражнение обязательно со сдач с (п. 1.7)', inp('attest.fifthFrom', A.fifthFrom || '', 'date'))}</div></details></div>`;
+}
 function vTourn() {
   const ALL = [...(db.tourneys || [])].sort((x, y) => (y.date || '').localeCompare(x.date || ''));
   const S = Object.assign({ n: '5', y: '' }, meta.tournShow || {}), open = new Set(meta.tournOpen || []);
@@ -6574,8 +6630,9 @@ function vTourn() {
   };
   return `<div class="topline"><h1>Турниры</h1><div class="row no-print"><button class="btn primary" data-act="tourn-new">Добавить турнир</button><button class="btn" data-act="tourn-prize">Призёры за период</button></div></div>
   ${ctl}
+  ${(() => { const nx = (db.settings.trips || []).filter(x => D.max(x.to || '', x.ext || '') >= ix.today).length; return `<details class="card no-print" data-tripsbox ${ui.tripsBox ? 'open' : ''} style="padding:12px 16px"><summary style="cursor:pointer"><b>Ближайшее соревнование и выезды</b> <span class="small muted">— ${nx ? 'предстоящих выездов: ' + nx : 'предстоящих выездов нет'}${db.settings.competition.name ? ' · ближайшее: ' + h(db.settings.competition.name) + (db.settings.competition.date ? ' ' + D.ru(db.settings.competition.date) : '') : ''}</span></summary><div style="margin-top:10px">${compSetupHTML().replace('<div class="card no-print" id="trips"><h2>Ближайшее соревнование и выезды</h2>', '<div>')}</div></details>`; })()}
   ${L.length ? `<div class="tcards">${L.map(card).join('')}</div>` : ALL.length ? '<div class="card"><div class="empty">За этот год турниров нет. Выберите другой год или «Все годы».</div></div>' : '<div class="card"><div class="empty">Турниров пока нет. Добавьте турнир, затем отметьте участников и места.</div></div>'}
-  <p class="small muted">Участие идёт в допуск к аттестации вместе с отметками «с» в журнале: одна поездка или один турнир — одно участие, даже если отмечено и там, и здесь, и даже если человек выступал и в Gi, и в No-Gi. Места — для списка призёров, по каждому разделу отдельно.</p>`;
+  <p class="small muted">Участие идёт в этап 3 аттестации (9–15 лет) вместе с отметками «с» в журнале: одна поездка или один турнир — одно участие, даже если отмечено и там, и здесь, и даже если человек выступал и в Gi, и в No-Gi. Места — для списка призёров, по каждому разделу отдельно.</p>`;
 }
 function openTourn(id) {
   const T = id ? (db.tourneys || []).find(x => x.id === id) : { name: db.settings.competition.name || '', date: db.settings.competition.date || ix.today, city: db.settings.competition.city || '' };
@@ -6932,6 +6989,7 @@ const ACT = {
     db.attnDone = db.attnDone || {}; db.attnDone[g.key] = ix.today; render.keepScroll = true; persist(shortName(a) + ': отметки не спрашиваются до оплаты или прихода'); },
   'nosub-undo': el => { const a = ix.ath.get(el.dataset.id), g = a && noSubGap(a); if (!g || !db.attnDone) return; delete db.attnDone[g.key]; render.keepScroll = true; persist(shortName(a) + ': отметки снова спрашиваются'); },
   'jfs': () => { ui.journal.fs = !ui.journal.fs; resetZoom(); render(); },
+  'paymode': el => openPayMode(el.dataset.id), 'weigh-quick': el => weighQuick(el),
   'pause-new': el => openPause(el.dataset.id), 'leave-new': el => openLeave(el.dataset.id), 'leave-return': el => leaveReturn(el.dataset.id),
   'pause-date': el => { const a = db.athletes.find(x => x.id === el.dataset.id); if (!a) return;   // №28
     modal('Перерыв: ' + shortName(a), `<div class="fgrid">${F('from', 'На перерыве с', a.pauseFrom || ix.today, 'date', 'required')}</div>
@@ -7090,7 +7148,7 @@ const ACT = {
     if (el.dataset.m === '+' && cur !== '+') debtRemind(el.dataset.aid, s.date);
     if (el.dataset.m === '+' && cur !== '+') { const a = ix.ath.get(el.dataset.aid), nd = a && briefNeed(a, s.date); if (nd) setTimeout(() => toast(`${shortName(a)}: нет записи о ${nd.kind === 'первичный' ? 'первичном' : 'внеплановом'} инструктаже — проведите до занятия и возьмите подпись в журнале`), 50); }
     if (el.dataset.m !== '+' && s.trial) delete s.trial[el.dataset.aid];
-    if (el.dataset.m === 'с' && cur !== 'с' && !tripOf(s.date)) toast('Внимание: ' + D.ru(s.date) + ' не входит ни в один объявленный период выезда (п. 9.6.2.1). Внесите выезд в Настройках → Соревнования или поставьте другую отметку.');
+    if (el.dataset.m === 'с' && cur !== 'с' && !tripOf(s.date)) toast('Внимание: ' + D.ru(s.date) + ' не входит ни в один объявленный период выезда (п. 9.6.2.1). Внесите выезд в «Турниры» → «Ближайшее соревнование и выезды» или поставьте другую отметку.');
     const askE = el.dataset.m === '+' && cur !== '+' ? [el.dataset.aid] : [];
     render.keepScroll = true; persist(); endedAsk(askE, s.date); },
   'mark-all': async el => { const s = db.sessions.find(x => x.id === el.dataset.id); const m = el.dataset.m; const before = JSON.stringify(s.marks);
@@ -7369,6 +7427,7 @@ document.addEventListener('toggle', e => { if (e.target.matches && e.target.matc
   if (e.target.matches && e.target.matches('details[data-later]')) { meta.laterOpen = e.target.open; writeMeta(); }
   if (e.target.matches && e.target.matches('details[data-tripsold]')) ui.tripsOld = e.target.open;
   if (e.target.matches && e.target.matches('details[data-attrules]')) ui.attRules = e.target.open;
+  if (e.target.matches && e.target.matches('details[data-tripsbox]')) ui.tripsBox = e.target.open;
   if (e.target.matches && e.target.matches('details[data-contacts]')) ui.contactsOpen = e.target.open ? e.target.dataset.id : '';   // открыто — только у этой карточки, пока не ушли
   if (e.target.matches && e.target.matches('details[data-frz]')) { meta.frzOpen = e.target.open; writeMeta(); }
   if (e.target.matches && e.target.matches('details[data-renew]')) ui.money.renewOpen = e.target.open;
