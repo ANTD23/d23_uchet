@@ -3814,11 +3814,12 @@ function vSession(sid) {
   ${!s.group ? `<div class="banner">У занятия не выбрана группа. Выберите её в списке выше — тогда появится состав группы.</div>` : ''}
   ${(() => { if (!s.group) return '';   // 07–08.11.2026: в списке группы этих людей нет — показываем строкой: отказ, ушёл (2 недели), на перерыве
     const inG = a => inGroupOn(a, s.group, D.add(s.date, -1)) || inGroupOn(a, s.group, s.date), near = d => d && d <= s.date && D.diff(d, s.date) <= 14;
-    const L = db.athletes.filter(a => !people.includes(a) && inG(a)).map(a => {
-      if (a.status === 'ушёл' && near(leftDate(a))) return `${h(shortName(a))}${a.refund ? refIc(a, '0000-00-00', s.date) : leftIc(a, '0000-00-00', s.date)} — ${a.refund ? 'отказ от договора' : 'ушёл'} ${leftDate(a) === s.date ? 'сегодня' : D.ru(leftDate(a))}, в списке группы его больше нет`;
-      const p = pauseSpans(a).find(p => p.open && p.from <= s.date); if (p) return `${h(shortName(a))}${pauseIc(a, s.date, s.date)} — на перерыве${p.from !== '0000-00-00' ? ' с ' + D.ru(p.from) : ''}, в списке группы не показывается`;
-      return ''; }).filter(Boolean);
-    return L.length ? `<p class="small" style="margin:8px 0;line-height:1.9">${L.join('<br>')}</p>` : ''; })()}
+    const L = [], P = [];   // L — ушёл/отказ (видно сразу), P — на перерыве (свёрнуто)
+    for (const a of db.athletes.filter(a => !people.includes(a) && inG(a))) {
+      if (a.status === 'ушёл' && near(leftDate(a))) { L.push(`${h(shortName(a))}${a.refund ? refIc(a, '0000-00-00', s.date) : leftIc(a, '0000-00-00', s.date)} — ${a.refund ? 'отказ от договора' : 'ушёл'} ${leftDate(a) === s.date ? 'сегодня' : D.ru(leftDate(a))}, в списке группы его больше нет`); continue; }
+      const p = pauseSpans(a).find(p => p.open && p.from <= s.date); if (p) P.push(`${h(shortName(a))}${pauseIc(a, s.date, s.date)} — на перерыве${p.from !== '0000-00-00' ? ' с ' + D.ru(p.from) : ''}, в списке группы не показывается`); }
+    return (L.length ? `<p class="small" style="margin:8px 0;line-height:1.9">${L.join('<br>')}</p>` : '')
+      + (P.length ? `<details class="small" data-pausebox ${ui.pauseBox ? 'open' : ''} style="margin:8px 0"><summary style="cursor:pointer">На перерыве: ${P.length} ${plural(P.length, 'человек', 'человека', 'человек')}</summary><div style="margin-top:6px;line-height:1.9">${P.join('<br>')}</div></details>` : ''); })()}
   <details class="legend-d no-print"><summary>Что значат отметки</summary><div class="legend"><span><b style="background:var(--ok-fill)">+</b>был</span><span><b style="background:var(--bad-fill)">н</b>не был, списывается</span><span><b style="background:var(--bad-fill)">д</b>был, не оплачено (долг); после оплаты — «+»</span><span><b style="background:var(--ink-3);width:auto;padding:0 4px">+0</b>был, бесплатно (в карточке «Без абонемента»)</span><span><b style="background:var(--sick-fill)">б</b>болел, справки нет</span><span><b style="background:var(--sick-fill)">бс</b>болел, справка внесена — не списывается, в аттестации посещение</span><span><b style="background:var(--cancel-fill)">о</b>отменено клубом</span><span><b style="background:var(--comp-fill)">с</b>соревнования</span><span class="muted">пустая клетка на состоявшемся занятии в расчёте абонемента = «н»</span></div></details>
   ${s.group ? `<div class="card flat"><ul class="list jlist">${people.map(a => markRow(s, a, false)).join('') || '<li class="empty">В группе нет занимающихся. Добавьте человека ниже или выберите другую группу.</li>'}</ul></div>` : ''}
   ${extra.length ? `<details class="card flat" ${openExtra ? 'open' : ''}><summary style="padding:12px 16px;cursor:pointer;min-height:44px"><b>${s.group ? 'Из других групп на этом занятии' : 'Отмечены на занятии'}: ${extra.length}</b>${extra.length > 1 ? ` <button class="btn sm no-print" data-act="move-own" data-sid="${s.id}" style="margin-left:8px">Перенести всех в их группы</button>` : ''}</summary>
@@ -5987,7 +5988,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '08.11.2026 (v130)';   // показывается в «Данные» — чтобы видеть, обновилась ли программа
+const APP_VER = '08.11.2026 (v131)';   // показывается в «Данные» — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -7457,6 +7458,7 @@ document.addEventListener('toggle', e => { if (e.target.matches && e.target.matc
   if (e.target.matches && e.target.matches('details[data-tripsold]')) ui.tripsOld = e.target.open;
   if (e.target.matches && e.target.matches('details[data-attrules]')) ui.attRules = e.target.open;
   if (e.target.matches && e.target.matches('details[data-tripsbox]')) ui.tripsBox = e.target.open;
+  if (e.target.matches && e.target.matches('details[data-pausebox]')) ui.pauseBox = e.target.open;
   if (e.target.matches && e.target.matches('details[data-contacts]')) ui.contactsOpen = e.target.open ? e.target.dataset.id : '';   // открыто — только у этой карточки, пока не ушли
   if (e.target.matches && e.target.matches('details[data-frz]')) { meta.frzOpen = e.target.open; writeMeta(); }
   if (e.target.matches && e.target.matches('details[data-renew]')) ui.money.renewOpen = e.target.open;
