@@ -3860,7 +3860,7 @@ function monthView(tabs, groups) {
   const marked = new Set(); sess.forEach(s => Object.keys(s.marks).forEach(id => marked.add(id)));
   const mStart = J.month + '-01', mEnd = J.month + '-31';
   const own = a => sess.some(s => inGroupOn(a, J.mgroup, s.date)) || (!sess.length && inGroupOn(a, J.mgroup, mEnd));
-  const stMonth = a => (a.status === 'ушёл' && leftDate(a) >= mStart && leftDate(a) <= mEnd) || pauseSpans(a).some(p => p.from <= mEnd && (!p.to || p.to >= mStart));   // 08.11.2026: ушёл/на перерыве в этом месяце — строка с меткой «уш»/«пер»
+  const stMonth = a => a.status === 'ушёл' && leftDate(a) >= mStart && leftDate(a) <= mEnd;   // 08.11.2026: ушёл в этом месяце — строка с «уш»; на перерыве без отметок за месяц — не показываем (как раньше)
   const people = db.athletes.filter(a => own(a) && (a.status === 'занимается' || marked.has(a.id) || stMonth(a) || (a.transfers || []).some(t => t.date >= mStart && t.date <= mEnd))).sort(byName);
   const period = a => { const t = (a.transfers || []).filter(t => t.date >= mStart && t.date <= mEnd && (t.from === J.mgroup || t.to === J.mgroup));
     return t.map(x => x.to === J.mgroup ? 'с ' + D.short(x.date) : 'до ' + D.short(D.add(x.date, -1))).join(', '); };
@@ -5987,7 +5987,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '08.11.2026 (v129)';   // показывается в «Данные» — чтобы видеть, обновилась ли программа
+const APP_VER = '08.11.2026 (v130)';   // показывается в «Данные» — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
