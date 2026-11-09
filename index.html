@@ -165,7 +165,7 @@ table.t.norm-t th{white-space:normal;font-size:.72rem;line-height:1.15;vertical-
 .chip.muted{background:var(--surface-2);color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line)}
 .chip.ok::before{content:"✓";font-weight:800;color:var(--chip-ok-mark)}
 .chip.bad::before{content:"!";font-weight:800}
-input[type=text],input[type=date],input[type=number],input[type=tel],input[type=search],input[type=password],input[type=month],input[type=email],select,textarea{border:1px solid var(--line-strong);border-radius:var(--r-s);padding:8px 12px;background:var(--surface);color:var(--ink);min-height:var(--tap);width:100%;font-size:1rem}
+input[type=text],input[type=date],input[type=number],input[type=tel],input[type=search],input[type=password],input[type=month],input[type=time],input[type=email],select,textarea{border:1px solid var(--line-strong);border-radius:var(--r-s);padding:8px 12px;background:var(--surface);color:var(--ink);min-height:var(--tap);width:100%;font-size:1rem}
 input.srch-b{border-width:2px;border-color:var(--ink);font-weight:700}input.srch-b::placeholder{font-weight:700;color:var(--ink);opacity:.75}
 input:focus,select:focus,textarea:focus{border-color:var(--accent-btn);outline:3px solid rgba(26,122,88,.25);outline-offset:0}
 input[type=checkbox],input[type=radio]{accent-color:var(--accent-btn)}
@@ -391,7 +391,7 @@ dialog form{display:flex;flex-direction:column;max-height:92vh}
   .grow-m{flex-basis:100%}
   table.t{font-size:.875rem} table.t td,table.t th{padding:8px 6px}
   .alert{flex-wrap:wrap} .alert > .row{width:100%;padding-left:36px} .attn-sec{margin:10px 8px 12px}
-  input[type=text],input[type=date],input[type=number],input[type=tel],input[type=search],input[type=password],input[type=month],input[type=email],select{min-height:48px}
+  input[type=text],input[type=date],input[type=number],input[type=tel],input[type=search],input[type=password],input[type=month],input[type=time],input[type=email],select{min-height:48px}
   dialog{width:100%;max-width:100%;margin:auto 0 0;border-radius:20px 20px 0 0;max-height:94vh}
   dialog form{max-height:94vh}
   .dlg-h::before{content:"";position:absolute;left:50%;top:6px;width:40px;height:4px;margin-left:-20px;border-radius:2px;background:var(--line-strong)}
@@ -796,6 +796,8 @@ details.tdet[open] > summary::after{transform:rotate(-135deg)}
 .cg-col{position:relative;border-left:1px solid var(--line);cursor:cell} .cg-col.tod{background:color-mix(in srgb,var(--accent-btn) 5%,transparent)}
 .cg-ev{position:absolute;overflow:hidden} .ce.blk{height:100%;margin:0;white-space:normal;padding:2px 5px;border-left-width:3px;border-left-color:var(--c);background:color-mix(in srgb,var(--c) 22%,var(--surface))} .ce.blk.tm::before{display:none}
 .cg-now{position:absolute;left:0;right:0;height:2px;background:var(--bad-fill);pointer-events:none;z-index:2} .cg-now::before{content:'';position:absolute;left:-5px;top:-4px;width:10px;height:10px;border-radius:50%;background:var(--bad-fill)}
+.cal-dtr{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:8px} .cal-dtr.ad{grid-template-columns:minmax(0,1fr)} .cal-dtr.ad input[type=time]{display:none}
+.cal-dur{margin:-4px 0 0;color:var(--ink-2);min-height:1.2em} .cal-dur.bad{color:var(--bad);font-weight:600}
 .cal-lk{flex:none;width:14px;height:14px;color:var(--ink-3)} .cal-tm[hidden],.cal-rep[hidden],.cal-wd[hidden],.cal-until[hidden],.cal-count[hidden]{display:none!important}
 @media (hover:hover) and (pointer:fine){.cal-fl .btn.sm{opacity:0} .cal-fl:hover .btn.sm,.cal-fl:focus-within .btn.sm{opacity:1}}
 .cal-ckf{display:flex;align-items:center;gap:8px;min-height:44px;align-self:end;cursor:pointer} .cal-ckf input{width:20px;height:20px;flex:none}
@@ -6070,7 +6072,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '09.11.2026 (v137)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '09.11.2026 (v138)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -7524,6 +7526,7 @@ function calItems(from, to) {
   return L.sort((a, b) => a.date.localeCompare(b.date) || (a.time ? 1 : 0) - (b.time ? 1 : 0) || a.time.localeCompare(b.time) || a.title.localeCompare(b.title, 'ru'));
 }
 function calMulti(x) { return x.end > x.date; }
+function calEndTxt(x) { return x.time && x.timeEnd ? `до ${calDayRu(x.end)}, ${x.timeEnd}` : `по ${calDayRu(x.end)}`; }
 function calWhen(x) {
   if (calMulti(x)) return `${calDayRu(x.date)}${x.time ? ' ' + x.time : ''} — ${calDayRu(x.end)}${x.timeEnd ? ' ' + x.timeEnd : ''}`;
   return x.time ? x.time + (x.timeEnd ? '–' + x.timeEnd : '') : 'весь день';
@@ -7532,7 +7535,7 @@ let calShown = [];                                       // события на 
 function calChip(x, cls = '') {
   const c = calById(x.cal) || { color: '#888', name: '' }, i = calShown.push(x) - 1;
   const t = x.time && !calMulti(x) ? `<span class="ce-t">${x.time}</span> ` : '';
-  return `<button type="button" class="ce${x.time && !calMulti(x) ? ' tm' : ''}${x.auto ? ' au' : ''}${cls ? ' ' + cls : ''}" style="--c:${c.color}" data-act="cal-open" data-ix="${i}" title="${h(x.title + ' · ' + c.name + (x.place ? ' · ' + x.place : ''))}">${t}${h(x.title || 'Без названия')}</button>`;
+  return `<button type="button" class="ce${x.time && !calMulti(x) ? ' tm' : ''}${x.auto ? ' au' : ''}${cls ? ' ' + cls : ''}" style="--c:${c.color}" data-act="cal-open" data-ix="${i}" title="${h(x.title + ' · ' + (x.auto ? '' : calWhen(x) + ' · ') + c.name + (x.place ? ' · ' + x.place : ''))}">${t}${h(x.title || 'Без названия')}</button>`;
 }
 function calRange(U) {
   const c = U.cur;
@@ -7590,8 +7593,8 @@ function calListHTML(U, items) {
   for (const x of items) { const d = D.max(x.date, from); if (!byFirst.has(d)) byFirst.set(d, []); byFirst.get(d).push(x); }
   const days = [...byFirst.keys()].sort();
   const row = x => { const c = calById(x.cal) || { color: '#888', name: '' }, i = calShown.push(x) - 1;
-    return `<li class="click cl-it" data-act="cal-open" data-ix="${i}" style="--c:${c.color}"><span class="cl-tm">${h(calMulti(x) ? (x.date < from ? '… по ' + calDayRu(x.end) : 'по ' + calDayRu(x.end)) : x.time ? x.time + (x.timeEnd ? '–' + x.timeEnd : '') : 'весь день')}</span><span class="cl-dot" aria-hidden="true"></span>
-      <div class="who"><b>${h(x.title || 'Без названия')}</b><span class="small">${h([c.name, x.place, x.sub, x.rep ? 'повторяется' : ''].filter(Boolean).join(' · '))}</span></div></li>`; };
+    return `<li class="click cl-it" data-act="cal-open" data-ix="${i}" style="--c:${c.color}"><span class="cl-tm">${h(calMulti(x) ? (x.date < from ? '…' : x.time ? 'с ' + x.time : 'весь день') : x.time ? x.time + (x.timeEnd ? '–' + x.timeEnd : '') : 'весь день')}</span><span class="cl-dot" aria-hidden="true"></span>
+      <div class="who"><b>${h(x.title || 'Без названия')}</b><span class="small">${h([calMulti(x) ? calEndTxt(x) : '', c.name, x.place, x.sub, x.rep ? 'повторяется' : ''].filter(Boolean).join(' · '))}</span></div></li>`; };
   return `${days.length ? days.map(d => { const w = DOW_FULL[D.dow(d)], rel = d === ix.today ? 'Сегодня, ' : d === D.add(ix.today, 1) ? 'Завтра, ' : '';
     return `<div class="card flat cl-day${d === ix.today ? ' tod' : ''}"><div class="cl-dh" data-act="cal-goday" data-d="${d}">${rel}${rel ? w : w[0].toUpperCase() + w.slice(1)}, ${calDayRu(d, d.slice(0, 4) !== ix.today.slice(0, 4))}</div><ul class="list">${byFirst.get(d).map(row).join('')}</ul></div>`; }).join('')
     : `<div class="card"><div class="empty">С ${calDayRu(from)} по ${calDayRu(to)} событий нет${(meta.calOff || []).length ? ' (часть календарей скрыта)' : ''}.</div></div>`}
@@ -7646,9 +7649,9 @@ function calForm(o) {                                    // o: вхождени�
   const body = `<div class="fgrid"><label class="f wide"><span>Название</span><input type="text" name="title" value="${h(x.title)}" required maxlength="200" autocomplete="off"></label>
     ${FS('cal', 'Календарь', cals.map(c => [c.id, c.name + (c.personal && !/личн/i.test(c.name) ? ' (личный)' : '')]), defCal)}
     <label class="cal-ckf"><input type="checkbox" name="allDay" ${allDay ? 'checked' : ''}>Весь день</label>
-    ${F('date', 'Дата', x.date, 'date', 'required data-noclr')}
-    <div class="f cal-tm" ${allDay ? 'hidden' : ''}><span>Время</span><span class="row" style="gap:6px;flex-wrap:nowrap"><input type="time" name="time" value="${h(x.time)}" aria-label="Начало" step="300">–<input type="time" name="timeEnd" value="${h(x.timeEnd)}" aria-label="Окончание" step="300"></span></div>
-    ${F('end', 'Окончание (если несколько дней)', calMulti(x) ? x.end : '', 'date')}
+    <div class="f cal-dt"><span id="cal-l-s">Начало</span><div class="cal-dtr${allDay ? ' ad' : ''}"><input type="date" name="date" value="${h(x.date)}" required data-noclr aria-labelledby="cal-l-s" aria-label="Дата начала"><input type="time" name="time" value="${h(x.time)}" aria-label="Время начала" step="300"></div></div>
+    <div class="f cal-dt"><span id="cal-l-e">Окончание</span><div class="cal-dtr${allDay ? ' ad' : ''}"><input type="date" name="end" value="${h(x.end && x.end > x.date ? x.end : x.date)}" required data-noclr aria-label="Дата окончания"><input type="time" name="timeEnd" value="${h(x.timeEnd)}" aria-label="Время окончания" step="300"></div></div>
+    <p class="wide small cal-dur" aria-live="polite"></p>
     ${FS('rep', 'Повтор', [['', 'не повторяется'], ['d', 'каждый день'], ['w', 'каждую неделю'], ['m', 'каждый месяц (то же число)'], ['y', 'каждый год']], R.f || '')}
     <div class="wide cal-rep" ${R.f ? '' : 'hidden'}><div class="fgrid">
       <label class="f"><span class="cal-n-l">Каждые</span><input type="number" name="n" min="1" max="99" step="1" inputmode="numeric" value="${h(R.n || 1)}"></label>
@@ -7669,7 +7672,8 @@ function calForm(o) {                                    // o: вхождени�
       if (!v.date) { notice('Укажите дату'); return false; }
       if (fd.end && fd.end < fd.date) { notice('Окончание раньше начала. Исправьте дату окончания.'); return false; }
       if (!fd.allDay && !v.time) { notice('Укажите время начала или отметьте «Весь день».'); return false; }
-      if (v.time && v.timeEnd && !v.end && v.timeEnd <= v.time) { notice('Время окончания должно быть позже начала.'); return false; }
+      if (v.time && v.end && !v.timeEnd) { notice('Укажите время окончания в последний день.'); return false; }
+      if (v.time && v.timeEnd && !v.end && v.timeEnd <= v.time) { notice('Окончание должно быть позже начала.'); return false; }
       if (!v.time) v.timeEnd = '';
       let rep = null;
       if (fd.rep) { rep = { f: fd.rep, n: Math.max(1, Math.min(99, Math.floor(+fd.n || 1))) };
@@ -7703,12 +7707,33 @@ function calFormSync() {                                  // поля окна �
   const f = document.getElementById('dlg-form'); if (!f) return;
   const q = s => f.querySelector(s), upd = () => {
     const ad = q('[name=allDay]').checked, r = q('[name=rep]').value, re = q('[name=repEnd]').value;
-    q('.cal-tm').hidden = ad; q('.cal-rep').hidden = !r; q('.cal-wd').hidden = r !== 'w'; q('.cal-until').hidden = re !== 'until'; q('.cal-count').hidden = re !== 'count';
+    f.querySelectorAll('.cal-dtr').forEach(x => x.classList.toggle('ad', ad)); q('.cal-rep').hidden = !r; q('.cal-wd').hidden = r !== 'w'; q('.cal-until').hidden = re !== 'until'; q('.cal-count').hidden = re !== 'count';
     q('.cal-n-l').textContent = 'Каждые … ' + ({ d: 'дней (1 — каждый день)', w: 'недель (1 — каждую неделю)', m: 'месяцев', y: 'лет' }[r] || '');
     if (!ad && !q('[name=time]').value) { q('[name=time]').value = '10:00'; if (!q('[name=timeEnd]').value) q('[name=timeEnd]').value = '11:00'; }
+    dur();
   };
+  // начало и окончание: при сдвиге начала окончание едет следом (длительность сохраняется); под полями — длительность или подсказка об ошибке
+  const S = q('[name=date]'), ST = q('[name=time]'), E = q('[name=end]'), ET = q('[name=timeEnd]'), box = q('.cal-dur');
+  const toMin = (d, t) => d ? D.diff('2000-01-01', d) * 1440 + (t ? +t.slice(0, 2) * 60 + +t.slice(3, 5) : 0) : null;
+  const fromMin = m => { const d = D.add('2000-01-01', Math.floor(m / 1440)), r = ((m % 1440) + 1440) % 1440; return [d, calPad(Math.floor(r / 60)) + ':' + calPad(r % 60)]; };
+  const span = () => { const ad = q('[name=allDay]').checked; return ad ? (E.value && S.value ? D.diff(S.value, E.value) * 1440 : null) : ST.value && ET.value && E.value && S.value ? toMin(E.value, ET.value) - toMin(S.value, ST.value) : null; };
+  let keep = span();
+  function dur() {
+    const ad = q('[name=allDay]').checked, m = span(); box.classList.remove('bad');
+    if (m == null) { box.textContent = ''; return; }
+    if (ad ? m < 0 : m <= 0) { box.textContent = 'Окончание раньше начала — поправьте дату или время окончания.'; box.classList.add('bad'); return; }
+    if (ad) { const n = m / 1440 + 1; box.textContent = n === 1 ? 'Один день' : `${n} ${plural(n, 'день', 'дня', 'дней')}: ${calDayRu(S.value)} — ${calDayRu(E.value)}`; return; }
+    const d = Math.floor(m / 1440), hh = Math.floor((m % 1440) / 60), mm = m % 60;
+    box.textContent = 'Длительность: ' + [d ? d + ' ' + plural(d, 'день', 'дня', 'дней') : '', hh ? hh + ' ч' : '', mm ? mm + ' мин' : ''].filter(Boolean).join(' ') + (E.value > S.value ? ` · до ${calDayRu(E.value)}, ${ET.value}` : '');
+  }
+  const remember = () => { const m = span(); if (m != null && m >= 0) keep = m; };
+  const follow = () => { if (keep == null || keep < 0 || !S.value) { dur(); remember(); return; }
+    if (q('[name=allDay]').checked) E.value = D.add(S.value, keep / 1440);
+    else if (ST.value) { const [d, t] = fromMin(toMin(S.value, ST.value) + keep); E.value = d; ET.value = t; }
+    dur(); remember(); };
+  for (const ev of ['input', 'change']) { S.addEventListener(ev, follow); ST.addEventListener(ev, follow); E.addEventListener(ev, () => { dur(); remember(); }); ET.addEventListener(ev, () => { dur(); remember(); }); }
   ['allDay', 'rep', 'repEnd'].forEach(n => q(`[name=${n}]`).addEventListener('change', upd));
-  q('[name=time]').addEventListener('change', () => { const a = q('[name=time]').value, b = q('[name=timeEnd]'); if (a && (!b.value || b.value <= a)) b.value = calPad(Math.min(23, +a.slice(0, 2) + 1)) + ':' + a.slice(3); });
+  q('[name=allDay]').addEventListener('change', () => { keep = null; remember(); });      // после upd: время уже подставлено
   let prevDate = q('[name=date]').value;
   q('[name=date]').addEventListener('change', () => { const d = q('[name=date]').value; if (!d) return; const was = prevDate; prevDate = d;   // день недели повтора идёт за датой, если отмечен был только прежний день
     const on = [...f.querySelectorAll('[name="wd[]"]:checked')]; if (was && on.length === 1 && +on[0].value === D.dow(was)) on[0].checked = false;
@@ -7773,7 +7798,7 @@ function calSoonCard() {                                  // «Сегодня»:
       if ((o.date <= t && o.end >= t) || (o.remind !== '' && o.remind != null && lead <= +o.remind)) L.push(o); } }
   if (!L.length) return '';
   L.sort((a, b) => a.date.localeCompare(b.date) || (a.time ? 1 : 0) - (b.time ? 1 : 0) || a.time.localeCompare(b.time));
-  const when = o => { const d = D.max(o.date, t), k = D.diff(t, d); return (k === 0 ? '<b>сегодня</b>' : k === 1 ? 'завтра' : k === 2 ? 'послезавтра' : 'через ' + k + ' ' + plural(k, 'день', 'дня', 'дней') + ', ' + calDayRu(d)) + (o.time && !calMulti(o) ? ' · ' + o.time + (o.timeEnd ? '–' + o.timeEnd : '') : calMulti(o) ? ' · по ' + calDayRu(o.end) : ''); };
+  const when = o => { const d = D.max(o.date, t), k = D.diff(t, d); return (k === 0 ? '<b>сегодня</b>' : k === 1 ? 'завтра' : k === 2 ? 'послезавтра' : 'через ' + k + ' ' + plural(k, 'день', 'дня', 'дней') + ', ' + calDayRu(d)) + (o.time && !calMulti(o) ? ' · ' + o.time + (o.timeEnd ? '–' + o.timeEnd : '') : calMulti(o) ? ' · ' + (o.time && o.date >= t ? 'с ' + o.time + ', ' : '') + calEndTxt(o) : ''); };
   return `<div class="card flat cal-soon"><div style="padding:14px 16px 4px" class="row"><h2 style="margin:0;flex:1">Календарь</h2><a class="btn sm ghost no-print" href="#cal">Открыть</a></div><ul class="list">${L.slice(0, 8).map(o => { const c = calById(o.cal);
     return `<li class="click cl-it" data-go="#cal/${D.max(o.date, t)}" style="--c:${c.color}"><span class="cl-dot" aria-hidden="true"></span><div class="who"><b>${h(o.title)}</b><span class="small">${when(o)} · ${h(c.name)}${o.place ? ' · ' + h(o.place) : ''}</span></div></li>`; }).join('')}</ul>${L.length > 8 ? `<p class="small muted" style="padding:0 16px 10px">и ещё ${L.length - 8}</p>` : ''}</div>`;
 }
