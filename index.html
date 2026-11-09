@@ -2460,9 +2460,10 @@ function lock() {
   queue(() => { closeModal(); db = null; ix = null; cryptoKey = null; locked = true; stopLockTimer(); location.hash = '#today'; render(); });
 }
 function lockMin() { return +meta.lockMin || 5; }
+function awayMin() { return meta.awayMin == null || meta.awayMin === '' ? 5 : +meta.awayMin; }   // 09.11.2026: ушли из программы — блокировать через N мин. (0 — сразу)
 function startLockTimer() {
   stopLockTimer(); lastActive = Date.now();
-  lockTimer = setInterval(() => { if (pinOn() && db && Date.now() - lastActive > lockMin() * 60e3) lock(); }, 15000);
+  lockTimer = setInterval(() => { if (pinOn() && db && !document.hidden && Date.now() - lastActive > lockMin() * 60e3) lock(); }, 15000);   // пока программа свёрнута — действует правило «при уходе»
 }
 function stopLockTimer() { if (lockTimer) clearInterval(lockTimer); lockTimer = null; }
 ['click', 'keydown', 'touchstart'].forEach(ev => document.addEventListener(ev, () => { lastActive = Date.now(); }, true));
@@ -2470,8 +2471,9 @@ document.addEventListener('click', e => { const td = e.target.closest && e.targe
   toast((tr.children[0].firstChild ? tr.children[0].firstChild.textContent.trim() : '') + (th ? ', ' + th.textContent.trim().slice(0, 2) + '.' + ui.journal.month.slice(5) : '') + ': ' + td.title); }, false);   // кольца в «Месяце»: подсказка и по нажатию (на телефоне всплывающей подсказки нет)
 document.addEventListener('click', e => { const l = e.target.closest && e.target.closest('a[href]'); if (l && !/^#/.test(l.getAttribute('href') || '')) extMark(); }, true);
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { hiddenAt = Date.now(); if (pinOn() && db && Date.now() - extAt > 5000) lock(); }   // №10 (О7): свернули — блокировать сразу
-  else if (pinOn() && db && hiddenAt && Date.now() - hiddenAt > lockMin() * 60e3) lock();
+  if (document.hidden) { hiddenAt = Date.now(); if (pinOn() && db && awayMin() === 0 && Date.now() - extAt > 5000) lock(); }   // №10 (О7): свернули — сразу, если так выбрано
+  else if (pinOn() && db && hiddenAt) { const ext = hiddenAt - extAt <= 5000, lim = (ext ? Math.max(lockMin(), awayMin()) : awayMin()) * 60e3;   // 09.11.2026: вернулись раньше срока — без PIN
+    if (Date.now() - hiddenAt > lim) lock(); else lastActive = Date.now(); }
 });
 async function unlock(pin) {
   let key; try { key = await checkPin(pin); } catch (e) { return false; }
@@ -5923,8 +5925,8 @@ function vData() {
   <p class="small muted keep">Не переименовывайте и не перемещайте этот файл: в части браузеров данные привязаны к его пути. Копии отсюда сохраняются с пометкой «авт».</p></div>` : ''}
   <div class="card"><h2>Защита PIN-кодом</h2>
   ${!window.crypto || !crypto.subtle ? (STANDALONE ? '<p class="muted">Этот браузер не даёт шифрования для файла с диска. Откройте файл в Chrome, Edge или Яндекс Браузере на компьютере.</p>' : '<p class="muted">Этот браузер не поддерживает шифрование — откройте программу по адресу https://.</p>') : pinOn() ? `
-    <p>PIN включён: данные в этом браузере и сохраняемые копии зашифрованы (AES-256). Программа блокируется сразу при сворачивании и после ${lockMin()} мин. бездействия. Если окно открыла сама программа (выбор файла или папки, звонок, сообщение, печать) — после ${lockMin()} мин. вне программы.</p>
-    <div class="row" style="gap:8px;align-items:flex-end"><label class="f"><span>Блокировать через</span><select data-change="lockmin">${[1, 3, 5, 10, 15, 30].map(n => opt(n, lockMin(), n + ' мин.')).join('')}</select></label>
+    <p>PIN включён: данные в этом браузере и сохраняемые копии зашифрованы (AES-256). Программа блокируется, если вы ушли из неё (другое приложение, вкладка, свернули) дольше, чем ${awayMin() ? awayMin() + ' мин.' : '— сразу'}, и после ${lockMin()} мин. бездействия в самой программе. Вернулись раньше — PIN не спросит. Если окно открыла сама программа (выбор файла или папки, звонок, сообщение, печать) — не раньше чем через ${Math.max(lockMin(), awayMin())} мин.</p>
+    <div class="row" style="gap:8px;align-items:flex-end"><label class="f"><span>Ушли из программы — блокировать через</span><select data-change="awaymin">${[0, 1, 3, 5, 10, 15, 30].map(n => opt(n, awayMin(), n ? n + ' мин.' : 'сразу')).join('')}</select></label><label class="f"><span>Бездействие в программе — блокировать через</span><select data-change="lockmin">${[1, 3, 5, 10, 15, 30].map(n => opt(n, lockMin(), n + ' мин.')).join('')}</select></label>
     <button class="btn" data-act="pin-lock">Заблокировать сейчас</button></div>
     <details style="margin-top:10px"><summary class="small">Сменить или выключить PIN</summary><div class="fgrid" style="margin-top:8px">
     <label class="f"><span>Текущий PIN</span><input type="password" id="pin-old" inputmode="numeric" autocomplete="off"></label>
@@ -6013,7 +6015,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '09.11.2026 (v134)';   // показывается в «Данные» — чтобы видеть, обновилась ли программа
+const APP_VER = '09.11.2026 (v135)';   // показывается в «Данные» — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -7475,6 +7477,7 @@ async function onChange(e) {
     const how = setGroupDay(g, +el.dataset.d, v, from); render.keepScroll = true; persist(how === 'сразу' ? 'Расписание изменено' : 'Расписание «' + g.name + '» изменено с ' + D.ru(from)); }
   else if (k === 'subsshow') { meta.subsShow = Object.assign({ n: '5', per: 'all' }, meta.subsShow || {}, { [el.dataset.k]: v }); writeMeta(); rerender(); }
   else if (k === 'lockmin') { meta.lockMin = +v; writeMeta(); rerender(); }
+  else if (k === 'awaymin') { meta.awayMin = +v; writeMeta(); rerender(); }
   else if (k === 'sched-from') { if (v) { ui.schedFrom = v; rerender(); } }
   else if (k === 'money-from' || k === 'money-to') { if (v) { ui.money[k === 'money-from' ? 'from' : 'to'] = v; ui.money.per = ''; rerender(); } }
   else if (k === 'money-acc') { ui.money.acc = v; rerender(); }
