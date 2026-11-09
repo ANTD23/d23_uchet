@@ -642,7 +642,7 @@ dialog.ask::backdrop{background:rgba(8,12,16,.55)}
 @media (max-width:860px), (pointer:coarse) and (max-height:500px){dialog.ask{width:100%;max-width:100%;margin:auto 0 0;border-radius:20px 20px 0 0}.ask-f{padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}.ask-f .btn{flex:1}}
 /* экран PIN */
 .pin-screen{max-width:440px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:24px 16px}
-.pin-screen .card{padding:24px}
+.pin-screen .card{padding:24px} .pin-ver{text-align:center;margin-top:12px}
 .pin-logo{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;margin-bottom:20px}
 .pin-logo .mark-logo{width:56px;height:56px;border-radius:14px;font-size:1.125rem}
 .pin-logo h1{margin:4px 0 0} .pin-logo p{margin:0}
@@ -2523,7 +2523,8 @@ function pinHTML() {
     ${err ? `<p class="pin-err" id="pin-err" role="alert">${err}</p>` : ''}
     <button class="btn primary pin-go" ${wait ? 'disabled' : ''}>Открыть</button></form>
     <details style="margin-top:14px"><summary class="small">Забыли PIN?</summary><p class="small">Данные в этом браузере зашифрованы, восстановить их без PIN нельзя — так и задумано. Копии, сохранённые с PIN, тоже открываются только им. Если есть незашифрованная копия или вы помните PIN другой копии, удалите данные отсюда и загрузите её.</p>
-    <button class="btn danger sm" data-act="wipe">Удалить все данные из этого браузера</button></details></div></main>`;
+    <button class="btn danger sm" data-act="wipe">Удалить все данные из этого браузера</button></details></div>
+    <p class="small muted pin-ver">Версия программы: ${APP_VER}</p></main>`;
 }
 document.addEventListener('submit', e => {
   if (e.target.id !== 'pin-form') return;
@@ -6015,7 +6016,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '09.11.2026 (v135)';   // показывается в «Данные» — чтобы видеть, обновилась ли программа
+const APP_VER = '09.11.2026 (v136)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
