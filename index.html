@@ -777,11 +777,15 @@ details.tdet[open] > summary::after{transform:rotate(-135deg)}
 .ce:hover{background:color-mix(in srgb,var(--c) 28%,var(--surface))} .ce.tm{background:transparent;border-left-color:transparent;padding-left:4px} .ce.tm::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c);margin-right:5px;vertical-align:1px}
 .ce.tm:hover{background:var(--sunk)} .ce.cont{opacity:.75} .ce-t{color:var(--ink-2);font-variant-numeric:tabular-nums}
 .cm{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--surface)}
-.cm-h,.cm-row{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))} .cm-h div{padding:6px 8px;font-size:.8125rem;font-weight:700;color:var(--ink-2);border-bottom:1px solid var(--line)} .cm-h .we{color:var(--bad)}
-.cd{min-height:108px;padding:4px 5px 6px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);cursor:pointer;min-width:0} .cm-row .cd:nth-child(7){border-right:0} .cm-row:last-child .cd{border-bottom:0}
+.cm-h,.cm-bg{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))} .cm-row{position:relative;--lh:22px}
+.cm-ev{position:absolute;left:0;right:0;top:32px;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-auto-rows:var(--lh);row-gap:2px;pointer-events:none} .cm-ev>*{pointer-events:auto;margin:0 3px;min-width:0}
+.ce.bar{border-left-width:3px;background:color-mix(in srgb,var(--c) 26%,var(--surface))} .ce.bar:hover{background:color-mix(in srgb,var(--c) 38%,var(--surface))}
+.ce.bar.cl{border-left:0;border-top-left-radius:0;border-bottom-left-radius:0;margin-left:0} .ce.bar.cr{border-top-right-radius:0;border-bottom-right-radius:0;margin-right:0}
+.cg-ad>.ce{position:relative;z-index:1;margin:2px 3px;min-width:0;align-self:start} .cg-ad>.ce.bar.cl{margin-left:0} .cg-ad>.ce.bar.cr{margin-right:0} .cm-h div{padding:6px 8px;font-size:.8125rem;font-weight:700;color:var(--ink-2);border-bottom:1px solid var(--line)} .cm-h .we{color:var(--bad)}
+.cd{min-height:max(108px,calc(36px + var(--ln,0) * (var(--lh) + 2px)));padding:4px 5px 6px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);cursor:pointer;min-width:0} .cm-bg .cd:nth-child(7){border-right:0} .cm-row:last-child .cd{border-bottom:0}
 .cd:hover{background:var(--surface-2)} .cd.oth{background:var(--surface-2)} .cd.oth .cdn{color:var(--ink-3)} .cd.we .cdn{color:var(--bad)}
 .cdn{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:13px;font-weight:600;font-size:.875rem} .cd.tod .cdn{background:var(--accent-btn);color:var(--accent-btn-ink)}
-.ce-more{display:block;font-size:.75rem;color:var(--ink-2);padding:2px 4px;font-weight:600}
+.ce-more{display:block;font:inherit;font-size:.75rem;color:var(--ink-2);padding:2px 4px;font-weight:600;border:0;background:none;text-align:left;cursor:pointer;border-radius:4px} .ce-more:hover{background:var(--sunk);color:var(--ink)}
 .cl-day{margin:0 0 10px} .cl-day.tod{border-color:var(--accent-btn)} .cl-dh{padding:10px 16px 6px;font-weight:700;cursor:pointer} .cl-day.tod .cl-dh{color:var(--accent-btn)}
 .cl-it{display:flex;align-items:center;gap:10px} .cl-tm{flex:none;width:96px;font-size:.875rem;color:var(--ink-2);font-variant-numeric:tabular-nums} .cl-dot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--c)}
 .cal-soon .cl-it{gap:12px}
@@ -811,7 +815,7 @@ details.tdet[open] > summary::after{transform:rotate(-135deg)}
   .cal-wrap{grid-template-columns:minmax(0,1fr);gap:10px} .cal-side{position:static;padding:0} .cal-side>summary{display:flex;gap:8px;align-items:center;padding:12px 14px;cursor:pointer;min-height:44px}
   .cal-sb{padding:0 12px 12px} .cal-bar{gap:8px} .cal-bar .seg{width:100%;display:grid;grid-template-columns:repeat(4,1fr)} .cal-bar .seg button{padding:0 6px}
   .cal-title{flex-basis:100%;margin:2px 0 0;font-size:1.0625rem}
-  .cd{min-height:72px;padding:2px 2px 4px} .cdn{min-width:22px;height:22px;font-size:.8125rem} .ce{font-size:.6875rem;padding:1px 3px;border-left-width:2px} .ce.tm::before{width:6px;height:6px;margin-right:3px} .ce.tm:not(.blk) .ce-t{display:none}
+  .cm-row{--lh:17px} .cm-ev{top:26px} .cm-ev>*{margin:0 1px} .cd{min-height:max(72px,calc(30px + var(--ln,0) * (var(--lh) + 2px)));padding:2px 2px 4px} .cdn{min-width:22px;height:22px;font-size:.8125rem} .ce{font-size:.6875rem;padding:1px 3px;border-left-width:2px} .ce.tm::before{width:6px;height:6px;margin-right:3px} .ce.tm:not(.blk) .ce-t,.cm-ev .ce.bar .ce-t{display:none}
   .cm-h div{padding:5px 4px;text-align:center} .ce-more{font-size:.6875rem;padding:1px 2px}
   .cl-tm{width:76px;font-size:.8125rem}
 }
@@ -6074,7 +6078,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '10.11.2026 (v139)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '10.11.2026 (v140)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -7580,10 +7584,10 @@ function calWhen(x) {
   return x.time ? x.time + (x.timeEnd ? '–' + x.timeEnd : '') : 'весь день';
 }
 let calShown = [];                                       // события на экране: номер → событие (для нажатия)
-function calChip(x, cls = '') {
-  const c = calById(x.cal) || { color: '#888', name: '' }, i = calShown.push(x) - 1;
-  const t = x.time && !calMulti(x) ? `<span class="ce-t">${x.time}</span> ` : '';
-  return `<button type="button" class="ce${x.time && !calMulti(x) ? ' tm' : ''}${x.auto ? ' au' : ''}${cls ? ' ' + cls : ''}" style="--c:${c.color}" data-act="cal-open" data-ix="${i}" title="${h(x.title + ' · ' + (x.auto ? '' : calWhen(x) + ' · ') + (x.raw ? calTzTxt(x) + ' · ' : '') + c.name + (x.place ? ' · ' + x.place : ''))}">${t}${h(x.title || 'Без названия')}</button>`;
+function calChip(x, cls = '', st = '') {
+  const c = calById(x.cal) || { color: '#888', name: '' }, i = calShown.push(x) - 1, bar = / bar\b|^bar\b/.test(cls) && calMulti(x);
+  const t = x.time && (!calMulti(x) || (bar && !/\bcl\b/.test(cls))) ? `<span class="ce-t">${x.time}</span> ` : '';
+  return `<button type="button" class="ce${x.time && !calMulti(x) ? ' tm' : ''}${x.auto ? ' au' : ''}${cls ? ' ' + cls : ''}" style="--c:${c.color}${st ? ';' + st : ''}" data-act="cal-open" data-ix="${i}" title="${h(x.title + ' · ' + (x.auto ? '' : calWhen(x) + ' · ') + (x.raw ? calTzTxt(x) + ' · ' : '') + c.name + (x.place ? ' · ' + x.place : ''))}">${t}${h(x.title || 'Без названия')}</button>`;
 }
 function calRange(U) {
   const c = U.cur;
@@ -7624,14 +7628,26 @@ function calByDay(items, from, to) {
   for (const x of items) for (let d = D.max(x.date, from); d <= x.end && d <= to; d = D.add(d, 1)) { if (!m.has(d)) m.set(d, []); m.get(d).push(x); }
   return m;
 }
+/* полосы (10.11.2026): событие на несколько дней — одной полосой через дни, как в Google; раскладка по строкам без наложений */
+function calLanes(items, w0, n) {
+  const w1 = D.add(w0, n - 1);
+  const segs = items.filter(x => x.end >= w0 && x.date <= w1).map(x => ({ x, a: D.diff(w0, D.max(x.date, w0)), b: D.diff(w0, x.end < w1 ? x.end : w1), l: x.date < w0, r: x.end > w1 }));
+  segs.sort((p, q) => p.a - q.a || (q.b - q.a) - (p.b - p.a) || (calMulti(q.x) ? 1 : 0) - (calMulti(p.x) ? 1 : 0) || (p.x.time ? 1 : 0) - (q.x.time ? 1 : 0) || p.x.time.localeCompare(q.x.time) || p.x.title.localeCompare(q.x.title, 'ru'));
+  const lanes = [];
+  for (const g of segs) for (let k = 0; ; k++) { const L = lanes[k] || (lanes[k] = []); let free = true; for (let c = g.a; c <= g.b; c++) if (L[c]) { free = false; break; }
+    if (free) { for (let c = g.a; c <= g.b; c++) L[c] = 1; g.k = k; break; } }
+  return { segs, n: lanes.length };
+}
+function calSegCls(g) { return calMulti(g.x) ? 'bar' + (g.l ? ' cl' : '') + (g.r ? ' cr' : '') : ''; }
 function calMonthHTML(U, from, to, items) {
-  const by = calByDay(items, from, to), mo = U.cur.slice(0, 7), max = PHONE_MQ.matches ? 2 : 3, rows = [];
+  const by = calByDay(items, from, to), mo = U.cur.slice(0, 7), max = PHONE_MQ.matches ? 3 : 4, rows = [];
   for (let w = from; w <= to; w = D.add(w, 7)) {
-    const cells = [];
-    for (let k = 0; k < 7; k++) { const d = D.add(w, k), L = by.get(d) || [], hol = ix.holiday.has(d);
-      cells.push(`<div class="cd${d.slice(0, 7) !== mo ? ' oth' : ''}${d === ix.today ? ' tod' : ''}${hol || k > 4 ? ' we' : ''}" data-act="cal-goday" data-d="${d}" role="gridcell" aria-label="${calDayRu(d)}${L.length ? ', событий: ' + L.length : ''}">
-        <span class="cdn">${+d.slice(8)}</span>${L.slice(0, L.length > max ? max - 1 : max).map(x => calChip(x, x.date < d ? 'cont' : '')).join('')}${L.length > max ? `<span class="ce-more">ещё ${L.length - max + 1}</span>` : ''}</div>`); }
-    rows.push(`<div class="cm-row" role="row">${cells.join('')}</div>`);
+    const cells = [], { segs, n } = calLanes(items, w, 7), vis = n <= max ? n : max - 1, more = [];
+    for (let k = 0; k < 7; k++) { const d = D.add(w, k), L = by.get(d) || [], hol = ix.holiday.has(d), hid = segs.filter(g => g.k >= vis && g.a <= k && g.b >= k).length;
+      cells.push(`<div class="cd${d.slice(0, 7) !== mo ? ' oth' : ''}${d === ix.today ? ' tod' : ''}${hol || k > 4 ? ' we' : ''}" data-act="cal-goday" data-d="${d}" role="gridcell" aria-label="${calDayRu(d)}${L.length ? ', событий: ' + L.length : ''}"><span class="cdn">${+d.slice(8)}</span></div>`);
+      if (hid) more.push(`<button type="button" class="ce-more" data-act="cal-goday" data-d="${d}" style="grid-column:${k + 1};grid-row:${vis + 1}">ещё ${hid}</button>`); }
+    const ev = segs.filter(g => g.k < vis).map(g => calChip(g.x, calSegCls(g), `grid-column:${g.a + 1} / span ${g.b - g.a + 1};grid-row:${g.k + 1}`)).join('');
+    rows.push(`<div class="cm-row" role="row" style="--ln:${vis + (more.length ? 1 : 0)}"><div class="cm-bg">${cells.join('')}</div><div class="cm-ev">${ev}${more.join('')}</div></div>`);
   }
   return `<div class="cm" role="grid"><div class="cm-h" role="row">${DOW.map((d, i) => `<div role="columnheader" class="${i > 4 ? 'we' : ''}">${d}</div>`).join('')}</div>${rows.join('')}</div>
   <p class="small muted no-print" style="margin-top:8px">Нажмите на день — откроется этот день по часам; на событие — подробности.</p>`;
@@ -7671,7 +7687,8 @@ function calGridHTML(U, from, to, items) {
   const n = days.length, hrs = []; for (let k = h0; k < h1; k++) hrs.push(`<div class="cg-hr" style="top:${(k - h0) * CAL_PX}px">${calPad(k)}:00</div>`);
   return `<div class="cg-scroll"><div class="cg${n === 1 ? ' one' : ''}" style="--n:${n};--hh:${CAL_PX}px">
     <div class="cg-h"><div></div>${days.map(d => `<div class="cg-dh${d === ix.today ? ' tod' : ''}${ix.holiday.has(d) ? ' we' : ''}" data-act="cal-goday" data-d="${d}"><span>${DOW[D.dow(d)]}</span><b>${+d.slice(8)}</b></div>`).join('')}</div>
-    <div class="cg-ad"><div class="cg-lbl">весь день</div>${days.map(d => `<div class="cg-adc">${(byT.get(d) || []).map(x => calChip(x, x.date < d ? 'cont' : '')).join('')}</div>`).join('')}</div>
+    ${(() => { const { segs, n: ln } = calLanes(top, from, days.length), N = Math.max(1, ln);
+      return `<div class="cg-ad" style="grid-template-rows:repeat(${N}, minmax(26px, auto))"><div class="cg-lbl" style="grid-row:1 / span ${N}">весь день</div>${days.map((d, i) => `<div class="cg-adc" style="grid-column:${i + 2};grid-row:1 / span ${N}"></div>`).join('')}${segs.map(g => calChip(g.x, calSegCls(g), `grid-column:${g.a + 2} / span ${g.b - g.a + 1};grid-row:${g.k + 1}`)).join('')}</div>`; })()}
     <div class="cg-body" style="height:${(h1 - h0) * CAL_PX}px"><div class="cg-hours">${hrs.join('')}</div>${days.map(col).join('')}</div></div></div>
   <p class="small muted no-print" style="margin-top:8px">Часы ${calPad(h0)}:00–${calPad(h1)}:00 — меняются в «Настройках». Нажмите на свободное место — новое событие на это время.</p>`;
 }
