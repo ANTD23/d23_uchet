@@ -762,6 +762,56 @@ details.tdet[open] > summary::after{transform:rotate(-135deg)}
 @media print{details.tdet > .tdet-b{display:block}}
 .toast .btn{margin-left:10px;min-height:36px;padding:0 14px;background:transparent;border-color:transparent;color:var(--bg);text-decoration:underline;text-underline-offset:3px}
 .toast .btn:hover{background:rgba(127,127,127,.2)}
+/* ---------- календарь (09.11.2026) ---------- */
+.cal-bar{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;margin:0 0 12px}
+.cal-nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap} .cal-nav .btn.ghost{min-width:40px;font-size:1.25rem;padding:0 10px} .cal-title{font-size:1.125rem;margin-left:6px}
+.cal-wrap{display:grid;grid-template-columns:268px minmax(0,1fr);gap:16px;align-items:start}
+.cal-side{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 12px 14px;position:sticky;top:12px}
+.cal-side>summary{display:none} .cal-gl{font-size:.75rem;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);margin:12px 0 4px;font-weight:700}
+.cal-fl{display:flex;align-items:center;gap:2px} .cal-fl .btn.sm{min-height:30px;padding:0 6px;font-size:.8125rem;color:var(--ink-3)} .cal-fl .btn.sm:hover{color:var(--ink)}
+.cal-ck{display:flex;align-items:center;gap:8px;flex:1;min-width:0;cursor:pointer;padding:5px 0;min-height:34px;position:relative} .cal-ck input{position:absolute;opacity:0;width:1px;height:1px}
+.cal-ck .sw{flex:none;width:18px;height:18px;border-radius:5px;border:2px solid var(--c);background:transparent;position:relative} .cal-ck input:checked+.sw{background:var(--c)}
+.cal-ck input:checked+.sw::after{content:'';position:absolute;left:4px;top:0;width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.cal-ck input:focus-visible+.sw{outline:2px solid var(--ink);outline-offset:2px} .cal-ck .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ce{display:block;width:100%;text-align:left;border:0;border-left:3px solid var(--c);background:color-mix(in srgb,var(--c) 16%,var(--surface));color:var(--ink);font:inherit;font-size:.8125rem;line-height:1.25;padding:2px 6px;margin:2px 0 0;border-radius:4px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ce:hover{background:color-mix(in srgb,var(--c) 28%,var(--surface))} .ce.tm{background:transparent;border-left-color:transparent;padding-left:4px} .ce.tm::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c);margin-right:5px;vertical-align:1px}
+.ce.tm:hover{background:var(--sunk)} .ce.cont{opacity:.75} .ce-t{color:var(--ink-2);font-variant-numeric:tabular-nums}
+.cm{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--surface)}
+.cm-h,.cm-row{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))} .cm-h div{padding:6px 8px;font-size:.8125rem;font-weight:700;color:var(--ink-2);border-bottom:1px solid var(--line)} .cm-h .we{color:var(--bad)}
+.cd{min-height:108px;padding:4px 5px 6px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);cursor:pointer;min-width:0} .cm-row .cd:nth-child(7){border-right:0} .cm-row:last-child .cd{border-bottom:0}
+.cd:hover{background:var(--surface-2)} .cd.oth{background:var(--surface-2)} .cd.oth .cdn{color:var(--ink-3)} .cd.we .cdn{color:var(--bad)}
+.cdn{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:13px;font-weight:600;font-size:.875rem} .cd.tod .cdn{background:var(--accent-btn);color:var(--accent-btn-ink)}
+.ce-more{display:block;font-size:.75rem;color:var(--ink-2);padding:2px 4px;font-weight:600}
+.cl-day{margin:0 0 10px} .cl-day.tod{border-color:var(--accent-btn)} .cl-dh{padding:10px 16px 6px;font-weight:700;cursor:pointer} .cl-day.tod .cl-dh{color:var(--accent-btn)}
+.cl-it{display:flex;align-items:center;gap:10px} .cl-tm{flex:none;width:96px;font-size:.875rem;color:var(--ink-2);font-variant-numeric:tabular-nums} .cl-dot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--c)}
+.cal-soon .cl-it{gap:12px}
+.cg-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+.cg{min-width:calc(56px + var(--n) * 84px)} .cg.one{min-width:0}
+.cg-h,.cg-ad{display:grid;grid-template-columns:56px repeat(var(--n),minmax(0,1fr))}
+.cg-dh{text-align:center;padding:6px 2px;border-left:1px solid var(--line);cursor:pointer;line-height:1.2} .cg-dh span{display:block;font-size:.75rem;color:var(--ink-2)} .cg-dh b{font-size:1.25rem}
+.cg-dh.tod b{color:var(--accent-btn)} .cg-dh.we span{color:var(--bad)}
+.cg-ad{border-top:1px solid var(--line);border-bottom:1px solid var(--line-strong)} .cg-lbl{font-size:.6875rem;color:var(--ink-3);padding:6px 4px;text-align:right} .cg-adc{border-left:1px solid var(--line);padding:2px 3px 4px;min-width:0;min-height:28px}
+.cg-body{position:relative;display:grid;grid-template-columns:56px repeat(var(--n),minmax(0,1fr));overflow:hidden;background:repeating-linear-gradient(to bottom,transparent 0,transparent calc(var(--hh) - 1px),var(--line) calc(var(--hh) - 1px),var(--line) var(--hh))}
+.cg-hours{position:relative} .cg-hr{position:absolute;right:6px;font-size:.6875rem;color:var(--ink-3);transform:translateY(2px);font-variant-numeric:tabular-nums}
+.cg-col{position:relative;border-left:1px solid var(--line);cursor:cell} .cg-col.tod{background:color-mix(in srgb,var(--accent-btn) 5%,transparent)}
+.cg-ev{position:absolute;overflow:hidden} .ce.blk{height:100%;margin:0;white-space:normal;padding:2px 5px;border-left-width:3px;border-left-color:var(--c);background:color-mix(in srgb,var(--c) 22%,var(--surface))} .ce.blk.tm::before{display:none}
+.cg-now{position:absolute;left:0;right:0;height:2px;background:var(--bad-fill);pointer-events:none;z-index:2} .cg-now::before{content:'';position:absolute;left:-5px;top:-4px;width:10px;height:10px;border-radius:50%;background:var(--bad-fill)}
+.cal-lk{flex:none;width:14px;height:14px;color:var(--ink-3)} .cal-tm[hidden],.cal-rep[hidden],.cal-wd[hidden],.cal-until[hidden],.cal-count[hidden]{display:none!important}
+@media (hover:hover) and (pointer:fine){.cal-fl .btn.sm{opacity:0} .cal-fl:hover .btn.sm,.cal-fl:focus-within .btn.sm{opacity:1}}
+.cal-ckf{display:flex;align-items:center;gap:8px;min-height:44px;align-self:end;cursor:pointer} .cal-ckf input{width:20px;height:20px;flex:none}
+.cal-pal{display:flex;flex-wrap:wrap;gap:8px;align-items:center} .cal-pal label{cursor:pointer;display:inline-flex;position:relative} .cal-pal input[type=radio]{position:absolute;opacity:0;width:1px;height:1px}
+.cal-pal i{width:30px;height:30px;border-radius:50%;background:var(--c);display:block;box-shadow:0 0 0 2px var(--surface)} .cal-pal input:checked+i{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ink)} .cal-pal input:focus-visible+i{outline:2px solid var(--ink);outline-offset:4px}
+.cal-own input{width:38px;height:34px;padding:0;border:1px solid var(--line);border-radius:8px;background:none;cursor:pointer}
+.ch-l{display:grid;gap:8px;margin-top:12px} .ch-l .btn{justify-content:flex-start;text-align:left;white-space:normal}
+@media (max-width:860px), (pointer:coarse) and (max-height:500px){
+  .cal-wrap{grid-template-columns:minmax(0,1fr);gap:10px} .cal-side{position:static;padding:0} .cal-side>summary{display:flex;gap:8px;align-items:center;padding:12px 14px;cursor:pointer;min-height:44px}
+  .cal-sb{padding:0 12px 12px} .cal-bar{gap:8px} .cal-bar .seg{width:100%;display:grid;grid-template-columns:repeat(4,1fr)} .cal-bar .seg button{padding:0 6px}
+  .cal-title{flex-basis:100%;margin:2px 0 0;font-size:1.0625rem}
+  .cd{min-height:72px;padding:2px 2px 4px} .cdn{min-width:22px;height:22px;font-size:.8125rem} .ce{font-size:.6875rem;padding:1px 3px;border-left-width:2px} .ce.tm::before{width:6px;height:6px;margin-right:3px} .ce.tm:not(.blk) .ce-t{display:none}
+  .cm-h div{padding:5px 4px;text-align:center} .ce-more{font-size:.6875rem;padding:1px 2px}
+  .cl-tm{width:76px;font-size:.8125rem}
+}
+@media print{.cal-side{display:none} .cal-wrap{display:block}}
 </style></head>
 <body><div id="app"></div>
 <script>
@@ -2116,7 +2166,7 @@ function copyDiff(cur, inc) {
   for (const a of cur.athletes || []) { const o = incA.get(a.id); if (!o) out.athletes.push(nm.get(a.id) + ' — новый'); else if (JSON.stringify(o) !== JSON.stringify(a)) out.athletes.push(nm.get(a.id) + ' — изменена карточка'); }
   const incO = new Set((inc.ops || []).map(x => x.id + '|' + JSON.stringify(x)));
   out.ops = (cur.ops || []).filter(x => !incO.has(x.id + '|' + JSON.stringify(x))).length;
-  for (const [k, t] of [['tourneys', 'турниры'], ['awards', 'пояса'], ['tests', 'нормативы'], ['leads', 'заявки']]) { const ii = new Set((inc[k] || []).map(x => JSON.stringify(x))); const n = (cur[k] || []).filter(x => !ii.has(JSON.stringify(x))).length; if (n) out.other.push(t + ': ' + n); }
+  for (const [k, t] of [['tourneys', 'турниры'], ['awards', 'пояса'], ['tests', 'нормативы'], ['leads', 'заявки'], ['events', 'события календаря']]) { const ii = new Set((inc[k] || []).map(x => JSON.stringify(x))); const n = (cur[k] || []).filter(x => !ii.has(JSON.stringify(x))).length; if (n) out.other.push(t + ': ' + n); }
   out.n = out.marks.reduce((s, x) => s + x.n, 0) + out.subs.length + out.freezes.length + out.athletes.length + out.ops + out.other.length;
   return out;
 }
@@ -2199,13 +2249,15 @@ const opt = (v, cur, label) => `<option value="${h(v)}"${String(v) === String(cu
 
 function emptyDb() {
   return { app: 'D23CRM', version: 1, rev: 0, updatedAt: new Date().toISOString(),
-    settings: JSON.parse(JSON.stringify(DEFAULT_SETTINGS)), athletes: [], sessions: [], subs: [], freezes: [], awards: [], tests: [], ops: [] };
+    settings: JSON.parse(JSON.stringify(DEFAULT_SETTINGS)), athletes: [], sessions: [], subs: [], freezes: [], awards: [], tests: [], ops: [],
+    cals: [{ id: 'c_personal', name: 'Личный', color: '#1F6FD1', personal: true }, { id: 'c_club', name: 'Клубный', color: '#1A7A58' }], events: [] };
 }
 function normalize(d) {
   const e = emptyDb();
   for (const k of ['athletes', 'sessions', 'subs', 'freezes', 'awards', 'tests', 'destroyLog', 'tourneys', 'log']) if (!Array.isArray(d[k])) d[k] = [];
   if (!d.attnDone || typeof d.attnDone !== 'object' || Array.isArray(d.attnDone)) d.attnDone = {};
   d.settings = Object.assign({}, e.settings, d.settings || {});
+  calInit(d);                                       // 09.11.2026: календарь
   d.settings.attest = Object.assign({}, e.settings.attest, d.settings.attest || {});
   if (d.settings.copiesKeep == null) d.settings.copiesKeep = 30;
   if (!Array.isArray(d.settings.trips)) d.settings.trips = [];
@@ -2753,11 +2805,12 @@ const I = {
   leads: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v12H8l-4 4V4z"/><path d="M8 9h8M8 12h5"/></svg>',
   money: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="6" width="19" height="13" rx="2"/><path d="M16 12.5h2.5M2.5 10h19"/><path d="M6 3.5h12"/></svg>',
   phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>',
+  cal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="M7 13h2M11 13h2M15 13h2M7 17h2M11 17h2"/></svg>',
   more: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>',
 };
 const NAV = [
   ['today', 'Сегодня'], ['journal', 'Посещения'], ['people', 'Спортсмены'], ['subs', 'Абонементы'],
-  ['leads', 'Заявки'], ['money', 'Деньги'], ['report', 'Сводка'], ['attest', 'Аттестация'], ['tourn', 'Турниры'], ['settings', 'Настройки'], ['data', 'Данные'],
+  ['cal', 'Календарь'], ['leads', 'Заявки'], ['money', 'Деньги'], ['report', 'Сводка'], ['attest', 'Аттестация'], ['tourn', 'Турниры'], ['settings', 'Настройки'], ['data', 'Данные'],
 ];
 const NAV_GROUPS = { money: 'Деньги и отчёты', attest: 'Спорт', settings: 'Система' };   // заголовки групп в боковом меню
 
@@ -2808,7 +2861,7 @@ function navHTML(cur) {
     <nav class="nav" aria-label="Разделы"><a href="#" class="nav-search" data-act="gsearch" title="Найти спортсмена (клавиша /)">${I.search}Найти спортсмена<kbd aria-hidden="true">/</kbd></a>${NAV.map(([k, l]) => `${NAV_GROUPS[k] ? `<div class="nav-gl">${NAV_GROUPS[k]}</div>` : ''}<a href="#${k}" class="${cur === k ? 'on' : ''}"${cur === k ? ' aria-current="page"' : ''}>${I[k]}${l}</a>`).join('')}</nav>
     <div class="sync">${dirty() ? `Есть изменения, которых нет в копии. ${meta.lastExport ? 'Последняя копия: ' + D.ru(meta.lastExport.slice(0, 10)) : 'Копию ещё не сохраняли'}.<button class="btn sm" data-act="export">Сохранить копию</button>` : (meta.lastExport ? 'Копия сохранена ' + D.ru(meta.lastExport.slice(0, 10)) + '.' : 'Данные хранятся в этом браузере.')}</div></aside>`;
   const tabs = [['today', 'Сегодня'], ['journal', 'Посещения'], ['people', 'Спортсмены'], ['subs', 'Абонементы'], ['more', 'Ещё']];
-  const moreOn = ['leads', 'year', 'metrics', 'money', 'attest', 'tourn', 'report', 'settings', 'data', 'more'].includes(cur);
+  const moreOn = ['cal', 'leads', 'year', 'metrics', 'money', 'attest', 'tourn', 'report', 'settings', 'data', 'more'].includes(cur);
   const bar = `<nav class="tabbar no-print" aria-label="Разделы">${tabs.map(([k, l]) => { const on = cur === k || (k === 'more' && moreOn); return `<a href="#${k}" class="${on ? 'on' : ''}"${on ? ' aria-current="page"' : ''}>${I[k]}${l}</a>`; }).join('')}</nav>`;
   const top = `<header class="mtop no-print"><div class="mark-logo" aria-hidden="true">D23</div><b>Club D23</b>${dirty() ? (canShareFiles() ? `<button class="ib warn" data-act="export-share" aria-label="Есть изменения без копии — поделиться копией (Яндекс Диск)" title="Поделиться копией в…">${I.data}</button>` : `<button class="ib warn" data-act="export" aria-label="Есть изменения без копии — сохранить копию" title="Сохранить копию">${I.data}</button>`) : ''}<button class="ib" data-act="gsearch" aria-label="Найти спортсмена">${I.search}</button></header>`;
   return side + top + bar;
@@ -2839,7 +2892,7 @@ function render() {
   if (logBaseFor !== db) logSetBase();
   if (undoFor !== db) { undoJson = JSON.stringify(db); undoFor = db; }
   const { v, arg } = route();
-  const views = { plan: vPlan, today: vToday, journal: vJournal, session: vSession, people: vPeople, person: vPerson, subs: vSubs, leads: vLeads, year: vYear, metrics: vMetrics, money: vMoney, attest: vAttest, tourn: vTourn, report: vReport, settings: vSettings, data: vData, more: vMore };
+  const views = { plan: vPlan, today: vToday, journal: vJournal, session: vSession, people: vPeople, person: vPerson, subs: vSubs, cal: vCal, leads: vLeads, year: vYear, metrics: vMetrics, money: vMoney, attest: vAttest, tourn: vTourn, report: vReport, settings: vSettings, data: vData, more: vMore };
   const fn = views[v] || vToday;
   const navKey = v === 'plan' ? 'today' : v === 'session' ? 'journal' : v === 'person' ? 'people' : v === 'year' || v === 'metrics' ? 'report' : v;
   let body;
@@ -3284,7 +3337,7 @@ function vToday() {
     <div class="today-groups">${groupsBtns || '<span class="muted">По расписанию занятий нет.</span>'}
       <button class="btn ghost" data-act="open-session-pick">Другая группа или дата</button></div></div>
   ${quick}</div>
-  <div class="tg-c">${trialsCard()}
+  <div class="tg-c">${calSoonCard()}${trialsCard()}
   ${bdays.length ? `<div class="card flat"><div style="padding:14px 16px 4px"><h2>Дни рождения на неделе</h2></div><ul class="list">${bdays.map(x => `<li class="click" data-go="#person/${x.a.id}"><div class="who"><b>${h(fullName(x.a))}</b><span class="small">${x.k === 0 ? '<b>сегодня</b>' : x.k === 1 ? 'завтра' : DOW_FULL[D.dow(x.d)]}, ${D.ru(x.d)} · исполняется ${x.age} ${plural(x.age, 'год', 'года', 'лет')}</span></div><span class="chip">${h(x.a.group || '')}</span></li>`).join('')}</ul></div>` : ''}</div>
   <div class="tg-b"><div class="card flat attn-card"><div class="row" style="padding:14px 16px 8px;gap:10px 12px"><h2 style="margin:0;flex:1 1 220px">Требует внимания <span class="muted small">${mode === 'plan' ? (P.total ? 'сделано ' + P.doneN + ' из ' + P.total : '') : (al.length || '') + (done.length ? ' · сделано ' + done.length : '')}</span></h2>
     <div class="seg no-print" role="group" aria-label="Вид списка">${[['urg', 'По срочности'], ['plan', 'План на день']].map(([m, l]) => `<button type="button" data-act="today-mode" data-m="${m}" class="${mode === m ? 'on' : ''}" aria-pressed="${mode === m}">${l}</button>`).join('')}</div></div>
@@ -5003,6 +5056,7 @@ function vSettings() {
   <div class="grid2"><div class="card"><h2>Нерабочие дни</h2><p class="small muted">Праздники, выезды на соревнования, ремонт — дни, когда занятий нет у всего клуба. В срок абонемента не засчитываются.</p>
   <ul class="list" style="max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:8px">${[...S.holidays].sort((a, b) => a.date.localeCompare(b.date)).map(x => `<li><span class="num" style="width:90px">${D.ru(x.date)}</span><span class="who small">${h(x.reason)}</span><button class="btn sm ghost" data-act="hol-del" data-date="${x.date}" aria-label="Удалить">✕</button></li>`).join('') || '<li class="muted">Нет</li>'}</ul>
   <div class="row" style="margin-top:8px"><input type="date" id="hol-date" style="width:auto"><input type="text" id="hol-reason" placeholder="Причина" style="flex:1;min-width:120px"><button class="btn" data-act="hol-add">Добавить</button></div></div>
+  ${calSettingsCard()}
   <div class="card"><h2>Перенесено</h2><ul class="list">
     <li><a href="#tourn">Соревнования и выезды (п. 9.6 оферты) → «Турниры»</a></li>
     <li><a href="#attest/setup">Аттестация: даты и правила допуска → «Аттестация» → «Настройки»</a></li>
@@ -6016,7 +6070,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '09.11.2026 (v136)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '09.11.2026 (v137)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -6912,6 +6966,9 @@ function anonDb() {
   d.log = []; d.destroyLog = []; d.attnDone = {}; d.attnSeen = {}; d.planLog = {};   // №3: в плане на день — имена и тексты пунктов
   d.settings.operatorName = ''; d.settings.operatorAddress = '';
   (d.leads || []).forEach(L => { for (const k of ['name', 'contactName', 'phone', 'note', 'lostReason']) delete L[k]; });
+  { const pers = new Set((d.cals || []).filter(c => c.personal).map(c => c.id)), blank = o => o && !o.del ? { ...o, title: 'Событие', place: '', note: '' } : o;   // 09.11.2026: личные календари — не передаются; в клубных — без названий и заметок
+    d.cals = (d.cals || []).filter(c => !pers.has(c.id)).map((c, i) => ({ ...c, name: 'Календарь ' + (i + 1) }));
+    d.events = (d.events || []).filter(e => !pers.has(e.cal)).map(e => ({ ...e, title: 'Событие', place: '', note: '', ex: Object.fromEntries(Object.entries(e.ex || {}).map(([k, o]) => [k, blank(o)])) })); }
   d.anon = true;
   return d;
 }
@@ -7388,6 +7445,365 @@ document.addEventListener('toggle', e => {        // №29: меню «Ещё» 
   const dl = d.getBoundingClientRect().left, x = Math.max(m, Math.min(r.left, vw - m - r.width));
   pop.style.right = 'auto'; pop.style.left = (x - dl) + 'px';
 }, true);
+/* ---------- КАЛЕНДАРЬ (09.11.2026) ----------
+   Свои календари (db.cals) и события (db.events) + календари «из программы» (турниры и выезды, аттестация, праздники, дни рождения, окончание абонементов).
+   Событие: { id, cal, title, date, end, time, timeEnd (пусто — весь день), place, note, remind (дней до; '' — нет), rep: { f: d|w|m|y, n, wd: [0..6], until, count }, ex: { 'исходная дата': { del } | { date, end, time, timeEnd, title, place, note } } }
+   Видимость календарей (meta.calOff) — на устройстве; вид по умолчанию — в настройках (settings.calView). */
+const CAL_COLORS = ['#1F6FD1', '#1A7A58', '#C0392B', '#D9730D', '#8E44AD', '#B7950B', '#16A085', '#D35480', '#5D6D7E', '#6E4B2A'];
+const CAL_AUTO = [['a:tour', 'Турниры и выезды', '#6E48A6', '#tourn'], ['a:att', 'Аттестация', '#B7950B', '#attest'], ['a:hol', 'Выходные дни', '#5D6D7E', '#settings'],
+  ['a:bd', 'Дни рождения', '#D35480', '#people'], ['a:sub', 'Конец абонементов', '#C77A12', '#subs']];
+const CAL_REMIND = [['', 'не напоминать'], ['0', 'в день события'], ['1', 'за 1 день'], ['2', 'за 2 дня'], ['3', 'за 3 дня'], ['7', 'за неделю'], ['14', 'за 2 недели'], ['30', 'за месяц']];
+const CAL_VIEWS = [['month', 'Месяц'], ['week', 'Неделя'], ['day', 'День'], ['list', 'Список']];
+const MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+const CAL_PX = 44;                                       // высота часа в «Неделе» и «Дне»
+function calInit(d) {
+  if (!Array.isArray(d.cals)) d.cals = [{ id: 'c_personal', name: 'Личный', color: '#1F6FD1', personal: true }, { id: 'c_club', name: 'Клубный', color: '#1A7A58' }];
+  if (!Array.isArray(d.events)) d.events = [];
+  d.settings.calView = Object.assign({ pc: 'month', mob: 'list', h0: 7, h1: 22 }, d.settings.calView || {});
+}
+const calPad = n => String(n).padStart(2, '0');
+function calDim(y, m) { return new Date(Date.UTC(y, m, 0)).getUTCDate(); }          // дней в месяце (m: 1–12)
+function calAddM(s, k) { let [y, m, d] = s.split('-').map(Number); m += k; y += Math.floor((m - 1) / 12); m = ((m - 1) % 12 + 12) % 12 + 1; return `${y}-${calPad(m)}-${calPad(Math.min(d, calDim(y, m)))}`; }
+function calWeekStart(s) { return D.add(s, -D.dow(s)); }
+function calDayRu(s, year) { const [y, m, d] = s.split('-'); return `${+d} ${MONTHS_GEN[+m - 1]}${year ? ' ' + y : ''}`; }
+function calOn(id) { return !(meta.calOff || []).includes(id); }
+function calById(id) { const a = CAL_AUTO.find(x => x[0] === id); if (a) return { id, name: a[1], color: a[2], auto: true, go: a[3] }; return (db.cals || []).find(c => c.id === id) || null; }
+function* calGen(start, R) {                             // даты начала повторений по правилу, по порядку
+  const n = Math.max(1, Math.floor(+R.n || 1));
+  if (R.f === 'd') for (let s = start; ; s = D.add(s, n)) yield s;
+  if (R.f === 'w') { const wd = [...new Set((R.wd && R.wd.length ? R.wd : [D.dow(start)]).map(Number))].sort((a, b) => a - b);
+    for (let w = calWeekStart(start); ; w = D.add(w, 7 * n)) for (const x of wd) { const s = D.add(w, x); if (s >= start) yield s; } }
+  if (R.f === 'm') { const day = +start.slice(8); for (let k = 0; ; k += n) { const m0 = calAddM(start.slice(0, 8) + '01', k); if (day <= calDim(+m0.slice(0, 4), +m0.slice(5, 7))) yield m0.slice(0, 8) + calPad(day); } }
+  if (R.f === 'y') { const md = start.slice(4); for (let y = +start.slice(0, 4); ; y += n) if (md !== '-02-29' || D.leap(y)) yield y + md; }
+}
+function calMk(ev, key, s, e, o) {
+  const x = o || ev;
+  return { id: ev.id, key, cal: ev.cal, date: s, end: e, title: x.title || '', time: x.time || '', timeEnd: x.timeEnd || '', place: x.place || '', note: x.note || '', remind: ev.remind ?? '', rep: !!ev.rep, moved: !!o };
+}
+function calOcc(ev, from, to) {                          // вхождения события, пересекающие [from, to]
+  const out = [], dur = ev.end && ev.end > ev.date ? D.diff(ev.date, ev.end) : 0, ex = ev.ex || {}, R = ev.rep;
+  if (!ev.date) return out;
+  if (!R || !R.f) { if (!ex[ev.date]) { const e = D.add(ev.date, dur); if (e >= from && ev.date <= to) out.push(calMk(ev, ev.date, ev.date, e)); } }
+  else {
+    const until = R.until || '', cnt = Math.floor(+R.count || 0); let i = 0, guard = 0;
+    for (const s of calGen(ev.date, R)) {
+      if (++guard > 40000 || (until && s > until) || s > to || (cnt && i >= cnt)) break;
+      i++; if (ex[s]) continue;
+      const e = D.add(s, dur); if (e >= from) out.push(calMk(ev, s, s, e));
+    }
+  }
+  for (const [key, o] of Object.entries(ex)) if (o && !o.del && o.date) { const e = o.end && o.end > o.date ? o.end : o.date; if (e >= from && o.date <= to) out.push(calMk(ev, key, o.date, e, o)); }
+  return out;
+}
+function calAuto(from, to) {                             // события «из программы» — только для показа, правятся в своих разделах
+  const out = [], S = db.settings, add = (cal, date, end, title, go, sub) => { end = end && end > date ? end : date; if (end >= from && date <= to) out.push({ auto: true, cal, date, end, title, time: '', timeEnd: '', go, sub: sub || '' }); };
+  if (calOn('a:tour')) {
+    const trips = S.trips || [], used = new Set();
+    for (const x of trips) { if (!x.from || !x.to) continue; const e = D.max(x.to, x.ext || '');
+      const T = (db.tourneys || []).find(T => T.date && (T.id === x.tid || (T.name === x.name && T.date >= x.from && T.date <= e))); if (T) used.add(T.id);
+      add('a:tour', x.from, e, (T ? T.name : x.name || 'Выезд') + (T && T.city ? ', ' + T.city : ''), T ? '#tourn' : '#tourn', `выезд ${D.ru(x.from)} — ${D.ru(e)}${x.ext ? ' (продлён)' : ''}${T ? ' · турнир ' + D.ru(T.date) : ''}`); }
+    for (const T of db.tourneys || []) if (T.date && !used.has(T.id)) add('a:tour', T.date, T.date, (T.name || 'Турнир') + (T.city ? ', ' + T.city : ''), '#tourn', 'турнир');
+  }
+  if (calOn('a:att')) { const A = S.attest || {}; if (A.next) add('a:att', A.next, A.next, 'Аттестация', '#attest', 'следующая аттестация'); if (A.prev) add('a:att', A.prev, A.prev, 'Аттестация', '#attest', 'прошедшая аттестация'); }
+  if (calOn('a:hol')) for (const x of S.holidays || []) if (x.date) add('a:hol', x.date, x.date, x.reason || 'Нерабочий день', '#settings', 'нерабочий день — занятия не идут в срок абонементов');
+  if (calOn('a:bd')) for (const a of db.athletes) { if (a.status === 'ушёл' || !a.birth) continue;
+    for (let y = +from.slice(0, 4); y <= +to.slice(0, 4); y++) { let md = a.birth.slice(5); if (md === '02-29' && !D.leap(y)) md = '02-28'; const d = y + '-' + md, age = D.age(a.birth, d);
+      if (age != null && age > 0) add('a:bd', d, d, `ДР: ${shortName(a)} — ${age} ${plural(age, 'год', 'года', 'лет')}`, '#person/' + a.id, a.group || ''); } }
+  if (calOn('a:sub') && ix) { const by = new Map();             // в один день — одним событием: «Конец абонементов: 3», имена — в окне
+    for (const a of db.athletes) { if (a.status !== 'занимается') continue; const c = ix.athCalc.get(a.id), s = c && c.subCalc;
+      if (s && s.end && (s.endKind === 'forecast' || s.endKind === 'fact') && !c.nextSub && !c.pendingSub && s.end >= from && s.end <= to) { if (!by.has(s.end)) by.set(s.end, []); by.get(s.end).push({ a, fact: s.endKind === 'fact' }); } }
+    for (const [d, L] of by) { L.sort((x, y) => shortName(x.a).localeCompare(shortName(y.a), 'ru'));
+      add('a:sub', d, d, L.length === 1 ? 'Конец абонемента: ' + shortName(L[0].a) : 'Конец абонементов: ' + L.length, L.length === 1 ? '#person/' + L[0].a.id : '#subs', d >= ix.today ? 'последнее занятие по абонементу (по расписанию, если не будет пропусков); новый не оплачен' : 'последнее занятие по абонементу; новый не оплачен');
+      out[out.length - 1].people = L.map(x => ({ id: x.a.id, name: shortName(x.a), sub: x.a.group || '' })); } }
+  return out;
+}
+function calItems(from, to) {
+  const L = [];
+  for (const ev of db.events || []) if (calOn(ev.cal) && calById(ev.cal)) L.push(...calOcc(ev, from, to));
+  L.push(...calAuto(from, to));
+  return L.sort((a, b) => a.date.localeCompare(b.date) || (a.time ? 1 : 0) - (b.time ? 1 : 0) || a.time.localeCompare(b.time) || a.title.localeCompare(b.title, 'ru'));
+}
+function calMulti(x) { return x.end > x.date; }
+function calWhen(x) {
+  if (calMulti(x)) return `${calDayRu(x.date)}${x.time ? ' ' + x.time : ''} — ${calDayRu(x.end)}${x.timeEnd ? ' ' + x.timeEnd : ''}`;
+  return x.time ? x.time + (x.timeEnd ? '–' + x.timeEnd : '') : 'весь день';
+}
+let calShown = [];                                       // события на экране: номер → событие (для нажатия)
+function calChip(x, cls = '') {
+  const c = calById(x.cal) || { color: '#888', name: '' }, i = calShown.push(x) - 1;
+  const t = x.time && !calMulti(x) ? `<span class="ce-t">${x.time}</span> ` : '';
+  return `<button type="button" class="ce${x.time && !calMulti(x) ? ' tm' : ''}${x.auto ? ' au' : ''}${cls ? ' ' + cls : ''}" style="--c:${c.color}" data-act="cal-open" data-ix="${i}" title="${h(x.title + ' · ' + c.name + (x.place ? ' · ' + x.place : ''))}">${t}${h(x.title || 'Без названия')}</button>`;
+}
+function calRange(U) {
+  const c = U.cur;
+  if (U.view === 'month') { const f = c.slice(0, 8) + '01', s = calWeekStart(f), last = c.slice(0, 8) + calPad(calDim(+c.slice(0, 4), +c.slice(5, 7))); const e = D.add(calWeekStart(last), 6); return [s, e]; }
+  if (U.view === 'week') { const s = calWeekStart(c); return [s, D.add(s, 6)]; }
+  if (U.view === 'day') return [c, c];
+  return [c, D.add(c, U.listDays - 1)];
+}
+function calTitle(U) {
+  const c = U.cur, [y, m] = c.split('-').map(Number);
+  if (U.view === 'month') return MONTHS[m - 1][0].toUpperCase() + MONTHS[m - 1].slice(1) + ' ' + y;
+  if (U.view === 'week') { const s = calWeekStart(c), e = D.add(s, 6); return s.slice(0, 7) === e.slice(0, 7) ? `${+s.slice(8)} – ${calDayRu(e, true)}` : `${calDayRu(s, s.slice(0, 4) !== e.slice(0, 4))} – ${calDayRu(e, true)}`; }
+  if (U.view === 'day') { const w = DOW_FULL[D.dow(c)]; return w[0].toUpperCase() + w.slice(1) + ', ' + calDayRu(c, true); }
+  return 'С ' + calDayRu(c, true);
+}
+function vCal(arg) {
+  const S = db.settings.calView, U = ui.cal || (ui.cal = { view: PHONE_MQ.matches ? S.mob : S.pc, cur: ix.today, listDays: 60 });
+  if (arg && /^\d{4}-\d\d-\d\d$/.test(arg)) { U.cur = arg; U.view = 'day'; try { history.replaceState(null, '', '#cal'); } catch (e) {} }
+  calShown = [];
+  const [from, to] = calRange(U), items = calItems(from, to);
+  const body = U.view === 'month' ? calMonthHTML(U, from, to, items) : U.view === 'list' ? calListHTML(U, items) : calGridHTML(U, from, to, items);
+  const off = (meta.calOff || []).length, total = (db.cals || []).length + CAL_AUTO.length, shown = [...(db.cals || []).map(c => c.id), ...CAL_AUTO.map(a => a[0])].filter(calOn).length;
+  const ck = c => `<div class="cal-fl"><label class="cal-ck" style="--c:${c.color}"><input type="checkbox" data-change="cal-on" data-id="${h(c.id)}" ${calOn(c.id) ? 'checked' : ''}><span class="sw" aria-hidden="true"></span><span class="nm">${h(c.name)}</span>${c.personal ? '<svg class="cal-lk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" role="img" aria-label="личный"><title>Личный: не попадает в обезличенную копию</title><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>' : ''}</label>
+    <button type="button" class="btn ghost sm" data-act="cal-only" data-id="${h(c.id)}" title="Показать только этот календарь">только</button>${c.auto ? '' : `<button type="button" class="btn ghost sm" data-act="cal-edit" data-id="${h(c.id)}" aria-label="Изменить календарь «${h(c.name)}»" title="Название, цвет, удаление">✎</button>`}</div>`;
+  const side = `<details class="cal-side no-print" data-calside ${!PHONE_MQ.matches || U.side ? 'open' : ''}><summary><b>Календари</b> <span class="small muted">${off ? 'показано ' + shown + ' из ' + total : 'все'}</span></summary>
+    <div class="cal-sb"><div class="row" style="gap:6px;margin-bottom:6px"><button type="button" class="btn sm${off ? '' : ' on'}" data-act="cal-all"${off ? '' : ' aria-pressed="true"'}>Показать все</button></div>
+    <div class="cal-gl">Мои календари</div>${(db.cals || []).map(ck).join('')}
+    <button type="button" class="btn ghost sm" data-act="cal-edit" style="margin:4px 0 0">+ Добавить календарь</button>
+    <div class="cal-gl">Из программы</div>${CAL_AUTO.map(a => ck(calById(a[0]))).join('')}
+    <p class="small muted" style="margin:8px 0 0">«Из программы» — без ввода: турниры, выезды, аттестация, праздники, дни рождения, окончания абонементов. Меняются в своих разделах.</p></div></details>`;
+  return `<div class="topline"><h1>Календарь</h1><div class="row no-print"><button class="btn primary" data-act="cal-new">Новое событие</button></div></div>
+  <div class="cal-bar no-print"><div class="cal-nav"><button type="button" class="btn" data-act="cal-today">Сегодня</button><button type="button" class="btn ghost" data-act="cal-nav" data-d="-1" aria-label="Назад">‹</button><button type="button" class="btn ghost" data-act="cal-nav" data-d="1" aria-label="Вперёд">›</button><b class="cal-title">${h(calTitle(U))}</b></div>
+    <div class="seg" role="group" aria-label="Вид календаря">${CAL_VIEWS.map(([k, l]) => `<button type="button" data-act="cal-view" data-v="${k}" class="${U.view === k ? 'on' : ''}" aria-pressed="${U.view === k}">${l}</button>`).join('')}</div></div>
+  <div class="cal-wrap">${side}<div class="cal-main">${body}</div></div>`;
+}
+function calByDay(items, from, to) {
+  const m = new Map();
+  for (const x of items) for (let d = D.max(x.date, from); d <= x.end && d <= to; d = D.add(d, 1)) { if (!m.has(d)) m.set(d, []); m.get(d).push(x); }
+  return m;
+}
+function calMonthHTML(U, from, to, items) {
+  const by = calByDay(items, from, to), mo = U.cur.slice(0, 7), max = PHONE_MQ.matches ? 2 : 3, rows = [];
+  for (let w = from; w <= to; w = D.add(w, 7)) {
+    const cells = [];
+    for (let k = 0; k < 7; k++) { const d = D.add(w, k), L = by.get(d) || [], hol = ix.holiday.has(d);
+      cells.push(`<div class="cd${d.slice(0, 7) !== mo ? ' oth' : ''}${d === ix.today ? ' tod' : ''}${hol || k > 4 ? ' we' : ''}" data-act="cal-goday" data-d="${d}" role="gridcell" aria-label="${calDayRu(d)}${L.length ? ', событий: ' + L.length : ''}">
+        <span class="cdn">${+d.slice(8)}</span>${L.slice(0, L.length > max ? max - 1 : max).map(x => calChip(x, x.date < d ? 'cont' : '')).join('')}${L.length > max ? `<span class="ce-more">ещё ${L.length - max + 1}</span>` : ''}</div>`); }
+    rows.push(`<div class="cm-row" role="row">${cells.join('')}</div>`);
+  }
+  return `<div class="cm" role="grid"><div class="cm-h" role="row">${DOW.map((d, i) => `<div role="columnheader" class="${i > 4 ? 'we' : ''}">${d}</div>`).join('')}</div>${rows.join('')}</div>
+  <p class="small muted no-print" style="margin-top:8px">Нажмите на день — откроется этот день по часам; на событие — подробности.</p>`;
+}
+function calListHTML(U, items) {
+  const [from, to] = calRange(U), byFirst = new Map();
+  for (const x of items) { const d = D.max(x.date, from); if (!byFirst.has(d)) byFirst.set(d, []); byFirst.get(d).push(x); }
+  const days = [...byFirst.keys()].sort();
+  const row = x => { const c = calById(x.cal) || { color: '#888', name: '' }, i = calShown.push(x) - 1;
+    return `<li class="click cl-it" data-act="cal-open" data-ix="${i}" style="--c:${c.color}"><span class="cl-tm">${h(calMulti(x) ? (x.date < from ? '… по ' + calDayRu(x.end) : 'по ' + calDayRu(x.end)) : x.time ? x.time + (x.timeEnd ? '–' + x.timeEnd : '') : 'весь день')}</span><span class="cl-dot" aria-hidden="true"></span>
+      <div class="who"><b>${h(x.title || 'Без названия')}</b><span class="small">${h([c.name, x.place, x.sub, x.rep ? 'повторяется' : ''].filter(Boolean).join(' · '))}</span></div></li>`; };
+  return `${days.length ? days.map(d => { const w = DOW_FULL[D.dow(d)], rel = d === ix.today ? 'Сегодня, ' : d === D.add(ix.today, 1) ? 'Завтра, ' : '';
+    return `<div class="card flat cl-day${d === ix.today ? ' tod' : ''}"><div class="cl-dh" data-act="cal-goday" data-d="${d}">${rel}${rel ? w : w[0].toUpperCase() + w.slice(1)}, ${calDayRu(d, d.slice(0, 4) !== ix.today.slice(0, 4))}</div><ul class="list">${byFirst.get(d).map(row).join('')}</ul></div>`; }).join('')
+    : `<div class="card"><div class="empty">С ${calDayRu(from)} по ${calDayRu(to)} событий нет${(meta.calOff || []).length ? ' (часть календарей скрыта)' : ''}.</div></div>`}
+  <div class="row no-print" style="margin-top:10px"><button type="button" class="btn" data-act="cal-more">Показать ещё 60 дней</button><span class="small muted">показано по ${calDayRu(to, true)}</span></div>`;
+}
+function calLayout(L) {                                  // события одного дня по часам: колонки для пересекающихся
+  const ev = L.map(x => { const [a, b] = x.time.split(':').map(Number), s = a * 60 + b; let e = s + 60;
+    if (x.timeEnd) { const [c, d] = x.timeEnd.split(':').map(Number); e = Math.max(s + 15, c * 60 + d); } return { x, s, e }; }).sort((p, q) => p.s - q.s || q.e - p.e);
+  let grp = [], end = -1; const out = [];
+  const flush = () => { const cols = []; for (const g of grp) { let c = cols.findIndex(t => t <= g.s); if (c < 0) { c = cols.length; cols.push(0); } cols[c] = g.e; g.col = c; } for (const g of grp) { g.cols = cols.length; out.push(g); } grp = []; };
+  for (const g of ev) { if (grp.length && g.s >= end) flush(); grp.push(g); end = Math.max(end, g.e); }
+  if (grp.length) flush();
+  return out;
+}
+function calGridHTML(U, from, to, items) {
+  const S = db.settings.calView, h0 = Math.max(0, Math.min(23, +S.h0 || 0)), h1 = Math.max(h0 + 1, Math.min(24, +S.h1 || 24)), days = [];
+  for (let d = from; d <= to; d = D.add(d, 1)) days.push(d);
+  const top = items.filter(x => !x.time || calMulti(x)), timed = items.filter(x => x.time && !calMulti(x)), byT = calByDay(top, from, to), byM = calByDay(timed, from, to);
+  const now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes();
+  const col = d => {
+    const L = calLayout(byM.get(d) || []).map(g => { const t = (Math.min(Math.max(g.s, h0 * 60), h1 * 60 - 15) - h0 * 60) * CAL_PX / 60, hh = Math.max(20, (Math.min(g.e, h1 * 60) - Math.max(g.s, h0 * 60)) * CAL_PX / 60);
+      return `<div class="cg-ev" style="top:${t}px;height:${hh}px;left:calc(${(g.col / g.cols) * 100}% + 1px);width:calc(${100 / g.cols}% - 3px)">${calChip(g.x, 'blk')}</div>`; }).join('');
+    const line = d === ix.today && nowMin >= h0 * 60 && nowMin <= h1 * 60 ? `<div class="cg-now" style="top:${(nowMin - h0 * 60) * CAL_PX / 60}px" aria-hidden="true"></div>` : '';
+    return `<div class="cg-col${d === ix.today ? ' tod' : ''}" data-act="cal-slot" data-d="${d}" title="Нажмите на свободное место — новое событие на это время">${L}${line}</div>`;
+  };
+  const n = days.length, hrs = []; for (let k = h0; k < h1; k++) hrs.push(`<div class="cg-hr" style="top:${(k - h0) * CAL_PX}px">${calPad(k)}:00</div>`);
+  return `<div class="cg-scroll"><div class="cg${n === 1 ? ' one' : ''}" style="--n:${n};--hh:${CAL_PX}px">
+    <div class="cg-h"><div></div>${days.map(d => `<div class="cg-dh${d === ix.today ? ' tod' : ''}${ix.holiday.has(d) ? ' we' : ''}" data-act="cal-goday" data-d="${d}"><span>${DOW[D.dow(d)]}</span><b>${+d.slice(8)}</b></div>`).join('')}</div>
+    <div class="cg-ad"><div class="cg-lbl">весь день</div>${days.map(d => `<div class="cg-adc">${(byT.get(d) || []).map(x => calChip(x, x.date < d ? 'cont' : '')).join('')}</div>`).join('')}</div>
+    <div class="cg-body" style="height:${(h1 - h0) * CAL_PX}px"><div class="cg-hours">${hrs.join('')}</div>${days.map(col).join('')}</div></div></div>
+  <p class="small muted no-print" style="margin-top:8px">Часы ${calPad(h0)}:00–${calPad(h1)}:00 — меняются в «Настройках». Нажмите на свободное место — новое событие на это время.</p>`;
+}
+/* выбор из нескольких вариантов (повторяющееся событие: только это / это и следующие / все) */
+function choose(msg, opts) {
+  return new Promise(res => {
+    const d = document.createElement('dialog'); d.className = 'ask'; d.setAttribute('aria-modal', 'true');
+    d.innerHTML = `<form><div class="ask-b"><p class="ask-t"></p><div class="ch-l">${opts.map(([v, l]) => `<button type="button" class="btn" data-v="${h(v)}">${h(l)}</button>`).join('')}</div></div><div class="ask-f"><button type="button" class="btn" data-v="">Отмена</button></div></form>`;
+    d.querySelector('.ask-t').textContent = msg; document.body.appendChild(d);
+    const done = v => { if (d.open) d.close(); d.remove(); res(v || null); };
+    d.querySelectorAll('[data-v]').forEach(b => b.addEventListener('click', () => done(b.dataset.v)));
+    d.addEventListener('cancel', e => { e.preventDefault(); done(null); });
+    d.showModal(); d.querySelector('.ch-l button').focus();
+  });
+}
+function calOccCount(ev, before) { let i = 0, guard = 0; const R = ev.rep; for (const s of calGen(ev.date, R)) { if (++guard > 40000 || s >= before || (R.until && s > R.until)) break; i++; } return i; }
+function calForm(o) {                                    // o: вхождение (правка) или { date, time } (новое)
+  const ev = o && o.id ? (db.events || []).find(e => e.id === o.id) : null, R = (ev && ev.rep) || {}, cals = db.cals || [];
+  if (!cals.length) { notice('Сначала добавьте календарь: «Календари» → «+ Добавить календарь».'); return; }
+  const x = ev ? o : { title: '', date: o.date || ix.today, end: '', time: o.time || '', timeEnd: o.time ? calPad(Math.min(23, +o.time.slice(0, 2) + 1)) + ':' + o.time.slice(3) : '', place: '', note: '', cal: '' };
+  const defCal = ev ? ev.cal : (cals.find(c => c.id === ui.cal?.lastCal && calOn(c.id)) || cals.find(c => calOn(c.id)) || cals[0]).id;
+  const allDay = !x.time, wd = R.wd && R.wd.length ? R.wd.map(Number) : [D.dow(x.date)], repEnd = R.until ? 'until' : R.count ? 'count' : '';
+  const body = `<div class="fgrid"><label class="f wide"><span>Название</span><input type="text" name="title" value="${h(x.title)}" required maxlength="200" autocomplete="off"></label>
+    ${FS('cal', 'Календарь', cals.map(c => [c.id, c.name + (c.personal && !/личн/i.test(c.name) ? ' (личный)' : '')]), defCal)}
+    <label class="cal-ckf"><input type="checkbox" name="allDay" ${allDay ? 'checked' : ''}>Весь день</label>
+    ${F('date', 'Дата', x.date, 'date', 'required data-noclr')}
+    <div class="f cal-tm" ${allDay ? 'hidden' : ''}><span>Время</span><span class="row" style="gap:6px;flex-wrap:nowrap"><input type="time" name="time" value="${h(x.time)}" aria-label="Начало" step="300">–<input type="time" name="timeEnd" value="${h(x.timeEnd)}" aria-label="Окончание" step="300"></span></div>
+    ${F('end', 'Окончание (если несколько дней)', calMulti(x) ? x.end : '', 'date')}
+    ${FS('rep', 'Повтор', [['', 'не повторяется'], ['d', 'каждый день'], ['w', 'каждую неделю'], ['m', 'каждый месяц (то же число)'], ['y', 'каждый год']], R.f || '')}
+    <div class="wide cal-rep" ${R.f ? '' : 'hidden'}><div class="fgrid">
+      <label class="f"><span class="cal-n-l">Каждые</span><input type="number" name="n" min="1" max="99" step="1" inputmode="numeric" value="${h(R.n || 1)}"></label>
+      ${FS('repEnd', 'Окончание повтора', [['', 'никогда'], ['until', 'до даты'], ['count', 'после N раз']], repEnd)}
+      <label class="f cal-until" ${repEnd === 'until' ? '' : 'hidden'}><span>До даты (включительно)</span><input type="date" name="until" value="${h(R.until || '')}"></label>
+      <label class="f cal-count" ${repEnd === 'count' ? '' : 'hidden'}><span>Сколько раз</span><input type="number" name="count" min="1" max="999" inputmode="numeric" value="${h(R.count || 10)}"></label>
+      <div class="wide cal-wd" ${R.f === 'w' || !R.f ? '' : 'hidden'}><span class="small muted">Дни недели</span><div class="row" style="gap:4px 10px">${DOW.map((d, i) => `<label class="row small" style="gap:4px"><input type="checkbox" name="wd[]" value="${i}" ${wd.includes(i) ? 'checked' : ''}>${d}</label>`).join('')}</div></div>
+    </div>${ev && ev.rep && o.key !== ev.date ? '<p class="small muted" style="margin:6px 0 0">Правило повтора меняется для «этого и следующих» или «всех» событий.</p>' : ''}</div>
+    ${FS('remind', 'Напомнить на «Сегодня»', CAL_REMIND, ev ? String(ev.remind ?? '') : '1')}
+    ${F('place', 'Место', x.place, 'text', 'maxlength="200"')}
+    <label class="f wide"><span>Заметка</span><textarea name="note" rows="3" maxlength="2000">${h(x.note)}</textarea></label></div>
+    ${!ev ? '' : `<p class="small muted">${h(calById(ev.cal)?.name || '')}${ev.rep ? ' · повторяющееся событие' : ''}</p>`}`;
+  modal(ev ? 'Событие' : 'Новое событие', body, {
+    extraBtn: ev ? `<button type="button" class="btn danger" data-act="cal-del" data-id="${h(ev.id)}" data-key="${h(o.key)}">Удалить</button>` : '',
+    async onSubmit(fd) {
+      const v = { title: String(fd.title || '').trim(), cal: fd.cal, date: fd.date, end: fd.end && fd.end > fd.date ? fd.end : '', time: fd.allDay ? '' : fd.time || '', timeEnd: fd.allDay ? '' : fd.timeEnd || '', place: String(fd.place || '').trim(), note: String(fd.note || '').trim() };
+      if (!v.title) { notice('Укажите название'); return false; }
+      if (!v.date) { notice('Укажите дату'); return false; }
+      if (fd.end && fd.end < fd.date) { notice('Окончание раньше начала. Исправьте дату окончания.'); return false; }
+      if (!fd.allDay && !v.time) { notice('Укажите время начала или отметьте «Весь день».'); return false; }
+      if (v.time && v.timeEnd && !v.end && v.timeEnd <= v.time) { notice('Время окончания должно быть позже начала.'); return false; }
+      if (!v.time) v.timeEnd = '';
+      let rep = null;
+      if (fd.rep) { rep = { f: fd.rep, n: Math.max(1, Math.min(99, Math.floor(+fd.n || 1))) };
+        if (fd.rep === 'w') { rep.wd = ((fd.__multi || {})['wd[]'] || []).map(Number); if (!rep.wd.length) rep.wd = [D.dow(v.date)]; if (!rep.wd.includes(D.dow(v.date))) rep.wd.push(D.dow(v.date)); rep.wd.sort((a, b) => a - b); }
+        if (fd.repEnd === 'until') { if (!fd.until) { notice('Укажите дату, до которой повторять.'); return false; } if (fd.until < v.date) { notice('Дата окончания повтора раньше первого события.'); return false; } rep.until = fd.until; }
+        if (fd.repEnd === 'count') rep.count = Math.max(1, Math.min(999, Math.floor(+fd.count || 1))); }
+      const remind = fd.remind === '' ? '' : +fd.remind;
+      ui.cal = ui.cal || {}; ui.cal.lastCal = v.cal;
+      if (!ev) { db.events.push({ id: uid('E'), ...v, remind, rep, ex: {} }); render.keepScroll = true; persist('Событие добавлено'); return true; }
+      let scope = 'all';
+      if (ev.rep) { scope = await choose('Это повторяющееся событие. Что изменить?', [['one', 'Только это событие'], ['next', 'Это и следующие'], ['all', 'Все события']]); if (!scope) return false; }
+      if (scope === 'next' && o.key === ev.date) scope = 'all';
+      if (scope === 'one') { ev.ex = ev.ex || {}; ev.ex[o.key] = { ...v }; delete ev.ex[o.key].cal; if (v.cal !== ev.cal) toast('Календарь меняется только для всех событий серии — для одного оставлен прежний'); }
+      else if (scope === 'next') {
+        const before = calOccCount(ev, o.key), old = ev.rep, nev = { id: uid('E'), ...v, remind, rep: rep ? { ...rep } : null, ex: {} };
+        if (old.count && rep && rep.count && JSON.stringify({ ...old, count: 0 }) === JSON.stringify({ ...rep, count: 0 })) nev.rep.count = Math.max(1, old.count - before);
+        ev.rep = { ...old, until: D.add(o.key, -1) }; delete ev.rep.count;
+        for (const k of Object.keys(ev.ex || {})) if (k >= o.key) delete ev.ex[k];
+        db.events.push(nev);
+      } else {
+        const shift = D.diff(o.key, v.date), ruleCh = JSON.stringify(ev.rep || null) !== JSON.stringify(rep);
+        const nd = D.add(ev.date, shift), ne = v.end ? D.add(nd, D.diff(v.date, v.end)) : '';
+        Object.assign(ev, v, { date: nd, end: ne, remind, rep });
+        if (shift || ruleCh) ev.ex = {};
+      }
+      render.keepScroll = true; persist('Сохранено'); return true;
+    } });
+  calFormSync();
+}
+function calFormSync() {                                  // поля окна события: «весь день», повтор
+  const f = document.getElementById('dlg-form'); if (!f) return;
+  const q = s => f.querySelector(s), upd = () => {
+    const ad = q('[name=allDay]').checked, r = q('[name=rep]').value, re = q('[name=repEnd]').value;
+    q('.cal-tm').hidden = ad; q('.cal-rep').hidden = !r; q('.cal-wd').hidden = r !== 'w'; q('.cal-until').hidden = re !== 'until'; q('.cal-count').hidden = re !== 'count';
+    q('.cal-n-l').textContent = 'Каждые … ' + ({ d: 'дней (1 — каждый день)', w: 'недель (1 — каждую неделю)', m: 'месяцев', y: 'лет' }[r] || '');
+    if (!ad && !q('[name=time]').value) { q('[name=time]').value = '10:00'; if (!q('[name=timeEnd]').value) q('[name=timeEnd]').value = '11:00'; }
+  };
+  ['allDay', 'rep', 'repEnd'].forEach(n => q(`[name=${n}]`).addEventListener('change', upd));
+  q('[name=time]').addEventListener('change', () => { const a = q('[name=time]').value, b = q('[name=timeEnd]'); if (a && (!b.value || b.value <= a)) b.value = calPad(Math.min(23, +a.slice(0, 2) + 1)) + ':' + a.slice(3); });
+  let prevDate = q('[name=date]').value;
+  q('[name=date]').addEventListener('change', () => { const d = q('[name=date]').value; if (!d) return; const was = prevDate; prevDate = d;   // день недели повтора идёт за датой, если отмечен был только прежний день
+    const on = [...f.querySelectorAll('[name="wd[]"]:checked')]; if (was && on.length === 1 && +on[0].value === D.dow(was)) on[0].checked = false;
+    const box = q(`[name="wd[]"][value="${D.dow(d)}"]`); if (box) box.checked = true; });
+  upd();
+}
+function calAutoInfo(x) {
+  const c = calById(x.cal);
+  modal(x.title, `<p><b>${h(calMulti(x) ? D.ru(x.date) + ' — ' + D.ru(x.end) : DOW_FULL[D.dow(x.date)] + ', ' + D.ru(x.date))}</b></p>${x.sub ? `<p class="muted">${h(x.sub)}</p>` : ''}
+    ${x.people && x.people.length > 1 ? `<ul class="list">${x.people.map(p => `<li class="click" data-go="#person/${h(p.id)}"><div class="who"><b>${h(p.name)}</b><span class="small">${h(p.sub)}</span></div></li>`).join('')}</ul>` : ''}
+    <p class="small muted">Календарь «${h(c.name)}» — из данных программы. Изменить можно только там, откуда событие взято.</p>`,
+    { extraBtn: `<button type="button" class="btn primary" data-act="close" data-go="${h(x.go)}">${x.go === '#subs' ? 'Открыть «Абонементы»' : x.go.startsWith('#person/') ? 'Карточка' : 'Открыть'}</button>` });
+}
+function calEditCal(id) {
+  const c = id ? (db.cals || []).find(x => x.id === id) : null, col = c ? c.color : CAL_COLORS.find(k => !(db.cals || []).some(x => x.color === k)) || CAL_COLORS[0];
+  const n = c ? (db.events || []).filter(e => e.cal === c.id).length : 0;
+  modal(c ? 'Календарь' : 'Новый календарь', `<div class="fgrid"><label class="f wide"><span>Название</span><input type="text" name="name" value="${h(c ? c.name : '')}" required maxlength="60" autocomplete="off"></label>
+    <div class="f wide"><span>Цвет</span><div class="cal-pal">${CAL_COLORS.map(k => `<label style="--c:${k}"><input type="radio" name="color" value="${k}" ${k === col ? 'checked' : ''} aria-label="${k}"><i></i></label>`).join('')}<label class="cal-own" title="Свой цвет"><input type="color" name="own" value="${h(col)}" aria-label="Свой цвет"></label></div></div>
+    <label class="cal-ckf wide"><input type="checkbox" name="personal" ${c && c.personal ? 'checked' : ''}>Личный — не попадает в обезличенную копию</label></div>
+    ${c ? `<p class="small muted">Событий в календаре: ${n}. В обычной копии данных (и «Поделиться копией») переносятся все календари.</p>` : '<p class="small muted">В обычной копии данных (и «Поделиться копией») переносятся все календари, личные тоже.</p>'}`, {
+    extraBtn: c ? `<button type="button" class="btn danger" data-act="cal-delcal" data-id="${h(c.id)}">Удалить календарь</button>` : '',
+    onSubmit(fd) {
+      const name = String(fd.name || '').trim(); if (!name) { notice('Укажите название'); return false; }
+      if ((db.cals || []).some(x => x !== c && x.name.toLowerCase() === name.toLowerCase())) { notice('Календарь с таким названием уже есть.'); return false; }
+      const color = document.getElementById('dlg-form').dataset.own ? fd.own : fd.color || col;
+      if (c) Object.assign(c, { name, color, personal: !!fd.personal }); else db.cals.push({ id: uid('c'), name, color, personal: !!fd.personal });
+      render.keepScroll = true; persist(c ? 'Календарь сохранён' : 'Календарь добавлен');
+    } });
+  const own = document.querySelector('#dlg-form [name=own]');
+  if (own) own.addEventListener('input', () => { document.querySelectorAll('#dlg-form [name=color]').forEach(r => { r.checked = false; }); document.getElementById('dlg-form').dataset.own = '1'; });
+  document.querySelectorAll('#dlg-form [name=color]').forEach(r => r.addEventListener('change', () => { delete document.getElementById('dlg-form').dataset.own; if (own) own.value = r.value; }));
+}
+async function calDelCal(id) {
+  const c = (db.cals || []).find(x => x.id === id); if (!c) return;
+  if (db.cals.length === 1) { notice('Должен остаться хотя бы один свой календарь. Сначала добавьте другой.'); return; }
+  const evs = db.events.filter(e => e.cal === c.id), others = db.cals.filter(x => x !== c);
+  if (!evs.length) { if (!await ask(`Удалить календарь «${c.name}»? Событий в нём нет.`)) return; }
+  else {
+    const v = await choose(`В календаре «${c.name}» событий: ${evs.length}. Что с ними сделать?`, [...others.map(o => ['mv:' + o.id, 'Перенести в «' + o.name + '»']), ['del', 'Удалить вместе с календарём']]);
+    if (!v) return;
+    if (v === 'del') { if (!await ask(`Удалить календарь «${c.name}» и ${evs.length} ${plural(evs.length, 'событие', 'события', 'событий')}?`)) return; db.events = db.events.filter(e => e.cal !== c.id); }
+    else { const to = v.slice(3); evs.forEach(e => { e.cal = to; }); }
+  }
+  db.cals = db.cals.filter(x => x !== c); meta.calOff = (meta.calOff || []).filter(x => x !== c.id); writeMeta();
+  closeModal(); render.keepScroll = true; persist('Календарь удалён');
+}
+async function calDelEv(id, key) {
+  const ev = (db.events || []).find(e => e.id === id); if (!ev) return;
+  if (!ev.rep) { if (!await ask(`Удалить событие «${ev.title}»?`)) return; db.events = db.events.filter(e => e !== ev); }
+  else {
+    const v = await choose(`«${ev.title}» — повторяющееся событие. Что удалить?`, [['one', 'Только это событие'], ['next', 'Это и следующие'], ['all', 'Все события']]); if (!v) return;
+    if (v === 'all' || (v === 'next' && key <= ev.date)) db.events = db.events.filter(e => e !== ev);
+    else if (v === 'one') { ev.ex = ev.ex || {}; ev.ex[key] = { del: true }; }
+    else { ev.rep = { ...ev.rep, until: D.add(key, -1) }; delete ev.rep.count; for (const k of Object.keys(ev.ex || {})) if (k >= key) delete ev.ex[k]; }
+  }
+  closeModal(); render.keepScroll = true; persist('Событие удалено');
+}
+function calSoonCard() {                                  // «Сегодня»: события сегодня и те, о которых пора напомнить
+  const t = ix.today, L = [];
+  for (const ev of db.events || []) { if (!calById(ev.cal)) continue;
+    for (const o of calOcc(ev, t, D.add(t, 31))) { const lead = o.date <= t ? 0 : D.diff(t, o.date);
+      if ((o.date <= t && o.end >= t) || (o.remind !== '' && o.remind != null && lead <= +o.remind)) L.push(o); } }
+  if (!L.length) return '';
+  L.sort((a, b) => a.date.localeCompare(b.date) || (a.time ? 1 : 0) - (b.time ? 1 : 0) || a.time.localeCompare(b.time));
+  const when = o => { const d = D.max(o.date, t), k = D.diff(t, d); return (k === 0 ? '<b>сегодня</b>' : k === 1 ? 'завтра' : k === 2 ? 'послезавтра' : 'через ' + k + ' ' + plural(k, 'день', 'дня', 'дней') + ', ' + calDayRu(d)) + (o.time && !calMulti(o) ? ' · ' + o.time + (o.timeEnd ? '–' + o.timeEnd : '') : calMulti(o) ? ' · по ' + calDayRu(o.end) : ''); };
+  return `<div class="card flat cal-soon"><div style="padding:14px 16px 4px" class="row"><h2 style="margin:0;flex:1">Календарь</h2><a class="btn sm ghost no-print" href="#cal">Открыть</a></div><ul class="list">${L.slice(0, 8).map(o => { const c = calById(o.cal);
+    return `<li class="click cl-it" data-go="#cal/${D.max(o.date, t)}" style="--c:${c.color}"><span class="cl-dot" aria-hidden="true"></span><div class="who"><b>${h(o.title)}</b><span class="small">${when(o)} · ${h(c.name)}${o.place ? ' · ' + h(o.place) : ''}</span></div></li>`; }).join('')}</ul>${L.length > 8 ? `<p class="small muted" style="padding:0 16px 10px">и ещё ${L.length - 8}</p>` : ''}</div>`;
+}
+function calSettingsCard() {
+  const S = db.settings.calView, V = CAL_VIEWS, hrs = []; for (let k = 0; k <= 24; k++) hrs.push([k, calPad(k) + ':00']);
+  return `<div class="card"><h2>Календарь</h2><div class="fgrid">
+    <label class="f"><span>Открывать на компьютере</span><select data-change="cal-set" data-k="pc">${V.map(([k, l]) => opt(k, S.pc, l)).join('')}</select></label>
+    <label class="f"><span>Открывать на телефоне</span><select data-change="cal-set" data-k="mob">${V.map(([k, l]) => opt(k, S.mob, l)).join('')}</select></label>
+    <label class="f"><span>«Неделя» и «День»: с</span><select data-change="cal-set" data-k="h0">${hrs.slice(0, 24).map(([k, l]) => opt(k, S.h0, l)).join('')}</select></label>
+    <label class="f"><span>до</span><select data-change="cal-set" data-k="h1">${hrs.slice(1).map(([k, l]) => opt(k, S.h1, l)).join('')}</select></label></div>
+    <p class="small muted">Вид по умолчанию — при открытии программы; в самом календаре вид переключается кнопками. Свои календари добавляются и удаляются в разделе «Календарь».</p></div>`;
+}
+const CAL_ACT = {
+  'cal-new': () => { const U = ui.cal || {}; calForm({ date: U.cur && U.cur >= ix.today ? U.cur : ix.today }); },
+  'cal-open': el => { const x = calShown[+el.dataset.ix]; if (!x) return; if (x.auto) calAutoInfo(x); else calForm(x); },
+  'cal-today': () => { ui.cal.cur = ix.today; render(); },
+  'cal-nav': el => { const U = ui.cal, k = +el.dataset.d; U.cur = U.view === 'month' ? calAddM(U.cur.slice(0, 8) + '01', k) : U.view === 'week' ? D.add(U.cur, 7 * k) : U.view === 'day' ? D.add(U.cur, k) : calAddM(U.cur, k); if (U.view === 'list') U.listDays = 60; render(); },
+  'cal-view': el => { ui.cal.view = el.dataset.v; if (el.dataset.v === 'list') ui.cal.listDays = 60; render(); },
+  'cal-goday': (el, e) => { if (e && e.target.closest('.ce')) return; ui.cal.cur = el.dataset.d; ui.cal.view = 'day'; render(); },
+  'cal-slot': (el, e) => { if (e.target !== el) return; const S = db.settings.calView, y = e.clientY - el.getBoundingClientRect().top, m = Math.max(0, Math.floor(y / CAL_PX * 2)) * 30 + (+S.h0 || 0) * 60;
+    calForm({ date: el.dataset.d, time: calPad(Math.min(23, Math.floor(m / 60))) + ':' + calPad(m % 60) }); },
+  'cal-more': () => { ui.cal.listDays += 60; rerender(); },
+  'cal-all': () => { meta.calOff = []; writeMeta(); rerender(); },
+  'cal-only': el => { meta.calOff = [...(db.cals || []).map(c => c.id), ...CAL_AUTO.map(a => a[0])].filter(x => x !== el.dataset.id); writeMeta(); rerender(); },
+  'cal-edit': el => calEditCal(el.dataset.id || ''),
+  'cal-delcal': el => calDelCal(el.dataset.id),
+  'cal-del': el => calDelEv(el.dataset.id, el.dataset.key),
+};
+Object.assign(ACT, CAL_ACT);
+document.addEventListener('toggle', e => { if (e.target.matches && e.target.matches('details[data-calside]') && PHONE_MQ.matches && ui.cal) ui.cal.side = e.target.open; }, true);
 document.addEventListener('click', e => {
   const act = e.target.closest('[data-act]');
   if (act && !(act.tagName === 'INPUT' || act.tagName === 'SELECT')) {
@@ -7406,6 +7822,11 @@ async function onChange(e) {
   const v = el.type === 'checkbox' ? el.checked : el.value;
   const live = e.type === 'input';
   if (k === 'pf') { ui.people[el.dataset.k] = v; if (live && el.type !== 'number' && el.type !== 'search') return; clearTimeout(typingTimer); typingTimer = setTimeout(() => { if (live) liveRefresh(el); else rerender(); }, live ? 250 : 0); return; }
+  if (k === 'cal-on') { const id = el.dataset.id, off = new Set(meta.calOff || []); if (v) off.delete(id); else off.add(id); meta.calOff = [...off]; writeMeta(); rerender(); return; }
+  if (k === 'cal-set') { const S = db.settings.calView, kk = el.dataset.k; S[kk] = kk === 'h0' || kk === 'h1' ? +v : v;
+    if (S.h1 <= S.h0) { if (kk === 'h0') S.h1 = Math.min(24, S.h0 + 1); else S.h0 = Math.max(0, S.h1 - 1); }
+    if ((kk === 'pc' && !PHONE_MQ.matches) || (kk === 'mob' && PHONE_MQ.matches)) { if (ui.cal) ui.cal.view = v; }
+    render.keepScroll = true; persist('Сохранено'); return; }
   if (k === 'attest-q') { ui.attest.q = v; clearTimeout(typingTimer); typingTimer = setTimeout(() => { if (live) liveRefresh(el); else rerender(); }, live ? 250 : 0); return; }
   if (k === 'leads-q') { ui.leads.q = v; clearTimeout(typingTimer); typingTimer = setTimeout(() => { if (live) liveRefresh(el); else rerender(); }, live ? 250 : 0); return; }
   if (k === 'money-q') { ui.money.q = v; clearTimeout(typingTimer); typingTimer = setTimeout(() => { if (live) liveRefresh(el); else rerender(); }, live ? 250 : 0); return; }
