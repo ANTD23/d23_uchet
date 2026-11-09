@@ -806,7 +806,7 @@ details.tdet[open] > summary::after{transform:rotate(-135deg)}
 .evc-h h2{display:flex;align-items:flex-start;gap:12px;line-height:1.3;overflow-wrap:anywhere} .evc-h h2::before{content:'';flex:none;width:16px;height:16px;border-radius:4px;background:var(--c);margin-top:.2em}
 .evc-b{width:44px;min-width:44px;height:44px;padding:0;flex:none} .evc-b svg{width:20px;height:20px}
 .evc{display:grid;gap:14px} .evc-r{display:grid;grid-template-columns:24px minmax(0,1fr);gap:12px;align-items:start;line-height:1.45} .evc-ic{color:var(--ink-3);padding-top:1px} .evc-ic svg{width:20px;height:20px;display:block}
-.evc-note{white-space:pre-wrap;overflow-wrap:anywhere} .evc-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--c);margin-right:8px;vertical-align:0} .evc-pp{margin:-6px 0 0} .evc-pp li{padding-left:0}
+.evc-dur{color:var(--ink-2);font-size:.9375rem;margin-top:2px} .evc-note{white-space:pre-wrap;overflow-wrap:anywhere} .evc-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--c);margin-right:8px;vertical-align:0} .evc-pp{margin:-6px 0 0} .evc-pp li{padding-left:0}
 .cal-dur{margin:-4px 0 0;color:var(--ink-2);min-height:1.2em} .cal-dur.bad{color:var(--bad);font-weight:600}
 .cal-lk{flex:none;width:14px;height:14px;color:var(--ink-3)} .cal-tm[hidden],.cal-rep[hidden],.cal-wd[hidden],.cal-until[hidden],.cal-count[hidden]{display:none!important}
 @media (hover:hover) and (pointer:fine){.cal-fl .btn.sm{opacity:0} .cal-fl:hover .btn.sm,.cal-fl:focus-within .btn.sm{opacity:1}}
@@ -6082,7 +6082,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '10.11.2026 (v141)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '10.11.2026 (v142)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -7801,8 +7801,7 @@ function calFormSync() {                                  // поля окна �
     if (m == null) { box.textContent = ''; return; }
     if (ad ? m < 0 : m <= 0) { box.textContent = 'Окончание раньше начала — поправьте дату или время окончания.'; box.classList.add('bad'); return; }
     if (ad) { const n = m / 1440 + 1; box.textContent = n === 1 ? 'Один день' : `${n} ${plural(n, 'день', 'дня', 'дней')}: ${calDayRu(S.value)} — ${calDayRu(E.value)}`; return; }
-    const d = Math.floor(m / 1440), hh = Math.floor((m % 1440) / 60), mm = m % 60;
-    box.textContent = 'Длительность: ' + [d ? d + ' ' + plural(d, 'день', 'дня', 'дней') : '', hh ? hh + ' ч' : '', mm ? mm + ' мин' : ''].filter(Boolean).join(' ') + (E.value > S.value ? ` · до ${calDayRu(E.value)}, ${ET.value}` : '');
+    box.textContent = calDurTxt(m, E.value > S.value ? E.value : '', ET.value);
     if (z1() !== M || z2() !== M) { const [a, b] = tzUtcToWall(tzWallToUtc(S.value, ST.value, z1()), M), [c, e] = tzUtcToWall(tzWallToUtc(E.value, ET.value, z2()), M);
       box.append(document.createElement('br'), `По основному поясу (${tzName(M)}): ${calDayRu(a)}, ${b} — ${c === a ? '' : calDayRu(c) + ', '}${e}`); }
   }
@@ -7839,12 +7838,23 @@ const EVC_IC = {
   people: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>',
   edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg>',
   del: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>' };
+function calDurTxt(m, endDate, endTime) {               // «Длительность: 1 день 6 ч 20 мин · до 20 ноября, 05:40» — в форме и в карточке
+  const d = Math.floor(m / 1440), hh = Math.floor((m % 1440) / 60), mm = m % 60;
+  return 'Длительность: ' + ([d ? d + ' ' + plural(d, 'день', 'дня', 'дней') : '', hh ? hh + ' ч' : '', mm ? mm + ' мин' : ''].filter(Boolean).join(' ') || '0 мин') + (endDate ? ` · до ${calDayRu(endDate)}, ${endTime}` : '');
+}
+function calDurOf(x) {                                   // длительность события на карточке
+  if (!x.time) { const n = D.diff(x.date, x.end) + 1; return n === 1 ? 'Весь день' : `Длительность: ${n} ${plural(n, 'день', 'дня', 'дней')}`; }
+  if (!x.timeEnd) return '';
+  const r = x.raw || x, M = calTz(), t1 = tzOk(x.tz) ? x.tz : M, t2 = tzOk(x.tzEnd) ? x.tzEnd : t1;
+  const m = Math.round((tzWallToUtc(r.end || r.date, r.timeEnd, t2) - tzWallToUtc(r.date, r.time, t1)) / 60000);
+  return m > 0 ? calDurTxt(m, x.end > x.date ? x.end : '', x.timeEnd) : '';
+}
 function calWhenFull(x) {                                // «Четверг, 12 ноября 2026 · 18:00–20:00» / «21 ноября, 09:00 — 23 ноября 2026, 18:00»
   const W = d => { const w = DOW_FULL[D.dow(d)]; return w[0].toUpperCase() + w.slice(1); }, y = x.end.slice(0, 4) !== ix.today.slice(0, 4) || x.date.slice(0, 4) !== x.end.slice(0, 4);
   if (!calMulti(x)) return `${W(x.date)}, ${calDayRu(x.date, true)}${x.time ? ' · ' + x.time + (x.timeEnd ? '–' + x.timeEnd : '') : ''}`;
   if (x.time) return `${calDayRu(x.date, y)}, ${x.time} — ${calDayRu(x.end, true)}${x.timeEnd ? ', ' + x.timeEnd : ''}`;
-  const n = D.diff(x.date, x.end) + 1, same = x.date.slice(0, 7) === x.end.slice(0, 7);
-  return `${same ? +x.date.slice(8) : calDayRu(x.date, y)} — ${calDayRu(x.end, true)} · ${n} ${plural(n, 'день', 'дня', 'дней')}`;
+  const same = x.date.slice(0, 7) === x.end.slice(0, 7);
+  return `${same ? +x.date.slice(8) : calDayRu(x.date, y)} — ${calDayRu(x.end, true)}`;
 }
 function calRepTxt(R, date) {
   if (!R || !R.f) return '';
@@ -7860,7 +7870,7 @@ function calCard(x) {
   const ev = x.auto ? null : (db.events || []).find(e => e.id === x.id); if (!x.auto && !ev) return;
   const c = calById(x.cal) || { name: '', color: '#888' }, row = (ic, html, cls = '') => `<div class="evc-r${cls ? ' ' + cls : ''}"><span class="evc-ic" aria-hidden="true">${EVC_IC[ic]}</span><div>${html}</div></div>`;
   const R = ev && ev.rep, rem = ev ? CAL_REMIND.find(r => r[0] === String(ev.remind ?? '')) : null;
-  let body = `<div class="evc" style="--c:${c.color}">` + row('time', `<b>${h(calWhenFull(x))}</b>${x.raw ? `<div class="small muted">${h(calTzTxt(x))}</div>` : ''}`);
+  let body = `<div class="evc" style="--c:${c.color}">` + row('time', `<b>${h(calWhenFull(x))}</b>${calDurOf(x) ? `<div class="evc-dur">${h(calDurOf(x))}</div>` : ''}${x.raw ? `<div class="small muted">${h(calTzTxt(x))}</div>` : ''}`);
   if (R) body += row('rep', h(calRepTxt(R, ev.date)) + (x.moved ? '<div class="small muted">Это событие серии изменено отдельно</div>' : ''));
   if (x.place) body += row('place', `${h(x.place)}<div class="small"><a href="https://yandex.ru/maps/?text=${encodeURIComponent(x.place)}" target="_blank" rel="noopener noreferrer">Открыть на карте</a></div>`);
   if (x.note) body += row('note', `<div class="evc-note">${calLinkify(x.note)}</div>`);
