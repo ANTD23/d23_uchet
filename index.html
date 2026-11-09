@@ -134,7 +134,7 @@ h3{font-size:1.0625rem;margin:0 0 .5rem}
 .nav svg{width:20px;height:20px;flex:none}
 .side .sync{margin-top:auto;font-size:.875rem;padding:12px;border-radius:var(--r-s);background:rgba(255,255,255,.07)}
 .side .sync button{margin-top:8px;width:100%}
-main{padding:24px 32px 96px;max-width:1180px;width:100%;min-width:0} body.main-wide main{max-width:none}
+main{padding:24px 32px 96px;max-width:1180px;width:100%;min-width:0} body.main-wide main:not(.pin-screen){max-width:none}
 table.t.norm-t th{white-space:normal;font-size:.72rem;line-height:1.15;vertical-align:bottom;padding:6px 3px!important;min-width:0} table.t.norm-t td{padding:3px 2px!important} table.t.norm-t input{font-size:.86rem}
 .topline{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:16px}
 .tabbar,.mtop{display:none}
@@ -4474,8 +4474,11 @@ function vSubs() {
   const refTxt = l => refd(l) ? ` (за вычетом возвратов ${refd(l).toLocaleString('ru')} ₽)` : '';
   const pLabel = U.pAll ? 'с ' + D.ru(pStart) : U.pTo < pStart ? D.ru(U.pFrom) + ' — ' + D.ru(U.pTo) + ' (до начала программы, не считается)' : D.ru(D.max(U.pFrom, pStart)) + ' — ' + D.ru(U.pTo);
   const seg = [['active', 'Действующие'], ['ending', 'Заканчиваются'], ['ended', 'Закончились'], ['pending', 'Ждём оплату'], ['debt', 'Долги'], ['period', 'Оплаты за период'], ['all', 'Все']];
+  /* 09.11.2026: печать и Excel/CSV — ровно то, что в списке (вкладка, период, поиск, сортировка) */
+  U._shown = rows.map(x => x.p.id);
+  U._title = (U.filter === 'period' ? 'Оплаты ' + pLabel : 'Абонементы — ' + ((seg.find(x => x[0] === U.filter) || ['', 'все'])[1]).toLowerCase()) + (q ? ' · поиск «' + U.q.trim() + '»' : '');
   return `<div class="topline"><div><h1>Абонементы</h1><div class="muted">В списке: ${rows.length}</div></div>
-  <div class="row no-print"><button class="btn" data-act="reset-filters" data-page="subs">Сбросить фильтры</button><button class="btn primary" data-act="sub-new">Оплата</button><button class="btn" data-act="subs-csv" data-fmt="xlsx">В Excel</button><button class="btn" data-act="subs-csv">CSV</button></div></div>
+  <div class="row no-print"><button class="btn" data-act="reset-filters" data-page="subs">Сбросить фильтры</button><button class="btn primary" data-act="sub-new">Оплата</button><button class="btn" data-act="subs-print">Печать</button><button class="btn" data-act="subs-csv" data-fmt="xlsx">В Excel</button><button class="btn" data-act="subs-csv">CSV</button></div></div>
   <div class="card no-print"><div class="row" style="align-items:flex-end">
     <div class="stat" style="min-width:180px"><b>${money(paidP).toLocaleString('ru')} ₽</b><span class="small muted">оплачено ${pLabel} · ${paidP.length} ${plural(paidP.length, 'оплата', 'оплаты', 'оплат')}${refTxt(paidP)}</span></div>
     <span class="spacer"></span>
@@ -6010,7 +6013,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '09.11.2026 (v133)';   // показывается в «Данные» — чтобы видеть, обновилась ли программа
+const APP_VER = '09.11.2026 (v134)';   // показывается в «Данные» — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -7334,8 +7337,15 @@ const ACT = {
     (location.hash.startsWith('#people') ? filteredPeople() : db.athletes).forEach(a => { const c = ix.athCalc.get(a.id); rows.push([fullName(a), a.sex, D.ru(a.birth), c.age ?? '', a.group, a.group2, a.status, c.belt, c.stripes || '', a.weight, a.phone, a.motherName, a.motherPhone, a.fatherName, a.fatherPhone, D.ru(a.medUntil), a.note]); });
     saveRows('D23_спортсмены_' + ix.today, rows, el, 'Спортсмены'); },
   'subs-csv': async el => { if (pinOn() && !await ask('Файл не шифруется: в файле будут открытые персональные данные. Продолжить?')) return; const rows = [['ФИО', 'Группа', 'Только на группу', 'Дата оплаты', 'Действует с', 'Занятий', 'Сумма', 'Возврат', 'Был', 'Не был', 'Болел', 'Остаток', 'Окончание', 'Статус', 'Примечание']];
-    db.subs.forEach(p => { const a = ix.ath.get(p.athleteId), r = ix.subCalc.get(p.id); if (a) rows.push([fullName(a), a.group, p.onlyGroup, p.pending ? 'ждём оплату' : D.ru(p.payDate), r.first ? D.ru(r.first) : 'не активирован', p.count, p.pending ? '' : p.amount, (refundBySub().get(p.id) || {}).sum || '', r.was, r.missed, r.sick, r.remaining, D.ru(r.end), r.status, p.note]); });
+    const ids = ui.subs._shown, list = ids ? ids.map(id => db.subs.find(p => p.id === id)).filter(Boolean) : db.subs;   // 09.11.2026: как в списке на экране
+    list.forEach(p => { const a = ix.ath.get(p.athleteId), r = ix.subCalc.get(p.id); if (a) rows.push([fullName(a), a.group, p.onlyGroup, p.pending ? 'ждём оплату' : D.ru(p.payDate), r.first ? D.ru(r.first) : 'не активирован', p.count, p.pending ? '' : p.amount, (refundBySub().get(p.id) || {}).sum || '', r.was, r.missed, r.sick, r.remaining, D.ru(r.end), r.status, p.note]); });
+    if (ids && ui.subs._title) rows.unshift([ui.subs._title + ' · ' + (rows.length - 1) + ' шт.']);
     saveRows('D23_абонементы_' + ix.today, rows, el, 'Абонементы'); },
+  'subs-print': () => { const ids = ui.subs._shown || [], list = ids.map(id => db.subs.find(p => p.id === id)).filter(Boolean);
+    const rub = n => (+n || 0).toLocaleString('ru'), sum = list.filter(p => !p.pending).reduce((s, p) => s + subNet(p), 0);
+    const tr = (p, i) => { const a = ix.ath.get(p.athleteId), r = ix.subCalc.get(p.id) || {}; return `<tr><td>${i + 1}</td><td>${h(fullName(a))}<br><small>${h(groupOn(a, ix.today) || a.group || '')}</small></td><td>${p.pending ? 'ждём оплату' : D.ru(p.payDate)}</td><td>${r.first ? D.ru(r.first) : 'не активирован'}</td><td style="text-align:right">${subTotal(p)}</td><td style="text-align:right">${p.pending ? '' : rub(subNet(p))}</td><td style="text-align:right">${r.was ?? ''}</td><td style="text-align:right">${r.remaining ?? ''}</td><td>${r.end ? D.ru(r.end) : ''}</td><td>${h(r.status || '')}</td></tr>`; };
+    openPrint(ui.subs._title || 'Абонементы', `<h2 style="margin:0 0 4px">Club D23: ${h(ui.subs._title || 'Абонементы')}</h2><p style="margin:0 0 10px">${list.length} ${plural(list.length, 'абонемент', 'абонемента', 'абонементов')} · сумма ${rub(sum)} ₽ · напечатано ${D.ru(ix.today)}</p>
+      <table><thead><tr><th>№</th><th>ФИО, группа</th><th>Оплата</th><th>С</th><th>Занятий</th><th>Сумма, ₽</th><th>Был</th><th>Остаток</th><th>Окончание</th><th>Статус</th></tr></thead><tbody>${list.map(tr).join('')}</tbody></table>`); },
   'visits-csv': async el => { if (pinOn() && !await ask('Файл не шифруется: в файле будут открытые персональные данные. Продолжить?')) return; const rows = [['Дата', 'День', 'Группа', 'ФИО', 'Отметка']];
     ix.sessionsSorted.forEach(s => Object.entries(s.marks).forEach(([id, m]) => { const a = ix.ath.get(id); if (a) rows.push([D.ru(s.date), DOW[D.dow(s.date)], s.group, fullName(a), m === 'б' && isBS(ix, id, s.date) ? 'бс' : m]); }));
     saveRows('D23_посещения_' + ix.today, rows, el, 'Посещения'); },
