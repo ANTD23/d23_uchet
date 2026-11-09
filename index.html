@@ -797,6 +797,8 @@ details.tdet[open] > summary::after{transform:rotate(-135deg)}
 .cg-ev{position:absolute;overflow:hidden} .ce.blk{height:100%;margin:0;white-space:normal;padding:2px 5px;border-left-width:3px;border-left-color:var(--c);background:color-mix(in srgb,var(--c) 22%,var(--surface))} .ce.blk.tm::before{display:none}
 .cg-now{position:absolute;left:0;right:0;height:2px;background:var(--bad-fill);pointer-events:none;z-index:2} .cg-now::before{content:'';position:absolute;left:-5px;top:-4px;width:10px;height:10px;border-radius:50%;background:var(--bad-fill)}
 .cal-dtr{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:8px} .cal-dtr.ad{grid-template-columns:minmax(0,1fr)} .cal-dtr.ad input[type=time]{display:none}
+.cal-tzw{margin:-6px 0 0} .cal-tzw[hidden],.cal-tzbox[hidden],.cal-tz2[hidden]{display:none!important} .cal-tzb{min-height:32px;padding:0 8px;margin-left:-8px;font-weight:500;color:var(--ink-2);text-align:left;white-space:normal}
+.cal-tzbox{margin-top:6px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-s);background:var(--surface-2)}
 .cal-dur{margin:-4px 0 0;color:var(--ink-2);min-height:1.2em} .cal-dur.bad{color:var(--bad);font-weight:600}
 .cal-lk{flex:none;width:14px;height:14px;color:var(--ink-3)} .cal-tm[hidden],.cal-rep[hidden],.cal-wd[hidden],.cal-until[hidden],.cal-count[hidden]{display:none!important}
 @media (hover:hover) and (pointer:fine){.cal-fl .btn.sm{opacity:0} .cal-fl:hover .btn.sm,.cal-fl:focus-within .btn.sm{opacity:1}}
@@ -6072,7 +6074,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '09.11.2026 (v138)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '10.11.2026 (v139)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -7461,7 +7463,8 @@ const CAL_PX = 44;                                       // высота час�
 function calInit(d) {
   if (!Array.isArray(d.cals)) d.cals = [{ id: 'c_personal', name: 'Личный', color: '#1F6FD1', personal: true }, { id: 'c_club', name: 'Клубный', color: '#1A7A58' }];
   if (!Array.isArray(d.events)) d.events = [];
-  d.settings.calView = Object.assign({ pc: 'month', mob: 'list', h0: 7, h1: 22 }, d.settings.calView || {});
+  d.settings.calView = Object.assign({ pc: 'month', mob: 'list', h0: 7, h1: 22, tz: 'Europe/Moscow' }, d.settings.calView || {});
+  if (!tzOk(d.settings.calView.tz)) d.settings.calView.tz = 'Europe/Moscow';
 }
 const calPad = n => String(n).padStart(2, '0');
 function calDim(y, m) { return new Date(Date.UTC(y, m, 0)).getUTCDate(); }          // дней в месяце (m: 1–12)
@@ -7478,11 +7481,52 @@ function* calGen(start, R) {                             // даты начал�
   if (R.f === 'm') { const day = +start.slice(8); for (let k = 0; ; k += n) { const m0 = calAddM(start.slice(0, 8) + '01', k); if (day <= calDim(+m0.slice(0, 4), +m0.slice(5, 7))) yield m0.slice(0, 8) + calPad(day); } }
   if (R.f === 'y') { const md = start.slice(4); for (let y = +start.slice(0, 4); ; y += n) if (md !== '-02-29' || D.leap(y)) yield y + md; }
 }
+/* ---- часовые пояса (10.11.2026): время события вводится в выбранном поясе, календарь показывает в основном (Настройки → Календарь) ---- */
+const TZ_FMT = new Map();
+function tzOk(tz) { if (!tz) return false; try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); return true; } catch (e) { return false; } }
+function tzOffMin(tz, ms) {                              // смещение пояса от UTC в минутах в момент ms
+  let f = TZ_FMT.get(tz); if (!f) { f = new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }); TZ_FMT.set(tz, f); }
+  const p = {}; for (const x of f.formatToParts(new Date(ms))) p[x.type] = +x.value;
+  return Math.round((Date.UTC(p.year, p.month - 1, p.day, p.hour % 24, p.minute, p.second) - Math.floor(ms / 1000) * 1000) / 60000);
+}
+function tzWallToUtc(date, time, tz) { const [y, m, d] = date.split('-').map(Number), [hh, mm] = time.split(':').map(Number), g = Date.UTC(y, m - 1, d, hh, mm);
+  const o1 = tzOffMin(tz, g), t = g - o1 * 60000, o2 = tzOffMin(tz, t); if (o2 === o1) return t;
+  const t2 = g - o2 * 60000; return tzOffMin(tz, t2) === o2 ? t2 : Math.max(t, t2); }      // время, которого нет (перевод часов вперёд), — сдвигается вперёд, как в Google
+function tzUtcToWall(ms, tz) { const x = new Date(ms + tzOffMin(tz, ms) * 60000).toISOString(); return [x.slice(0, 10), x.slice(11, 16)]; }
+function tzConv(date, time, from, to) { return from === to ? [date, time] : tzUtcToWall(tzWallToUtc(date, time, from), to); }
+function calTz() { const t = db && db.settings.calView && db.settings.calView.tz; return tzOk(t) ? t : 'Europe/Moscow'; }
+const TZ_RU = [['Europe/Kaliningrad', 'Калининград'], ['Europe/Moscow', 'Москва, Геленджик'], ['Europe/Samara', 'Самара'], ['Asia/Yekaterinburg', 'Екатеринбург'], ['Asia/Omsk', 'Омск'],
+  ['Asia/Novosibirsk', 'Новосибирск'], ['Asia/Krasnoyarsk', 'Красноярск'], ['Asia/Irkutsk', 'Иркутск'], ['Asia/Yakutsk', 'Якутск'], ['Asia/Vladivostok', 'Владивосток'], ['Asia/Magadan', 'Магадан'], ['Asia/Kamchatka', 'Камчатка'],
+  ['Europe/Minsk', 'Минск'], ['Europe/Istanbul', 'Стамбул'], ['Asia/Tbilisi', 'Тбилиси'], ['Asia/Yerevan', 'Ереван'], ['Asia/Baku', 'Баку'], ['Asia/Dubai', 'Дубай, Абу-Даби'], ['Asia/Almaty', 'Алматы'], ['Asia/Tashkent', 'Ташкент'],
+  ['Asia/Bangkok', 'Бангкок, Пхукет'], ['Asia/Makassar', 'Бали'], ['Asia/Shanghai', 'Пекин, Шанхай'], ['Asia/Tokyo', 'Токио'], ['Europe/London', 'Лондон'], ['Europe/Lisbon', 'Лиссабон'], ['Europe/Berlin', 'Берлин, Париж, Рим'],
+  ['Europe/Belgrade', 'Белград'], ['Europe/Athens', 'Афины'], ['America/New_York', 'Нью-Йорк'], ['America/Chicago', 'Чикаго'], ['America/Denver', 'Денвер'], ['America/Los_Angeles', 'Лос-Анджелес'], ['America/Sao_Paulo', 'Сан-Паулу, Рио-де-Жанейро'], ['UTC', 'UTC']];
+function tzOffTxt(tz, ms = Date.now()) { const m = tzOffMin(tz, ms), a = Math.abs(m); return `UTC${m < 0 ? '−' : '+'}${calPad(Math.floor(a / 60))}:${calPad(a % 60)}`; }
+function tzName(tz) { const r = TZ_RU.find(x => x[0] === tz); return r ? r[1] : tz.replace(/^.*?\//, '').replace(/_/g, ' ').replace(/\//g, ' / '); }
+function tzLabel(tz, ms) { return `(${tzOffTxt(tz, ms)}) ${tzName(tz)}`; }
+let TZ_ALL = null;
+function tzOptions(sel, ms) {                            // список для выбора: частые (по-русски), затем все по смещению
+  const by = (a, b) => tzOffMin(a, ms) - tzOffMin(b, ms) || tzName(a).localeCompare(tzName(b), 'ru');
+  if (!TZ_ALL) { try { TZ_ALL = Intl.supportedValuesOf('timeZone').filter(tzOk); } catch (e) { TZ_ALL = []; } }
+  const top = TZ_RU.map(x => x[0]).filter(tzOk).sort(by), rest = TZ_ALL.filter(t => !top.includes(t)).sort(by);
+  if (sel && !top.includes(sel) && !rest.includes(sel) && tzOk(sel)) rest.unshift(sel);
+  const o = t => `<option value="${h(t)}"${t === sel ? ' selected' : ''}>${h(tzLabel(t, ms))}</option>`;
+  return `<optgroup label="Частые">${top.map(o).join('')}</optgroup>${rest.length ? `<optgroup label="Все часовые пояса">${rest.map(o).join('')}</optgroup>` : ''}`;
+}
 function calMk(ev, key, s, e, o) {
   const x = o || ev;
-  return { id: ev.id, key, cal: ev.cal, date: s, end: e, title: x.title || '', time: x.time || '', timeEnd: x.timeEnd || '', place: x.place || '', note: x.note || '', remind: ev.remind ?? '', rep: !!ev.rep, moved: !!o };
+  const r = { id: ev.id, key, cal: ev.cal, date: s, end: e, title: x.title || '', time: x.time || '', timeEnd: x.timeEnd || '', place: x.place || '', note: x.note || '', remind: ev.remind ?? '', rep: !!ev.rep, moved: !!o,
+    tz: x.time ? x.tz || '' : '', tzEnd: x.time ? x.tzEnd || '' : '' };
+  const M = calTz(), t1 = tzOk(r.tz) ? r.tz : M, t2 = tzOk(r.tzEnd) ? r.tzEnd : t1;
+  if (r.time && (t1 !== M || t2 !== M)) {                // показать в основном поясе; в форме — как вводили
+    r.raw = { date: s, end: e, time: r.time, timeEnd: r.timeEnd };
+    [r.date, r.time] = tzConv(s, r.time, t1, M);
+    if (r.timeEnd) [r.end, r.timeEnd] = tzConv(e, r.timeEnd, t2, M); else r.end = D.add(r.date, D.diff(s, e));
+    if (r.end < r.date) r.end = r.date;
+  }
+  return r;
 }
-function calOcc(ev, from, to) {                          // вхождения события, пересекающие [from, to]
+function calOcc(ev, from0, to0) {                        // вхождения события, пересекающие [from, to] (в основном поясе)
+  const from = D.add(from0, -1), to = D.add(to0, 1);    // запас в день: другой пояс может сдвинуть дату
   const out = [], dur = ev.end && ev.end > ev.date ? D.diff(ev.date, ev.end) : 0, ex = ev.ex || {}, R = ev.rep;
   if (!ev.date) return out;
   if (!R || !R.f) { if (!ex[ev.date]) { const e = D.add(ev.date, dur); if (e >= from && ev.date <= to) out.push(calMk(ev, ev.date, ev.date, e)); } }
@@ -7495,7 +7539,7 @@ function calOcc(ev, from, to) {                          // вхождения �
     }
   }
   for (const [key, o] of Object.entries(ex)) if (o && !o.del && o.date) { const e = o.end && o.end > o.date ? o.end : o.date; if (e >= from && o.date <= to) out.push(calMk(ev, key, o.date, e, o)); }
-  return out;
+  return out.filter(x => x.end >= from0 && x.date <= to0);
 }
 function calAuto(from, to) {                             // события «из программы» — только для показа, правятся в своих разделах
   const out = [], S = db.settings, add = (cal, date, end, title, go, sub) => { end = end && end > date ? end : date; if (end >= from && date <= to) out.push({ auto: true, cal, date, end, title, time: '', timeEnd: '', go, sub: sub || '' }); };
@@ -7526,6 +7570,10 @@ function calItems(from, to) {
   return L.sort((a, b) => a.date.localeCompare(b.date) || (a.time ? 1 : 0) - (b.time ? 1 : 0) || a.time.localeCompare(b.time) || a.title.localeCompare(b.title, 'ru'));
 }
 function calMulti(x) { return x.end > x.date; }
+function calTzTxt(x) {                                   // «по времени Бангкока: 14:00–16:00» — если вводили в другом поясе
+  if (!x.raw) return ''; const r = x.raw, t1 = tzOk(x.tz) ? x.tz : calTz(), t2 = tzOk(x.tzEnd) ? x.tzEnd : t1;
+  return t1 === t2 ? `${tzName(t1)}: ${r.time}${r.timeEnd ? '–' + r.timeEnd : ''}${r.end > r.date ? ' (до ' + calDayRu(r.end) + ')' : ''}` : `${tzName(t1)}: ${r.time} → ${tzName(t2)}: ${r.timeEnd}`;
+}
 function calEndTxt(x) { return x.time && x.timeEnd ? `до ${calDayRu(x.end)}, ${x.timeEnd}` : `по ${calDayRu(x.end)}`; }
 function calWhen(x) {
   if (calMulti(x)) return `${calDayRu(x.date)}${x.time ? ' ' + x.time : ''} — ${calDayRu(x.end)}${x.timeEnd ? ' ' + x.timeEnd : ''}`;
@@ -7535,7 +7583,7 @@ let calShown = [];                                       // события на 
 function calChip(x, cls = '') {
   const c = calById(x.cal) || { color: '#888', name: '' }, i = calShown.push(x) - 1;
   const t = x.time && !calMulti(x) ? `<span class="ce-t">${x.time}</span> ` : '';
-  return `<button type="button" class="ce${x.time && !calMulti(x) ? ' tm' : ''}${x.auto ? ' au' : ''}${cls ? ' ' + cls : ''}" style="--c:${c.color}" data-act="cal-open" data-ix="${i}" title="${h(x.title + ' · ' + (x.auto ? '' : calWhen(x) + ' · ') + c.name + (x.place ? ' · ' + x.place : ''))}">${t}${h(x.title || 'Без названия')}</button>`;
+  return `<button type="button" class="ce${x.time && !calMulti(x) ? ' tm' : ''}${x.auto ? ' au' : ''}${cls ? ' ' + cls : ''}" style="--c:${c.color}" data-act="cal-open" data-ix="${i}" title="${h(x.title + ' · ' + (x.auto ? '' : calWhen(x) + ' · ') + (x.raw ? calTzTxt(x) + ' · ' : '') + c.name + (x.place ? ' · ' + x.place : ''))}">${t}${h(x.title || 'Без названия')}</button>`;
 }
 function calRange(U) {
   const c = U.cur;
@@ -7594,7 +7642,7 @@ function calListHTML(U, items) {
   const days = [...byFirst.keys()].sort();
   const row = x => { const c = calById(x.cal) || { color: '#888', name: '' }, i = calShown.push(x) - 1;
     return `<li class="click cl-it" data-act="cal-open" data-ix="${i}" style="--c:${c.color}"><span class="cl-tm">${h(calMulti(x) ? (x.date < from ? '…' : x.time ? 'с ' + x.time : 'весь день') : x.time ? x.time + (x.timeEnd ? '–' + x.timeEnd : '') : 'весь день')}</span><span class="cl-dot" aria-hidden="true"></span>
-      <div class="who"><b>${h(x.title || 'Без названия')}</b><span class="small">${h([calMulti(x) ? calEndTxt(x) : '', c.name, x.place, x.sub, x.rep ? 'повторяется' : ''].filter(Boolean).join(' · '))}</span></div></li>`; };
+      <div class="who"><b>${h(x.title || 'Без названия')}</b><span class="small">${h([calMulti(x) ? calEndTxt(x) : '', calTzTxt(x), c.name, x.place, x.sub, x.rep ? 'повторяется' : ''].filter(Boolean).join(' · '))}</span></div></li>`; };
   return `${days.length ? days.map(d => { const w = DOW_FULL[D.dow(d)], rel = d === ix.today ? 'Сегодня, ' : d === D.add(ix.today, 1) ? 'Завтра, ' : '';
     return `<div class="card flat cl-day${d === ix.today ? ' tod' : ''}"><div class="cl-dh" data-act="cal-goday" data-d="${d}">${rel}${rel ? w : w[0].toUpperCase() + w.slice(1)}, ${calDayRu(d, d.slice(0, 4) !== ix.today.slice(0, 4))}</div><ul class="list">${byFirst.get(d).map(row).join('')}</ul></div>`; }).join('')
     : `<div class="card"><div class="empty">С ${calDayRu(from)} по ${calDayRu(to)} событий нет${(meta.calOff || []).length ? ' (часть календарей скрыта)' : ''}.</div></div>`}
@@ -7613,7 +7661,7 @@ function calGridHTML(U, from, to, items) {
   const S = db.settings.calView, h0 = Math.max(0, Math.min(23, +S.h0 || 0)), h1 = Math.max(h0 + 1, Math.min(24, +S.h1 || 24)), days = [];
   for (let d = from; d <= to; d = D.add(d, 1)) days.push(d);
   const top = items.filter(x => !x.time || calMulti(x)), timed = items.filter(x => x.time && !calMulti(x)), byT = calByDay(top, from, to), byM = calByDay(timed, from, to);
-  const now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes();
+  const [nowD, nowT] = tzUtcToWall(Date.now(), calTz()), nowMin = nowD === ix.today ? +nowT.slice(0, 2) * 60 + +nowT.slice(3) : -1;
   const col = d => {
     const L = calLayout(byM.get(d) || []).map(g => { const t = (Math.min(Math.max(g.s, h0 * 60), h1 * 60 - 15) - h0 * 60) * CAL_PX / 60, hh = Math.max(20, (Math.min(g.e, h1 * 60) - Math.max(g.s, h0 * 60)) * CAL_PX / 60);
       return `<div class="cg-ev" style="top:${t}px;height:${hh}px;left:calc(${(g.col / g.cols) * 100}% + 1px);width:calc(${100 / g.cols}% - 3px)">${calChip(g.x, 'blk')}</div>`; }).join('');
@@ -7643,7 +7691,7 @@ function calOccCount(ev, before) { let i = 0, guard = 0; const R = ev.rep; for (
 function calForm(o) {                                    // o: вхождение (правка) или { date, time } (новое)
   const ev = o && o.id ? (db.events || []).find(e => e.id === o.id) : null, R = (ev && ev.rep) || {}, cals = db.cals || [];
   if (!cals.length) { notice('Сначала добавьте календарь: «Календари» → «+ Добавить календарь».'); return; }
-  const x = ev ? o : { title: '', date: o.date || ix.today, end: '', time: o.time || '', timeEnd: o.time ? calPad(Math.min(23, +o.time.slice(0, 2) + 1)) + ':' + o.time.slice(3) : '', place: '', note: '', cal: '' };
+  const x = ev ? (o.raw ? { ...o, ...o.raw } : o) : { title: '', date: o.date || ix.today, end: '', time: o.time || '', timeEnd: o.time ? calPad(Math.min(23, +o.time.slice(0, 2) + 1)) + ':' + o.time.slice(3) : '', place: '', note: '', cal: '' };
   const defCal = ev ? ev.cal : (cals.find(c => c.id === ui.cal?.lastCal && calOn(c.id)) || cals.find(c => calOn(c.id)) || cals[0]).id;
   const allDay = !x.time, wd = R.wd && R.wd.length ? R.wd.map(Number) : [D.dow(x.date)], repEnd = R.until ? 'until' : R.count ? 'count' : '';
   const body = `<div class="fgrid"><label class="f wide"><span>Название</span><input type="text" name="title" value="${h(x.title)}" required maxlength="200" autocomplete="off"></label>
@@ -7652,6 +7700,13 @@ function calForm(o) {                                    // o: вхождени�
     <div class="f cal-dt"><span id="cal-l-s">Начало</span><div class="cal-dtr${allDay ? ' ad' : ''}"><input type="date" name="date" value="${h(x.date)}" required data-noclr aria-labelledby="cal-l-s" aria-label="Дата начала"><input type="time" name="time" value="${h(x.time)}" aria-label="Время начала" step="300"></div></div>
     <div class="f cal-dt"><span id="cal-l-e">Окончание</span><div class="cal-dtr${allDay ? ' ad' : ''}"><input type="date" name="end" value="${h(x.end && x.end > x.date ? x.end : x.date)}" required data-noclr aria-label="Дата окончания"><input type="time" name="timeEnd" value="${h(x.timeEnd)}" aria-label="Время окончания" step="300"></div></div>
     <p class="wide small cal-dur" aria-live="polite"></p>
+    ${(() => { const M = calTz(), t1 = tzOk(x.tz) ? x.tz : M, t2 = tzOk(x.tzEnd) ? x.tzEnd : t1, ms = Date.parse(x.date + 'T12:00:00Z') || Date.now(), open = t1 !== M || t2 !== t1;
+      return `<div class="wide cal-tzw"><button type="button" class="btn ghost sm cal-tzb" aria-expanded="${open}" aria-controls="cal-tzbox">Часовой пояс: <span class="cal-tzl"></span></button>
+      <div class="cal-tzbox" id="cal-tzbox" ${open ? '' : 'hidden'}><div class="fgrid">
+        <label class="f wide"><span class="cal-tz1l">Часовой пояс${t2 !== t1 ? ' начала' : ''}</span><select name="tz">${tzOptions(t1, ms)}</select></label>
+        <label class="cal-ckf wide"><input type="checkbox" name="tzDiff" ${t2 !== t1 ? 'checked' : ''}>Разные часовые пояса для начала и окончания</label>
+        <label class="f wide cal-tz2" ${t2 !== t1 ? '' : 'hidden'}><span>Часовой пояс окончания</span><select name="tzEnd">${tzOptions(t2, ms)}</select></label></div>
+        <p class="small muted" style="margin:4px 0 0">Время выше — в выбранном поясе. В календаре событие показывается по основному поясу: ${h(tzName(M))}, ${h(tzOffTxt(M, ms))}. Основной пояс — в «Настройках» → «Календарь».</p></div></div>`; })()}
     ${FS('rep', 'Повтор', [['', 'не повторяется'], ['d', 'каждый день'], ['w', 'каждую неделю'], ['m', 'каждый месяц (то же число)'], ['y', 'каждый год']], R.f || '')}
     <div class="wide cal-rep" ${R.f ? '' : 'hidden'}><div class="fgrid">
       <label class="f"><span class="cal-n-l">Каждые</span><input type="number" name="n" min="1" max="99" step="1" inputmode="numeric" value="${h(R.n || 1)}"></label>
@@ -7667,13 +7722,14 @@ function calForm(o) {                                    // o: вхождени�
   modal(ev ? 'Событие' : 'Новое событие', body, {
     extraBtn: ev ? `<button type="button" class="btn danger" data-act="cal-del" data-id="${h(ev.id)}" data-key="${h(o.key)}">Удалить</button>` : '',
     async onSubmit(fd) {
-      const v = { title: String(fd.title || '').trim(), cal: fd.cal, date: fd.date, end: fd.end && fd.end > fd.date ? fd.end : '', time: fd.allDay ? '' : fd.time || '', timeEnd: fd.allDay ? '' : fd.timeEnd || '', place: String(fd.place || '').trim(), note: String(fd.note || '').trim() };
+      const v = { title: String(fd.title || '').trim(), cal: fd.cal, date: fd.date, end: fd.end && fd.end > fd.date ? fd.end : '', time: fd.allDay ? '' : fd.time || '', timeEnd: fd.allDay ? '' : fd.timeEnd || '', place: String(fd.place || '').trim(), note: String(fd.note || '').trim(),
+        tz: fd.allDay || !tzOk(fd.tz) ? '' : fd.tz, tzEnd: !fd.allDay && fd.tzDiff && tzOk(fd.tzEnd) && fd.tzEnd !== fd.tz ? fd.tzEnd : '' };
       if (!v.title) { notice('Укажите название'); return false; }
       if (!v.date) { notice('Укажите дату'); return false; }
       if (fd.end && fd.end < fd.date) { notice('Окончание раньше начала. Исправьте дату окончания.'); return false; }
       if (!fd.allDay && !v.time) { notice('Укажите время начала или отметьте «Весь день».'); return false; }
       if (v.time && v.end && !v.timeEnd) { notice('Укажите время окончания в последний день.'); return false; }
-      if (v.time && v.timeEnd && !v.end && v.timeEnd <= v.time) { notice('Окончание должно быть позже начала.'); return false; }
+      if (v.time && v.timeEnd && tzWallToUtc(v.end || v.date, v.timeEnd, v.tzEnd || v.tz || calTz()) <= tzWallToUtc(v.date, v.time, v.tz || calTz())) { notice('Окончание должно быть позже начала.'); return false; }
       if (!v.time) v.timeEnd = '';
       let rep = null;
       if (fd.rep) { rep = { f: fd.rep, n: Math.max(1, Math.min(99, Math.floor(+fd.n || 1))) };
@@ -7710,13 +7766,14 @@ function calFormSync() {                                  // поля окна �
     f.querySelectorAll('.cal-dtr').forEach(x => x.classList.toggle('ad', ad)); q('.cal-rep').hidden = !r; q('.cal-wd').hidden = r !== 'w'; q('.cal-until').hidden = re !== 'until'; q('.cal-count').hidden = re !== 'count';
     q('.cal-n-l').textContent = 'Каждые … ' + ({ d: 'дней (1 — каждый день)', w: 'недель (1 — каждую неделю)', m: 'месяцев', y: 'лет' }[r] || '');
     if (!ad && !q('[name=time]').value) { q('[name=time]').value = '10:00'; if (!q('[name=timeEnd]').value) q('[name=timeEnd]').value = '11:00'; }
-    dur();
+    dur(); if (typeof tzSync === 'function') tzSync();
   };
   // начало и окончание: при сдвиге начала окончание едет следом (длительность сохраняется); под полями — длительность или подсказка об ошибке
   const S = q('[name=date]'), ST = q('[name=time]'), E = q('[name=end]'), ET = q('[name=timeEnd]'), box = q('.cal-dur');
-  const toMin = (d, t) => d ? D.diff('2000-01-01', d) * 1440 + (t ? +t.slice(0, 2) * 60 + +t.slice(3, 5) : 0) : null;
-  const fromMin = m => { const d = D.add('2000-01-01', Math.floor(m / 1440)), r = ((m % 1440) + 1440) % 1440; return [d, calPad(Math.floor(r / 60)) + ':' + calPad(r % 60)]; };
-  const span = () => { const ad = q('[name=allDay]').checked; return ad ? (E.value && S.value ? D.diff(S.value, E.value) * 1440 : null) : ST.value && ET.value && E.value && S.value ? toMin(E.value, ET.value) - toMin(S.value, ST.value) : null; };
+  const TZ1 = q('[name=tz]'), TZ2 = q('[name=tzEnd]'), TZD = q('[name=tzDiff]'), M = calTz();
+  const z1 = () => TZ1.value || M, z2 = () => TZD.checked ? TZ2.value || z1() : z1();
+  const ok = t => /^\d\d:\d\d/.test(t);
+  const span = () => { const ad = q('[name=allDay]').checked; return ad ? (E.value && S.value ? D.diff(S.value, E.value) * 1440 : null) : ok(ST.value) && ok(ET.value) && E.value && S.value ? Math.round((tzWallToUtc(E.value, ET.value, z2()) - tzWallToUtc(S.value, ST.value, z1())) / 60000) : null; };
   let keep = span();
   function dur() {
     const ad = q('[name=allDay]').checked, m = span(); box.classList.remove('bad');
@@ -7725,15 +7782,24 @@ function calFormSync() {                                  // поля окна �
     if (ad) { const n = m / 1440 + 1; box.textContent = n === 1 ? 'Один день' : `${n} ${plural(n, 'день', 'дня', 'дней')}: ${calDayRu(S.value)} — ${calDayRu(E.value)}`; return; }
     const d = Math.floor(m / 1440), hh = Math.floor((m % 1440) / 60), mm = m % 60;
     box.textContent = 'Длительность: ' + [d ? d + ' ' + plural(d, 'день', 'дня', 'дней') : '', hh ? hh + ' ч' : '', mm ? mm + ' мин' : ''].filter(Boolean).join(' ') + (E.value > S.value ? ` · до ${calDayRu(E.value)}, ${ET.value}` : '');
+    if (z1() !== M || z2() !== M) { const [a, b] = tzUtcToWall(tzWallToUtc(S.value, ST.value, z1()), M), [c, e] = tzUtcToWall(tzWallToUtc(E.value, ET.value, z2()), M);
+      box.append(document.createElement('br'), `По основному поясу (${tzName(M)}): ${calDayRu(a)}, ${b} — ${c === a ? '' : calDayRu(c) + ', '}${e}`); }
+  }
+  function tzSync() {                                     // подпись кнопки «Часовой пояс», видимость второго пояса
+    const ad = q('[name=allDay]').checked, ms = Date.parse((S.value || ix.today) + 'T12:00:00Z');
+    q('.cal-tzw').hidden = ad; q('.cal-tz2').hidden = !TZD.checked; q('.cal-tz1l').textContent = TZD.checked ? 'Часовой пояс начала' : 'Часовой пояс';
+    q('.cal-tzl').textContent = TZD.checked && z2() !== z1() ? `${tzLabel(z1(), ms)} → ${tzLabel(z2(), ms)}` : tzLabel(z1(), ms);
   }
   const remember = () => { const m = span(); if (m != null && m >= 0) keep = m; };
   const follow = () => { if (keep == null || keep < 0 || !S.value) { dur(); remember(); return; }
     if (q('[name=allDay]').checked) E.value = D.add(S.value, keep / 1440);
-    else if (ST.value) { const [d, t] = fromMin(toMin(S.value, ST.value) + keep); E.value = d; ET.value = t; }
+    else if (ok(ST.value)) { const [d, t] = tzUtcToWall(tzWallToUtc(S.value, ST.value, z1()) + keep * 60000, z2()); E.value = d; ET.value = t; }
     dur(); remember(); };
   for (const ev of ['input', 'change']) { S.addEventListener(ev, follow); ST.addEventListener(ev, follow); E.addEventListener(ev, () => { dur(); remember(); }); ET.addEventListener(ev, () => { dur(); remember(); }); }
   ['allDay', 'rep', 'repEnd'].forEach(n => q(`[name=${n}]`).addEventListener('change', upd));
-  q('[name=allDay]').addEventListener('change', () => { keep = null; remember(); });      // после upd: время уже подставлено
+  q('[name=allDay]').addEventListener('change', () => { keep = null; remember(); tzSync(); });      // после upd: время уже подставлено
+  q('.cal-tzb').addEventListener('click', () => { const b = q('.cal-tzbox'), o = b.hidden; b.hidden = !o; q('.cal-tzb').setAttribute('aria-expanded', o); if (o) TZ1.focus(); });
+  [TZ1, TZ2, TZD].forEach(x => x.addEventListener('change', () => { if (x === TZD && TZD.checked) TZ2.value = TZ1.value; tzSync(); dur(); remember(); }));
   let prevDate = q('[name=date]').value;
   q('[name=date]').addEventListener('change', () => { const d = q('[name=date]').value; if (!d) return; const was = prevDate; prevDate = d;   // день недели повтора идёт за датой, если отмечен был только прежний день
     const on = [...f.querySelectorAll('[name="wd[]"]:checked')]; if (was && on.length === 1 && +on[0].value === D.dow(was)) on[0].checked = false;
@@ -7808,8 +7874,9 @@ function calSettingsCard() {
     <label class="f"><span>Открывать на компьютере</span><select data-change="cal-set" data-k="pc">${V.map(([k, l]) => opt(k, S.pc, l)).join('')}</select></label>
     <label class="f"><span>Открывать на телефоне</span><select data-change="cal-set" data-k="mob">${V.map(([k, l]) => opt(k, S.mob, l)).join('')}</select></label>
     <label class="f"><span>«Неделя» и «День»: с</span><select data-change="cal-set" data-k="h0">${hrs.slice(0, 24).map(([k, l]) => opt(k, S.h0, l)).join('')}</select></label>
-    <label class="f"><span>до</span><select data-change="cal-set" data-k="h1">${hrs.slice(1).map(([k, l]) => opt(k, S.h1, l)).join('')}</select></label></div>
-    <p class="small muted">Вид по умолчанию — при открытии программы; в самом календаре вид переключается кнопками. Свои календари добавляются и удаляются в разделе «Календарь».</p></div>`;
+    <label class="f"><span>до</span><select data-change="cal-set" data-k="h1">${hrs.slice(1).map(([k, l]) => opt(k, S.h1, l)).join('')}</select></label>
+    <label class="f wide"><span>Основной часовой пояс</span><select data-change="cal-set" data-k="tz">${tzOptions(calTz(), Date.now())}</select></label></div>
+    <p class="small muted">Календарь показывает время по основному поясу. Событие, время которого вводили в другом поясе (например, турнир в Бангкоке), пересчитывается автоматически. Вид по умолчанию — при открытии программы; в самом календаре вид переключается кнопками. Свои календари добавляются и удаляются в разделе «Календарь».</p></div>`;
 }
 const CAL_ACT = {
   'cal-new': () => { const U = ui.cal || {}; calForm({ date: U.cur && U.cur >= ix.today ? U.cur : ix.today }); },
@@ -7848,7 +7915,7 @@ async function onChange(e) {
   const live = e.type === 'input';
   if (k === 'pf') { ui.people[el.dataset.k] = v; if (live && el.type !== 'number' && el.type !== 'search') return; clearTimeout(typingTimer); typingTimer = setTimeout(() => { if (live) liveRefresh(el); else rerender(); }, live ? 250 : 0); return; }
   if (k === 'cal-on') { const id = el.dataset.id, off = new Set(meta.calOff || []); if (v) off.delete(id); else off.add(id); meta.calOff = [...off]; writeMeta(); rerender(); return; }
-  if (k === 'cal-set') { const S = db.settings.calView, kk = el.dataset.k; S[kk] = kk === 'h0' || kk === 'h1' ? +v : v;
+  if (k === 'cal-set') { const S = db.settings.calView, kk = el.dataset.k; if (kk === 'tz' && !tzOk(v)) return; S[kk] = kk === 'h0' || kk === 'h1' ? +v : v;
     if (S.h1 <= S.h0) { if (kk === 'h0') S.h1 = Math.min(24, S.h0 + 1); else S.h0 = Math.max(0, S.h1 - 1); }
     if ((kk === 'pc' && !PHONE_MQ.matches) || (kk === 'mob' && PHONE_MQ.matches)) { if (ui.cal) ui.cal.view = v; }
     render.keepScroll = true; persist('Сохранено'); return; }
