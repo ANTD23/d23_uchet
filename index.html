@@ -808,6 +808,8 @@ details.tdet[open] > summary::after{transform:rotate(-135deg)}
 .evc{display:grid;gap:14px} .evc-r{display:grid;grid-template-columns:24px minmax(0,1fr);gap:12px;align-items:start;line-height:1.45} .evc-ic{color:var(--ink-3);padding-top:1px} .evc-ic svg{width:20px;height:20px;display:block}
 .tg-head{justify-content:space-between;gap:8px;margin:0 0 10px} .tg-head h2{margin:0} .tg-head .btn svg{width:18px;height:18px}
 .tg-pick li{padding:0} .tg-ck{display:flex;align-items:center;gap:12px;padding:10px 4px;min-height:52px;cursor:pointer;width:100%} .tg-ck input{width:22px;height:22px;flex:none}
+.pa-l{display:grid;gap:8px} .pa-o{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;height:auto;min-height:56px;text-align:left;white-space:normal;padding:10px 14px} .pa-o .small{font-weight:400;opacity:.9}
+.pa-cur{display:inline-block;margin-left:6px;padding:0 6px;border-radius:6px;font-size:.75rem;font-weight:600;background:var(--sunk);color:var(--ink-2);vertical-align:1px}
 .evc-dur{color:var(--ink-2);font-size:.9375rem;margin-top:2px} .evc-note{white-space:pre-wrap;overflow-wrap:anywhere} .evc-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--c);margin-right:8px;vertical-align:0} .evc-pp{margin:-6px 0 0} .evc-pp li{padding-left:0}
 .cal-dur{margin:-4px 0 0;color:var(--ink-2);min-height:1.2em} .cal-dur.bad{color:var(--bad);font-weight:600}
 .cal-lk{flex:none;width:14px;height:14px;color:var(--ink-3)} .cal-tm[hidden],.cal-rep[hidden],.cal-wd[hidden],.cal-until[hidden],.cal-count[hidden]{display:none!important}
@@ -3051,7 +3053,8 @@ function attentionCalc() {
     const c = ix.athCalc.get(a.id), s = c.subCalc, nm = shortName(a);
     if (c.pendingSub) {
       const n = c.pendingCalc ? c.pendingCalc.charged : 0;
-      const nb = c.pendingSub.waitFrom && c.pendingCalc && c.pendingCalc.first ? D.add(c.pendingCalc.first, 21) : '';   // №12 (О12, К2): новичок — 21 день с первого посещения
+      const isNew = !(ix.marks.get(a.id) || []).some(m => m.mark === '+' && m.date < c.pendingSub.waitFrom);   // 12.11.2026: вернувшийся (ходил раньше) — не новичок, 21 дня нет
+      const nb = c.pendingSub.waitFrom && isNew && c.pendingCalc && c.pendingCalc.first ? D.add(c.pendingCalc.first, 21) : '';   // №12 (О12, К2): новичок — 21 день с первого посещения
       if (nb && t < nb) out.push({ tone: 'warn', a, text: `${nm}: новичок, ждём оплату с ${D.ru(c.pendingCalc.first)} — оплатить до ${D.ru(nb)}${n ? ' (занятий ' + n + ')' : ''}${pendWarnTxt(c.pendingSub)}`, tpl: c.pendingCalc && c.pendingCalc.first && c.pendingCalc.end ? 'Новый абонемент — ждём оплату' : 'Абонемент закончился', sub: c.pendingSub.id, paid: c.pendingSub.id });
       else if (nb) out.push({ tone: 'bad', a, text: `${nm}: новичок, 21 день с первого посещения (${D.ru(c.pendingCalc.first)}) прошёл, оплаты нет — долг ${n} ${plural(n, 'занятие', 'занятия', 'занятий')}${pendWarnTxt(c.pendingSub)}`, tpl: c.pendingCalc && c.pendingCalc.first && c.pendingCalc.end ? 'Новый абонемент — ждём оплату' : 'Абонемент закончился', sub: c.pendingSub.id, paid: c.pendingSub.id });
       else out.push({ tone: 'bad', a, text: `${nm}: ждём оплату${c.pendingCalc && c.pendingCalc.first ? ' с ' + D.ru(c.pendingCalc.first) : ''}${n ? ', в долг ' + n + ' ' + plural(n, 'занятие', 'занятия', 'занятий') : ''}${pendWarnTxt(c.pendingSub)}`, tpl: c.pendingCalc && c.pendingCalc.first && c.pendingCalc.end ? 'Новый абонемент — ждём оплату' : 'Абонемент закончился', sub: c.pendingSub.id, paid: c.pendingSub.id });
@@ -3744,7 +3747,9 @@ function debtRemind(aid, date) { const k = aid + '|' + date; debtRemind.seen = d
   const t = debtText(aid, date); if (!t) return; debtRemind.seen.add(k); setTimeout(() => notice('Долг: ' + t), 60); }
 /* 27.10.2026: пришёл, а абонемент закончился (или его нет) и оплаты нет — спросить, как поступить */
 function endedNeed(aid, date) { const a = ix.ath.get(aid), c = ix.athCalc.get(aid);
-  if (!a || a.noSub || perVisitOn(a, date) || !c || c.pendingSub || !c.sub) return false;   // новичок без абонементов — свой порядок (пробное, 21 день)
+  if (!a || a.noSub || perVisitOn(a, date) || !c || c.pendingSub) return false;
+  if (!c.sub) { const old = (ix.marks.get(aid) || []).some(m => m.mark === '+' && m.date < D.add(date, -21));   // 12.11.2026: абонементов нет, но ходил раньше (не новичок) — тоже спросить
+    return old && ((c.debtDates || []).includes(date) || (ix.unpaid.get(aid) || []).includes(date)); }   // новичок без абонементов — свой порядок (пробное, 21 день)
   if ((+c.sub.count || 0) <= 1 || isPkg(ix, c.sub)) return false;   // аудит 28.10: разовая оплата и пакет разовых — обычный долг, не «новый абонемент»
   return (c.debtDates || []).includes(date) || (ix.unpaid.get(aid) || []).includes(date); }
 function endedAsk(list, date) { const q = (list || []).filter(Boolean); if (!q.length) return;
@@ -3762,8 +3767,49 @@ function endedDlg(aid, date, next) {
   ${opt1('ended-once', 'Перевести на оплату разово', `В карточке — «Оплата разово» с ${D.short(date)}; это занятие — разовое, в долг, пока не оплачено.`)}
   <p class="small muted" style="margin-top:12px">«Решу позже» — посещение останется неоплаченным: красная «д» в журнале и пункт в «Срочно» на «Сегодня».</p>`;
   endedDlg.next = next;
-  modal('Абонемент закончился', body, { closeText: 'Решу позже' });
+  modal(p ? 'Абонемент закончился' : 'Нет абонемента', body, { closeText: 'Решу позже' });
   const d = document.getElementById('dlg'); if (d) d.addEventListener('close', () => { const n = endedDlg.next; endedDlg.next = null; if (n) setTimeout(n, 150); }, { once: true }); }
+/* 12.11.2026: «Как будет платить?» — при возвращении с перерыва или после ухода и при переводе из «Разово» в группу, если абонемента нет или он закончился */
+function payNeed(a, date) {
+  if (!a || a.noSub || a.status === 'ушёл') return false;
+  const c = ix.athCalc.get(a.id); if (!c) return true; if (c.pendingSub) return false;
+  const p = c.sub, r = p && ix.subCalc.get(p.id); if (!p || !r) return true;
+  if (r.notActive) return false;                          // оплачен, начнётся с первого посещения
+  return !(r.remaining > 0) && !(r.end && r.end >= date && !r.terminated);
+}
+function payModeTxt(a, date) {
+  if (a.noSub) return 'без абонемента';
+  if (perVisitOn(a, date) || a.payPerVisit) return 'оплата разово';
+  const c = ix.athCalc.get(a.id), p = c && c.sub, r = p && ix.subCalc.get(p.id);
+  return !p ? 'абонемента нет' : r && r.end ? 'абонемент закончился' + (r.end < date ? ' ' + D.ru(r.end) : '') : 'абонемент закончился';
+}
+function payAsk(aid, date, why) {
+  const a = ix.ath.get(aid); if (!a || !payNeed(a, date)) return false;
+  const pv = !!a.payPerVisit, c = ix.athCalc.get(aid), owed = ((c && c.debtDates) || []).concat((ix.unpaid.get(aid) || [])).filter((d, i, l) => l.indexOf(d) === i && d >= date);
+  const o = (act, title, sub, primary, cur) => `<button type="button" class="btn pa-o${primary ? ' primary' : ''}" data-act="${act}" data-id="${aid}" data-date="${date}"><b>${title}${cur ? ' <span class="pa-cur">сейчас</span>' : ''}</b><span class="small">${sub}</span></button>`;
+  modal('Как будет платить: ' + shortName(a), `<p>${h(why)} Сейчас: <b>${h(payModeTxt(a, date))}</b>.${owed.length ? ` Не оплачено: ${owed.map(d => D.short(d)).join(', ')}.` : ''}</p>
+    <div class="pa-l">${o('pa-sub', 'Оплатил абонемент — внести оплату', 'Откроется «Оплата»; занятия с ' + D.short(date) + ' войдут в абонемент.', false)}
+    ${o('pa-wait', 'Будет абонемент — ждём оплату', `Абонемент на ${subTotal({ count: db.settings.defaultCount || 12 })} зан. с ${D.short(date)}; вместо «не оплачено» — «ждём оплату», программа предложит сообщение со сроком.`, true)}
+    ${o('pa-pv', 'Оплата разово', 'Платит за каждое посещение; в журнале только «+», пропуски не списываются.', false, pv)}
+    ${o('pa-free', 'Без абонемента', 'Занимается бесплатно или по особой договорённости — напоминаний об оплате не будет.', false)}</div>
+    <p class="small muted" style="margin:12px 0 0">«Решу позже» — ничего не меняется: посещения без оплаты будут «д» в журнале и в «Срочно». Способ оплаты меняется и потом — в карточке, «Оплата» в шапке.</p>`, { closeText: 'Решу позже' });
+  return true;
+}
+function payAskAfter(aid, date, why) { setTimeout(() => { if (!payAsk(aid, date, why)) debtRemind(aid, date); }, 250); }
+const PA_ACT = {
+  'pa-sub': el => { const a = db.athletes.find(x => x.id === el.dataset.id); if (!a) return; closeModal();
+    if (a.payPerVisit) { a.payPerVisit = false; delete a.payPerVisitFrom; persist(shortName(a) + ': оплата — абонемент'); }
+    setTimeout(() => openSub(null, a.id), 150); },
+  'pa-wait': el => { const a = db.athletes.find(x => x.id === el.dataset.id); if (!a) return; closeModal(); const date = el.dataset.date;
+    a.payPerVisit = false; delete a.payPerVisitFrom;
+    const last = [...(ix.subsByAth.get(a.id) || [])].pop(), up = (ix.unpaid.get(a.id) || []).concat((ix.athCalc.get(a.id) || {}).debtDates || []).filter(d => d >= date).sort();
+    const t = { id: uid('p'), athleteId: a.id, payDate: '', start: '', waitFrom: up[0] || date, count: db.settings.defaultCount || 12, amount: last ? last.amount : 0, onlyGroup: '', carryWas: 0, carryMissed: 0, note: '', pending: true };
+    db.subs.push(t); render.keepScroll = true; persist(shortName(a) + ': абонемент — ждём оплату'); waitMsg(a.id, t.id); },
+  'pa-pv': el => { const a = db.athletes.find(x => x.id === el.dataset.id); if (!a) return; closeModal();
+    if (!a.payPerVisit) { a.payPerVisit = true; a.payPerVisitFrom = el.dataset.date; } a.noSub = false; render.keepScroll = true; persist(shortName(a) + ': оплата разово' + (a.payPerVisitFrom ? ' с ' + D.ru(a.payPerVisitFrom) : '')); },
+  'pa-free': el => { const a = db.athletes.find(x => x.id === el.dataset.id); if (!a) return; closeModal();
+    a.noSub = true; a.payPerVisit = false; delete a.payPerVisitFrom; render.keepScroll = true; persist(shortName(a) + ': без абонемента'); },
+};
 function waitMsg(aid, subId) { setTimeout(() => { const r = ix.subCalc.get(subId); if (r && r.first && r.end) openMsg(aid, 'Новый абонемент — ждём оплату', {}, subId); }, 120); }
 function longSick(f, t = ix.today) {              // 28.10.2026: болеет давно, конец не известен (нет «по», не вернулся) — пора уточнить
   if (!f.from || f.to || f.returned || f.noCert || f.from > t) return null;
@@ -4584,7 +4630,8 @@ function openSub(id, athleteId) {
   const last = aid ? [...(ix.subsByAth.get(aid) || [])].pop() : null;
   const up = !p && aid ? (ix.athCalc.get(aid).debtDates || []) : [];
   const FN = finS(db), lastAcc = last && last.acc;
-  const v = p || { acc: lastAcc || FN.defAcc, athleteId: aid, payDate: ix.today, start: up.length ? up[0] : '', count: aid && ix.ath.get(aid).payPerVisit ? (up.length || 1) : last ? (+last.count || db.settings.defaultCount || 12) : (up.length || db.settings.defaultCount || 12), amount: last ? last.amount : '', onlyGroup: '', carryWas: 0, carryMissed: 0, note: '' };
+  const retNoSub = !p && aid && !last && (ix.marks.get(aid) || []).some(m => m.mark === '+' && m.date < D.add(up[0] || ix.today, -21));   // 12.11.2026: вернувшийся без абонементов в программе — обычный абонемент, не разовые
+  const v = p || { acc: lastAcc || FN.defAcc, athleteId: aid, payDate: ix.today, start: up.length ? up[0] : '', count: aid && ix.ath.get(aid).payPerVisit ? (up.length || 1) : last ? (+last.count || db.settings.defaultCount || 12) : retNoSub ? (db.settings.defaultCount || 12) : (up.length || db.settings.defaultCount || 12), amount: last ? last.amount : '', onlyGroup: '', carryWas: 0, carryMissed: 0, note: '' };
   const r = p ? ix.subCalc.get(p.id) : null;
   const body = `<div class="fgrid">${aid && p ? `<input type="hidden" name="athleteId" value="${aid}"><div class="wide"><b>${h(fullName(ix.ath.get(aid)))}</b></div>` : FS('athleteId', 'Спортсмен', [['', '— выберите —'], ...athleteOptions(aid)], aid, 'required class="wide"')}
   <p class="small wide" id="unpaid-note" style="margin:-4px 0 0;${up.length ? '' : 'display:none'}"><b>Есть неоплаченные посещения: ${up.map(d => D.short(d)).join(', ')}.</b> Дата активации поставлена на первое из них, чтобы оплата их покрыла.</p>
@@ -4852,6 +4899,7 @@ function openTransfer(aid) {
     t.group = last.to;
     if (fd.to === 'Разово' && !t.payPerVisit && !t.noSub) { t.payPerVisit = true; t.payPerVisitFrom = fd.date; }   // как раньше при смене группы в «Изменить данные»
     persist('Переведён в «' + fd.to + '» с ' + D.ru(fd.date));
+    if (fd.to !== 'Разово' && (fd.from === 'Разово' || t.payPerVisit) && t.status !== 'ушёл') payAskAfter(t.id, fd.date, `Переведён из «${fd.from || 'Разово'}» в «${fd.to}» с ${D.ru(fd.date)}.`);   // 12.11.2026: из «Разово» в группу — спросить про оплату
   } });
 }
 
@@ -6087,7 +6135,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '12.11.2026 (v143)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '12.11.2026 (v144)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -6527,9 +6575,16 @@ function openPayMode(id) {
   { onSubmit(fd) {
       a.noSub = fd.mode === 'nosub'; a.payPerVisit = fd.mode === 'pv';
       if (a.payPerVisit && fd.payPerVisitFrom) a.payPerVisitFrom = fd.payPerVisitFrom; else delete a.payPerVisitFrom;
-      render.keepScroll = true; persist('Способ оплаты: ' + (a.noSub ? 'без абонемента' : a.payPerVisit ? 'разово' : 'абонемент')); } });
+      render.keepScroll = true; persist('Способ оплаты: ' + (a.noSub ? 'без абонемента' : a.payPerVisit ? 'разово' : 'абонемент'));
+      if (cur !== 'sub' && fd.mode === 'sub' && a.status !== 'ушёл') setTimeout(() => { if (payNeed(a, ix.today)) subNowAsk(a); }, 250); } });
   const d = document.getElementById('dlg'), box = d.querySelector('#pm-pv');
   d.querySelectorAll('input[name=mode]').forEach(r => r.addEventListener('change', () => { box.style.display = d.querySelector('input[name=mode]:checked').value === 'pv' ? '' : 'none'; }));
+}
+function subNowAsk(a) {                                   // 12.11.2026: перевели на абонемент, а его нет — оплатил или ждём оплату
+  const c = ix.athCalc.get(a.id), up = ((c && c.debtDates) || []).concat(ix.unpaid.get(a.id) || []).filter((d, i, l) => l.indexOf(d) === i).sort(), date = up[0] || ix.today;
+  const o = (act, title, sub, primary) => `<button type="button" class="btn pa-o${primary ? ' primary' : ''}" data-act="${act}" data-id="${a.id}" data-date="${date}"><b>${title}</b><span class="small">${sub}</span></button>`;
+  modal('Абонемент: ' + shortName(a), `<p>Способ оплаты — абонемент, но абонемента сейчас нет.${up.length ? ' Не оплачено: ' + up.map(d => D.short(d)).join(', ') + '.' : ''}</p><div class="pa-l">
+    ${o('pa-sub', 'Оплатил — внести оплату', 'Откроется «Оплата».', false)}${o('pa-wait', 'Ждём оплату', `Абонемент с ${D.short(date)}; вместо «не оплачено» — «ждём оплату».`, true)}</div>`, { closeText: 'Решу позже' });
 }
 /* 08.11.2026: вес — прямо в «Данных»: поле и «Записать» (сегодняшним днём) */
 function weighQuick(el) {
@@ -6583,7 +6638,7 @@ async function leaveReturn(id) {                   // ушёл без заявл
   const a = db.athletes.find(x => x.id === id); if (!a || a.status !== 'ушёл' || a.refund) return;
   if (!await ask(`${shortName(a)}: вернуть в «занимается»?\n\nДоговор был прекращён ${a.endedAt ? D.ru(a.endedAt) : ''}${a.leaveReason ? ' (' + a.leaveReason + ')' : ''}. Отметки снова будут спрашиваться, абонемент — по кнопке «Новый абонемент».`, { ok: 'Вернулся' })) return;
   a.status = 'занимается'; a.endedAt = ''; a.leaveReason = ''; a.leaveNote = '';
-  render.keepScroll = true; persist(shortName(a) + ': снова занимается'); setTimeout(() => debtRemind(a.id, ix.today), 300);
+  render.keepScroll = true; persist(shortName(a) + ': снова занимается'); payAskAfter(a.id, ix.today, `Снова занимается с ${D.ru(ix.today)}.`);
 }
 function openRefuse(id) {
   const a = db.athletes.find(x => x.id === id); if (!a) return;
@@ -7153,7 +7208,7 @@ const ACT = {
       const q = sickToExtend(a);
       a.pauses = [...(a.pauses || []), { from: fd.from || '', to: fd.to }]; delete a.pauseFrom; a.status = 'занимается';
       render.keepScroll = true; persist(shortName(a) + ': вернулся с ' + D.ru(fd.to) + ' — снова в списке группы');
-      if (q) setTimeout(() => extendDlg(a, q, fd.to), 250); else debtRemind(a.id, fd.to); } }); },
+      if (q) setTimeout(() => extendDlg(a, q, fd.to), 250); else payAskAfter(a.id, fd.to, `Вернулся с ${D.ru(fd.to)}.`); } }); },
   'lead-new': () => openLead(null), 'lead-edit': el => openLead(el.dataset.id), 'lead-convert': el => leadToAthlete(el.dataset.id),
   'lead-del': async el => { if (!await ask('Удалить заявку? Она пропадёт и из статистики. Если просто не нужны имя и телефон — дождитесь обезличивания.')) return; db.leads = db.leads.filter(L => L.id !== el.dataset.id); closeModal(); render.keepScroll = true; persist('Заявка удалена'); },
   'leads-filter': el => { ui.leads.filter = el.dataset.f; rerender(); },
@@ -7982,7 +8037,7 @@ const CAL_ACT = {
   'cal-delcal': el => calDelCal(el.dataset.id),
   'cal-del': el => calDelEv(el.dataset.id, el.dataset.key),
 };
-Object.assign(ACT, CAL_ACT);
+Object.assign(ACT, CAL_ACT, PA_ACT);
 document.addEventListener('toggle', e => { if (e.target.matches && e.target.matches('details[data-calside]') && PHONE_MQ.matches && ui.cal) ui.cal.side = e.target.open; }, true);
 document.addEventListener('click', e => {
   const act = e.target.closest('[data-act]');
