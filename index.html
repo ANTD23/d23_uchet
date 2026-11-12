@@ -806,6 +806,8 @@ details.tdet[open] > summary::after{transform:rotate(-135deg)}
 .evc-h h2{display:flex;align-items:flex-start;gap:12px;line-height:1.3;overflow-wrap:anywhere} .evc-h h2::before{content:'';flex:none;width:16px;height:16px;border-radius:4px;background:var(--c);margin-top:.2em}
 .evc-b{width:44px;min-width:44px;height:44px;padding:0;flex:none} .evc-b svg{width:20px;height:20px}
 .evc{display:grid;gap:14px} .evc-r{display:grid;grid-template-columns:24px minmax(0,1fr);gap:12px;align-items:start;line-height:1.45} .evc-ic{color:var(--ink-3);padding-top:1px} .evc-ic svg{width:20px;height:20px;display:block}
+.tg-head{justify-content:space-between;gap:8px;margin:0 0 10px} .tg-head h2{margin:0} .tg-head .btn svg{width:18px;height:18px}
+.tg-pick li{padding:0} .tg-ck{display:flex;align-items:center;gap:12px;padding:10px 4px;min-height:52px;cursor:pointer;width:100%} .tg-ck input{width:22px;height:22px;flex:none}
 .evc-dur{color:var(--ink-2);font-size:.9375rem;margin-top:2px} .evc-note{white-space:pre-wrap;overflow-wrap:anywhere} .evc-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--c);margin-right:8px;vertical-align:0} .evc-pp{margin:-6px 0 0} .evc-pp li{padding-left:0}
 .cal-dur{margin:-4px 0 0;color:var(--ink-2);min-height:1.2em} .cal-dur.bad{color:var(--bad);font-weight:600}
 .cal-lk{flex:none;width:14px;height:14px;color:var(--ink-3)} .cal-tm[hidden],.cal-rep[hidden],.cal-wd[hidden],.cal-until[hidden],.cal-count[hidden]{display:none!important}
@@ -3324,8 +3326,9 @@ function vToday() {
   const t = ix.today, dw = D.dow(t);
   const mode = meta.todayMode === 'plan' ? 'plan' : 'urg', P = mode === 'plan' ? dayPlan() : null;   // «По срочности» или «План на день» (запоминается на устройстве)
   const hol = ix.holiday.get(t);
-  const planned = db.settings.groups.filter(g => daysOn(g, t)[dw]);
+  const planned = db.settings.groups.filter(g => daysOn(g, t)[dw] && !g.todayOff);   // 12.11.2026: группы, скрытые с «Сегодня», — не показываем
   const todaySessions = ix.sessionsSorted.filter(s => s.date === t);
+  const hiddenToday = db.settings.groups.filter(g => g.todayOff && daysOn(g, t)[dw] && !todaySessions.some(s => s.group === g.name)).map(g => g.name);
   const groupsBtns = [...new Set([...planned.map(g => g.name), ...todaySessions.map(s => s.group)])].map(g => {
     const s = todaySessions.find(x => x.group === g);
     const n = s ? Object.values(s.marks).filter(m => m === '+').length : 0;
@@ -3344,10 +3347,11 @@ function vToday() {
   return `${banner}
   <div class="topline"><div><h1>${DOW_FULL[dw][0].toUpperCase() + DOW_FULL[dw].slice(1)}, ${D.ru(t)}</h1><div class="muted">Занимается: ${active}${days != null ? ' · «' + h(comp.name) + '» — ' + inDays(days) : ''}</div></div></div>
   <div class="today-grid"><div class="tg-a">
-  <div class="card"><h2>Тренировки сегодня</h2>
+  <div class="card"><div class="row tg-head"><h2>Тренировки сегодня</h2><button type="button" class="btn ghost sm no-print" data-act="today-groups" title="Какие группы показывать здесь">${I.settings}<span>Группы</span></button></div>
     ${hol ? `<p class="muted">Нерабочий день: ${h(hol)}. Занятия не идут в срок абонементов.</p>` : ''}
     <div class="today-groups">${groupsBtns || '<span class="muted">По расписанию занятий нет.</span>'}
-      <button class="btn ghost" data-act="open-session-pick">Другая группа или дата</button></div></div>
+      <button class="btn ghost" data-act="open-session-pick">Другая группа или дата</button></div>
+    ${hiddenToday.length && !hol ? `<p class="small muted" style="margin:10px 0 0">Сегодня по расписанию, но скрыто: ${hiddenToday.map(n => '«' + h(n) + '»').join(', ')}. Отметить — «Другая группа или дата».</p>` : ''}</div>
   ${quick}</div>
   <div class="tg-c">${calSoonCard()}${trialsCard()}
   ${bdays.length ? `<div class="card flat"><div style="padding:14px 16px 4px"><h2>Дни рождения на неделе</h2></div><ul class="list">${bdays.map(x => `<li class="click" data-go="#person/${x.a.id}"><div class="who"><b>${h(fullName(x.a))}</b><span class="small">${x.k === 0 ? '<b>сегодня</b>' : x.k === 1 ? 'завтра' : DOW_FULL[D.dow(x.d)]}, ${D.ru(x.d)} · исполняется ${x.age} ${plural(x.age, 'год', 'года', 'лет')}</span></div><span class="chip">${h(x.a.group || '')}</span></li>`).join('')}</ul></div>` : ''}</div>
@@ -3365,7 +3369,7 @@ function vToday() {
 /* Из тех же данных, что «Требует внимания»: кому написать, что сказать на тренировке, что сделать, деньги, что можно позже */
 function planTrainGroups(t) {
   if (ix.holiday.get(t)) return [];
-  const dw = D.dow(t), names = db.settings.groups.filter(g => daysOn(g, t)[dw]).map(g => g.name);
+  const dw = D.dow(t), names = db.settings.groups.filter(g => daysOn(g, t)[dw] && !g.todayOff).map(g => g.name);
   for (const s of ix.sessionsSorted) if (s.date === t && s.group && !names.includes(s.group)) names.push(s.group);
   return names;
 }
@@ -3696,7 +3700,7 @@ function vJournal() {
   if (J.tab === 'month') return monthView(tabs, groups);
   const recent = [...ix.sessionsSorted].reverse().slice(0, 40);
   const t = ix.today, todayS = ix.sessionsSorted.filter(x => x.date === t);
-  const tg = [...new Set([...db.settings.groups.filter(g => daysOn(g, t)[D.dow(t)]).map(g => g.name), ...todayS.map(x => x.group)])];
+  const tg = [...new Set([...db.settings.groups.filter(g => daysOn(g, t)[D.dow(t)] && !g.todayOff).map(g => g.name), ...todayS.map(x => x.group)])];
   const tBtns = tg.map(g => { const x = todayS.find(y => y.group === g), n = x ? Object.values(x.marks).filter(m => m === '+').length : 0;
     return `<button class="btn ${x ? '' : 'primary'}" data-act="open-session" data-date="${t}" data-group="${h(g)}">${x ? h(g || 'без группы') + ' · отмечено ' + n : 'Отметить «' + h(g) + '»'}</button>`; }).join('');
   return `<div class="topline"><h1>Посещения</h1><div class="row">${tabs}<button class="btn no-print" data-act="gmsg">Сообщение группе</button></div></div>
@@ -5058,12 +5062,13 @@ function vSettings() {
   <label class="row small" style="gap:8px;margin:0 0 8px"><b>Изменения расписания действуют с</b><input type="date" data-noclr data-change="sched-from" value="${ui.schedFrom}" style="width:auto"></label>
   <p class="small muted">Галочки показывают расписание на эту дату. Изменение действует только с неё: прошлые занятия, сроки абонементов и заморозки до этой даты считаются по прежнему расписанию (п. 9.3.8 оферты).</p>
   <p class="small muted">Отметьте дни занятий — по ним считается окончание абонементов. «Посещ. по расписанию» — для групп, куда ходят нерегулярно (например, «Разово»): для допуска к аттестации пропуском считается каждый день по расписанию, когда клуб работал, даже если в группе в этот день никого не было. При переименовании группа поменяется везде: у спортсменов, в журнале и абонементах. «Мест» — сколько человек комфортно помещается на ковёр (для заполняемости в «Показателях»). «Гости» — группа для приезжих: все её спортсмены считаются гостями; приезжих в обычной группе отмечайте галочкой «Гость» в карточке.</p>
-  <div class="scroll"><table class="t"><thead><tr><th>Группа</th>${DOW.map(d => `<th style="text-align:center">${d}</th>`).join('')}<th style="text-align:center" title="Для допуска к аттестации: пропуском считается каждый день по расписанию, когда клуб работал, даже если в группе никто не занимался">Посещ. по расписанию</th><th style="text-align:center" title="Сколько человек комфортно помещается на ковёр — для заполняемости в «Показателях»">Мест</th><th style="text-align:center" title="Группа для приезжих: все в ней — гости, в отток и средние показатели не входят">Гости</th><th></th></tr></thead><tbody>
+  <div class="scroll"><table class="t"><thead><tr><th>Группа</th>${DOW.map(d => `<th style="text-align:center">${d}</th>`).join('')}<th style="text-align:center" title="Для допуска к аттестации: пропуском считается каждый день по расписанию, когда клуб работал, даже если в группе никто не занимался">Посещ. по расписанию</th><th style="text-align:center" title="Сколько человек комфортно помещается на ковёр — для заполняемости в «Показателях»">Мест</th><th style="text-align:center" title="Группа для приезжих: все в ней — гости, в отток и средние показатели не входят">Гости</th><th style="text-align:center" title="Показывать кнопку группы в «Тренировки сегодня» на «Сегодня» и в «Посещениях»">На «Сегодня»</th><th></th></tr></thead><tbody>
   ${S.groups.map((g, i) => `<tr><td><input type="text" data-change="group-name" data-i="${i}" value="${h(g.name)}" style="min-width:140px"></td>${daysOn(g, ui.schedFrom).map((on, d) => `<td style="text-align:center"><input type="checkbox" data-change="group-day" data-i="${i}" data-d="${d}" ${on ? 'checked' : ''} style="width:20px;height:20px"></td>`).join('')}
   <td style="text-align:center"><input type="checkbox" data-change="group-bysched" data-i="${i}" ${g.bySchedule ? 'checked' : ''} style="width:20px;height:20px"></td>
   <td style="text-align:center"><input type="number" min="0" step="1" inputmode="numeric" data-change="group-cap" data-i="${i}" value="${h(g.cap ?? '')}" style="width:64px"></td>
   <td style="text-align:center"><input type="checkbox" data-change="group-guest" data-i="${i}" ${g.guest ? 'checked' : ''} style="width:20px;height:20px"></td>
-  <td><button class="btn sm ghost" data-act="group-del" data-i="${i}" aria-label="Удалить группу">✕</button></td></tr>${(g.schedHistory || []).length > 1 ? `<tr><td colspan="12" class="small muted" style="padding-top:0">История расписания: ${g.schedHistory.map((e, k) => `${k ? 'с ' + D.ru(e.from) : 'исходное'}: ${e.days.map((x, j) => x ? DOW[j] : '').filter(Boolean).join(' ') || 'нет дней'}${k ? ` <button class="btn sm ghost" data-act="sched-del" data-i="${i}" data-from="${e.from}" aria-label="Удалить это изменение">✕</button>` : ''}`).join(' · ')}</td></tr>` : ''}`).join('')}</tbody></table></div>
+  <td style="text-align:center"><input type="checkbox" data-change="group-today" data-i="${i}" ${g.todayOff ? '' : 'checked'} style="width:20px;height:20px" aria-label="«${h(g.name)}» — показывать в «Тренировки сегодня»"></td>
+  <td><button class="btn sm ghost" data-act="group-del" data-i="${i}" aria-label="Удалить группу">✕</button></td></tr>${(g.schedHistory || []).length > 1 ? `<tr><td colspan="13" class="small muted" style="padding-top:0">История расписания: ${g.schedHistory.map((e, k) => `${k ? 'с ' + D.ru(e.from) : 'исходное'}: ${e.days.map((x, j) => x ? DOW[j] : '').filter(Boolean).join(' ') || 'нет дней'}${k ? ` <button class="btn sm ghost" data-act="sched-del" data-i="${i}" data-from="${e.from}" aria-label="Удалить это изменение">✕</button>` : ''}`).join(' · ')}</td></tr>` : ''}`).join('')}</tbody></table></div>
   <button class="btn" data-act="group-add" style="margin-top:8px">Добавить группу</button></div>
   <div class="grid2"><div class="card"><h2>Нерабочие дни</h2><p class="small muted">Праздники, выезды на соревнования, ремонт — дни, когда занятий нет у всего клуба. В срок абонемента не засчитываются.</p>
   <ul class="list" style="max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:8px">${[...S.holidays].sort((a, b) => a.date.localeCompare(b.date)).map(x => `<li><span class="num" style="width:90px">${D.ru(x.date)}</span><span class="who small">${h(x.reason)}</span><button class="btn sm ghost" data-act="hol-del" data-date="${x.date}" aria-label="Удалить">✕</button></li>`).join('') || '<li class="muted">Нет</li>'}</ul>
@@ -6082,7 +6087,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '10.11.2026 (v142)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '12.11.2026 (v143)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -7951,7 +7956,16 @@ function calSettingsCard() {
     <label class="f wide"><span>Основной часовой пояс</span><select data-change="cal-set" data-k="tz">${tzOptions(calTz(), Date.now())}</select></label></div>
     <p class="small muted">Календарь показывает время по основному поясу. Событие, время которого вводили в другом поясе (например, турнир в Бангкоке), пересчитывается автоматически. Вид по умолчанию — при открытии программы; в самом календаре вид переключается кнопками. Свои календари добавляются и удаляются в разделе «Календарь».</p></div>`;
 }
+function todayGroupsDlg() {                              // 12.11.2026: какие группы показывать в «Тренировки сегодня»
+  const G = db.settings.groups, dw = D.dow(ix.today);
+  modal('Группы на «Сегодня»', `<p class="small muted" style="margin:0 0 10px">Отмеченные группы показываются в «Тренировки сегодня» (и в «Посещениях») в свои дни по расписанию. Снимите галочку с группы, которая пока не нужна, — например, сделанной только для печати расписания. Расписание, абонементы и отметки не меняются; отметить скрытую группу можно через «Другая группа или дата».</p>
+    <ul class="list tg-pick">${G.map((g, i) => { const days = daysOn(g, ix.today).map((on, d) => on ? DOW[d].toLowerCase() : '').filter(Boolean).join(', ');
+      return `<li><label class="tg-ck"><input type="checkbox" name="g${i}" ${g.todayOff ? '' : 'checked'}><span class="who"><b>${h(g.name)}</b><span class="small">${days ? 'по расписанию: ' + days + (daysOn(g, ix.today)[dw] ? ' · сегодня есть' : '') : 'без расписания'}</span></span></label></li>`; }).join('')}</ul>
+    <p class="small muted" style="margin:10px 0 0">То же — в «Настройках» → «Группы и расписание», столбец «На «Сегодня»».</p>`, {
+    onSubmit(fd) { let n = 0; G.forEach((g, i) => { const on = !!fd['g' + i]; if (on === !g.todayOff) return; n++; if (on) delete g.todayOff; else g.todayOff = true; }); if (n) { render.keepScroll = true; persist('Группы на «Сегодня» сохранены'); } } });
+}
 const CAL_ACT = {
+  'today-groups': () => todayGroupsDlg(),
   'cal-new': () => { const U = ui.cal || {}; calForm({ date: U.cur && U.cur >= ix.today ? U.cur : ix.today }); },
   'cal-open': el => { const x = calShown[+el.dataset.ix]; if (x) calCard(x); },
   'cal-edit-ev': el => { const x = calShown[+el.dataset.ix]; if (x) calForm(x); },
@@ -8059,6 +8073,7 @@ async function onChange(e) {
     renameGroup(g.name, nn); g.name = nn; render.keepScroll = true; persist('Группа переименована'); }
   else if (k === 'leave-reasons') { const L = [...new Set(v.split('\n').map(x => x.trim()).filter(Boolean))]; if (!L.length) { rerender(); return; } db.settings.leaveReasons = L; render.keepScroll = true; persist('Сохранено'); }
   else if (k === 'group-cap') { const g = db.settings.groups[+el.dataset.i]; if (!g) return; const n = String(v).trim(); if (n === '') delete g.cap; else if (+n >= 0) g.cap = Math.round(+n); else { notice('Число мест — целое число не меньше нуля'); rerender(); return; } render.keepScroll = true; persist('Сохранено'); }
+  else if (k === 'group-today') { const g = db.settings.groups[+el.dataset.i]; if (!g) return; if (v) delete g.todayOff; else g.todayOff = true; render.keepScroll = true; persist(v ? `«${g.name}» — на «Сегодня»` : `«${g.name}» — скрыта с «Сегодня»`); }
   else if (k === 'group-guest') { const g = db.settings.groups[+el.dataset.i]; if (!g) return; g.guest = v; render.keepScroll = true; persist(v ? 'Группа — для гостей' : 'Группа — обычная'); }
   else if (k === 'group-bysched') { db.settings.groups[+el.dataset.i].bySchedule = v; render.keepScroll = true; persist(v ? 'Посещаемость группы — по расписанию' : 'Посещаемость группы — по проведённым занятиям'); }
   else if (k === 'group-day') { const g = db.settings.groups[+el.dataset.i], from = ui.schedFrom || ix.today;
