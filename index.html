@@ -804,6 +804,19 @@ details.tdet[open] > summary::after{transform:rotate(-135deg)}
 .ce-more{display:block;font:inherit;font-size:.75rem;color:var(--ink-2);padding:2px 4px;font-weight:600;border:0;background:none;text-align:left;cursor:pointer;border-radius:4px} .ce-more:hover{background:var(--sunk);color:var(--ink)}
 .cl-day{margin:0 0 10px} .cl-day.tod{border-color:var(--accent-btn)} .cl-dh{padding:10px 16px 6px;font-weight:700;cursor:pointer} .cl-day.tod .cl-dh{color:var(--accent-btn)}
 .cl-it{display:flex;align-items:center;gap:10px} .cl-tm{flex:none;width:96px;font-size:.875rem;color:var(--ink-2);font-variant-numeric:tabular-nums} .cl-dot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--c)}
+/* задачи (14.11.2026) */
+.cal-kind{display:grid;grid-template-columns:1fr 1fr;width:100%;max-width:360px} .cal-kind label{display:flex;align-items:center;justify-content:center;min-height:38px;border-radius:var(--r-s);font-weight:600;color:var(--ink-2);cursor:pointer;position:relative}
+.cal-kind label.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-1)} .cal-kind input{position:absolute;opacity:0;width:1px;height:1px} .cal-kind label:has(input:focus-visible){outline:2px solid var(--ink);outline-offset:1px}
+#dlg-form .tk-only{display:none} #dlg-form.tk-mode .tk-only{display:block} #dlg-form.tk-mode label.tk-only{display:flex} #dlg-form.tk-mode .ev-only{display:none!important}
+.ce.tk{background:transparent;border-left-color:transparent;padding-left:3px;display:flex;align-items:center;gap:4px} .ce.tk:hover{background:var(--sunk)} .ce.tk.blk{background:color-mix(in srgb,var(--c) 10%,var(--surface));border-left-color:var(--c);align-items:flex-start}
+.tk-ck{flex:none;width:12px;height:12px;border:2px solid var(--c);border-radius:3px;background:var(--surface);position:relative;cursor:pointer;box-sizing:border-box} .tk-ck::after{content:'';position:absolute;inset:-6px}
+.ce.tk-done{color:var(--ink-3);text-decoration:line-through} .ce.tk-done .tk-ck{background:var(--c)} .ce.tk-done .tk-ck::before{content:'';position:absolute;left:2px;top:-1px;width:3px;height:6px;border:solid #fff;border-width:0 1.5px 1.5px 0;transform:rotate(45deg)}
+.ce.tk-late:not(.tk-done){color:var(--bad);font-weight:600} .ce.tk-late .ce-t{color:var(--bad)}
+.tk-cb{flex:none;width:26px;height:26px;border:2px solid var(--c, var(--ink-2));border-radius:6px;background:var(--surface);color:#fff;font-weight:700;font-size:15px;line-height:1;cursor:pointer;display:grid;place-items:center;padding:0;position:relative} .tk-cb::after{content:'';position:absolute;inset:-9px}
+.tk-cb.on{background:var(--c, var(--ink-2))} .tk-cb:hover{box-shadow:0 0 0 3px color-mix(in srgb,var(--c, var(--ink-2)) 25%,transparent)}
+.tk-it.tk-done .who b{text-decoration:line-through;color:var(--ink-3)} .tk-it.tk-late:not(.tk-done) .who .small{color:var(--bad)}
+.tk-over{color:var(--bad);font-weight:600;font-size:.875rem;margin-top:2px} .tkc.tk-done .evc-r:first-child b{text-decoration:line-through} .cal-tkbad{color:var(--bad);font-weight:600}
+.p-tasks .tk-it{padding-left:16px}
 .cal-soon .cl-it{gap:12px}
 .cg-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
 .cg{min-width:calc(56px + var(--n) * 84px)} .cg.one{min-width:0}
@@ -3216,6 +3229,7 @@ function attentionCalc() {
   const R = retention();
   if (R.expired.length) out.push({ tone: 'muted', a: R.expired[0], text: `Истёк срок хранения данных (п. 12.3.1): ${R.expired.length} ${plural(R.expired.length, 'человек', 'человека', 'человек')} — раздел «Данные»` });
   finAttention(out); leadAttention(out);
+  out.push(...taskAttn());                              // 14.11.2026: задачи календаря
   const order = { bad: 0, warn: 1, sick: 2, muted: 3 };
   return out.sort((x, y) => order[x.tone] - order[y.tone]);
 }
@@ -3224,8 +3238,9 @@ function attentionCalc() {
 /* «Требует внимания»: отметка «сделано». Ключ — человек + текст пункта: изменилась ситуация (другой остаток, дата) — пункт появится снова */
 /* текст пункта: «— предупреждён ДД.ММ» — зелёной меткой */
 function attnTxt(t) { return h(t).replace(/ — (предупреждён \d\d\.\d\d)/, ' <span class="warned">✉ $1</span>'); }
-const attnKey = x => (x.a ? x.a.id : '') + '|' + x.text;
+const attnKey = x => x.akey || (x.a ? x.a.id : '') + '|' + x.text;   // задача: 'task|id|ключ'
 function attnMark(key, on) {
+  if (key.startsWith('task|')) { const [, id, k] = key.split('|'); taskSet(id, k, on); return; }
   db.attnDone = db.attnDone || {};
   const live = new Set(attention().map(attnKey));
   for (const k of Object.keys(db.attnDone)) { const pd = /^(bday|trial)\|.*\|(\d{4}-\d\d-\d\d)$/.exec(k);
@@ -3321,6 +3336,7 @@ function attnItem(x, compact) {
   const aid = x.a && x.a.id, c = aid ? ix.athCalc.get(aid) || {} : {}, [title, body] = attnSplit(x);
   const B = (act, label, extra = '') => `<button class="btn sm" data-act="${act}"${extra}>${label}</button>`;
   const acts = [
+    x.taskRef ? B('task-open', 'Открыть задачу', ` data-id="${h(x.taskRef.id)}" data-key="${h(x.taskRef.key)}"`) : '',
     x.paid ? B('sub-paid', 'Оплата', ` data-id="${x.paid}"`) : '',   // 23.10.2026: оплата клиента — везде «Оплата»
     x.unpaid ? B('sub-new', 'Оплата', ` data-id="${aid}"`) : '',
     x.debtOff ? B('debt-off', 'Списать долг', ` data-id="${x.debtOff}"`) : '',
@@ -3341,7 +3357,8 @@ function attnItem(x, compact) {
     x.unpaid ? B('no-sub', 'Без абонемента', ` data-id="${aid}" title="Занимается бесплатно — больше не напоминать"`) : '',
     aid && !x.freeze && !x.nosub ? `<a class="btn sm ghost" href="#person/${aid}">Карточка</a>` : '',   // №34: «Отметить» и «Не был» — обе на виду
   ];
-  const done = `<button class="done-cb" data-act="attn-done" data-key="${h(attnKey(x))}" aria-label="Сделано — убрать из списка" title="Сделано — убрать из списка, пока ситуация не изменится">✓</button>`;
+  const done = x.taskRef ? `<button class="done-cb" data-act="attn-done" data-key="${h(attnKey(x))}" aria-label="Задача выполнена" title="Выполнено — отметить задачу">✓</button>`
+    : `<button class="done-cb" data-act="attn-done" data-key="${h(attnKey(x))}" aria-label="Сделано — убрать из списка" title="Сделано — убрать из списка, пока ситуация не изменится">✓</button>`;
   const ph = c.contact ? `<span class="ph">${telLink(c.contact)}${c.contactWho && c.contactWho !== 'сам' ? ' · ' + h(c.contactWho) : ''}</span>` : '';
   const fr = attnFresh(x);
   if (compact) {                                          // 23.10.2026: «Скоро», «Можно позже», «Заморозка» — одной-двумя строками; нажатие раскрывает телефон и кнопки
@@ -3362,7 +3379,7 @@ function vToday() {
     const n = s ? Object.values(s.marks).filter(m => m === '+').length : 0;
     return `<button class="btn ${s ? '' : 'primary'}" data-act="open-session" data-date="${t}" data-group="${h(g)}">${s ? h(g || 'без группы') + ' · отмечено ' + n : 'Отметить «' + h(g) + '»'}</button>`;
   }).join('');
-  const all = attention(), doneMap = db.attnDone || {}; attnSeenUpd(all);
+  const all = attention(), doneMap = attnDoneMap(); attnSeenUpd(all);
   const al = all.filter(x => !doneMap[attnKey(x)]), doneAny = all.filter(x => doneMap[attnKey(x)]), done = doneAny.filter(x => doneMap[attnKey(x)] === t);   // 13.11.2026: в «Сделано» — только отмеченное сегодня; отмеченное раньше не показывается и не возвращается
   const comp = [...(db.tourneys || [])].filter(T => T.date && T.date >= t).sort((x, y) => x.date.localeCompare(y.date))[0] || db.settings.competition;   // 31.10.2026: ближайший турнир из «Турниров»
   const days = comp.date && comp.date >= t ? D.diff(t, comp.date) : null;
@@ -3402,7 +3419,7 @@ function planTrainGroups(t) {
   return names;
 }
 function dayPlan() {
-  const t = ix.today, done = db.attnDone || {}, groups = planTrainGroups(t);
+  const t = ix.today, done = attnDoneMap(), groups = planTrainGroups(t);
   const trainG = a => a && a.status === 'занимается' && !pausedOn(a, t) ? groups.find(g => inGroupOn(a, g, t)) || '' : '';
   const P = { t, groups, write: [], train: {}, todo: [], money: [], later: [], info: [] };
   const isDone = k => done[k] === t;                      // отмеченное сегодня — зачёркнуто; отмеченное раньше — в план не попадает
@@ -3493,6 +3510,7 @@ function planRow(it) {
     : `<button class="pl-cb${it.done ? ' on' : ''}" data-act="plan-done" data-key="${h(it.key)}" title="${it.done ? 'Вернуть' : 'Сделано'}">${it.done ? '✓' : ''}</button>`;
   const tpl = it.tpl || x.tpl, aid = it.a && it.a.id;
   const btns = actsHTML([
+    x.taskRef ? `<button class="btn sm" data-act="task-open" data-id="${h(x.taskRef.id)}" data-key="${h(x.taskRef.key)}">Открыть задачу</button>` : '',
     tpl && aid ? `<button class="btn sm" data-act="msg" data-id="${h(aid)}" data-tpl="${h(tpl)}"${x.sub ? ` data-sub="${h(x.sub)}"` : ''} data-key="${h(it.key)}" data-extra='${h(JSON.stringify(x.extra || {}))}'>Написать</button>` : '',
     x.paid ? `<button class="btn sm" data-act="sub-paid" data-id="${h(x.paid)}">Оплата</button>` : '',
     x.unpaid && aid ? `<button class="btn sm" data-act="sub-new" data-id="${h(aid)}">Оплата</button>` : '',
@@ -4248,6 +4266,17 @@ function openWeigh(id, onDone) {
       if (onDone) setTimeout(onDone, 50);
     } });
 }
+function personTasksCard(a) {                            // 14.11.2026: задачи по спортсмену — невыполненные (просроченные и ближайшие)
+  const t = ix.today, L = [];
+  for (const ev of db.events || []) { if (!ev.task || ev.aid !== a.id || !calById(ev.cal)) continue;
+    const c = taskCarry(ev); if (c) { L.push({ ...c, over: c.date }); continue; }
+    const n = calOcc(ev, t, D.add(t, 400)).filter(o => o.date >= t && !o.done).sort((x, y) => x.date.localeCompare(y.date))[0]; if (n) L.push(n); }
+  if (!L.length) return '';
+  L.sort((x, y) => (x.over || x.date).localeCompare(y.over || y.date) || x.time.localeCompare(y.time));
+  return `<div class="card flat p-tasks sec-keep"><div class="row" style="padding:14px 16px 6px"><h2 style="margin:0">Задачи <span class="muted small">${L.length}</span></h2><span class="spacer"></span><button class="btn sm no-print" data-act="task-new" data-aid="${a.id}">+ Задача</button></div>
+    <ul class="list">${L.map(o => { const c = calById(o.cal); return `<li class="click cl-it tk-it${o.over ? ' tk-late' : ''}" data-act="task-open" data-id="${h(o.id)}" data-key="${h(o.key)}" style="--c:${c.color}"><button type="button" class="tk-cb" data-act="task-set" data-id="${h(o.id)}" data-key="${h(o.key)}" data-on="1" aria-label="Отметить выполненной" title="Выполнено"></button>
+      <div class="who"><b>${h(o.title || 'Без названия')}</b><span class="small">${h([taskWhenTxt(o), c.name, o.rep ? 'повторяется' : ''].filter(Boolean).join(' · '))}</span></div></li>`; }).join('')}</ul></div>`;
+}
 function vPerson(id) {
   const a = ix.ath.get(id);
   if (!a) return '<div class="card"><p>Спортсмен не найден.</p><a class="btn" href="#people">К списку</a></div>';
@@ -4324,11 +4353,12 @@ function vPerson(id) {
     <div class="row" style="gap:12px;margin-top:12px">${beltHTML(c.belt, c.stripes, true)}<span class="small muted">${c.belt ? h(c.belt) + (c.stripes ? ', ' + c.stripes + ' ' + plural(c.stripes, 'страйп', 'страйпа', 'страйпов') : '') + (c.beltSet ? ' с ' + D.ru(c.beltDate) + (c.monthsSince != null ? ' (' + c.monthsSince + ' мес.)' : '') : ' — запись о присвоении не внесена') : 'Пояс не присвоен'}</span></div></div></div>
     ${personSubBox(a, c)}
     <div class="row no-print person-acts">${a.status === 'ушёл' ? '' : `<button class="btn primary" data-act="sub-new" data-id="${id}">Оплата</button>`}<button class="btn" data-act="msg" data-id="${id}">Написать</button>
-      <details class="menu"><summary class="btn" aria-label="Другие действия">⋯ Ещё</summary><div class="menu-pop"><button class="btn" data-act="transfer-new" data-id="${id}">Перевести в другую группу</button><button class="btn" data-act="person-edit" data-id="${id}">Изменить данные</button></div></details></div>
+      <details class="menu"><summary class="btn" aria-label="Другие действия">⋯ Ещё</summary><div class="menu-pop"><button class="btn" data-act="transfer-new" data-id="${id}">Перевести в другую группу</button><button class="btn" data-act="person-edit" data-id="${id}">Изменить данные</button><button class="btn" data-act="task-new" data-aid="${id}">Новая задача</button></div></details></div>
 
     ${(() => { const html = personContacts(a, c); if (!html || !/class="contact[ "]/.test(html) || /chip bad/.test(html) && !/btn call/.test(html)) return `<div class="contacts">${html}</div>`;   // 23.10.2026: «Родители» свёрнуты
       const who = [cleanPhone(a.motherPhone) ? 'мать' : '', cleanPhone(a.fatherPhone) ? 'отец' : '', cleanPhone(a.phone) ? 'спортсмен' : ''].filter(Boolean).join(', ');   // те, у кого есть телефон
       return `<details class="contacts contacts-d"${ui.contactsOpen === a.id ? ' open' : ''} data-contacts data-id="${a.id}"><summary><b>Родители и телефоны</b><span class="small muted">${h(who)}${c.contact ? ' · основной: ' + h(fmtPhone(cleanPhone(c.contact))) : ''}</span>${c.noParentPhone ? '<span class="chip bad">нет телефона родителя</span>' : ''}</summary>${html}</details>`; })()}</div>
+  ${personTasksCard(a)}
   <div class="card${alert.data ? ' sec-alert' : ''}"><h2>Данные</h2><dl class="kv">
     ${kv('Дата рождения', [D.ru(a.birth), c.age != null ? c.age + ' ' + plural(c.age, 'год', 'года', 'лет') : '', a.sex ? String(a.sex).toLowerCase() : ''].filter(Boolean).join(' · '))}${!a.birth && a.sex ? kv('Пол', h(a.sex)) : ''}${kv('Вес', weighHTML(a, false) + `<span class="row no-print" style="gap:6px;margin-top:6px;flex-wrap:nowrap"><input type="text" name="wq" inputmode="decimal" placeholder="кг" aria-label="Новый вес, кг" style="width:84px;min-height:34px;padding:4px 8px"><button class="btn sm" data-act="weigh-quick" data-id="${id}">Записать</button><button class="btn sm ghost" data-act="weigh-new" data-id="${id}" title="Взвешивание другой датой">другой датой…</button></span>`)}
     ${kv('Договор прекращён', a.endedAt ? D.ru(a.endedAt) + ' · хранить до ' + D.ru(keepUntil(a.endedAt)) : '')}
@@ -6230,7 +6260,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '13.11.2026 (v154)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '14.11.2026 (v155)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -7168,9 +7198,9 @@ function anonDb() {
   d.log = []; d.destroyLog = []; d.attnDone = {}; d.attnSeen = {}; d.planLog = {};   // №3: в плане на день — имена и тексты пунктов
   d.settings.operatorName = ''; d.settings.operatorAddress = '';
   (d.leads || []).forEach(L => { for (const k of ['name', 'contactName', 'phone', 'note', 'lostReason']) delete L[k]; });
-  { const pers = new Set((d.cals || []).filter(c => c.personal).map(c => c.id)), blank = o => o && !o.del ? { ...o, title: 'Событие', place: '', note: '' } : o;   // 09.11.2026: личные календари — не передаются; в клубных — без названий и заметок
+  { const pers = new Set((d.cals || []).filter(c => c.personal).map(c => c.id)), blank = (o, tk) => o && !o.del ? { ...o, title: tk ? 'Задача' : 'Событие', place: '', note: '' } : o;   // 09.11.2026: личные календари — не передаются; в клубных — без названий и заметок
     d.cals = (d.cals || []).filter(c => !pers.has(c.id)).map((c, i) => ({ ...c, name: 'Календарь ' + (i + 1) }));
-    d.events = (d.events || []).filter(e => !pers.has(e.cal)).map(e => ({ ...e, title: 'Событие', place: '', note: '', ex: Object.fromEntries(Object.entries(e.ex || {}).map(([k, o]) => [k, blank(o)])) })); }
+    d.events = (d.events || []).filter(e => !pers.has(e.cal)).map(e => ({ ...e, title: e.task ? 'Задача' : 'Событие', place: '', note: '', ex: Object.fromEntries(Object.entries(e.ex || {}).map(([k, o]) => [k, blank(o, e.task)])) })); }
   d.anon = true;
   return d;
 }
@@ -7278,6 +7308,7 @@ function stripPerson(d, id) {                   // удалить человек
   // №3: в ключах «сделано» и в плане на день — ФИО и текст пунктов, в т. ч. общих («нет отметки у … (Фамилия Имя, …)»)
   const nm = [A0 && shortName(A0), A0 && fullName(A0)].filter(x => x && x.trim().length > 2), has = t => nm.some(n => String(t || '').includes(n));
   if (d.attnDone) for (const k of Object.keys(d.attnDone)) if (k.startsWith(id + '|') || has(k)) delete d.attnDone[k];
+  (d.events || []).forEach(e => { if (e.aid === id) { e.aid = ''; if (has(e.title) || has(e.note)) { e.title = 'Задача'; e.note = ''; } } });   // 14.11.2026: задачи по спортсмену — без связи и без ФИО
   if (d.attnSeen) for (const k of Object.keys(d.attnSeen)) if (k.startsWith(id + '|') || has(k)) delete d.attnSeen[k];
   if (d.planLog && d.planLog.items) for (const [k, v] of Object.entries(d.planLog.items)) if (k.startsWith(id + '|') || (v && v.aid === id) || has(k) || has(v && v.text)) delete d.planLog.items[k];
 }
@@ -7567,7 +7598,7 @@ const ACT = {
   'msg-share': () => { extMark(); navigator.share({ text: $('#msg-text').value }).then(msgSent).catch(() => {}); },
   'msg-copy': () => { const t = $('#msg-text'); t.select(); (navigator.clipboard ? navigator.clipboard.writeText(t.value) : Promise.reject()).then(() => toast('Скопировано')).catch(() => { document.execCommand('copy'); toast('Скопировано'); }); msgSent(); },
   'attn-done': el => attnMark(el.dataset.key, true),
-  'plan-done': el => { const K = el.dataset.key.split('\n'), on = !K.every(k => (db.attnDone || {})[k] === ix.today); K.forEach(k => attnMark(k, on)); },
+  'plan-done': el => { const K = el.dataset.key.split('\n'), dm = attnDoneMap(), on = !K.every(k => dm[k] === ix.today); K.forEach(k => attnMark(k, on)); },
   'plan-print': () => openPrint('План на ' + D.ru(ix.today), planDoc(), 'h3{margin:12pt 0 3pt}table{border-collapse:collapse;width:100%}td{border:1px solid #000;padding:3pt 5pt;vertical-align:top}'),
   'plan-xlsx': () => { downloadBlob('D23_план_' + ix.today + '.xlsx', xlsxBlob(htmlDocx(planDoc()), 'План ' + D.ru(ix.today))); toast('План сохранён в Excel (.xlsx)'); },
   'plan-word': () => { downloadBlob('D23_план_' + ix.today + '.docx', planDocx()); toast('План сохранён в Word (.docx)'); },
@@ -7718,6 +7749,7 @@ function calMk(ev, key, s, e, o) {
   const x = o || ev;
   const r = { id: ev.id, key, cal: ev.cal, date: s, end: e, title: x.title || '', time: x.time || '', timeEnd: x.timeEnd || '', place: x.place || '', note: x.note || '', remind: ev.remind ?? '', rep: !!ev.rep, moved: !!o,
     tz: x.time ? x.tz || '' : '', tzEnd: x.time ? x.tzEnd || '' : '' };
+  if (ev.task) { r.task = true; r.aid = ev.aid || ''; r.done = (ev.done || {})[key] || ''; r.tz = ''; r.tzEnd = ''; r.timeEnd = ''; return r; }   // 14.11.2026: задача — срок по основному поясу
   const M = calTz(), t1 = tzOk(r.tz) ? r.tz : M, t2 = tzOk(r.tzEnd) ? r.tzEnd : t1;
   if (r.time && (t1 !== M || t2 !== M)) {                // показать в основном поясе; в форме — как вводили
     r.raw = { date: s, end: e, time: r.time, timeEnd: r.timeEnd };
@@ -7743,6 +7775,50 @@ function calOcc(ev, from0, to0) {                        // вхождения �
   for (const [key, o] of Object.entries(ex)) if (o && !o.del && o.date) { const e = o.end && o.end > o.date ? o.end : o.date; if (e >= from && o.date <= to) out.push(calMk(ev, key, o.date, e, o)); }
   return out.filter(x => x.end >= from0 && x.date <= to0);
 }
+/* ---- ЗАДАЧИ (14.11.2026): событие с task: true — срок (дата, время по желанию), спортсмен (aid), галочка «выполнено»: ev.done = { ключ вхождения: дата отметки }.
+   Невыполненная просроченная переезжает на сегодня («просрочено с …»); у повторяющейся переезжает только последняя — до следующего срока. На «Сегодня» — в «Требует внимания». ---- */
+function taskCarry(ev) {                                 // просроченное невыполненное вхождение, которое показывается сегодня
+  const t = ix.today; if (!ev.task || !ev.date) return null;
+  const L = calOcc(ev, ev.rep ? D.add(t, -400) : (ev.date < t ? ev.date : t), t).filter(o => o.date <= t).sort((a, b) => a.date.localeCompare(b.date));
+  const o = L[L.length - 1]; return o && o.date < t && !o.done ? o : null;
+}
+function taskOccs(ev, from, to) {                        // вхождения задачи для показа в календаре
+  const t = ix.today, c = taskCarry(ev), L = calOcc(ev, from, to).filter(o => !c || o.key !== c.key);
+  for (const o of L) if (!o.done && o.date < t) o.late = true;
+  if (c && t >= from && t <= to) L.push({ ...c, date: t, end: t, over: c.date, late: true });
+  return L;
+}
+function taskFind(id, key) {                             // вхождение задачи по ключу (для карточки) — с переносом на сегодня, если просрочено
+  const ev = (db.events || []).find(e => e.id === id && e.task); if (!ev) return null;
+  const t = ix.today, ex = (ev.ex || {})[key], ds = [key, t, ex && ex.date].filter(Boolean).sort(), from = D.add(ds[0], -2), to = D.add(ds[ds.length - 1], 2);
+  return taskOccs(ev, from, to).find(o => o.key === key) || calOcc(ev, from, to).find(o => o.key === key) || null;
+}
+function taskSet(id, key, on) {
+  const ev = (db.events || []).find(e => e.id === id && e.task); if (!ev) return;
+  ev.done = ev.done || {}; if (on) ev.done[key] = ix.today; else delete ev.done[key];
+  render.keepScroll = true; persist(on ? 'Задача выполнена' : 'Задача снова не выполнена');
+}
+function taskWhenTxt(o) { return o.over ? 'просрочено с ' + calDayRu(o.over) + (o.time ? ', ' + o.time : '') : (o.date === ix.today ? 'сегодня' : o.date === D.add(ix.today, 1) ? 'завтра' : calDayRu(o.date, o.date.slice(0, 4) !== ix.today.slice(0, 4))) + (o.time ? ', ' + o.time : ''); }
+function taskAttn() {                                    // пункты «Требует внимания»: просроченные — «Срочно», на сегодня — «Скоро», заранее (напоминание) — «Можно позже»; выполненные сегодня — для «Сделано»
+  const t = ix.today, out = [];
+  for (const ev of db.events || []) { if (!ev.task || !ev.date || !calById(ev.cal)) continue;
+    const a = ev.aid ? ix.ath.get(ev.aid) || null : null;
+    const mk = (o, tone, suf) => ({ a, akey: 'task|' + ev.id + '|' + o.key, taskRef: { id: ev.id, key: o.key }, tone, text: (a ? shortName(a) + ': задача «' + (o.title || 'Без названия') + '»' : 'Задача: ' + (o.title || 'Без названия')) + suf });
+    const c = taskCarry(ev); if (c) out.push(mk(c, 'bad', ' — просрочено с ' + D.short(c.date) + (c.time ? ', ' + c.time : '')));
+    const R = ev.remind === '' || ev.remind == null ? 0 : Math.max(0, +ev.remind || 0), L = calOcc(ev, t, D.add(t, R)).filter(o => o.date >= t).sort((x, y) => x.date.localeCompare(y.date) || x.time.localeCompare(y.time));
+    for (const o of L.filter(o => o.date === t && !o.done)) out.push(mk(o, 'warn', ' — сегодня' + (o.time ? ' в ' + o.time : '')));
+    const nx = L.find(o => o.date > t && !o.done); if (nx) out.push(mk(nx, 'muted', ' — срок ' + inDays(D.diff(t, nx.date)) + ', ' + D.short(nx.date) + (nx.time ? ' в ' + nx.time : '')));
+    for (const [k, d] of Object.entries(ev.done || {})) if (d === t) { const o = taskFind(ev.id, k); if (o) out.push(mk(o, 'warn', ' — выполнено')); } }
+  return out;
+}
+function attnDoneMap() {                                 // «сделано»: пункты «Требует внимания» + выполненные задачи
+  const m = { ...(db.attnDone || {}) };
+  for (const ev of db.events || []) if (ev.task && ev.done) for (const [k, d] of Object.entries(ev.done)) m['task|' + ev.id + '|' + k] = d;
+  return m;
+}
+function taskStats() { const t = ix.today; let over = 0, today = 0;
+  for (const ev of db.events || []) { if (!ev.task || !calById(ev.cal)) continue; if (taskCarry(ev)) over++; today += calOcc(ev, t, t).filter(o => o.date === t && !o.done).length; }
+  return { over, today }; }
 function calAuto(from, to) {                             // события «из программы» — только для показа, правятся в своих разделах
   const out = [], S = db.settings, add = (cal, date, end, title, go, sub) => { end = end && end > date ? end : date; if (end >= from && date <= to) out.push({ auto: true, cal, date, end, title, time: '', timeEnd: '', go, sub: sub || '' }); };
   if (calOn('a:tour')) {
@@ -7767,7 +7843,8 @@ function calAuto(from, to) {                             // события «и�
 }
 function calItems(from, to) {
   const L = [];
-  for (const ev of db.events || []) if (calOn(ev.cal) && calById(ev.cal)) L.push(...calOcc(ev, from, to));
+  for (const ev of db.events || []) { if (!calOn(ev.cal) || !calById(ev.cal)) continue;
+    if (!ev.task) L.push(...calOcc(ev, from, to)); else if (!meta.calNoTasks) L.push(...taskOccs(ev, from, to).filter(o => !(meta.calHideDone && o.done))); }
   L.push(...calAuto(from, to));
   return L.sort((a, b) => a.date.localeCompare(b.date) || (a.time ? 1 : 0) - (b.time ? 1 : 0) || a.time.localeCompare(b.time) || a.title.localeCompare(b.title, 'ru'));
 }
@@ -7785,6 +7862,7 @@ let calShown = [];                                       // события на 
 function calChip(x, cls = '', st = '') {
   const c = calById(x.cal) || { color: '#888', name: '' }, i = calShown.push(x) - 1, bar = / bar\b|^bar\b/.test(cls) && calMulti(x);
   const t = x.time && (!calMulti(x) || (bar && !/\bcl\b/.test(cls))) ? `<span class="ce-t">${x.time}</span> ` : '';
+  if (x.task) return `<button type="button" class="ce tk${x.done ? ' tk-done' : x.late ? ' tk-late' : ''}${cls ? ' ' + cls : ''}" style="--c:${c.color}${st ? ';' + st : ''}" data-act="cal-open" data-ix="${i}" title="${h('Задача: ' + (x.title || 'Без названия') + ' · ' + (x.over ? 'просрочено с ' + calDayRu(x.over) : x.time || 'без времени') + (x.done ? ' · выполнено' : '') + ' · ' + c.name)}"><span class="tk-ck" data-act="task-set" data-id="${h(x.id)}" data-key="${h(x.key)}" data-on="${x.done ? '' : '1'}" role="checkbox" aria-checked="${!!x.done}" aria-label="Выполнено" title="${x.done ? 'Снять отметку' : 'Отметить выполненной'}"></span>${t}${h(x.title || 'Без названия')}</button>`;
   return `<button type="button" class="ce${x.time && !calMulti(x) ? ' tm' : ''}${x.auto ? ' au' : ''}${cls ? ' ' + cls : ''}" style="--c:${c.color}${st ? ';' + st : ''}" data-act="cal-open" data-ix="${i}" title="${h(x.title + ' · ' + (x.auto ? '' : calWhen(x) + ' · ') + (x.raw ? calTzTxt(x) + ' · ' : '') + c.name + (x.place ? ' · ' + x.place : ''))}">${t}${h(x.title || 'Без названия')}</button>`;
 }
 function calRange(U) {
@@ -7814,9 +7892,12 @@ function vCal(arg) {
     <div class="cal-sb"><div class="row" style="gap:6px;margin-bottom:6px"><button type="button" class="btn sm${off ? '' : ' on'}" data-act="cal-all"${off ? '' : ' aria-pressed="true"'}>Показать все</button></div>
     <div class="cal-gl">Мои календари</div>${(db.cals || []).map(ck).join('')}
     <button type="button" class="btn ghost sm" data-act="cal-edit" style="margin:4px 0 0">+ Добавить календарь</button>
+    ${(() => { const T = taskStats(), ck2 = (k, on, l) => `<div class="cal-fl"><label class="cal-ck" style="--c:var(--ink-2)"><input type="checkbox" data-change="${k}" ${on ? 'checked' : ''}><span class="sw" aria-hidden="true"></span><span class="nm">${l}</span></label></div>`;
+      return `<div class="cal-gl">Задачи</div>${ck2('cal-tasks', !meta.calNoTasks, 'Показывать задачи')}${ck2('cal-hidedone', !!meta.calHideDone, 'Скрыть выполненные')}
+      <p class="small ${T.over ? 'cal-tkbad' : 'muted'}" style="margin:4px 0 0">${T.over || T.today ? [T.over ? 'просрочено: ' + T.over : '', T.today ? 'на сегодня: ' + T.today : ''].filter(Boolean).join(' · ') : 'на сегодня задач нет'}</p>`; })()}
     <div class="cal-gl">Из программы</div>${CAL_AUTO.map(a => ck(calById(a[0]))).join('')}
     <p class="small muted" style="margin:8px 0 0">«Из программы» — без ввода: турниры, выезды, аттестация, праздники, дни рождения, окончания абонементов. Меняются в своих разделах.</p></div></details>`;
-  return `<div class="topline"><h1>Календарь</h1><div class="row no-print"><button class="btn primary" data-act="cal-new">Новое событие</button></div></div>
+  return `<div class="topline"><h1>Календарь</h1><div class="row no-print"><button class="btn primary" data-act="cal-new">Новое событие</button><button class="btn" data-act="task-new">Новая задача</button></div></div>
   <div class="cal-bar no-print"><div class="cal-nav"><button type="button" class="btn" data-act="cal-today">Сегодня</button><button type="button" class="btn ghost" data-act="cal-nav" data-d="-1" aria-label="Назад">‹</button><button type="button" class="btn ghost" data-act="cal-nav" data-d="1" aria-label="Вперёд">›</button><b class="cal-title">${h(calTitle(U))}</b></div>
     <div class="seg" role="group" aria-label="Вид календаря">${CAL_VIEWS.map(([k, l]) => `<button type="button" data-act="cal-view" data-v="${k}" class="${U.view === k ? 'on' : ''}" aria-pressed="${U.view === k}">${l}</button>`).join('')}</div></div>
   <div class="cal-wrap">${side}<div class="cal-main">${body}</div></div>`;
@@ -7855,6 +7936,8 @@ function calListHTML(U, items) {
   for (const x of items) { const d = D.max(x.date, from); if (!byFirst.has(d)) byFirst.set(d, []); byFirst.get(d).push(x); }
   const days = [...byFirst.keys()].sort();
   const row = x => { const c = calById(x.cal) || { color: '#888', name: '' }, i = calShown.push(x) - 1;
+    if (x.task) return `<li class="click cl-it tk-it${x.done ? ' tk-done' : x.late ? ' tk-late' : ''}" data-act="cal-open" data-ix="${i}" style="--c:${c.color}"><span class="cl-tm">${h(x.time || 'задача')}</span><button type="button" class="tk-cb${x.done ? ' on' : ''}" data-act="task-set" data-id="${h(x.id)}" data-key="${h(x.key)}" data-on="${x.done ? '' : '1'}" aria-pressed="${!!x.done}" aria-label="${x.done ? 'Снять отметку «выполнено»' : 'Отметить выполненной'}" title="${x.done ? 'Снять отметку' : 'Выполнено'}">${x.done ? '✓' : ''}</button>
+      <div class="who"><b>${h(x.title || 'Без названия')}</b><span class="small">${h([x.over ? 'просрочено с ' + calDayRu(x.over) : '', x.done ? 'выполнено' : '', x.aid && ix.ath.get(x.aid) ? shortName(ix.ath.get(x.aid)) : '', c.name, x.rep ? 'повторяется' : ''].filter(Boolean).join(' · '))}</span></div></li>`;
     return `<li class="click cl-it" data-act="cal-open" data-ix="${i}" style="--c:${c.color}"><span class="cl-tm">${h(calMulti(x) ? (x.date < from ? '…' : x.time ? 'с ' + x.time : 'весь день') : x.time ? x.time + (x.timeEnd ? '–' + x.timeEnd : '') : 'весь день')}</span><span class="cl-dot" aria-hidden="true"></span>
       <div class="who"><b>${h(x.title || 'Без названия')}</b><span class="small">${h([calMulti(x) ? calEndTxt(x) : '', calTzTxt(x), c.name, x.place, x.sub, x.rep ? 'повторяется' : ''].filter(Boolean).join(' · '))}</span></div></li>`; };
   return `${days.length ? days.map(d => { const w = DOW_FULL[D.dow(d)], rel = d === ix.today ? 'Сегодня, ' : d === D.add(ix.today, 1) ? 'Завтра, ' : '';
@@ -7863,7 +7946,7 @@ function calListHTML(U, items) {
   <div class="row no-print" style="margin-top:10px"><button type="button" class="btn" data-act="cal-more">Показать ещё 60 дней</button><span class="small muted">показано по ${calDayRu(to, true)}</span></div>`;
 }
 function calLayout(L) {                                  // события одного дня по часам: колонки для пересекающихся
-  const ev = L.map(x => { const [a, b] = x.time.split(':').map(Number), s = a * 60 + b; let e = s + 60;
+  const ev = L.map(x => { const [a, b] = x.time.split(':').map(Number), s = a * 60 + b; let e = s + (x.task ? 30 : 60);
     if (x.timeEnd) { const [c, d] = x.timeEnd.split(':').map(Number); e = Math.max(s + 15, c * 60 + d); } return { x, s, e }; }).sort((p, q) => p.s - q.s || q.e - p.e);
   let grp = [], end = -1; const out = [];
   const flush = () => { const cols = []; for (const g of grp) { let c = cols.findIndex(t => t <= g.s); if (c < 0) { c = cols.length; cols.push(0); } cols[c] = g.e; g.col = c; } for (const g of grp) { g.cols = cols.length; out.push(g); } grp = []; };
@@ -7906,17 +7989,22 @@ function calOccCount(ev, before) { let i = 0, guard = 0; const R = ev.rep; for (
 function calForm(o) {                                    // o: вхождение (правка) или { date, time } (новое)
   const ev = o && o.id ? (db.events || []).find(e => e.id === o.id) : null, R = (ev && ev.rep) || {}, cals = db.cals || [];
   if (!cals.length) { notice('Сначала добавьте календарь: «Календари» → «+ Добавить календарь».'); return; }
-  const x = ev ? (o.raw ? { ...o, ...o.raw } : o) : { title: '', date: o.date || ix.today, end: '', time: o.time || '', timeEnd: o.time ? calPad(Math.min(23, +o.time.slice(0, 2) + 1)) + ':' + o.time.slice(3) : '', place: '', note: '', cal: '' };
+  const x = ev ? (o.raw ? { ...o, ...o.raw } : o.over ? { ...o, date: o.over, end: o.over } : o) : { title: '', date: o.date || ix.today, end: '', time: o.time || '', timeEnd: o.time ? calPad(Math.min(23, +o.time.slice(0, 2) + 1)) + ':' + o.time.slice(3) : '', place: '', note: '', cal: '' };
+  const isTask = ev ? !!ev.task : !!o.task, aid0 = ev ? ev.aid || '' : o.aid || '';   // 14.11.2026: задача — срок, спортсмен, галочка «выполнено»
+  const athOpts = [['', '— не выбран'], ...db.athletes.filter(a => a.status !== 'ушёл' || a.id === aid0).slice().sort((p, q) => shortName(p).localeCompare(shortName(q), 'ru')).map(a => [a.id, shortName(a) + (a.group ? ' · ' + a.group : '') + (a.status === 'ушёл' ? ' · ушёл' : '')])];
+  const cls = (html, c) => html.replace('class="f', `class="${c} f`);
   const defCal = ev ? ev.cal : (cals.find(c => c.id === ui.cal?.lastCal && calOn(c.id)) || cals.find(c => calOn(c.id)) || cals[0]).id;
   const allDay = !x.time, wd = R.wd && R.wd.length ? R.wd.map(Number) : [D.dow(x.date)], repEnd = R.until ? 'until' : R.count ? 'count' : '';
-  const body = `<div class="fgrid"><label class="f wide"><span>Название</span><input type="text" name="title" value="${h(x.title)}" required maxlength="200" autocomplete="off"></label>
+  const body = `<div class="fgrid">${ev ? `<input type="hidden" name="kind" value="${isTask ? 'task' : 'ev'}">` : `<div class="wide seg cal-kind" role="radiogroup" aria-label="Что добавить">${[['ev', 'Мероприятие'], ['task', 'Задача']].map(([k, l]) => `<label class="${(k === 'task') === isTask ? 'on' : ''}"><input type="radio" name="kind" value="${k}" ${(k === 'task') === isTask ? 'checked' : ''}>${l}</label>`).join('')}</div>`}
+    <label class="f wide"><span>Название</span><input type="text" name="title" value="${h(x.title)}" required maxlength="200" autocomplete="off"></label>
     ${FS('cal', 'Календарь', cals.map(c => [c.id, c.name + (c.personal && !/личн/i.test(c.name) ? ' (личный)' : '')]), defCal)}
-    <label class="cal-ckf"><input type="checkbox" name="allDay" ${allDay ? 'checked' : ''}>Весь день</label>
-    <div class="f cal-dt"><span id="cal-l-s">Начало</span><div class="cal-dtr${allDay ? ' ad' : ''}"><input type="date" name="date" value="${h(x.date)}" required data-noclr aria-labelledby="cal-l-s" aria-label="Дата начала"><input type="time" name="time" value="${h(x.time)}" aria-label="Время начала" step="300"></div></div>
-    <div class="f cal-dt"><span id="cal-l-e">Окончание</span><div class="cal-dtr${allDay ? ' ad' : ''}"><input type="date" name="end" value="${h(x.end && x.end > x.date ? x.end : x.date)}" required data-noclr aria-label="Дата окончания"><input type="time" name="timeEnd" value="${h(x.timeEnd)}" aria-label="Время окончания" step="300"></div></div>
-    <p class="wide small cal-dur" aria-live="polite"></p>
+    <label class="cal-ckf ev-only"><input type="checkbox" name="allDay" ${allDay ? 'checked' : ''}>Весь день</label>
+    ${cls(FS('aid', 'Спортсмен (необязательно)', athOpts, aid0), 'tk-only')}
+    <div class="f cal-dt"><span id="cal-l-s">${isTask ? 'Срок' : 'Начало'}</span><div class="cal-dtr${allDay ? ' ad' : ''}"><input type="date" name="date" value="${h(x.date)}" required data-noclr aria-labelledby="cal-l-s" aria-label="Дата начала"><input type="time" name="time" value="${h(x.time)}" aria-label="Время начала" step="300"></div></div>
+    <div class="f cal-dt ev-only"><span id="cal-l-e">Окончание</span><div class="cal-dtr${allDay ? ' ad' : ''}"><input type="date" name="end" value="${h(x.end && x.end > x.date ? x.end : x.date)}" required data-noclr aria-label="Дата окончания"><input type="time" name="timeEnd" value="${h(x.timeEnd)}" aria-label="Время окончания" step="300"></div></div>
+    <p class="wide small cal-dur ev-only" aria-live="polite"></p><p class="wide small muted tk-only" style="margin:-4px 0 0">Время — по желанию: без времени задача стоит на весь день. Не выполнили в срок — задача переходит на следующий день с пометкой «просрочено».</p>
     ${(() => { const M = calTz(), t1 = tzOk(x.tz) ? x.tz : M, t2 = tzOk(x.tzEnd) ? x.tzEnd : t1, ms = Date.parse(x.date + 'T12:00:00Z') || Date.now(), open = t1 !== M || t2 !== t1;
-      return `<div class="wide cal-tzw"><button type="button" class="btn ghost sm cal-tzb" aria-expanded="${open}" aria-controls="cal-tzbox">Часовой пояс: <span class="cal-tzl"></span></button>
+      return `<div class="wide cal-tzw ev-only"><button type="button" class="btn ghost sm cal-tzb" aria-expanded="${open}" aria-controls="cal-tzbox">Часовой пояс: <span class="cal-tzl"></span></button>
       <div class="cal-tzbox" id="cal-tzbox" ${open ? '' : 'hidden'}><div class="fgrid">
         <label class="f wide"><span class="cal-tz1l">Часовой пояс${t2 !== t1 ? ' начала' : ''}</span><select name="tz">${tzOptions(t1, ms)}</select></label>
         <label class="cal-ckf wide"><input type="checkbox" name="tzDiff" ${t2 !== t1 ? 'checked' : ''}>Разные часовые пояса для начала и окончания</label>
@@ -7930,36 +8018,42 @@ function calForm(o) {                                    // o: вхождени�
       <label class="f cal-count" ${repEnd === 'count' ? '' : 'hidden'}><span>Сколько раз</span><input type="number" name="count" min="1" max="999" inputmode="numeric" value="${h(R.count || 10)}"></label>
       <div class="wide cal-wd" ${R.f === 'w' || !R.f ? '' : 'hidden'}><span class="small muted">Дни недели</span><div class="row" style="gap:4px 10px">${DOW.map((d, i) => `<label class="row small" style="gap:4px"><input type="checkbox" name="wd[]" value="${i}" ${wd.includes(i) ? 'checked' : ''}>${d}</label>`).join('')}</div></div>
     </div>${ev && ev.rep && o.key !== ev.date ? '<p class="small muted" style="margin:6px 0 0">Правило повтора меняется для «этого и следующих» или «всех» событий.</p>' : ''}</div>
-    ${FS('remind', 'Напомнить на «Сегодня»', CAL_REMIND, ev ? String(ev.remind ?? '') : '1')}
-    ${F('place', 'Место', x.place, 'text', 'maxlength="200"')}
+    ${FS('remind', 'Напомнить на «Сегодня»', CAL_REMIND, ev ? String(ev.remind ?? '') : isTask ? '' : '1')}
+    ${cls(F('place', 'Место', x.place, 'text', 'maxlength="200"'), 'ev-only')}
     <label class="f wide"><span>Заметка</span><textarea name="note" rows="3" maxlength="2000">${h(x.note)}</textarea></label></div>
-    ${!ev ? '' : `<p class="small muted">${h(calById(ev.cal)?.name || '')}${ev.rep ? ' · повторяющееся событие' : ''}</p>`}`;
-  modal(ev ? 'Событие' : 'Новое событие', body, {
+    ${!ev ? '' : `<p class="small muted">${h(calById(ev.cal)?.name || '')}${ev.rep ? (isTask ? ' · повторяющаяся задача' : ' · повторяющееся событие') : ''}</p>`}`;
+  modal(ev ? (isTask ? 'Задача' : 'Событие') : isTask ? 'Новая задача' : 'Новое событие', body, {
     extraBtn: ev ? `<button type="button" class="btn danger" data-act="cal-del" data-id="${h(ev.id)}" data-key="${h(o.key)}">Удалить</button>` : '',
     async onSubmit(fd) {
-      const v = { title: String(fd.title || '').trim(), cal: fd.cal, date: fd.date, end: fd.end && fd.end > fd.date ? fd.end : '', time: fd.allDay ? '' : fd.time || '', timeEnd: fd.allDay ? '' : fd.timeEnd || '', place: String(fd.place || '').trim(), note: String(fd.note || '').trim(),
+      const tk = fd.kind === 'task';
+      const v = tk ? { title: String(fd.title || '').trim(), cal: fd.cal, date: fd.date, end: '', time: fd.time || '', timeEnd: '', place: '', note: String(fd.note || '').trim(), tz: '', tzEnd: '', task: true, aid: fd.aid || '' }
+        : { title: String(fd.title || '').trim(), cal: fd.cal, date: fd.date, end: fd.end && fd.end > fd.date ? fd.end : '', time: fd.allDay ? '' : fd.time || '', timeEnd: fd.allDay ? '' : fd.timeEnd || '', place: String(fd.place || '').trim(), note: String(fd.note || '').trim(),
         tz: fd.allDay || !tzOk(fd.tz) ? '' : fd.tz, tzEnd: !fd.allDay && fd.tzDiff && tzOk(fd.tzEnd) && fd.tzEnd !== fd.tz ? fd.tzEnd : '' };
       if (!v.title) { notice('Укажите название'); return false; }
-      if (!v.date) { notice('Укажите дату'); return false; }
+      if (!v.date) { notice(tk ? 'Укажите срок' : 'Укажите дату'); return false; }
+      if (!tk) {
       if (fd.end && fd.end < fd.date) { notice('Окончание раньше начала. Исправьте дату окончания.'); return false; }
       if (!fd.allDay && !v.time) { notice('Укажите время начала или отметьте «Весь день».'); return false; }
       if (v.time && v.end && !v.timeEnd) { notice('Укажите время окончания в последний день.'); return false; }
       if (v.time && v.timeEnd && tzWallToUtc(v.end || v.date, v.timeEnd, v.tzEnd || v.tz || calTz()) <= tzWallToUtc(v.date, v.time, v.tz || calTz())) { notice('Окончание должно быть позже начала.'); return false; }
-      if (!v.time) v.timeEnd = '';
+      if (!v.time) v.timeEnd = ''; }
       let rep = null;
       if (fd.rep) { rep = { f: fd.rep, n: Math.max(1, Math.min(99, Math.floor(+fd.n || 1))) };
         if (fd.rep === 'w') { rep.wd = ((fd.__multi || {})['wd[]'] || []).map(Number); if (!rep.wd.length) rep.wd = [D.dow(v.date)]; if (!rep.wd.includes(D.dow(v.date))) rep.wd.push(D.dow(v.date)); rep.wd.sort((a, b) => a - b); }
-        if (fd.repEnd === 'until') { if (!fd.until) { notice('Укажите дату, до которой повторять.'); return false; } if (fd.until < v.date) { notice('Дата окончания повтора раньше первого события.'); return false; } rep.until = fd.until; }
+        if (fd.repEnd === 'until') { if (!fd.until) { notice('Укажите дату, до которой повторять.'); return false; } if (fd.until < v.date) { notice(tk ? 'Дата окончания повтора раньше первого срока.' : 'Дата окончания повтора раньше первого события.'); return false; } rep.until = fd.until; }
         if (fd.repEnd === 'count') rep.count = Math.max(1, Math.min(999, Math.floor(+fd.count || 1))); }
       const remind = fd.remind === '' ? '' : +fd.remind;
       ui.cal = ui.cal || {}; ui.cal.lastCal = v.cal;
-      if (!ev) { db.events.push({ id: uid('E'), ...v, remind, rep, ex: {} }); render.keepScroll = true; persist('Событие добавлено'); return true; }
+      if (!ev) { db.events.push({ id: uid('E'), ...v, remind, rep, ex: {} }); render.keepScroll = true; persist(tk ? 'Задача добавлена' : 'Событие добавлено'); return true; }
       let scope = 'all';
-      if (ev.rep) { scope = await choose('Это повторяющееся событие. Что изменить?', [['one', 'Только это событие'], ['next', 'Это и следующие'], ['all', 'Все события']]); if (!scope) return false; }
+      if (ev.rep) { scope = await choose(tk ? 'Это повторяющаяся задача. Что изменить?' : 'Это повторяющееся событие. Что изменить?', tk ? [['one', 'Только эту задачу'], ['next', 'Эту и следующие'], ['all', 'Все задачи серии']] : [['one', 'Только это событие'], ['next', 'Это и следующие'], ['all', 'Все события']]); if (!scope) return false; }
       if (scope === 'next' && o.key === ev.date) scope = 'all';
-      if (scope === 'one') { ev.ex = ev.ex || {}; ev.ex[o.key] = { ...v }; delete ev.ex[o.key].cal; if (v.cal !== ev.cal) toast('Календарь меняется только для всех событий серии — для одного оставлен прежний'); }
+      if (scope === 'one') { ev.ex = ev.ex || {}; ev.ex[o.key] = { ...v }; delete ev.ex[o.key].cal; delete ev.ex[o.key].task; delete ev.ex[o.key].aid;
+        if (v.cal !== ev.cal) toast((tk ? 'Календарь меняется только для всех задач серии' : 'Календарь меняется только для всех событий серии') + ' — для одного оставлен прежний');
+        if (tk && v.aid !== (ev.aid || '')) { ev.aid = v.aid; toast('Спортсмен изменён для всей серии'); } }
       else if (scope === 'next') {
         const before = calOccCount(ev, o.key), old = ev.rep, nev = { id: uid('E'), ...v, remind, rep: rep ? { ...rep } : null, ex: {} };
+        if (ev.done) { for (const [k, d] of Object.entries(ev.done)) if (k >= o.key) { (nev.done = nev.done || {})[k] = d; delete ev.done[k]; } }
         if (old.count && rep && rep.count && JSON.stringify({ ...old, count: 0 }) === JSON.stringify({ ...rep, count: 0 })) nev.rep.count = Math.max(1, old.count - before);
         ev.rep = { ...old, until: D.add(o.key, -1) }; delete ev.rep.count;
         for (const k of Object.keys(ev.ex || {})) if (k >= o.key) delete ev.ex[k];
@@ -7969,6 +8063,7 @@ function calForm(o) {                                    // o: вхождени�
         const nd = D.add(ev.date, shift), ne = v.end ? D.add(nd, D.diff(v.date, v.end)) : '';
         Object.assign(ev, v, { date: nd, end: ne, remind, rep });
         if (shift || ruleCh) ev.ex = {};
+        if (shift && ev.done) ev.done = Object.fromEntries(Object.entries(ev.done).map(([k, d]) => [D.add(k, shift), d]));
       }
       render.keepScroll = true; persist('Сохранено'); return true;
     } });
@@ -7976,11 +8071,14 @@ function calForm(o) {                                    // o: вхождени�
 }
 function calFormSync() {                                  // поля окна события: «весь день», повтор
   const f = document.getElementById('dlg-form'); if (!f) return;
+  const kind = () => { const r = f.querySelector('[name=kind]:checked') || f.querySelector('[name=kind]'); return r ? r.value : 'ev'; };
   const q = s => f.querySelector(s), upd = () => {
-    const ad = q('[name=allDay]').checked, r = q('[name=rep]').value, re = q('[name=repEnd]').value;
+    const tk = kind() === 'task', ad = q('[name=allDay]').checked && !tk, r = q('[name=rep]').value, re = q('[name=repEnd]').value;
+    f.classList.toggle('tk-mode', tk); q('#cal-l-s').textContent = tk ? 'Срок' : 'Начало';
+    f.querySelectorAll('.cal-kind label').forEach(l => l.classList.toggle('on', l.querySelector('input').checked));
     f.querySelectorAll('.cal-dtr').forEach(x => x.classList.toggle('ad', ad)); q('.cal-rep').hidden = !r; q('.cal-wd').hidden = r !== 'w'; q('.cal-until').hidden = re !== 'until'; q('.cal-count').hidden = re !== 'count';
     q('.cal-n-l').textContent = 'Каждые … ' + ({ d: 'дней (1 — каждый день)', w: 'недель (1 — каждую неделю)', m: 'месяцев', y: 'лет' }[r] || '');
-    if (!ad && !q('[name=time]').value) { q('[name=time]').value = '10:00'; if (!q('[name=timeEnd]').value) q('[name=timeEnd]').value = '11:00'; }
+    if (!tk && !ad && !q('[name=time]').value) { q('[name=time]').value = '10:00'; if (!q('[name=timeEnd]').value) q('[name=timeEnd]').value = '11:00'; }
     dur(); if (typeof tzSync === 'function') tzSync();
   };
   // начало и окончание: при сдвиге начала окончание едет следом (длительность сохраняется); под полями — длительность или подсказка об ошибке
@@ -7991,7 +8089,7 @@ function calFormSync() {                                  // поля окна �
   const span = () => { const ad = q('[name=allDay]').checked; return ad ? (E.value && S.value ? D.diff(S.value, E.value) * 1440 : null) : ok(ST.value) && ok(ET.value) && E.value && S.value ? Math.round((tzWallToUtc(E.value, ET.value, z2()) - tzWallToUtc(S.value, ST.value, z1())) / 60000) : null; };
   let keep = span();
   function dur() {
-    const ad = q('[name=allDay]').checked, m = span(); box.classList.remove('bad');
+    const ad = q('[name=allDay]').checked, m = kind() === 'task' ? null : span(); box.classList.remove('bad');
     if (m == null) { box.textContent = ''; return; }
     if (ad ? m < 0 : m <= 0) { box.textContent = 'Окончание раньше начала — поправьте дату или время окончания.'; box.classList.add('bad'); return; }
     if (ad) { const n = m / 1440 + 1; box.textContent = n === 1 ? 'Один день' : `${n} ${plural(n, 'день', 'дня', 'дней')}: ${calDayRu(S.value)} — ${calDayRu(E.value)}`; return; }
@@ -8011,6 +8109,12 @@ function calFormSync() {                                  // поля окна �
     dur(); remember(); };
   for (const ev of ['input', 'change']) { S.addEventListener(ev, follow); ST.addEventListener(ev, follow); E.addEventListener(ev, () => { dur(); remember(); }); ET.addEventListener(ev, () => { dur(); remember(); }); }
   ['allDay', 'rep', 'repEnd'].forEach(n => q(`[name=${n}]`).addEventListener('change', upd));
+  f.querySelectorAll('.cal-kind input').forEach(r => r.addEventListener('change', () => { const tk = kind() === 'task', h2 = document.querySelector('#dlg .dlg-h h2'), rm = q('[name=remind]');
+    if (h2) h2.textContent = tk ? 'Новая задача' : 'Новое событие';
+    if (rm && !rm.dataset.touched) rm.value = tk ? '' : '1';
+    if (!tk && q('[name=allDay]').checked && q('[name=time]').value) q('[name=allDay]').checked = false;   // задача со временем → событие со временем
+    upd(); q('[name=title]').focus(); }));
+  q('[name=remind]').addEventListener('change', e => { e.target.dataset.touched = '1'; });
   q('[name=allDay]').addEventListener('change', () => { keep = null; remember(); tzSync(); });      // после upd: время уже подставлено
   q('.cal-tzb').addEventListener('click', () => { const b = q('.cal-tzbox'), o = b.hidden; b.hidden = !o; q('.cal-tzb').setAttribute('aria-expanded', o); if (o) TZ1.focus(); });
   [TZ1, TZ2, TZD].forEach(x => x.addEventListener('change', () => { if (x === TZD && TZD.checked) TZ2.value = TZ1.value; tzSync(); dur(); remember(); }));
@@ -8031,7 +8135,8 @@ const EVC_IC = {
   cal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>',
   people: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>',
   edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg>',
-  del: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>' };
+  del: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
+  ok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M8 12.5l3 3 5-6"/></svg>' };
 function calDurTxt(m, endDate, endTime) {               // «Длительность: 1 день 6 ч 20 мин · до 20 ноября, 05:40» — в форме и в карточке
   const d = Math.floor(m / 1440), hh = Math.floor((m % 1440) / 60), mm = m % 60;
   return 'Длительность: ' + ([d ? d + ' ' + plural(d, 'день', 'дня', 'дней') : '', hh ? hh + ' ч' : '', mm ? mm + ' мин' : ''].filter(Boolean).join(' ') || '0 мин') + (endDate ? ` · до ${calDayRu(endDate)}, ${endTime}` : '');
@@ -8064,6 +8169,22 @@ function calCard(x) {
   const ev = x.auto ? null : (db.events || []).find(e => e.id === x.id); if (!x.auto && !ev) return;
   const c = calById(x.cal) || { name: '', color: '#888' }, row = (ic, html, cls = '') => `<div class="evc-r${cls ? ' ' + cls : ''}"><span class="evc-ic" aria-hidden="true">${EVC_IC[ic]}</span><div>${html}</div></div>`;
   const R = ev && ev.rep, rem = ev ? CAL_REMIND.find(r => r[0] === String(ev.remind ?? '')) : null;
+  if (x.task) {                                          // 14.11.2026: карточка задачи — срок, выполнено, спортсмен
+    const a = x.aid ? ix.ath.get(x.aid) : null, ac = a ? ix.athCalc.get(a.id) || {} : {};
+    let b = `<div class="evc tkc${x.done ? ' tk-done' : ''}" style="--c:${c.color}">` + row('time', `<b>Срок: ${h(calWhenFull(x.over ? { ...x, date: x.over, end: x.over } : x))}</b>${x.over ? `<div class="tk-over">Просрочено — показывается на сегодня, пока не выполнена</div>` : x.late && !x.done ? '<div class="tk-over">Не выполнена в срок</div>' : ''}`);
+    b += row('ok', x.done ? `<b>Выполнено</b> <span class="small muted">${D.ru(x.done)}</span>` : 'Не выполнено');
+    if (R) b += row('rep', h(calRepTxt(R, ev.date)) + (x.moved ? '<div class="small muted">Эта задача серии изменена отдельно</div>' : ''));
+    if (a) b += row('people', `<a href="#person/${a.id}" data-act="close" data-go="#person/${a.id}"><b>${h(shortName(a))}</b></a>${a.group ? ' <span class="small muted">· ' + h(a.group) + '</span>' : ''}${ac.contact ? `<div class="small">${telLink(ac.contact)}${ac.contactWho && ac.contactWho !== 'сам' ? ' · ' + h(ac.contactWho) : ''}</div>` : ''}`);
+    if (x.note) b += row('note', `<div class="evc-note">${calLinkify(x.note)}</div>`);
+    if (rem && rem[0] !== '') b += row('bell', 'Напомнить на «Сегодня»: ' + h(rem[1]));
+    b += row('cal', `<span class="evc-dot" aria-hidden="true"></span>${h(c.name)}${c.personal ? ' <span class="small muted">· личный</span>' : ''}`, 'evc-cal') + '</div>';
+    modal(x.title || 'Без названия', b, { closeText: 'Закрыть',
+      extraBtn: `${a ? `<button type="button" class="btn" data-act="msg" data-id="${a.id}">Написать</button>` : ''}<button type="button" class="btn ${x.done ? '' : 'primary'}" data-act="task-set" data-id="${h(x.id)}" data-key="${h(x.key)}" data-on="${x.done ? '' : '1'}">${x.done ? 'Снять отметку' : '✓ Выполнено'}</button>` });
+    const hd = document.querySelector('#dlg .dlg-h'); if (!hd) return;
+    hd.classList.add('evc-h'); hd.style.setProperty('--c', c.color); const k = calShown.push(x) - 1;
+    hd.querySelector('[data-act=close]').insertAdjacentHTML('beforebegin', `<button type="button" class="btn ghost evc-b" data-act="cal-edit-ev" data-ix="${k}" aria-label="Изменить задачу" title="Изменить">${EVC_IC.edit}</button><button type="button" class="btn ghost evc-b" data-act="cal-del" data-id="${h(x.id)}" data-key="${h(x.key)}" aria-label="Удалить задачу" title="Удалить">${EVC_IC.del}</button>`);
+    return;
+  }
   let body = `<div class="evc" style="--c:${c.color}">` + row('time', `<b>${h(calWhenFull(x))}</b>${calDurOf(x) ? `<div class="evc-dur">${h(calDurOf(x))}</div>` : ''}${x.raw ? `<div class="small muted">${h(calTzTxt(x))}</div>` : ''}`);
   if (R) body += row('rep', h(calRepTxt(R, ev.date)) + (x.moved ? '<div class="small muted">Это событие серии изменено отдельно</div>' : ''));
   if (x.place) body += row('place', `${h(x.place)}<div class="small"><a href="https://yandex.ru/maps/?text=${encodeURIComponent(x.place)}" target="_blank" rel="noopener noreferrer">Открыть на карте</a></div>`);
@@ -8115,18 +8236,19 @@ async function calDelCal(id) {
 }
 async function calDelEv(id, key) {
   const ev = (db.events || []).find(e => e.id === id); if (!ev) return;
-  if (!ev.rep) { if (!await ask(`Удалить событие «${ev.title}»?`)) return; db.events = db.events.filter(e => e !== ev); }
+  const tk = !!ev.task;
+  if (!ev.rep) { if (!await ask(`Удалить ${tk ? 'задачу' : 'событие'} «${ev.title}»?`)) return; db.events = db.events.filter(e => e !== ev); }
   else {
-    const v = await choose(`«${ev.title}» — повторяющееся событие. Что удалить?`, [['one', 'Только это событие'], ['next', 'Это и следующие'], ['all', 'Все события']]); if (!v) return;
+    const v = await choose(tk ? `«${ev.title}» — повторяющаяся задача. Что удалить?` : `«${ev.title}» — повторяющееся событие. Что удалить?`, tk ? [['one', 'Только эту задачу'], ['next', 'Эту и следующие'], ['all', 'Все задачи серии']] : [['one', 'Только это событие'], ['next', 'Это и следующие'], ['all', 'Все события']]); if (!v) return;
     if (v === 'all' || (v === 'next' && key <= ev.date)) db.events = db.events.filter(e => e !== ev);
     else if (v === 'one') { ev.ex = ev.ex || {}; ev.ex[key] = { del: true }; }
-    else { ev.rep = { ...ev.rep, until: D.add(key, -1) }; delete ev.rep.count; for (const k of Object.keys(ev.ex || {})) if (k >= key) delete ev.ex[k]; }
+    else { ev.rep = { ...ev.rep, until: D.add(key, -1) }; delete ev.rep.count; for (const k of Object.keys(ev.ex || {})) if (k >= key) delete ev.ex[k]; for (const k of Object.keys(ev.done || {})) if (k >= key) delete ev.done[k]; }
   }
-  closeModal(); render.keepScroll = true; persist('Событие удалено');
+  closeModal(); render.keepScroll = true; persist(tk ? 'Задача удалена' : 'Событие удалено');
 }
 function calSoonCard() {                                  // «Сегодня»: события сегодня и те, о которых пора напомнить
   const t = ix.today, L = [];
-  for (const ev of db.events || []) { if (!calById(ev.cal)) continue;
+  for (const ev of db.events || []) { if (!calById(ev.cal) || ev.task) continue;   // задачи — в «Требует внимания»
     for (const o of calOcc(ev, t, D.add(t, 31))) { const lead = o.date <= t ? 0 : D.diff(t, o.date);
       if ((o.date <= t && o.end >= t) || (o.remind !== '' && o.remind != null && lead <= +o.remind)) L.push(o); } }
   if (!L.length) return '';
@@ -8156,6 +8278,9 @@ function todayGroupsDlg() {                              // 12.11.2026: каки
 const CAL_ACT = {
   'today-groups': () => todayGroupsDlg(),
   'cal-new': () => { const U = ui.cal || {}; calForm({ date: U.cur && U.cur >= ix.today ? U.cur : ix.today }); },
+  'task-new': el => { const U = ui.cal || {}, aid = el.dataset.aid || ''; calForm({ task: true, aid, date: !aid && location.hash.startsWith('#cal') && U.cur && U.cur >= ix.today ? U.cur : ix.today }); },
+  'task-set': el => { if (el.closest('#dlg')) closeModal(); taskSet(el.dataset.id, el.dataset.key, el.dataset.on === '1'); },
+  'task-open': el => { const x = taskFind(el.dataset.id, el.dataset.key); if (x) calCard(x); else notice('Задача не найдена — возможно, её удалили.'); },
   'cal-open': el => { const x = calShown[+el.dataset.ix]; if (x) calCard(x); },
   'cal-edit-ev': el => { const x = calShown[+el.dataset.ix]; if (x) calForm(x); },
   'cal-today': () => { ui.cal.cur = ix.today; render(); },
@@ -8200,6 +8325,8 @@ async function onChange(e) {
   const live = e.type === 'input';
   if (k === 'pf') { ui.people[el.dataset.k] = v; if (live && el.type !== 'number' && el.type !== 'search') return; clearTimeout(typingTimer); typingTimer = setTimeout(() => { if (live) liveRefresh(el); else rerender(); }, live ? 250 : 0); return; }
   if (k === 'arch-q') { (ui.arch || (ui.arch = { q: '' })).q = v; rerender(); setTimeout(() => { const i = document.querySelector('[data-change=arch-q]'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 0); return; }
+  if (k === 'cal-tasks') { meta.calNoTasks = !v; writeMeta(); rerender(); return; }
+  if (k === 'cal-hidedone') { meta.calHideDone = !!v; writeMeta(); rerender(); return; }
   if (k === 'cal-on') { const id = el.dataset.id, off = new Set(meta.calOff || []); if (v) off.delete(id); else off.add(id); meta.calOff = [...off]; writeMeta(); rerender(); return; }
   if (k === 'cal-set') { const S = db.settings.calView, kk = el.dataset.k; if (kk === 'tz' && !tzOk(v)) return; S[kk] = kk === 'h0' || kk === 'h1' ? +v : v;
     if (S.h1 <= S.h0) { if (kk === 'h0') S.h1 = Math.min(24, S.h0 + 1); else S.h0 = Math.max(0, S.h1 - 1); }
