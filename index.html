@@ -4651,7 +4651,7 @@ function vSubs() {
     <div class="row" style="gap:4px">${[['month', 'Этот месяц'], ['prev', 'Прошлый'], ['year', 'С начала года'], ['all', 'С начала программы']].map(([k, l]) => `<button class="btn sm${subsPreset(U) === k ? ' primary' : ''}" data-act="subs-period" data-k="${k}" aria-pressed="${subsPreset(U) === k}">${l}</button>`).join('')}</div>
 </div>
     <div class="small" style="margin-top:6px">${U.filter === 'period' ? `Список ниже — <b>оплаты ${pLabel}</b> (по дате оплаты).` : `Сумма выше — за ${pLabel}. Список ниже — «${(seg.find(x => x[0] === U.filter) || ['', ''])[1]}», он от периода не зависит: в нём абонементы с любой датой оплаты. Оплаты периода — «Показать» → «Оплаты за период».`}</div>
-    <div class="small muted" style="margin-top:6px">С начала ведения программы (${D.ru(pStart)}): ${money(paidAll).toLocaleString('ru')} ₽ · ${paidAll.length} ${plural(paidAll.length, 'оплата', 'оплаты', 'оплат')}${refTxt(paidAll)}. Возврат при отказе вычитается из оплаты того абонемента, за который возвращены деньги. Оплаты до ${D.ru(pStart)} (перенесённые из Excel) не считаются. Считается по дате оплаты; «ждём оплату» не входит.</div></div>
+    <p class="small muted" style="margin:6px 0 0">С начала ведения программы (${D.ru(pStart)}): ${money(paidAll).toLocaleString('ru')} ₽ · ${paidAll.length} ${plural(paidAll.length, 'оплата', 'оплаты', 'оплат')}${refTxt(paidAll)}. Возврат при отказе вычитается из оплаты того абонемента, за который возвращены деньги. Оплаты до ${D.ru(pStart)} (перенесённые из Excel) не считаются. Считается по дате оплаты; «ждём оплату» не входит.</p></div>
   <div class="card no-print"><div class="row subs-bar">${(() => {
     const hint = { ending: 'осталось 1–2 занятия, новый не оплачен', ended: 'занятий не осталось, новый не оплачен', pending: 'занимается в долг до оплаты', debt: 'занятий больше, чем оплачено', period: 'по дате оплаты, период выше', active: 'есть оплаченные занятия', all: 'с любой датой оплаты' };
     const it = k => { const l = (seg.find(x => x[0] === k) || ['', k])[1], n = cnt(k), on = U.filter === k;
@@ -6189,7 +6189,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '13.11.2026 (v150)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '13.11.2026 (v151)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
