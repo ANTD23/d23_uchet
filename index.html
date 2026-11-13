@@ -468,6 +468,9 @@ details.menu:not([open]) > .menu-pop{display:none}   /* закрытое мен�
 .menu-pop .btn{justify-content:flex-start;border-color:transparent;background:transparent;width:100%}
 .menu-pop .btn:hover{background:var(--sunk)}
 details.legend-d{margin-bottom:12px}
+.menu-h{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);padding:8px 12px 4px} .menu-h:not(:first-child){border-top:1px solid var(--line);margin-top:4px;padding-top:10px}
+.menu-row{display:flex;gap:2px} .menu-row .btn{width:auto;flex:1}
+.ppl-acts{flex-wrap:nowrap;gap:8px} .ppl-acts .menu-pop{left:auto;right:0;min-width:260px} .filt-reset{align-self:end}
 details.legend-d > summary{cursor:pointer;color:var(--ink-2);font-size:.9375rem;min-height:var(--tap);display:inline-flex;align-items:center}
 details.legend-d .legend{padding:4px 0 6px}
 .jlist > li.mrow{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:12px 16px}
@@ -4086,12 +4089,18 @@ function vPeople() {
   const sel = (k, items, label) => `<label class="f"><span>${label}</span><select data-change="pf" data-k="${k}">${items.map(x => opt(x, F[k])).join('')}</select></label>`;
   const num = (k, label, ph) => `<label class="f"><span>${label}</span><input type="number" inputmode="numeric" data-change="pf" data-k="${k}" value="${h(F[k])}" placeholder="${ph}"></label>`;
   return `<div class="topline"><div><h1>Спортсмены</h1><div class="muted">${list.length} из ${db.athletes.length}</div></div>
-    <div class="row no-print"><button class="btn" data-act="reset-filters" data-page="people">Сбросить фильтры</button><button class="btn primary" data-act="person-new">Добавить</button><a class="btn" href="#archive" title="Ушедшие и отказавшиеся от договора — вернуть, если снова пришёл">Архив${archList().length ? ' · ' + archList().length : ''}</a><button class="btn" data-act="people-print">Печать списка</button><button class="btn" data-act="parents-list" title="ФИО родителей и телефоны — печать, Word, Excel">Список родителей</button><button class="btn" data-act="people-entry">Список для заявки</button><button class="btn" data-act="weigh-list">Взвешивание</button><button class="btn" data-act="people-csv" data-fmt="xlsx">В Excel</button><button class="btn" data-act="people-csv">CSV</button></div></div>
+    <div class="row no-print ppl-acts"><button class="btn primary" data-act="person-new">＋ Добавить</button>
+      <details class="menu ppl-menu"><summary class="btn" aria-label="Печать и выгрузка списка">${'<span class="hide-m">Печать и выгрузка</span><span class="show-m">Печать</span>'} <span aria-hidden="true">▾</span></summary><div class="menu-pop" role="menu">
+        <div class="menu-h" title="Печатается то, что сейчас в списке — с учётом поиска и фильтров">Печать списка (${list.length})</div>
+        <button class="btn" data-act="people-print" role="menuitem">Список спортсменов</button><button class="btn" data-act="parents-list" role="menuitem" title="ФИО родителей и телефоны — печать, Word, Excel">Список родителей</button><button class="btn" data-act="people-entry" role="menuitem">Список для заявки</button><button class="btn" data-act="weigh-list" role="menuitem">Взвешивание</button>
+        <div class="menu-h">Выгрузить</div><div class="menu-row"><button class="btn" data-act="people-csv" data-fmt="xlsx" role="menuitem">В Excel</button><button class="btn" data-act="people-csv" role="menuitem">CSV</button></div></div></details>
+      <a class="btn" href="#archive" title="Ушедшие и отказавшиеся от договора — вернуть, если снова пришёл">Архив${archList().length ? ' · ' + archList().length : ''}</a></div></div>
   <div class="card no-print"><input type="search" class="srch-b" placeholder="Поиск: фамилия, имя, родитель, телефон" data-change="pf" data-k="q" value="${h(F.q)}" style="margin-bottom:10px">
   <details class="filt" ${!PHONE_MQ.matches || ui.peopleFiltOpen ? 'open' : ''} data-filt><summary>Фильтры${['group', 'belt', 'sex'].some(k => F[k] !== 'все') || F.status !== 'занимается' || F.ageFrom || F.ageTo || F.yFrom || F.yTo ? ' (включены)' : ''}</summary>
   <div class="filters">${sel('status', ['все', ...S.statuses], 'Статус')}${sel('group', ['все', ...S.groups.map(g => g.name)], 'Группа')}${sel('belt', ['все', ...S.belts], 'Пояс')}${sel('sex', ['все', 'М', 'Ж'], 'Пол')}
   ${sel('ageMode', ['сейчас', 'на дату соревнований', 'на 31.12'], 'Возраст считать')}${num('ageFrom', 'Возраст от', '0')}${num('ageTo', 'Возраст до', '99')}${num('yFrom', 'Год рожд. от', '2008')}${num('yTo', 'Год рожд. до', '2020')}
-  ${sel('sort', ['name', 'age', 'group'], 'Сортировка').replace('>name<', '>по фамилии<').replace('>age<', '>по возрасту<').replace('>group<', '>по группе<')}</div></details>
+  ${sel('sort', ['name', 'age', 'group'], 'Сортировка').replace('>name<', '>по фамилии<').replace('>age<', '>по возрасту<').replace('>group<', '>по группе<')}
+  ${['group', 'belt', 'sex'].some(k => F[k] !== 'все') || F.status !== 'занимается' || F.ageFrom || F.ageTo || F.yFrom || F.yTo || F.ageMode !== 'сейчас' || F.sort !== 'name' ? '<div class="f filt-reset"><button class="btn" data-act="reset-filters" data-page="people">Сбросить фильтры</button></div>' : ''}</div></details>
   ${F.ageMode !== 'сейчас' && S.competition.date ? `<div class="small muted">Соревнования: ${h(S.competition.name)}, ${D.ru(S.competition.date)}</div>` : ''}</div>
   <div class="print-only"><b>${h(S.club)}</b> — список спортсменов (${list.length}), ${D.ru(ix.today)}</div>
   <div class="card flat show-m"><ul class="list sublist">${list.map(a => { const c = ix.athCalc.get(a.id); const ag = ageOf(c, F.ageMode);
@@ -6163,7 +6172,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '13.11.2026 (v145)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '13.11.2026 (v147)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -7566,6 +7575,7 @@ const ACT = {
     download(copyName(true).replace(/\.json$/, '_без_PIN.json'), JSON.stringify(db, null, 1), 'application/json'); },
 };
 document.addEventListener('click', e => { document.querySelectorAll('details.menu[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; }); }, true);
+document.addEventListener('click', e => { const b = e.target.closest('.menu-pop [data-act]'); if (b) setTimeout(() => { const d = b.closest('details.menu'); if (d) d.open = false; }, 0); });   // 13.11.2026: выбрали пункт — меню закрывается
 /* 23.10.2026: компактный пункт «Требует внимания» — нажатие раскрывает телефон и кнопки (без перерисовки; помним до перезагрузки) */
 function itToggle(cm) { const it = cm.closest('.it.compact'); if (!it) return; const on = !it.classList.contains('open'); it.classList.toggle('open', on); cm.setAttribute('aria-expanded', on);
   ui.itOpen = ui.itOpen || new Set(); if (on) ui.itOpen.add(it.dataset.it); else ui.itOpen.delete(it.dataset.it); }
