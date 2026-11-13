@@ -470,6 +470,14 @@ details.menu:not([open]) > .menu-pop{display:none}   /* закрытое мен�
 details.legend-d{margin-bottom:12px}
 .menu-h{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);padding:8px 12px 4px} .menu-h:not(:first-child){border-top:1px solid var(--line);margin-top:4px;padding-top:10px}
 .menu-row{display:flex;gap:2px} .menu-row .btn{width:auto;flex:1}
+.mn-menu{display:block} .mn-menu .sf-sum{width:100%;justify-content:space-between} .mn-menu .sf-it{grid-template-columns:18px minmax(0,1fr) 0}
+.cat-menu .menu-pop{left:0;right:auto;width:min(420px,calc(100vw - 24px));padding:0;gap:0} .cat-q{display:flex;flex-wrap:wrap;gap:6px;padding:10px 10px 8px;border-bottom:1px solid var(--line)} .cat-q .btn{width:auto!important;border-color:var(--line)!important}
+.cat-body{max-height:min(56vh,480px);overflow:auto;padding:4px 6px 6px} .cat-ck{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;align-items:center;padding:7px 8px;border-radius:8px;cursor:pointer;min-height:40px;line-height:1.3} .cat-ck:hover{background:var(--sunk)}
+.cat-ck input{width:20px;height:20px;margin:0} .cat-n{color:var(--ink-3);font-variant-numeric:tabular-nums;font-size:.875rem} .cat-sub{padding-left:22px}
+.cat-f{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-top:1px solid var(--line)} .cat-f .btn{width:auto!important;border-color:transparent}
+@media (max-width:860px){.cat-menu .menu-pop{position:fixed;left:8px;right:8px;top:auto;bottom:calc(84px + env(safe-area-inset-bottom,0px));width:auto;max-height:calc(100vh - 170px);display:flex;flex-direction:column;z-index:60}
+  .cat-menu .cat-body{max-height:none;flex:1 1 auto;min-height:0}}
+.cat-f .btn.primary{background:var(--accent-btn)!important;color:var(--accent-btn-ink)!important}
 .subs-bar{gap:8px} .sf-menu .menu-pop{left:0;right:auto;min-width:380px} .sf-sum{gap:6px}
 .sf-it{white-space:normal!important;display:grid!important;grid-template-columns:18px minmax(0,1fr) auto;gap:10px;align-items:center;text-align:left;min-height:52px;padding:6px 12px!important} .sf-it.on{background:var(--sunk)!important}
 .sf-l{display:flex;flex-direction:column;line-height:1.25} .sf-l .small{color:var(--ink-3);font-weight:400} .sf-ck{color:var(--ok-fill);font-weight:700}
@@ -2265,7 +2273,7 @@ const ui = {
   attest: { tab: 'admission', group: 'все', date: '' },
   report: { from: null, to: null },
   leads: { filter: 'active', q: '', from: null, to: null, per: 'year' },
-  money: { from: null, to: null, per: 'month', kind: 'all', acc: 'all', cat: 'all', q: '', year: '' },
+  money: { from: null, to: null, per: 'month', kind: 'all', acc: 'all', cats: null, q: '', year: '' },
 };
 const PHONE_MQ = matchMedia('(max-width:860px), (pointer:coarse) and (max-height:500px)');   // телефонная раскладка (и телефон горизонтально)
 const h = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -2927,7 +2935,7 @@ function render() {
   if (keep && main0 && main0.contains(keep)) { const t = document.createElement('main'); t.innerHTML = body; patched = patchKeep(main0, t, keep); }
   if (!patched) document.getElementById('app').innerHTML = `<div class="shell">${navHTML(navKey)}<main>${body}</main></div>`;
   if (v === 'person') applySections();
-  foldHints(); segTails(); tableTails();
+  foldHints(); segTails(); tableTails(); document.querySelectorAll('input[data-mixed]').forEach(i => { i.indeterminate = true; }); { const cm = document.querySelector('details[data-catmenu][open]'); if (cm) catFit(cm); }
   { const mn = document.querySelector('main'); if (mn) dateClear(mn, 'input[type=date]:not([required]):not([data-noclr]):not([disabled])'); }   // 26.10.2026: «✕» у дат и на страницах (настройки, выезды…), не только в окнах
   const jm = v === 'journal' && ui.journal.tab === 'month';
   document.body.classList.toggle('main-wide', (v === 'attest' && ui.attest.tab === 'norms') || v === 'subs');   // 08.11.2026: и «Абонементы»   // 08.11.2026: «Таблица норм» — во всю ширину экрана
@@ -5234,7 +5242,14 @@ function vMoney(tab) {
   tab = tabs.some(x => x[0] === tab) ? tab : 'overview';
   const body = { overview: vMoneyOverview, ops: vMoneyOps, report: vMoneyReport, tax: vMoneyTax, coaches: vMoneyCoaches, setup: vMoneySetup }[tab]();
   return `<div class="topline"><div><h1>Деньги</h1></div><div class="row no-print"><button class="btn primary" data-act="op-new" data-kind="out">+ Расход</button><button class="btn" data-act="op-new" data-kind="in">+ Доход</button><button class="btn" data-act="op-new" data-kind="move" title="Например, сдали наличные на карту">Перевод</button></div></div>
-  <div class="no-print" style="margin-bottom:14px"><div class="seg">${tabs.map(([k, l]) => `<button data-go="#money/${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>${body}`;
+  <div class="no-print" style="margin-bottom:14px"><div class="seg hide-m">${tabs.map(([k, l]) => `<button data-go="#money/${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>${moneyMenu(tabs, tab)}</div>${body}`;
+}
+function moneyMenu(tabs, tab) {                  // 13.11.2026: на телефоне — меню разделов вместо вкладок (на компьютере вкладки остаются)
+  const hint = { overview: 'деньги сейчас и этот месяц', ops: 'все доходы, расходы, переводы', report: 'за месяц, квартал, год', tax: 'налог за квартал, чеки', coaches: 'начисления и выплаты', setup: 'счета, статьи, учёт с даты' };
+  const name = k => (tabs.find(x => x[0] === k) || ['', k])[1];
+  const it = k => `<button class="btn sf-it${tab === k ? ' on' : ''}" data-go="#money/${k}" role="menuitemradio" aria-checked="${tab === k}"><span class="sf-ck" aria-hidden="true">${tab === k ? '✓' : ''}</span><span class="sf-l"><b>${name(k)}</b><span class="small">${hint[k]}</span></span><span></span></button>`;
+  return `<details class="menu sf-menu show-m mn-menu"><summary class="btn sf-sum" aria-label="Раздел: ${h(name(tab))}"><span><span class="small muted">Раздел: </span><b>${h(name(tab))}</b></span><span aria-hidden="true">▾</span></summary><div class="menu-pop" role="menu">
+    <div class="menu-h">Каждый день</div>${['overview', 'ops'].map(it).join('')}<div class="menu-h">Отчёты</div>${['report', 'tax'].map(it).join('')}<div class="menu-h">Учёт</div>${['coaches', 'setup'].map(it).join('')}</div></details>`;
 }
 function finSetupCard() {
   const F = finS(db);
@@ -5410,24 +5425,50 @@ function moneyPeriod(U) {                           // период для «О�
   return `<div class="row" style="align-items:flex-end"><label class="f" style="width:auto"><span>С</span><input type="date" data-noclr data-change="money-from" value="${U.from}"></label><label class="f" style="width:auto"><span>По</span><input type="date" data-noclr data-change="money-to" value="${U.to}"></label>
   <div class="row" style="gap:4px">${presets.map(([k, l]) => `<button class="btn sm${U.per === k ? ' primary' : ''}" data-act="money-per" data-k="${k}">${l}</button>`).join('')}</div></div>`;
 }
-function moneyFiltered(U) {                         // строки «Операций» с фильтрами (и для кнопки «указать всем показанным»)
+function moneyFiltered(U, noCat) {                         // строки «Операций» с фильтрами (и для кнопки «указать всем показанным»)
   const F = finS(db), norm = s => String(s || '').toLowerCase().replace(/ё/g, 'е'), q = norm(U.q);
   return moneyRows(U.from, U.to).filter(x => (U.kind === 'all' || (U.kind === 'out' ? x.kind === 'out' || x.kind === 'refund' : x.kind === U.kind))
     && (U.acc === 'all' || (U.acc === '' ? !x.acc || !F.accounts.some(A => A.id === x.acc) : x.acc === U.acc || x.to === U.acc))
-    && (U.cat === 'all' || x.cat === U.cat) && (!q || norm(itemText(x).title + ' ' + itemText(x).sub).includes(q)));
+    && (noCat || !U.cats || U.cats.includes(x.cat)) && (!q || norm(itemText(x).title + ' ' + itemText(x).sub).includes(q)));
+}
+/* 13.11.2026: статьи — выбор нескольких (U.cats: null — все; [] — ни одной) */
+function moneyCatList() {
+  const F = finS(db), L = [], seen = new Map();
+  const add = (id, name, side, group) => { if (seen.has(id)) { const e = seen.get(id); if (e.side !== side) e.side = 'both'; return; } const e = { id, name, side, group: group || '' }; seen.set(id, e); L.push(e); };
+  add('_sub', 'Абонементы', 'in'); add('_one', 'Разовые посещения', 'in');
+  F.inCats.forEach(c => add(c.id, c.name, 'in'));
+  add('_ref', FIN_AUTO._ref, 'out', 'Возвраты');
+  F.outCats.forEach(c => add(c.id, c.name, 'out', c.group || 'Прочее'));
+  return L;
+}
+function moneyCatLabel(U, L) {
+  if (!U.cats) return 'все'; if (!U.cats.length) return 'ни одной';
+  const on = L.filter(c => U.cats.includes(c.id)); if (on.length === L.length) return 'все';
+  return on.length <= 2 ? on.map(c => c.name.replace(/ \(.*\)$/, '')).join(', ') : `${on.length} из ${L.length}`;
+}
+function moneyCatMenu(U) {
+  const L = moneyCatList(), base = moneyFiltered(U, true), cnt = new Map(); base.forEach(x => cnt.set(x.cat, (cnt.get(x.cat) || 0) + 1));
+  const on = id => !U.cats || U.cats.includes(id);
+  const ck = c => `<label class="cat-ck"><input type="checkbox" data-change="money-catx" data-id="${h(c.id)}" ${on(c.id) ? 'checked' : ''}><span>${h(c.name)}</span><span class="cat-n">${cnt.get(c.id) || ''}</span></label>`;
+  const ins = L.filter(c => c.side === 'in' || c.side === 'both'), outs = L.filter(c => c.side === 'out'), groups = [...new Set(outs.map(c => c.group))];
+  const grp = g => { const I = outs.filter(c => c.group === g), n = I.filter(c => on(c.id)).length;
+    return I.length === 1 ? ck(I[0]) : `<div class="cat-g"><label class="cat-ck cat-gh"><input type="checkbox" data-change="money-catg" data-g="${h(g)}" ${n === I.length ? 'checked' : ''} ${n && n < I.length ? 'data-mixed="1"' : ''}><span><b>${h(g)}</b></span><span class="cat-n">${I.reduce((k, c) => k + (cnt.get(c.id) || 0), 0) || ''}</span></label><div class="cat-sub">${I.map(ck).join('')}</div></div>`; };
+  const Q = (k, l) => `<button type="button" class="btn sm" data-act="money-cats" data-k="${k}">${l}</button>`;
+  return `<details class="menu cat-menu" data-catmenu ${U.catOpen ? 'open' : ''}><summary class="btn" aria-label="Статьи: ${h(moneyCatLabel(U, L))}"><span><span class="small muted">Статьи: </span><b>${h(moneyCatLabel(U, L))}</b></span> <span aria-hidden="true">▾</span></summary>
+    <div class="menu-pop cat-pop"><div class="cat-q">${Q('all', 'Все')}${Q('in', 'Только доходы')}${Q('out', 'Только расходы')}${Q('none', 'Снять все')}</div>
+    <div class="cat-body"><div class="menu-h">Доходы</div>${ins.map(ck).join('')}<div class="menu-h">Расходы</div>${groups.map(grp).join('')}</div>
+    <div class="cat-f"><span class="small muted">Число — операций за период</span><button type="button" class="btn primary sm" data-act="money-cats" data-k="done">Готово</button></div></div></details>`;
 }
 function vMoneyOps() {
   const U = ui.money, F = finS(db);
   const head = moneyPeriod(U);
   const rows = moneyFiltered(U);
   const inn = rows.filter(x => x.kind === 'in').reduce((n, x) => n + x.amount, 0), out = rows.filter(x => x.kind === 'out' || x.kind === 'refund').reduce((n, x) => n + x.amount, 0);
-  const cats = [['all', 'все статьи'], ['_sub', 'Абонементы'], ['_one', 'Разовые посещения'], ['_ref', '− ' + FIN_AUTO._ref], ...F.inCats.map(c => [c.id, '+ ' + c.name]), ...F.outCats.map(c => [c.id, '− ' + c.name])];
-  const uniq = []; const seen = new Set(); for (const c of cats) { const k = c[0]; if (seen.has(k)) { const i = uniq.findIndex(x => x[0] === k); uniq[i] = [k, c[1].replace(/^[+−] /, '')]; continue; } seen.add(k); uniq.push(c); }
   const noAcc = rows.filter(x => (x.kind === 'in' || x.kind === 'out') && x.src !== 'ref' && !x.acc).length;
   return `<div class="card no-print">${head}
   <div class="row" style="margin-top:10px"><div class="seg">${[['all', 'Все'], ['in', 'Доходы'], ['out', 'Расходы'], ['move', 'Переводы']].map(([k, l]) => `<button data-act="money-kind" data-k="${k}" class="${U.kind === k ? 'on' : ''}">${l}</button>`).join('')}</div>
   <select data-change="money-acc" style="width:auto">${[['all', 'Счёт: все'], ...F.accounts.map(A => [A.id, 'Счёт: ' + A.name]), ['', 'Счёт: не указано']].map(([k, l]) => opt(k, U.acc, l)).join('')}</select>
-  <select data-change="money-cat" style="width:auto;max-width:100%">${uniq.map(([k, l]) => opt(k, U.cat, l)).join('')}</select>
+  ${moneyCatMenu(U)}
   <input type="search" class="srch-b" placeholder="Поиск: фамилия, примечание" data-change="money-q" value="${h(U.q)}" style="flex:1;min-width:250px"><span class="row" style="gap:8px;flex-wrap:nowrap"><button class="btn" data-act="money-csv" data-fmt="xlsx">В Excel</button><button class="btn" data-act="money-csv">CSV</button></span></div></div>
   ${U.acc === '' && noAcc ? `<div class="banner no-print"><div class="spacer">Без способа оплаты: ${noAcc}. Откройте каждую и выберите или укажите всем показанным сразу:</div>${F.accounts.map(A => `<button class="btn sm" data-act="acc-bulk" data-acc="${h(A.id)}">${h(A.name)}</button>`).join('')}</div>` : ''}
   <div class="card"><div class="stats"><div class="stat"><b style="color:var(--ok)">+${rubN(inn)}</b><span class="small muted">поступило</span></div><div class="stat"><b style="color:var(--bad)">−${rubN(out)}</b><span class="small muted">выплачено</span></div><div class="stat"><b>${rows.length}</b><span class="small muted">операций</span></div></div>
@@ -6189,7 +6230,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '13.11.2026 (v151)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '13.11.2026 (v153)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -7349,6 +7390,9 @@ const ACT = {
     else if (k === 'lastyear') { U.from = (+y - 1) + '-01-01'; U.to = (+y - 1) + '-12-31'; }
     rerender(); },
   'money-kind': el => { ui.money.kind = el.dataset.k; rerender(); },
+  'money-cats': el => { const U = ui.money, k = el.dataset.k, L = moneyCatList();
+    if (k === 'done') { U.catOpen = false; rerender(); return; }
+    U.cats = k === 'all' ? null : k === 'none' ? [] : L.filter(c => k === 'in' ? c.side !== 'out' : c.side !== 'in').map(c => c.id); U.catOpen = true; rerender(); },
   'noacc-open': () => { const U = ui.money, [a, b] = ymBounds(ymOf(ix.today)); Object.assign(U, { from: a, to: b, per: 'month', kind: 'in', acc: '', cat: 'all', q: '' }); location.hash = '#money/ops'; },   // 23.10.2026: оплаты без способа оплаты
   'money-csv': el => moneyCSV(el),
   'money-print': () => openPrint('Финансовый отчёт', finReportDoc(ui.money.from, ui.money.to), 'h3{margin:12pt 0 3pt}'),
@@ -8128,6 +8172,14 @@ const CAL_ACT = {
   'cal-del': el => calDelEv(el.dataset.id, el.dataset.key),
 };
 Object.assign(ACT, CAL_ACT, PA_ACT);
+document.addEventListener('toggle', e => { if (!(e.target.matches && e.target.matches('details[data-catmenu]'))) return; const was = ui.money && ui.money.catOpen; if (ui.money) ui.money.catOpen = e.target.open;
+  if (e.target.open) catFit(e.target); }, true);
+function catFit(d) {                                  // список статей — по высоте свободного места на экране (страница не прокручивается)
+  const body = d && d.querySelector('.cat-body'), p = d && d.querySelector('.menu-pop'); if (!body || !p) return;
+  if (PHONE_MQ.matches) { body.style.maxHeight = ''; return; }   // на телефоне — панель снизу (CSS)
+  body.style.maxHeight = ''; const top = p.getBoundingClientRect().top, extra = p.offsetHeight - body.offsetHeight, lim = innerHeight - (PHONE_MQ.matches ? 84 : 12);
+  body.style.maxHeight = Math.max(180, Math.min(480, lim - top - extra)) + 'px';
+}   // 13.11.2026: меню статей остаётся открытым при отметках и целиком на экране   // 13.11.2026: меню статей остаётся открытым при отметках
 document.addEventListener('toggle', e => { if (e.target.matches && e.target.matches('details[data-calside]') && PHONE_MQ.matches && ui.cal) ui.cal.side = e.target.open; }, true);
 document.addEventListener('click', e => {
   const act = e.target.closest('[data-act]');
@@ -8230,7 +8282,11 @@ async function onChange(e) {
   else if (k === 'sched-from') { if (v) { ui.schedFrom = v; rerender(); } }
   else if (k === 'money-from' || k === 'money-to') { if (v) { ui.money[k === 'money-from' ? 'from' : 'to'] = v; ui.money.per = ''; rerender(); } }
   else if (k === 'money-acc') { ui.money.acc = v; rerender(); }
-  else if (k === 'money-cat') { ui.money.cat = v; rerender(); }
+  else if (k === 'money-catx' || k === 'money-catg') { const U = ui.money, L = moneyCatList(), cur = new Set(U.cats || L.map(c => c.id));
+    const ids = k === 'money-catx' ? [el.dataset.id] : L.filter(c => c.side === 'out' && c.group === el.dataset.g).map(c => c.id);
+    ids.forEach(id => { if (v) cur.add(id); else cur.delete(id); });
+    U.cats = L.every(c => cur.has(c.id)) ? null : L.filter(c => cur.has(c.id)).map(c => c.id); U.catOpen = true;
+    const sc = document.querySelector('.cat-body'), top = sc ? sc.scrollTop : 0; rerender(); const n = document.querySelector('.cat-body'); if (n) n.scrollTop = top; }
   else if (k === 'money-year') { ui.money.year = v; rerender(); }
   else if (k === 'renew-to') { if (v) { ui.money.renewTo = v; rerender(); } }
   else if (k === 'fin') { const F = finS(db), path = el.dataset.path, num = /^(rate|rateOrg|limit|deduct|before\.amount|open\.)/.test(path);
