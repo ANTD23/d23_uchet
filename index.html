@@ -3363,7 +3363,7 @@ function vToday() {
     return `<button class="btn ${s ? '' : 'primary'}" data-act="open-session" data-date="${t}" data-group="${h(g)}">${s ? h(g || 'без группы') + ' · отмечено ' + n : 'Отметить «' + h(g) + '»'}</button>`;
   }).join('');
   const all = attention(), doneMap = db.attnDone || {}; attnSeenUpd(all);
-  const al = all.filter(x => !doneMap[attnKey(x)]), done = all.filter(x => doneMap[attnKey(x)]);
+  const al = all.filter(x => !doneMap[attnKey(x)]), doneAny = all.filter(x => doneMap[attnKey(x)]), done = doneAny.filter(x => doneMap[attnKey(x)] === t);   // 13.11.2026: в «Сделано» — только отмеченное сегодня; отмеченное раньше не показывается и не возвращается
   const comp = [...(db.tourneys || [])].filter(T => T.date && T.date >= t).sort((x, y) => x.date.localeCompare(y.date))[0] || db.settings.competition;   // 31.10.2026: ближайший турнир из «Турниров»
   const days = comp.date && comp.date >= t ? D.diff(t, comp.date) : null;
   const active = db.athletes.filter(a => a.status === 'занимается').length;
@@ -3387,7 +3387,7 @@ function vToday() {
     <div class="seg no-print" role="group" aria-label="Вид списка">${[['urg', 'По срочности'], ['plan', 'План на день']].map(([m, l]) => `<button type="button" data-act="today-mode" data-m="${m}" class="${mode === m ? 'on' : ''}" aria-pressed="${mode === m}">${l}</button>`).join('')}</div></div>
     ${mode === 'plan' ? planBody(P) : `
     ${al.length || frozenNow().length ? alertSections(al, attnItem)
-      : `<div class="empty">${done.length ? 'Всё сделано.' : 'Всё в порядке: долгов, просроченных справок и заканчивающихся абонементов нет.'}</div>`}
+      : `<div class="empty">${doneAny.length ? 'Всё сделано.' : 'Всё в порядке: долгов, просроченных справок и заканчивающихся абонементов нет.'}</div>`}
     ${done.length ? `<details class="attn-donelist"><summary class="small">Сделано: ${done.length}</summary>${done.map(x => `<div class="alert done"><span class="dot"></span><div class="txt">${attnTxt(x.text)}<span class="small muted"> · сделано ${D.ru(doneMap[attnKey(x)])}</span></div>
       <div class="row">${x.a ? `<a class="btn sm ghost" href="#person/${x.a.id}">Карточка</a>` : ''}<button class="btn sm" data-act="attn-undo" data-key="${h(attnKey(x))}">Вернуть</button></div></div>`).join('')}</details>` : ''}`}</div></div>
   </div>`;
@@ -6230,7 +6230,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '13.11.2026 (v153)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '13.11.2026 (v154)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
