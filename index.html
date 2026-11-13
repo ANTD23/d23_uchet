@@ -470,6 +470,11 @@ details.menu:not([open]) > .menu-pop{display:none}   /* закрытое мен�
 details.legend-d{margin-bottom:12px}
 .menu-h{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);padding:8px 12px 4px} .menu-h:not(:first-child){border-top:1px solid var(--line);margin-top:4px;padding-top:10px}
 .menu-row{display:flex;gap:2px} .menu-row .btn{width:auto;flex:1}
+.subs-bar{gap:8px} .sf-menu .menu-pop{left:0;right:auto;min-width:380px} .sf-sum{gap:6px}
+.sf-it{white-space:normal!important;display:grid!important;grid-template-columns:18px minmax(0,1fr) auto;gap:10px;align-items:center;text-align:left;min-height:52px;padding:6px 12px!important} .sf-it.on{background:var(--sunk)!important}
+.sf-l{display:flex;flex-direction:column;line-height:1.25} .sf-l .small{color:var(--ink-3);font-weight:400} .sf-ck{color:var(--ok-fill);font-weight:700}
+.sf-n{font-variant-numeric:tabular-nums;color:var(--ink-2);font-weight:600;min-width:22px;text-align:right} .sf-n.hot{color:var(--bad)}
+@media (max-width:860px){.subs-bar .sf-menu{flex:1 1 100%} .subs-bar .sf-sum{width:100%;justify-content:space-between} .sf-menu .menu-pop{min-width:0;width:calc(100vw - 48px)}}
 .ppl-acts{flex-wrap:nowrap;gap:8px} .ppl-acts .menu-pop{left:auto;right:0;min-width:260px} .filt-reset{align-self:end}
 details.legend-d > summary{cursor:pointer;color:var(--ink-2);font-size:.9375rem;min-height:var(--tap);display:inline-flex;align-items:center}
 details.legend-d .legend{padding:4px 0 6px}
@@ -4600,15 +4605,21 @@ function vSubs() {
   const U = ui.subs, q = U.q.trim().toLowerCase();
   let rows = db.subs.map(p => ({ p, r: ix.subCalc.get(p.id), a: ix.ath.get(p.athleteId) })).filter(x => x.a);
   const latestIds = new Set(db.athletes.map(a => { const c = ix.athCalc.get(a.id); return c.sub && c.sub.id; }).filter(Boolean));
-  if (U.filter === 'active') rows = rows.filter(x => !(x.a.refund && x.a.status === 'ушёл') && !x.r.terminated && !x.p.pending && (latestIds.has(x.p.id) && x.r.remaining > 0 || x.r.notActive || (x.r.first && x.r.first > ix.today)));
-  if (U.filter === 'ending') rows = rows.filter(x => latestIds.has(x.p.id) && (x.r.remaining === 1 || x.r.remaining === 2) && !ix.athCalc.get(x.a.id).nextSub && x.a.status === 'занимается');
-  if (U.filter === 'ended') rows = rows.filter(x => latestIds.has(x.p.id) && x.r.remaining === 0 && (+x.p.count || 0) > 1 && !ix.athCalc.get(x.a.id).nextSub && x.a.status === 'занимается');
-  if (U.filter === 'debt') rows = rows.filter(x => x.r.remaining < 0 && !x.p.pending);
-  if (U.filter === 'pending') rows = rows.filter(x => x.p.pending && !x.r.terminated);
+  const FL = {                                    // 13.11.2026: условия вкладок — и для списка, и для чисел в меню «Показать»
+    active: x => !(x.a.refund && x.a.status === 'ушёл') && !x.r.terminated && !x.p.pending && (latestIds.has(x.p.id) && x.r.remaining > 0 || x.r.notActive || (x.r.first && x.r.first > ix.today)),
+    ending: x => latestIds.has(x.p.id) && (x.r.remaining === 1 || x.r.remaining === 2) && !ix.athCalc.get(x.a.id).nextSub && x.a.status === 'занимается',
+    ended: x => latestIds.has(x.p.id) && x.r.remaining === 0 && (+x.p.count || 0) > 1 && !ix.athCalc.get(x.a.id).nextSub && x.a.status === 'занимается',
+    debt: x => x.r.remaining < 0 && !x.p.pending,
+    pending: x => x.p.pending && !x.r.terminated };
+  const rows0 = rows;
+  if (FL[U.filter]) rows = rows.filter(FL[U.filter]);
   if (!U.pFrom) { U.pFrom = ix.today.slice(0, 8) + '01'; const d = D.parse(U.pFrom); d.setUTCMonth(d.getUTCMonth() + 1); d.setUTCDate(0); U.pTo = D.fmt(d); }
   const pStart = pStartOf(db);     // начало ведения программы — раньше не считаем
   const inP = p => !p.pending && p.payDate && p.payDate >= pStart && (U.pAll || (p.payDate >= U.pFrom && p.payDate <= U.pTo));
   if (U.filter === 'period') rows = rows.filter(x => inP(x.p));
+  FL.period = x => inP(x.p); FL.all = () => true;
+  const qOk = x => !q || fullName(x.a).toLowerCase().includes(q);
+  const cnt = k => rows0.filter(x => FL[k](x) && qOk(x)).length + (k === 'debt' && !q ? unpaidList().length : 0);
   if (q) rows = rows.filter(x => fullName(x.a).toLowerCase().includes(q));
   const byName = (x, y) => fullName(x.a).localeCompare(fullName(y.a), 'ru');
   const key = { name: null, start: x => x.r.first || x.p.payDate || '', pay: x => x.p.pending ? '' : x.p.payDate || '', rem: x => x.r.remaining, end: x => x.r.end || '' }[U.sort];
@@ -4631,20 +4642,26 @@ function vSubs() {
   U._shown = rows.map(x => x.p.id);
   U._title = (U.filter === 'period' ? 'Оплаты ' + pLabel : 'Абонементы — ' + ((seg.find(x => x[0] === U.filter) || ['', 'все'])[1]).toLowerCase()) + (q ? ' · поиск «' + U.q.trim() + '»' : '');
   return `<div class="topline"><div><h1>Абонементы</h1><div class="muted">В списке: ${rows.length}</div></div>
-  <div class="row no-print"><button class="btn" data-act="reset-filters" data-page="subs">Сбросить фильтры</button><button class="btn primary" data-act="sub-new">Оплата</button><button class="btn" data-act="subs-print">Печать</button><button class="btn" data-act="subs-csv" data-fmt="xlsx">В Excel</button><button class="btn" data-act="subs-csv">CSV</button></div></div>
+  <div class="row no-print"><button class="btn primary" data-act="sub-new">Оплата</button><button class="btn" data-act="reset-filters" data-page="subs">Сбросить фильтры</button><button class="btn" data-act="subs-print">Печать</button><button class="btn" data-act="subs-csv" data-fmt="xlsx">В Excel</button><button class="btn" data-act="subs-csv">CSV</button></div></div>
   <div class="card no-print"><div class="row" style="align-items:flex-end">
     <div class="stat" style="min-width:180px"><b>${money(paidP).toLocaleString('ru')} ₽</b><span class="small muted">оплачено ${pLabel} · ${paidP.length} ${plural(paidP.length, 'оплата', 'оплаты', 'оплат')}${refTxt(paidP)}</span></div>
     <span class="spacer"></span>
     <label class="f" style="width:auto"><span>С</span><input type="date" data-noclr data-change="subs-pfrom" value="${U.pFrom}" ${U.pAll ? 'disabled' : ''}></label>
     <label class="f" style="width:auto"><span>По</span><input type="date" data-noclr data-change="subs-pto" value="${U.pTo}" ${U.pAll ? 'disabled' : ''}></label>
     <div class="row" style="gap:4px">${[['month', 'Этот месяц'], ['prev', 'Прошлый'], ['year', 'С начала года'], ['all', 'С начала программы']].map(([k, l]) => `<button class="btn sm${subsPreset(U) === k ? ' primary' : ''}" data-act="subs-period" data-k="${k}" aria-pressed="${subsPreset(U) === k}">${l}</button>`).join('')}</div>
-    ${U.filter === 'period' ? '' : `<button class="btn sm" data-act="subs-filter" data-f="period">Показать эти оплаты</button>`}</div>
-    <div class="small" style="margin-top:6px">${U.filter === 'period' ? `Список ниже — <b>оплаты ${pLabel}</b> (по дате оплаты).` : `Сумма выше — за ${pLabel}. Список ниже — вкладка «${(seg.find(x => x[0] === U.filter) || ['', ''])[1]}», он от периода не зависит: в нём абонементы с любой датой оплаты. Чтобы увидеть оплаты периода — нажмите кнопку периода или «Оплаты за период».`}</div>
+</div>
+    <div class="small" style="margin-top:6px">${U.filter === 'period' ? `Список ниже — <b>оплаты ${pLabel}</b> (по дате оплаты).` : `Сумма выше — за ${pLabel}. Список ниже — «${(seg.find(x => x[0] === U.filter) || ['', ''])[1]}», он от периода не зависит: в нём абонементы с любой датой оплаты. Оплаты периода — «Показать» → «Оплаты за период».`}</div>
     <div class="small muted" style="margin-top:6px">С начала ведения программы (${D.ru(pStart)}): ${money(paidAll).toLocaleString('ru')} ₽ · ${paidAll.length} ${plural(paidAll.length, 'оплата', 'оплаты', 'оплат')}${refTxt(paidAll)}. Возврат при отказе вычитается из оплаты того абонемента, за который возвращены деньги. Оплаты до ${D.ru(pStart)} (перенесённые из Excel) не считаются. Считается по дате оплаты; «ждём оплату» не входит.</div></div>
-  <div class="card no-print"><div class="row"><div class="seg">${seg.map(([k, l]) => `<button data-act="subs-filter" data-f="${k}" class="${U.filter === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+  <div class="card no-print"><div class="row subs-bar">${(() => {
+    const hint = { ending: 'осталось 1–2 занятия, новый не оплачен', ended: 'занятий не осталось, новый не оплачен', pending: 'занимается в долг до оплаты', debt: 'занятий больше, чем оплачено', period: 'по дате оплаты, период выше', active: 'есть оплаченные занятия', all: 'с любой датой оплаты' };
+    const it = k => { const l = (seg.find(x => x[0] === k) || ['', k])[1], n = cnt(k), on = U.filter === k;
+      return `<button class="btn sf-it${on ? ' on' : ''}" data-act="subs-filter" data-f="${k}" role="menuitemradio" aria-checked="${on}"><span class="sf-ck" aria-hidden="true">${on ? '✓' : ''}</span><span class="sf-l"><b>${l}</b><span class="small">${hint[k]}</span></span><span class="sf-n${n && (k === 'debt' || k === 'pending' || k === 'ending' || k === 'ended') ? ' hot' : ''}">${n}</span></button>`; };
+    const cur = (seg.find(x => x[0] === U.filter) || ['', 'Все'])[1];
+    return `<details class="menu sf-menu"><summary class="btn sf-sum" aria-label="Показать: ${h(cur)}"><span><span class="hide-m small muted">Показать: </span><b>${h(cur)}</b> · ${cnt(U.filter)}</span><span aria-hidden="true">▾</span></summary><div class="menu-pop" role="menu">
+      <div class="menu-h">Абонементы</div>${['active', 'ending', 'ended', 'all'].map(it).join('')}<div class="menu-h">Оплата</div>${['pending', 'debt', 'period'].map(it).join('')}</div></details>`; })()}
   <input type="search" class="srch-b" placeholder="Поиск по фамилии" data-change="subs-q" value="${h(U.q)}" style="flex:1;min-width:180px">
   <select data-change="subs-sort" style="width:auto">${[['name', 'по фамилии'], ['pay', 'по дате оплаты'], ['rem', 'по остатку'], ['end', 'по окончанию'], ['start', 'по дате начала']].map(([k, l]) => opt(k, U.sort, 'Сортировка: ' + l)).join('')}</select>
-  <button class="btn" data-act="subs-dir" title="Обратный порядок">${U.dir > 0 ? '▲ по возрастанию' : '▼ по убыванию'}</button></div>
+  <button class="btn" data-act="subs-dir" title="Обратный порядок" aria-label="${U.dir > 0 ? 'По возрастанию' : 'По убыванию'}">${U.dir > 0 ? '▲<span class="hide-m"> по возрастанию</span>' : '▼<span class="hide-m"> по убыванию</span>'}</button></div>
   <div class="legend" style="margin-top:10px"><span><i class="lg-rem1"></i>осталось 1 занятие</span><span><i class="lg-rem2"></i>осталось 2 занятия</span><span class="small opt-m">(если следующий ещё не оплачен)</span><span><i class="lg-pend"></i>ждём оплату</span></div></div>
   ${(U.filter === 'debt' || U.filter === 'all') && unpaidList().length ? `<div class="card flat"><div style="padding:12px 16px 4px"><h3>Посещения без оплаты (абонемента нет)</h3></div><ul class="list">${unpaidList().map(({ a, c }) => `<li><div class="who"><b>${h(shortName(a))}</b><span class="small">${h(a.group)} · ${c.unpaid.map(d => D.short(d)).join(', ')}</span></div><span class="chip bad">не оплачено ${c.unpaid.length}</span><button class="btn sm" data-act="sub-new" data-id="${a.id}">Оплата</button></li>`).join('')}</ul></div>` : ''}
   <div class="card flat show-m"><ul class="list sublist">${rows.map(({ p, r, a }) => { const hl = subHl(p, r, a);
@@ -6172,7 +6189,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '13.11.2026 (v147)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '13.11.2026 (v150)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -8145,8 +8162,8 @@ async function onChange(e) {
     if (s.group && n && !await ask(`Перенести занятие ${D.ru(s.date)} из «${s.group}» в «${v || 'без группы'}»? Все ${n} отметок перейдут вместе с ним.`)) { rerender(); return; }
     s.group = v; render.keepScroll = true; persist('Группа занятия изменена'); }
   else if (k === 'subs-sort') { ui.subs.sort = v; ui.subs.dir = v === 'start' || v === 'pay' ? -1 : 1; rerender(); }
-  else if (k === 'subs-pfrom') { if (v) { ui.subs.pFrom = v; rerender(); } }
-  else if (k === 'subs-pto') { if (v) { ui.subs.pTo = v; rerender(); } }
+  else if (k === 'subs-pfrom') { if (v) { ui.subs.pFrom = v; ui.subs.filter = 'period'; rerender(); } }   // 13.11.2026: даты вручную — как кнопки периода: сразу оплаты периода
+  else if (k === 'subs-pto') { if (v) { ui.subs.pTo = v; ui.subs.filter = 'period'; rerender(); } }
   else if (k === 'jmgroup') { ui.journal.mgroup = v; render.forceFocus = true; rerender(); }
   else if (k === 'jmonth-input') { if (v) { ui.journal.month = v; render.forceFocus = true; rerender(); } }
   else if (k === 'attest-group') { ui.attest.group = v; rerender(); }
