@@ -804,6 +804,7 @@ details.tdet[open] > summary::after{transform:rotate(-135deg)}
 .ce-more{display:block;font:inherit;font-size:.75rem;color:var(--ink-2);padding:2px 4px;font-weight:600;border:0;background:none;text-align:left;cursor:pointer;border-radius:4px} .ce-more:hover{background:var(--sunk);color:var(--ink)}
 .cl-day{margin:0 0 10px} .cl-day.tod{border-color:var(--accent-btn)} .cl-dh{padding:10px 16px 6px;font-weight:700;cursor:pointer} .cl-day.tod .cl-dh{color:var(--accent-btn)}
 .cl-it{display:flex;align-items:center;gap:10px} .cl-tm{flex:none;width:96px;font-size:.875rem;color:var(--ink-2);font-variant-numeric:tabular-nums} .cl-dot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--c)}
+.earn-d{gap:8px 14px} .earn-d input{margin-left:4px} .earn-q{gap:6px;margin-top:8px} .earn-q .btn.on{background:var(--accent-btn);color:var(--accent-btn-ink);border-color:var(--accent-btn)} .earn-ck{display:flex;align-items:flex-start;gap:8px;cursor:pointer} .earn-ck input{width:18px;height:18px;flex:none;margin-top:2px}
 /* задачи (14.11.2026) */
 .cal-kind{display:grid;grid-template-columns:1fr 1fr;width:100%;max-width:360px} .cal-kind label{display:flex;align-items:center;justify-content:center;min-height:38px;border-radius:var(--r-s);font-weight:600;color:var(--ink-2);cursor:pointer;position:relative}
 .cal-kind label.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-1)} .cal-kind input{position:absolute;opacity:0;width:1px;height:1px} .cal-kind label:has(input:focus-visible){outline:2px solid var(--ink);outline-offset:1px}
@@ -5350,6 +5351,25 @@ function finOutlook(to) {
 /* 23.10.2026: ожидаемые продления до даты — у кого абонемент закончится (или уже закончился за последние 2 недели), нового нет.
    Если до даты человек успеет пройти ещё один абонемент — продлений несколько. Сумма — по последней цене
    (если платил по тарифу — по тарифу на дату продления: ребёнок мог перейти на взрослый). «Ждём оплату» сюда не входит. */
+/* 14.11.2026: «Сколько заработаю» с даты по дату: прошедшая часть периода — факт, с сегодня — прогноз
+   (ждём оплату, продления «если продлят все», по желанию — разовые в среднем за 90 дней); расходы — по плану, тренерам — по плану/начислению, налог — ставка от дохода периода */
+function earnForecast(from, to, ones) {
+  const F = finS(db), t = ix.today, items = finItems(), rate = (+F.rate || 4) / 100, f = D.max(from, t);
+  const fact = from < t ? finPeriod(db, from, D.min(to, D.add(t, -1)), items) : null;
+  const factIn = fact ? fact.inc : 0, factOut = fact ? fact.out : 0;
+  let pend = 0, pendN = 0, ren = [], one = 0, plan = {};
+  if (to >= t) {
+    if (f === t) { const L = db.athletes.filter(a => a.status === 'занимается').map(a => ix.athCalc.get(a.id)).filter(c => c && c.pendingSub); pendN = L.length; pend = L.reduce((n, c) => n + (+c.pendingSub.amount || 0), 0); }
+    ren = renewForecast(to).list.filter(x => D.max(x.end, t) >= f);
+    if (ones) { const P = finPeriod(db, D.add(t, -90), D.add(t, -1), items); one = Math.round(P.ones.sum / 90 * (D.diff(f, to) + 1)); }
+    const sum = L => L.reduce((o, x) => (o[x.cat] = (o[x.cat] || 0) + x.sum, o), {}), A = sum(planOutflow(to)), B = f > t ? sum(planOutflow(D.add(f, -1))) : {};
+    for (const k of Object.keys(A)) { const v = A[k] - (B[k] || 0); if (v > 0) plan[k] = v; }
+  }
+  const renSum = ren.reduce((n, x) => n + x.amount, 0), coach = plan.salary || 0; delete plan.salary;
+  const planSum = Object.values(plan).reduce((n, v) => n + v, 0), incF = pend + renSum + one;
+  const income = factIn + incF, tax = Math.round(income * rate);
+  return { from, to, f, fact: !!fact, factIn, factOut, pend, pendN, ren, renSum, one, plan, planSum, coach, tax, rate: rate * 100, income, net: income - factOut - planSum - coach - tax };
+}
 function renewForecast(to) {
   const t = ix.today, L = [];
   for (const a of db.athletes) {
@@ -5370,6 +5390,34 @@ function renewForecast(to) {
   }
   L.sort((x, y) => x.end.localeCompare(y.end) || shortName(x.a).localeCompare(shortName(y.a), 'ru'));
   return { list: L, sum: L.reduce((n, x) => n + x.amount, 0), people: new Set(L.map(x => x.a.id)).size };
+}
+function earnCard() {
+  const U = ui.money, t = ix.today, ym = ymOf(t), [, mEnd] = ymBounds(ym), [n1, n2] = ymBounds(ymAdd(ym, 1)), yEnd = t.slice(0, 4) + '-12-31';
+  if (!U.earnFrom) { U.earnFrom = t; U.earnTo = mEnd; }
+  if (U.earnTo < U.earnFrom) U.earnTo = U.earnFrom;
+  const E = earnForecast(U.earnFrom, U.earnTo, !!U.earnOnes), stat = (v, l, col) => `<div class="stat"><b${col ? ` style="color:${col}"` : ''}>${rub(v)}</b><span class="small muted">${l}</span></div>`;
+  const sgn = (v, plus) => v < 0 ? '−' + rubN(-v) : (plus && v ? '+' : '') + rubN(v);
+  const kv = (l, v, o = {}) => `<tr${o.b ? ' class="tot"' : ''}><td${o.i ? ' style="padding-left:18px"' : ''}>${o.b ? '<b>' + l + '</b>' : l}</td><td class="num"${o.col ? ` style="color:${o.col}"` : ''}>${o.b ? '<b>' + v + '</b>' : v}</td></tr>`;
+  const q = (k, a, b, l) => `<button class="btn sm${U.earnFrom === a && U.earnTo === b ? ' on' : ''}" data-act="earn-q" data-a="${a}" data-b="${b}" aria-pressed="${U.earnFrom === a && U.earnTo === b}">${l}</button>`;
+  const catL = o => Object.entries(o).map(([k, v]) => finCat(db, 'out', k).name + ' ' + rubN(v)).join(', ');
+  const nR = E.ren.length, tf = D.add(t, -1) < E.to ? D.add(t, -1) : E.to;
+  return `<div class="card earn"><h2>Сколько заработаю</h2>
+    <div class="row earn-d"><label class="small">с <input type="date" data-noclr data-change="earn" data-k="from" value="${U.earnFrom}" style="width:auto"></label><label class="small">по <input type="date" data-noclr data-change="earn" data-k="to" value="${U.earnTo}" min="${U.earnFrom}" style="width:auto"></label></div>
+    <div class="row earn-q">${q('m', t, mEnd, 'Остаток месяца')}${q('n', n1, n2, 'Следующий месяц')}${q('y', t, yEnd, 'До конца года')}</div>
+    <div class="stats" style="margin-top:10px">${stat(E.income, 'поступит' + (E.fact ? ' (с уже полученным)' : ''), 'var(--ok)')}${stat(E.net, 'заработаю чистыми', E.net < 0 ? 'var(--bad)' : '')}</div>
+    <table class="t fin-kv" style="margin-top:8px"><tbody>
+      ${E.fact ? kv(`+ уже получено ${D.short(E.from)}–${D.short(tf)}`, sgn(E.factIn, 1), { i: 1 }) : ''}
+      ${E.pend ? kv(`+ ждём оплату (${E.pendN})`, sgn(E.pend, 1), { i: 1 }) : ''}
+      ${E.to >= t ? kv(`+ ожидаемые продления (${nR})`, sgn(E.renSum, 1), { i: 1 }) : ''}
+      ${E.to >= t ? `<tr><td style="padding-left:18px"><label class="earn-ck"><input type="checkbox" data-change="earn-ones" ${U.earnOnes ? 'checked' : ''}><span>+ разовые посещения <span class="small muted">(в среднем за 3 месяца)</span></span></label></td><td class="num">${U.earnOnes ? sgn(E.one, 1) : '—'}</td></tr>` : ''}
+      ${kv('= поступит', sgn(E.income), { b: 1 })}
+      ${E.fact ? kv(`− уже потрачено ${D.short(E.from)}–${D.short(tf)}`, sgn(-E.factOut), { i: 1 }) : ''}
+      ${E.to >= t ? kv('− расходы по плану' + (E.planSum ? ` <span class="small muted">(${h(catL(E.plan))})</span>` : ''), sgn(-E.planSum), { i: 1 }) : ''}
+      ${E.coach ? kv('− тренерам', sgn(-E.coach), { i: 1 }) : ''}
+      ${kv(`− налог (${String(E.rate).replace('.', ',')}% от поступлений, оценка)`, sgn(-E.tax), { i: 1 })}
+      ${kv('= заработаю чистыми', sgn(E.net), { b: 1, col: E.net < 0 ? 'var(--bad)' : '' })}</tbody></table>
+    ${nR ? `<details style="margin-top:8px"${U.earnList ? ' open' : ''} data-earnlist><summary class="small"><b>Кто и когда должен продлить · ${nR}</b></summary><ul class="list" style="margin-top:4px">${E.ren.map(x => `<li><div class="who"><b>${h(shortName(x.a))}</b><span class="small">${h(x.a.group || '')} · ${x.over ? '<b style="color:var(--bad)">закончился ' + D.ru(x.end) + '</b>' : (x.k ? 'следующий раз, окончание ' : 'окончание ') + D.ru(x.end)}${x.sick ? ' · болеет — при справке позже' : ''}</span></div><span class="num">${rub(x.amount)}</span></li>`).join('')}</ul></details>` : ''}
+    <p class="small muted" style="margin-top:6px">Оценка «если продлят все нынешние» — по последней цене (или по тарифу). Новички не учитываются. На месяц вперёд — довольно точно, на несколько месяцев — грубо. Прошедшие дни периода — по факту из «Операций». Расходы — по плану статей и регулярным платежам; тренерам — по плану или начислению.</p></div>`;
 }
 function vMoneyOverview() {
   const F = finS(db), t = ix.today, items = finItems(), ym = ymOf(t), [m1] = ymBounds(ym), [p1, p2] = ymBounds(ymAdd(ym, -1));
@@ -5445,7 +5493,7 @@ function vMoneyOverview() {
   const sec = l => `<div class="fin-sec">${l}</div>`;
   return `${sec('Сейчас')}${balCard}
   ${sec('Этот месяц')}${monthCard}${beCard}${taxCard}
-  ${sec('Впереди')}${fcCard}${recCard}${coachCard}${cliCard}
+  ${sec('Впереди')}${fcCard}${earnCard()}${recCard}${coachCard}${cliCard}
   <div class="card flat"><div style="padding:14px 16px 6px" class="row"><h2 style="margin:0">Последние операции</h2><span class="spacer"></span><a class="btn sm" href="#money/ops">Все</a></div>${last.length ? `<ul class="list">${last.map(x => moneyRowHTML(x, true)).join('')}</ul>` : '<div class="empty">Операций пока нет</div>'}</div>`;
 }
 function moneyPeriod(U) {                           // период для «Операций» и «Отчёта»
@@ -6260,7 +6308,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '14.11.2026 (v155)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '14.11.2026 (v156)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -7421,6 +7469,7 @@ const ACT = {
     else if (k === 'lastyear') { U.from = (+y - 1) + '-01-01'; U.to = (+y - 1) + '-12-31'; }
     rerender(); },
   'money-kind': el => { ui.money.kind = el.dataset.k; rerender(); },
+  'earn-q': el => { ui.money.earnFrom = el.dataset.a; ui.money.earnTo = el.dataset.b; render.keepScroll = true; rerender(); },
   'money-cats': el => { const U = ui.money, k = el.dataset.k, L = moneyCatList();
     if (k === 'done') { U.catOpen = false; rerender(); return; }
     U.cats = k === 'all' ? null : k === 'none' ? [] : L.filter(c => k === 'in' ? c.side !== 'out' : c.side !== 'in').map(c => c.id); U.catOpen = true; rerender(); },
@@ -8416,6 +8465,8 @@ async function onChange(e) {
     const sc = document.querySelector('.cat-body'), top = sc ? sc.scrollTop : 0; rerender(); const n = document.querySelector('.cat-body'); if (n) n.scrollTop = top; }
   else if (k === 'money-year') { ui.money.year = v; rerender(); }
   else if (k === 'renew-to') { if (v) { ui.money.renewTo = v; rerender(); } }
+  else if (k === 'earn') { if (v) { const U = ui.money; if (el.dataset.k === 'from') { U.earnFrom = v; if (U.earnTo < v) U.earnTo = v; } else U.earnTo = v < U.earnFrom ? U.earnFrom : v; render.keepScroll = true; rerender(); } }
+  else if (k === 'earn-ones') { ui.money.earnOnes = !!v; render.keepScroll = true; rerender(); }
   else if (k === 'fin') { const F = finS(db), path = el.dataset.path, num = /^(rate|rateOrg|limit|deduct|before\.amount|open\.)/.test(path);
     if (path === 'start') { if (!v) { notice('Дата начала учёта нужна для остатков. Чтобы начать заново — поставьте другую дату.'); rerender(); return; } if (v > D.add(ix.today, 1)) { notice('Дата — не позже завтрашней'); rerender(); return; } }
     let val = v; if (num) { val = Math.round((+v || 0) * 100) / 100; if (val < 0 && !path.startsWith('open.')) { notice('Значение не может быть отрицательным'); rerender(); return; } }
@@ -8445,6 +8496,7 @@ document.addEventListener('toggle', e => { if (e.target.matches && e.target.matc
   if (e.target.matches && e.target.matches('details[data-frz]')) { meta.frzOpen = e.target.open; writeMeta(); }
   if (e.target.matches && e.target.matches('details[data-renew]')) ui.money.renewOpen = e.target.open;
   if (e.target.matches && e.target.matches('details[data-res]')) ui.money.resOpen = e.target.open;
+  if (e.target.matches && e.target.matches('details[data-earnlist]')) ui.money.earnList = e.target.open;
   if (e.target.matches && e.target.matches('details[data-tid]')) { const S = new Set(meta.tournOpen || []), id = e.target.dataset.tid; if (e.target.open) S.add(id); else S.delete(id); meta.tournOpen = [...S].filter(x => (db.tourneys || []).some(T => T.id === x)); writeMeta(); } }, true);
 document.addEventListener('input', safeChange);
 
