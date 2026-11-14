@@ -805,6 +805,11 @@ details.tdet[open] > summary::after{transform:rotate(-135deg)}
 .cl-day{margin:0 0 10px} .cl-day.tod{border-color:var(--accent-btn)} .cl-dh{padding:10px 16px 6px;font-weight:700;cursor:pointer} .cl-day.tod .cl-dh{color:var(--accent-btn)}
 .cl-it{display:flex;align-items:center;gap:10px} .cl-tm{flex:none;width:96px;font-size:.875rem;color:var(--ink-2);font-variant-numeric:tabular-nums} .cl-dot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--c)}
 .earn-d{gap:8px 14px} .earn-d input{margin-left:4px} .earn-q{gap:6px;margin-top:8px} .earn-q .btn.on{background:var(--accent-btn);color:var(--accent-btn-ink);border-color:var(--accent-btn)} .earn-ck{display:flex;align-items:flex-start;gap:8px;cursor:pointer} .earn-ck input{width:18px;height:18px;flex:none;margin-top:2px}
+/* 14.11.2026: задачи на «Сегодня» — нежно-салатовый фон */
+:root{--task-bg:color-mix(in srgb,#A6DA5B 22%,var(--surface));--task-line:color-mix(in srgb,#7FB82E 45%,var(--surface))}
+.it.is-task,.it.is-task.fresh,.pl.is-task{background:var(--task-bg)} .it.is-task{border-color:var(--task-line)}
+.it.is-task .it-cm:hover,.pl.is-task:hover{background:color-mix(in srgb,#A6DA5B 30%,var(--surface))}
+@media print{.it.is-task,.pl.is-task{background:none}}
 /* задачи (14.11.2026) */
 .cal-kind{display:grid;grid-template-columns:1fr 1fr;width:100%;max-width:360px} .cal-kind label{display:flex;align-items:center;justify-content:center;min-height:38px;border-radius:var(--r-s);font-weight:600;color:var(--ink-2);cursor:pointer;position:relative}
 .cal-kind label.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-1)} .cal-kind input{position:absolute;opacity:0;width:1px;height:1px} .cal-kind label:has(input:focus-visible){outline:2px solid var(--ink);outline-offset:1px}
@@ -3364,9 +3369,9 @@ function attnItem(x, compact) {
   const fr = attnFresh(x);
   if (compact) {                                          // 23.10.2026: «Скоро», «Можно позже», «Заморозка» — одной-двумя строками; нажатие раскрывает телефон и кнопки
     const k = attnKey(x), open = (ui.itOpen || new Set()).has(k);
-    return `<article class="it compact ${x.tone}${/ — предупреждён \d/.test(x.text) ? ' is-warned' : ''}${open ? ' open' : ''}${fr ? ' fresh' : ''}" data-it="${h(k)}"><div class="it-c"><div class="it-cm" role="button" tabindex="0" aria-expanded="${open}" title="Показать телефон и действия"><div class="it-h">${title ? `<b>${h(title)}</b>` : ''}${fr ? '<span class="it-new">новое</span>' : ''}${ph}<span class="it-more" aria-hidden="true">▾</span></div><p class="it-t">${attnTxt(body)}</p></div>${done}</div>${actsHTML(acts)}</article>`;
+    return `<article class="it compact ${x.tone}${x.taskRef ? ' is-task' : ''}${/ — предупреждён \d/.test(x.text) ? ' is-warned' : ''}${open ? ' open' : ''}${fr ? ' fresh' : ''}" data-it="${h(k)}"><div class="it-c"><div class="it-cm" role="button" tabindex="0" aria-expanded="${open}" title="Показать телефон и действия"><div class="it-h">${title ? `<b>${h(title)}</b>` : ''}${fr ? '<span class="it-new">новое</span>' : ''}${ph}<span class="it-more" aria-hidden="true">▾</span></div><p class="it-t">${attnTxt(body)}</p></div>${done}</div>${actsHTML(acts)}</article>`;
   }
-  return `<article class="it ${x.tone}${/ — предупреждён \d/.test(x.text) ? ' is-warned' : ''}${fr ? ' fresh' : ''}"><div class="it-h">${title ? `<b>${h(title)}</b>` : ''}${fr ? '<span class="it-new">новое</span>' : ''}${ph}</div><p class="it-t">${attnTxt(body)}</p>${actsHTML(acts, done)}</article>`;
+  return `<article class="it ${x.tone}${x.taskRef ? ' is-task' : ''}${/ — предупреждён \d/.test(x.text) ? ' is-warned' : ''}${fr ? ' fresh' : ''}"><div class="it-h">${title ? `<b>${h(title)}</b>` : ''}${fr ? '<span class="it-new">новое</span>' : ''}${ph}</div><p class="it-t">${attnTxt(body)}</p>${actsHTML(acts, done)}</article>`;
 }
 function vToday() {
   const t = ix.today, dw = D.dow(t);
@@ -3526,7 +3531,7 @@ function planRow(it) {
     x.lead || it.lead ? `<button class="btn sm" data-act="lead-edit" data-id="${h(x.lead || it.lead.id)}">Заявка</button>` : '',
     aid ? `<a class="btn sm ghost" href="#person/${h(aid)}">Карточка</a>` : '',
   ]);
-  return `<li class="pl t-${it.tone || 'warn'}${it.done ? ' done' : ''}">${cb}<div class="pl-b"><div class="pl-h">${name ? `<b>${h(name)}</b>` : ''}${w.phone ? ` ${telLink(w.phone)}${w.rel ? ' <span class="small muted">' + h(w.rel) + '</span>' : ''}` : ''}${it.tone === 'bad' && !it.done ? ' <span class="chip bad">срочно</span>' : ''}</div>
+  return `<li class="pl t-${it.tone || 'warn'}${it.done ? ' done' : ''}${x.taskRef ? ' is-task' : ''}">${cb}<div class="pl-b"><div class="pl-h">${name ? `<b>${h(name)}</b>` : ''}${w.phone ? ` ${telLink(w.phone)}${w.rel ? ' <span class="small muted">' + h(w.rel) + '</span>' : ''}` : ''}${it.tone === 'bad' && !it.done ? ' <span class="chip bad">срочно</span>' : ''}</div>
     <div class="pl-t">${attnTxt(text)}</div>${it.done || !btns ? '' : `<div class="pl-a">${btns}</div>`}</div></li>`;
 }
 function vPlan() { meta.todayMode = 'plan'; writeMeta(); return vToday(); }   // адрес #plan — «Сегодня» с открытым планом
@@ -6308,7 +6313,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '14.11.2026 (v156)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '14.11.2026 (v158)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -7738,6 +7743,7 @@ document.addEventListener('toggle', e => {        // №29: меню «Ещё» 
 const CAL_COLORS = ['#1F6FD1', '#1A7A58', '#C0392B', '#D9730D', '#8E44AD', '#B7950B', '#16A085', '#D35480', '#5D6D7E', '#6E4B2A'];
 const CAL_AUTO = [['a:tour', 'Турниры и выезды', '#6E48A6', '#tourn'], ['a:att', 'Аттестация', '#B7950B', '#attest'], ['a:hol', 'Выходные дни', '#5D6D7E', '#settings'],
   ['a:bd', 'Дни рождения', '#D35480', '#people'], ['a:sub', 'Конец абонементов', '#C77A12', '#subs']];
+const TASK_REMIND = [['0', 'в день срока'], ['1', 'за 1 день'], ['2', 'за 2 дня'], ['3', 'за 3 дня'], ['7', 'за неделю'], ['14', 'за 2 недели'], ['30', 'за месяц']];   // 14.11.2026: задача на «Сегодня» — с какого дня показывать
 const CAL_REMIND = [['', 'не напоминать'], ['0', 'в день события'], ['1', 'за 1 день'], ['2', 'за 2 дня'], ['3', 'за 3 дня'], ['7', 'за неделю'], ['14', 'за 2 недели'], ['30', 'за месяц']];
 const CAL_VIEWS = [['month', 'Месяц'], ['week', 'Неделя'], ['day', 'День'], ['list', 'Список']];
 const MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
@@ -7745,6 +7751,7 @@ const CAL_PX = 44;                                       // высота час�
 function calInit(d) {
   if (!Array.isArray(d.cals)) d.cals = [{ id: 'c_personal', name: 'Личный', color: '#1F6FD1', personal: true }, { id: 'c_club', name: 'Клубный', color: '#1A7A58' }];
   if (!Array.isArray(d.events)) d.events = [];
+  for (const e of d.events) if (e.task && (e.remind === '' || e.remind == null)) e.remind = 1;   // 14.11.2026: у задач нет «не напоминать» — прежнее пустое значение → «за 1 день»
   d.settings.calView = Object.assign({ pc: 'month', mob: 'list', h0: 7, h1: 22, tz: 'Europe/Moscow' }, d.settings.calView || {});
   if (!tzOk(d.settings.calView.tz)) d.settings.calView.tz = 'Europe/Moscow';
 }
@@ -8067,7 +8074,7 @@ function calForm(o) {                                    // o: вхождени�
       <label class="f cal-count" ${repEnd === 'count' ? '' : 'hidden'}><span>Сколько раз</span><input type="number" name="count" min="1" max="999" inputmode="numeric" value="${h(R.count || 10)}"></label>
       <div class="wide cal-wd" ${R.f === 'w' || !R.f ? '' : 'hidden'}><span class="small muted">Дни недели</span><div class="row" style="gap:4px 10px">${DOW.map((d, i) => `<label class="row small" style="gap:4px"><input type="checkbox" name="wd[]" value="${i}" ${wd.includes(i) ? 'checked' : ''}>${d}</label>`).join('')}</div></div>
     </div>${ev && ev.rep && o.key !== ev.date ? '<p class="small muted" style="margin:6px 0 0">Правило повтора меняется для «этого и следующих» или «всех» событий.</p>' : ''}</div>
-    ${FS('remind', 'Напомнить на «Сегодня»', CAL_REMIND, ev ? String(ev.remind ?? '') : isTask ? '' : '1')}
+    ${FS('remind', isTask ? 'Показать на «Сегодня»' : 'Напомнить на «Сегодня»', isTask ? TASK_REMIND : CAL_REMIND, ev ? String(ev.remind ?? '') : '1')}
     ${cls(F('place', 'Место', x.place, 'text', 'maxlength="200"'), 'ev-only')}
     <label class="f wide"><span>Заметка</span><textarea name="note" rows="3" maxlength="2000">${h(x.note)}</textarea></label></div>
     ${!ev ? '' : `<p class="small muted">${h(calById(ev.cal)?.name || '')}${ev.rep ? (isTask ? ' · повторяющаяся задача' : ' · повторяющееся событие') : ''}</p>`}`;
@@ -8160,7 +8167,8 @@ function calFormSync() {                                  // поля окна �
   ['allDay', 'rep', 'repEnd'].forEach(n => q(`[name=${n}]`).addEventListener('change', upd));
   f.querySelectorAll('.cal-kind input').forEach(r => r.addEventListener('change', () => { const tk = kind() === 'task', h2 = document.querySelector('#dlg .dlg-h h2'), rm = q('[name=remind]');
     if (h2) h2.textContent = tk ? 'Новая задача' : 'Новое событие';
-    if (rm && !rm.dataset.touched) rm.value = tk ? '' : '1';
+    if (rm) { const v0 = rm.value, L = tk ? TASK_REMIND : CAL_REMIND; rm.innerHTML = L.map(([v, l]) => `<option value="${v}">${l}</option>`).join('');
+      rm.value = rm.dataset.touched && L.some(x => x[0] === v0) ? v0 : '1'; const lb = rm.closest('label') && rm.closest('label').querySelector('span'); if (lb) lb.textContent = tk ? 'Показать на «Сегодня»' : 'Напомнить на «Сегодня»'; }
     if (!tk && q('[name=allDay]').checked && q('[name=time]').value) q('[name=allDay]').checked = false;   // задача со временем → событие со временем
     upd(); q('[name=title]').focus(); }));
   q('[name=remind]').addEventListener('change', e => { e.target.dataset.touched = '1'; });
@@ -8217,7 +8225,7 @@ function calLinkify(t) { return h(t).replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)»]
 function calCard(x) {
   const ev = x.auto ? null : (db.events || []).find(e => e.id === x.id); if (!x.auto && !ev) return;
   const c = calById(x.cal) || { name: '', color: '#888' }, row = (ic, html, cls = '') => `<div class="evc-r${cls ? ' ' + cls : ''}"><span class="evc-ic" aria-hidden="true">${EVC_IC[ic]}</span><div>${html}</div></div>`;
-  const R = ev && ev.rep, rem = ev ? CAL_REMIND.find(r => r[0] === String(ev.remind ?? '')) : null;
+  const R = ev && ev.rep, rem = ev ? (ev.task ? TASK_REMIND : CAL_REMIND).find(r => r[0] === String(ev.remind ?? '')) : null;
   if (x.task) {                                          // 14.11.2026: карточка задачи — срок, выполнено, спортсмен
     const a = x.aid ? ix.ath.get(x.aid) : null, ac = a ? ix.athCalc.get(a.id) || {} : {};
     let b = `<div class="evc tkc${x.done ? ' tk-done' : ''}" style="--c:${c.color}">` + row('time', `<b>Срок: ${h(calWhenFull(x.over ? { ...x, date: x.over, end: x.over } : x))}</b>${x.over ? `<div class="tk-over">Просрочено — показывается на сегодня, пока не выполнена</div>` : x.late && !x.done ? '<div class="tk-over">Не выполнена в срок</div>' : ''}`);
@@ -8225,7 +8233,7 @@ function calCard(x) {
     if (R) b += row('rep', h(calRepTxt(R, ev.date)) + (x.moved ? '<div class="small muted">Эта задача серии изменена отдельно</div>' : ''));
     if (a) b += row('people', `<a href="#person/${a.id}" data-act="close" data-go="#person/${a.id}"><b>${h(shortName(a))}</b></a>${a.group ? ' <span class="small muted">· ' + h(a.group) + '</span>' : ''}${ac.contact ? `<div class="small">${telLink(ac.contact)}${ac.contactWho && ac.contactWho !== 'сам' ? ' · ' + h(ac.contactWho) : ''}</div>` : ''}`);
     if (x.note) b += row('note', `<div class="evc-note">${calLinkify(x.note)}</div>`);
-    if (rem && rem[0] !== '') b += row('bell', 'Напомнить на «Сегодня»: ' + h(rem[1]));
+    if (rem) b += row('bell', 'Показать на «Сегодня»: ' + h(rem[1]));
     b += row('cal', `<span class="evc-dot" aria-hidden="true"></span>${h(c.name)}${c.personal ? ' <span class="small muted">· личный</span>' : ''}`, 'evc-cal') + '</div>';
     modal(x.title || 'Без названия', b, { closeText: 'Закрыть',
       extraBtn: `${a ? `<button type="button" class="btn" data-act="msg" data-id="${a.id}">Написать</button>` : ''}<button type="button" class="btn ${x.done ? '' : 'primary'}" data-act="task-set" data-id="${h(x.id)}" data-key="${h(x.key)}" data-on="${x.done ? '' : '1'}">${x.done ? 'Снять отметку' : '✓ Выполнено'}</button>` });
