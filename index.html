@@ -847,6 +847,22 @@ details.tdet[open] > summary::after{transform:rotate(-135deg)}
 .nt-cb.on{background:var(--ink-2);border-color:var(--ink-2)} .nt-cb.on::before{content:'';position:absolute;left:4px;top:0;width:5px;height:10px;border:solid var(--surface);border-width:0 2px 2px 0;transform:rotate(45deg)}
 .nt-vl .nt-cb{width:22px;height:22px} .nt-vl .nt-cb.on::before{left:6px;top:1px;width:6px;height:11px}
 .nt-vpin svg{width:20px;height:20px} .nt-vpin.on svg{fill:currentColor} a.nt-chip{text-decoration:none;color:var(--ink)} a.nt-chip:hover{text-decoration:underline}
+/* 15.11.2026: папки заметок */
+.nt-fbar{display:flex;flex-wrap:wrap;gap:8px;padding:2px 2px 8px;margin:0 0 8px} .nt-fbar>[hidden]{display:none!important} .nt-fpn{max-width:22ch;overflow:hidden;text-overflow:ellipsis}
+.nt-fp{flex:none;display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 12px;border-radius:12px;border:1px solid color-mix(in srgb,var(--nh,var(--line)) 60%,var(--line));background:color-mix(in srgb,var(--nh,var(--surface)) 34%,var(--surface));color:var(--ink);font:inherit;font-weight:600;cursor:pointer;white-space:nowrap}
+.nt-fp.all,.nt-fp.nof,.nt-fp.nc-none{background:var(--surface);border-color:var(--line)} .nt-fp .nt-ic{margin:0;width:17px;height:17px;color:var(--ink-2)} .nt-fpc{font-weight:500;color:var(--ink-3);font-size:.875rem;font-variant-numeric:tabular-nums}
+.nt-fp.on{box-shadow:0 0 0 2px var(--ink);border-color:var(--ink)} .nt-fp.add.ic{width:40px;padding:0;justify-content:center;font-size:1.125rem} .nt-fp.add{border-style:dashed;background:transparent;color:var(--ink-2);font-weight:600}
+.nt-fp.drop{box-shadow:0 0 0 3px var(--accent-btn);transform:scale(1.04)} .nt-fp:hover{filter:brightness(.98)}
+.nt-fhead{display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:8px 10px 8px 12px;border-radius:12px;background:color-mix(in srgb,var(--nh,var(--surface)) 26%,var(--surface));border:1px solid color-mix(in srgb,var(--nh,var(--line)) 45%,var(--line))} .nt-fhead.nc-none,.nt-fhead:not([class*=nc-]){background:var(--surface-2,var(--surface))}
+.nt-fhead b{flex:1;font-size:1.0625rem;min-width:0;overflow-wrap:anywhere} .nt-fhead .nt-ic{margin:0;color:var(--ink-2)} .nt-fhead .btn svg{width:16px;height:16px;vertical-align:-3px;margin-right:2px}
+@media (max-width:860px){ .nt-fbar{gap:6px} .nt-fp{min-height:38px;padding:0 10px;font-size:.9375rem} .nt-fpn{max-width:14ch} }
+.nt-fmore{flex:none;position:relative} .nt-fmore>summary{list-style:none} .nt-fmore>summary::-webkit-details-marker{display:none} .nt-fp.more{font-weight:600;color:var(--ink-2)} .nt-fmore[open]>summary{box-shadow:0 0 0 2px var(--ink-3)}
+.nt-fmenu{min-width:260px;max-height:min(60vh,440px);overflow:auto} .nt-fmq{margin:2px 2px 6px;width:calc(100% - 4px)}
+.nt-fmi{display:flex;align-items:center;gap:10px;width:100%;min-height:40px;padding:6px 10px;border:0;border-radius:8px;background:transparent;font:inherit;color:var(--ink);text-align:left;cursor:pointer} .nt-fmi:hover{background:var(--sunk)} .nt-fmi.on{background:var(--sunk);font-weight:700}
+.nt-fmi i{flex:none;width:14px;height:14px;border-radius:4px;border:1px solid var(--line-strong);background:color-mix(in srgb,var(--nh,var(--surface)) 60%,var(--surface))} .nt-fmi i.nof{background:transparent;border-style:dashed}
+.nt-fmi span{flex:1;min-width:0;overflow-wrap:anywhere} .nt-fmi b{font-weight:500;color:var(--ink-3);font-variant-numeric:tabular-nums} .nt-fmi.add{color:var(--ink-2);font-weight:600;border-top:1px solid var(--line);border-radius:0 0 8px 8px;margin-top:4px}
+@media (max-width:860px){ .nt-fmore .menu-pop{position:fixed;left:8px;right:8px;top:auto;bottom:calc(84px + env(safe-area-inset-bottom));max-height:calc(100vh - 170px);min-width:0;max-width:none} }
+.nt-fchip{background:color-mix(in srgb,var(--nh,var(--surface)) 45%,var(--surface));border:1px solid color-mix(in srgb,var(--ink) 10%,transparent)} .nt-fchip.nc-none{background:color-mix(in srgb,var(--ink) 7%,transparent)} .nt-fchip .nt-ic{width:12px;height:12px;margin:0}
 .cal-bar.nv{justify-content:flex-end} .cal-nav[hidden]{display:none!important}
 @media (max-width:860px), (pointer:coarse) and (max-height:500px){ .nt-grid{columns:2;column-gap:8px} .nt-card{margin-bottom:8px;padding:10px 10px 8px 12px} .nt-tx{-webkit-line-clamp:9;line-clamp:9;font-size:.875rem} .nt-ul li{font-size:.875rem}
   .nt-bar .srch-b{max-width:none;flex-basis:100%;order:3} .nt-bar>.btn{flex:1} .nt-cfs{order:4}
@@ -2268,7 +2284,7 @@ function copyDiff(cur, inc) {
   for (const a of cur.athletes || []) { const o = incA.get(a.id); if (!o) out.athletes.push(nm.get(a.id) + ' — новый'); else if (JSON.stringify(o) !== JSON.stringify(a)) out.athletes.push(nm.get(a.id) + ' — изменена карточка'); }
   const incO = new Set((inc.ops || []).map(x => x.id + '|' + JSON.stringify(x)));
   out.ops = (cur.ops || []).filter(x => !incO.has(x.id + '|' + JSON.stringify(x))).length;
-  for (const [k, t] of [['tourneys', 'турниры'], ['awards', 'пояса'], ['tests', 'нормативы'], ['leads', 'заявки'], ['events', 'события календаря'], ['notes', 'заметки']]) { const ii = new Set((inc[k] || []).map(x => JSON.stringify(x))); const n = (cur[k] || []).filter(x => !ii.has(JSON.stringify(x))).length; if (n) out.other.push(t + ': ' + n); }
+  for (const [k, t] of [['tourneys', 'турниры'], ['awards', 'пояса'], ['tests', 'нормативы'], ['leads', 'заявки'], ['events', 'события календаря'], ['notes', 'заметки'], ['noteFolders', 'папки заметок']]) { const ii = new Set((inc[k] || []).map(x => JSON.stringify(x))); const n = (cur[k] || []).filter(x => !ii.has(JSON.stringify(x))).length; if (n) out.other.push(t + ': ' + n); }
   out.n = out.marks.reduce((s, x) => s + x.n, 0) + out.subs.length + out.freezes.length + out.athletes.length + out.ops + out.other.length;
   return out;
 }
@@ -3009,7 +3025,7 @@ function renderNow() {
   if (keep && main0 && main0.contains(keep)) { const t = document.createElement('main'); t.innerHTML = body; patched = patchKeep(main0, t, keep); }
   if (!patched) document.getElementById('app').innerHTML = `<div class="shell">${navHTML(navKey)}<main>${body}</main></div>`;
   if (v === 'person') applySections();
-  foldHints(); segTails(); tableTails(); document.querySelectorAll('input[data-mixed]').forEach(i => { i.indeterminate = true; }); { const cm = document.querySelector('details[data-catmenu][open]'); if (cm) catFit(cm); }
+  nfFit(); foldHints(); segTails(); tableTails(); document.querySelectorAll('input[data-mixed]').forEach(i => { i.indeterminate = true; }); { const cm = document.querySelector('details[data-catmenu][open]'); if (cm) catFit(cm); }
   { const mn = document.querySelector('main'); if (mn) dateClear(mn, 'input[type=date]:not([required]):not([data-noclr]):not([disabled])'); }   // 26.10.2026: «✕» у дат и на страницах (настройки, выезды…), не только в окнах
   const jm = v === 'journal' && ui.journal.tab === 'month';
   document.body.classList.toggle('main-wide', (v === 'attest' && ui.attest.tab === 'norms') || v === 'subs');   // 08.11.2026: и «Абонементы»   // 08.11.2026: «Таблица норм» — во всю ширину экрана
@@ -4516,7 +4532,7 @@ function segTails() {                             // 23.10.2026: вкладки 
     if (!sg.dataset.tail) { sg.dataset.tail = '1'; sg.addEventListener('scroll', upd, { passive: true }); } upd();
   });
 }
-addEventListener('resize', () => { clearTimeout(segTails.t); segTails.t = setTimeout(() => { segTails(); tableTails(); }, 150); });
+addEventListener('resize', () => { clearTimeout(segTails.t); segTails.t = setTimeout(() => { segTails(); tableTails(); nfFit(); }, 150); });
 function applySections() {                         // разделы карточки сворачиваются; что открыто — запоминается на устройстве
   const st = meta.secOpen || {};
   document.querySelectorAll('main .card').forEach(c => {
@@ -6368,7 +6384,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '15.11.2026 (v163)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '15.11.2026 (v165)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -7810,6 +7826,7 @@ function calInit(d) {
   if (!Array.isArray(d.cals)) d.cals = [{ id: 'c_personal', name: 'Личный', color: '#1F6FD1', personal: true }, { id: 'c_club', name: 'Клубный', color: '#1A7A58' }];
   if (!Array.isArray(d.events)) d.events = [];
   if (!Array.isArray(d.notes)) d.notes = [];                 // 15.11.2026: заметки (как в Google Keep)
+  if (!Array.isArray(d.noteFolders)) d.noteFolders = [];     // 15.11.2026: папки заметок
   if (d.notes.some(n => typeof n.ord !== 'number')) d.notes.slice().sort((x, y) => (typeof x.ord === 'number' ? x.ord : -1e9) - (typeof y.ord === 'number' ? y.ord : -1e9) || (y.at || '').localeCompare(x.at || '')).forEach((n, i) => { n.ord = i; });   // порядок: сначала — последние изменённые
   for (const e of d.events) if (e.task && (e.remind === '' || e.remind == null)) e.remind = 1;   // 14.11.2026: у задач нет «не напоминать» — прежнее пустое значение → «за 1 день»
   d.settings.calView = Object.assign({ pc: 'month', mob: 'list', h0: 7, h1: 22, tz: 'Europe/Moscow' }, d.settings.calView || {});
@@ -7963,6 +7980,7 @@ function calAuto(from, to) {                             // события «и�
 const NOTE_COLORS = [['', 'Без цвета', ''], ['red', 'Коралловый', '#E59F94'], ['orange', 'Персиковый', '#EBB57E'], ['yellow', 'Песочный', '#E3CC78'], ['green', 'Шалфей', '#A7C994'],
   ['teal', 'Мятный', '#8DC6B8'], ['blue', 'Голубой', '#9BBBDA'], ['lilac', 'Лавандовый', '#BFAAD6']];
 const NOTE_IC = {
+  folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg>',
   note: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h10l4 4v14H5z"/><path d="M9 11h6M9 15h6"/></svg>',
   pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6l-1 6 4 4H6l4-4z"/><path d="M12 13v8"/></svg>',
   list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="5" height="5" rx="1"/><path d="M5 6.5l1 1 1.5-2M12 6.5h9M12 17h9"/><rect x="3.5" y="14.5" width="5" height="5" rx="1"/></svg>',
@@ -7977,30 +7995,78 @@ function noteCalItems(from, to) {
   if (meta.calNoNotes) return [];
   return (db.notes || []).filter(n => n.date && n.date >= from && n.date <= to && noteVisible(n)).map(n => ({ isNote: true, id: n.id, cal: n.cal || '', title: noteName(n), date: n.date, end: n.date, time: '', color: n.color || '' }));
 }
+/* 15.11.2026: папки заметок — db.noteFolders [{ id, name, color, ord }], у заметки n.folder ('' — без папки). Один уровень, без вложенных. */
+function nfList() { return (db.noteFolders || []).slice().sort((a, b) => (a.ord ?? 0) - (b.ord ?? 0)); }
+function nfById(id) { return (db.noteFolders || []).find(f => f.id === id) || null; }
+function nfChip(n, link) { const f = n.folder ? nfById(n.folder) : null; return f ? `<span class="nt-chip nt-fchip nc-${f.color || 'none'}"><span class="nt-ic" aria-hidden="true">${NOTE_IC.folder}</span>${h(f.name)}</span>` : ''; }
+function nfEdit(id) {
+  const f = id ? nfById(id) : null, cnt = f ? (db.notes || []).filter(n => n.folder === f.id).length : 0;
+  modal(f ? 'Папка' : 'Новая папка', `<div class="fgrid"><label class="f wide"><span>Название</span><input type="text" name="name" value="${h(f ? f.name : '')}" maxlength="60" required autocomplete="off" placeholder="Например: Турниры, Соцсети, Хозяйство"></label></div>
+    <div class="nt-pal" role="radiogroup" aria-label="Цвет папки" style="margin-top:12px">${NOTE_COLORS.map(([k, l]) => `<label class="nc-${k || 'none'}" title="${l}"><input type="radio" name="color" value="${k}" ${((f && f.color) || '') === k ? 'checked' : ''} aria-label="${l}"><i></i></label>`).join('')}</div>
+    ${f ? `<p class="small muted" style="margin-top:10px">В папке ${cnt} ${plural(cnt, 'заметка', 'заметки', 'заметок')}. При удалении папки заметки останутся — в «Без папки».</p>` : ''}`, {
+    submit: f ? 'Сохранить' : 'Создать',
+    extraBtn: f ? `<button type="button" class="btn danger" data-act="nf-del" data-id="${h(f.id)}">Удалить папку</button>` : '',
+    onSubmit(fd) {
+      const name = String(fd.name || '').trim(); if (!name) { notice('Укажите название папки'); return false; }
+      if ((db.noteFolders || []).some(x => x !== f && x.name.toLowerCase() === name.toLowerCase())) { notice('Папка «' + name + '» уже есть.'); return false; }
+      const color = NOTE_COLORS.some(c => c[0] === fd.color) ? fd.color : '';
+      if (f) Object.assign(f, { name, color }); else { const nf = { id: uid('F'), name, color, ord: Math.max(-1, ...(db.noteFolders || []).map(x => x.ord ?? 0)) + 1 }; db.noteFolders.push(nf); ui.cal.nf = nf.id; }
+      render.keepScroll = true; persist(f ? 'Папка сохранена' : 'Папка создана'); return true; } });
+}
+async function nfDel(id) {
+  const f = nfById(id); if (!f) return; const cnt = (db.notes || []).filter(n => n.folder === id).length;
+  if (!await ask(`Удалить папку «${f.name}»?${cnt ? ` Заметки (${cnt}) останутся — в «Без папки».` : ''}`)) return;
+  db.noteFolders = db.noteFolders.filter(x => x !== f); (db.notes || []).forEach(n => { if (n.folder === id) n.folder = ''; });
+  if (ui.cal.nf === id) ui.cal.nf = ''; closeModal(); render.keepScroll = true; persist('Папка удалена');
+}
+function nfFit() {                                       // 15.11.2026: папки, которые не помещаются, — в «Ещё N ▾»
+  const bar = document.querySelector('.nt-fbar'), more = bar && bar.querySelector('.nt-fmore'); if (!bar || !more) return;
+  const items = [...bar.querySelectorAll('.nt-fp.fd')], add = bar.querySelector('.nt-fp.add'), maxR = PHONE_MQ.matches ? 2 : 1;
+  items.forEach(x => { x.hidden = false; }); add.hidden = false; more.hidden = true;
+  const rows = () => new Set([...bar.children].filter(x => !x.hidden).map(x => x.offsetTop)).size;
+  if (rows() <= maxR) return;
+  add.hidden = true; more.hidden = false; let n = 0;
+  const hideable = items.filter(x => !x.classList.contains('on')).reverse();
+  for (const x of hideable) { if (rows() <= maxR) break; x.hidden = true; n++; }
+  more.querySelector('.nt-fmc').textContent = n;
+}
 function noteCard(n) {
   const L = noteItems(n), open = L.filter(i => !i.d), dn = L.filter(i => i.d), a = n.aid ? ix.ath.get(n.aid) : null, c = n.cal ? calById(n.cal) : null, MAXI = 10;
   const body = n.kind === 'list'
     ? `<ul class="nt-ul">${open.slice(0, MAXI).map(i => `<li><button type="button" class="nt-cb" data-act="note-item" data-id="${h(n.id)}" data-i="${h(i.id)}" role="checkbox" aria-checked="false" aria-label="Отметить «${h(i.t)}»"></button><span>${h(i.t)}</span></li>`).join('')}</ul>
       ${open.length > MAXI ? `<div class="small muted nt-more">… ещё ${open.length - MAXI}</div>` : ''}${dn.length ? `<div class="small muted nt-more">+ ${dn.length} ${plural(dn.length, 'пункт отмечен', 'пункта отмечено', 'пунктов отмечено')}</div>` : ''}${!L.length ? '<div class="small muted">Список пуст</div>' : ''}`
     : n.text ? `<div class="nt-tx">${calLinkify(n.text)}</div>` : '';
-  const chips = [n.date ? `<span class="nt-chip${n.date < ix.today ? ' past' : ''}">${calDayRu(n.date, n.date.slice(0, 4) !== ix.today.slice(0, 4))}</span>` : '', a ? `<span class="nt-chip">${h(shortName(a))}</span>` : '', c ? `<span class="nt-chip"><i style="background:${c.color}"></i>${h(c.name)}</span>` : ''].filter(Boolean).join('');
+  const chips = [!(ui.cal && ui.cal.nf) ? nfChip(n) : '', n.date ? `<span class="nt-chip${n.date < ix.today ? ' past' : ''}">${calDayRu(n.date, n.date.slice(0, 4) !== ix.today.slice(0, 4))}</span>` : '', a ? `<span class="nt-chip">${h(shortName(a))}</span>` : '', c ? `<span class="nt-chip"><i style="background:${c.color}"></i>${h(c.name)}</span>` : ''].filter(Boolean).join('');
   return `<article class="nt-card nc-${n.color || 'none'}" data-act="note-open" data-id="${h(n.id)}" tabindex="0" role="button" aria-label="Открыть заметку «${h(noteName(n))}»">
     <div class="nt-h">${n.title ? `<b class="nt-t">${h(n.title)}</b>` : '<span></span>'}<button type="button" class="nt-pin${n.pin ? ' on' : ''}" data-act="note-pin" data-id="${h(n.id)}" aria-pressed="${!!n.pin}" aria-label="${n.pin ? 'Открепить' : 'Закрепить наверху'}" title="${n.pin ? 'Открепить' : 'Закрепить наверху'}">${NOTE_IC.pin}</button></div>
     ${body}${chips ? `<div class="nt-chips">${chips}</div>` : ''}</article>`;
 }
 function calNotesHTML(U) {
-  const q = (U.nq || '').trim().toLowerCase(), cf = U.nc || '';
-  const all = (db.notes || []).filter(noteVisible), hidden = (db.notes || []).length - all.length;
+  if (U.nf && U.nf !== '-' && !nfById(U.nf)) U.nf = '';
+  const q = (U.nq || '').trim().toLowerCase(), cf = U.nc || '', FD = nfList(), fid = U.nf || '';
+  const vis = (db.notes || []).filter(noteVisible), all = vis.filter(n => !fid || (fid === '-' ? !n.folder || !nfById(n.folder) : n.folder === fid)), hidden = (db.notes || []).filter(n => !fid || (fid === '-' ? !n.folder : n.folder === fid)).length - all.length;
+  const cntF = id => vis.filter(n => n.folder === id).length, cntNo = vis.filter(n => !n.folder || !nfById(n.folder)).length, F0 = fid && fid !== '-' ? nfById(fid) : null;
+  const fp = (id, label, n, cls, ic) => `<button type="button" class="nt-fp${cls ? ' ' + cls : ''}${fid === id ? ' on' : ''}" data-act="nf-open" data-f="${h(id)}" data-nfdrop="${h(id)}" aria-pressed="${fid === id}">${ic ? `<span class="nt-ic" aria-hidden="true">${ic}</span>` : ''}<span class="nt-fpn">${h(label)}</span><span class="nt-fpc">${n}</span></button>`;
+  // 15.11.2026: много папок — в строке те, что помещаются (компьютер — 1 строка, телефон — 2), открытая — всегда; остальные — в «Ещё N ▾» (там все папки и поиск). Подгонка — nfFit() после отрисовки
+  const mi = (id, label, n, col) => `<button type="button" class="nt-fmi${fid === id ? ' on' : ''}" data-act="nf-open" data-f="${h(id)}" data-nfq="${h(label.toLowerCase())}">${col !== null ? `<i class="nc-${col || 'none'}"></i>` : '<i class="nof"></i>'}<span>${h(label)}</span><b>${n}</b></button>`;
+  const more = FD.length ? `<details class="menu nt-fmore" hidden><summary class="nt-fp more" aria-label="Все папки">Ещё <span class="nt-fmc"></span> ▾</summary><div class="menu-pop nt-fmenu">
+      ${FD.length > 8 ? `<input type="search" class="nt-fmq" placeholder="Найти папку" data-change="nf-q" aria-label="Найти папку" autocomplete="off">` : ''}
+      <div class="menu-h">Папки · ${FD.length}</div><div class="nt-fml">${FD.map(f => mi(f.id, f.name, cntF(f.id), f.color || '')).join('')}${cntNo ? mi('-', 'Без папки', cntNo, null) : ''}</div>
+      <p class="small muted nt-fmn" hidden>Не найдено</p>
+      <button type="button" class="nt-fmi add" data-act="nf-new">＋ Новая папка</button></div></details>` : '';
+  const folders = `<div class="nt-fbar" role="group" aria-label="Папки заметок">${fp('', 'Все заметки', vis.length, 'all', NOTE_IC.note)}${FD.map(f => fp(f.id, f.name, cntF(f.id), 'nc-' + (f.color || 'none') + ' fd', NOTE_IC.folder)).join('')}${FD.length && cntNo ? fp('-', 'Без папки', cntNo, 'nof fd', '') : ''}<button type="button" class="nt-fp add${FD.length ? ' ic' : ''}" data-act="nf-new" aria-label="Новая папка" title="Новая папка">${FD.length ? '＋' : '＋ Папка'}</button>${more}</div>
+    ${F0 ? `<div class="nt-fhead nc-${F0.color || 'none'}"><span class="nt-ic" aria-hidden="true">${NOTE_IC.folder}</span><b>${h(F0.name)}</b><button type="button" class="btn ghost sm" data-act="nf-edit" data-id="${h(F0.id)}">${EVC_IC.edit} Папка</button></div>` : fid === '-' ? '<div class="nt-fhead"><b>Без папки</b></div>' : ''}`;
   let L = all.filter(n => (!q || noteText(n).toLowerCase().includes(q)) && (!cf || (n.color || 'none') === cf));
   L = noteOrdered(L);
   const pin = L.filter(n => n.pin), rest = L.filter(n => !n.pin), grid = A => `<div class="nt-grid">${A.map(noteCard).join('')}</div>`;
   const used = new Set(all.map(n => n.color || 'none'));
   const chips = NOTE_COLORS.filter(([k]) => used.has(k || 'none')).map(([k, l]) => `<button type="button" class="nt-cf nc-${k || 'none'}${cf === (k || 'none') ? ' on' : ''}" data-act="note-cf" data-c="${k || 'none'}" aria-pressed="${cf === (k || 'none')}" aria-label="Только: ${l}" title="Только: ${l}"></button>`).join('');
-  return `<div class="nt-bar"><button type="button" class="btn primary" data-act="note-new" data-k="text"><span class="nt-ic" aria-hidden="true">${NOTE_IC.text}</span>Заметка</button><button type="button" class="btn" data-act="note-new" data-k="list"><span class="nt-ic" aria-hidden="true">${NOTE_IC.list}</span>Список</button>
-    <input type="search" class="srch-b" placeholder="Поиск в заметках" data-change="note-q" value="${h(U.nq || '')}" aria-label="Поиск в заметках">
+  return `${folders}<div class="nt-bar"><button type="button" class="btn primary" data-act="note-new" data-k="text"><span class="nt-ic" aria-hidden="true">${NOTE_IC.text}</span>Заметка</button><button type="button" class="btn" data-act="note-new" data-k="list"><span class="nt-ic" aria-hidden="true">${NOTE_IC.list}</span>Список</button>
+    <input type="search" class="srch-b" placeholder="${F0 ? 'Поиск в папке' : 'Поиск в заметках'}" data-change="note-q" value="${h(U.nq || '')}" aria-label="Поиск в заметках">
     ${used.size > 1 ? `<div class="nt-cfs" role="group" aria-label="Цвет"><button type="button" class="btn sm${cf ? '' : ' on'}" data-act="note-cf" data-c="" aria-pressed="${!cf}">Все</button>${chips}</div>` : ''}</div>
-  ${all.length > 1 ? `<p class="small muted nt-hint">${(U.nq || '').trim() || cf ? 'Порядок меняется, когда не выбран поиск и цвет.' : PHONE_MQ.matches ? 'Порядок: нажмите на заметку и подержите, затем перетащите.' : 'Порядок: перетащите заметку мышью на новое место.'}</p>` : ''}
-  ${!all.length ? `<div class="card"><div class="empty">Заметок пока нет. «Заметка» — текст, «Список» — пункты с галочками (что купить, что взять на турнир). Цвет и 📌 «закрепить» — в заметке.</div></div>`
+  ${all.length > 1 || (FD.length && all.length) ? `<p class="small muted nt-hint">${(U.nq || '').trim() || cf ? 'Порядок меняется, когда не выбран поиск и цвет.' : (PHONE_MQ.matches ? 'Порядок: нажмите на заметку и подержите, затем перетащите.' : 'Порядок: перетащите заметку мышью на новое место.') + (FD.length ? ' Перетащите на папку вверху — переложить в неё.' : '')}</p>` : ''}
+  ${!all.length && fid ? `<div class="card"><div class="empty">${fid === '-' ? 'Все заметки разложены по папкам.' : 'В папке пока нет заметок. «Заметка» или «Список» выше — новая заметка ляжет сюда. Или перетащите заметку из «Все заметки» на эту папку.'}</div></div>` : ''}
+  ${!all.length && fid ? '' : !all.length ? `<div class="card"><div class="empty">Заметок пока нет. «Заметка» — текст, «Список» — пункты с галочками (что купить, что взять на турнир). Цвет и 📌 «закрепить» — в заметке.</div></div>`
     : !L.length ? `<div class="card"><div class="empty">Ничего не найдено${cf ? ' (выбран цвет — нажмите «Все»)' : ''}.</div></div>`
     : `${pin.length ? `<div class="nt-sec">Закреплённые</div>${grid(pin)}${rest.length ? '<div class="nt-sec">Остальные</div>' : ''}` : ''}${rest.length ? grid(rest) : ''}`}
   ${hidden ? `<p class="small muted" style="margin-top:8px">Скрыто заметок: ${hidden} — их календари выключены слева.</p>` : ''}`;
@@ -8013,7 +8079,7 @@ function noteView(id) {                                 // 15.11.2026: прос�
     ? (L.length ? `<ul class="nt-ul nt-vl">${open.map(li).join('')}</ul>${!open.length ? '<p class="small muted">Всё отмечено.</p>' : ''}
       ${dn.length ? `<details class="nt-done" open><summary class="small"><b>Отмечено (${dn.length})</b></summary><ul class="nt-ul nt-vl">${dn.map(li).join('')}</ul></details>` : ''}` : '<p class="muted">Список пуст — нажмите ✎, чтобы добавить пункты.</p>')
     : n.text ? `<div class="nt-vt">${calLinkify(n.text)}</div>` : '<p class="muted">Пусто — нажмите ✎, чтобы написать.</p>';
-  const meta1 = [n.date ? `<span class="nt-chip">${calDayRu(n.date, true)}</span>` : '', a ? `<a class="nt-chip" href="#person/${a.id}" data-act="close" data-go="#person/${a.id}">${h(shortName(a))}</a>` : '', c ? `<span class="nt-chip"><i style="background:${c.color}"></i>${h(c.name)}${c.personal ? ' · личный' : ''}</span>` : ''].filter(Boolean).join('');
+  const meta1 = [nfChip(n), n.date ? `<span class="nt-chip">${calDayRu(n.date, true)}</span>` : '', a ? `<a class="nt-chip" href="#person/${a.id}" data-act="close" data-go="#person/${a.id}">${h(shortName(a))}</a>` : '', c ? `<span class="nt-chip"><i style="background:${c.color}"></i>${h(c.name)}${c.personal ? ' · личный' : ''}</span>` : ''].filter(Boolean).join('');
   const upd = n.at ? new Date(n.at) : null, p2 = v => String(v).padStart(2, '0'), updTxt = upd && !isNaN(upd) ? D.ru(upd.getFullYear() + '-' + p2(upd.getMonth() + 1) + '-' + p2(upd.getDate())) + ', ' + String(upd.getHours()).padStart(2, '0') + ':' + String(upd.getMinutes()).padStart(2, '0') : '';
   modal(n.title || 'Заметка', `<div class="nt-view nc-${n.color || 'none'}">${body}${meta1 ? `<div class="nt-chips">${meta1}</div>` : ''}</div>${updTxt ? `<p class="small muted" style="margin-top:8px">Изменена ${updTxt}${n.kind === 'list' && L.length ? ' · ' + noteListCnt(n) : ''}</p>` : ''}`, { closeText: 'Закрыть' });
   const hd = document.querySelector('#dlg .dlg-h'); if (!hd) return;
@@ -8023,7 +8089,7 @@ function noteView(id) {                                 // 15.11.2026: прос�
 function noteRow(i) { return `<div class="nt-row" data-iid="${h(i.id)}"><input type="checkbox" class="nt-rck" ${i.d ? 'checked' : ''} aria-label="Отмечено"><input type="text" class="nt-rt" value="${h(i.t)}" maxlength="300" placeholder="Пункт" aria-label="Пункт списка"><button type="button" class="nt-rx" aria-label="Удалить пункт" title="Удалить пункт">×</button></div>`; }
 function noteEdit(id, o = {}) {
   const n = id ? (db.notes || []).find(x => x.id === id) : null; if (id && !n) { notice('Заметка не найдена — возможно, её удалили.'); return; }
-  const x = n || { title: '', kind: o.kind === 'list' ? 'list' : 'text', text: '', items: [], color: '', pin: false, date: o.date || '', cal: '', aid: o.aid || '' };
+  const x = n || { title: '', kind: o.kind === 'list' ? 'list' : 'text', text: '', items: [], color: '', pin: false, date: o.date || '', cal: '', aid: o.aid || '', folder: o.folder && nfById(o.folder) ? o.folder : '' };
   const L = noteItems(x), cals = db.cals || [], aid0 = x.aid || '';
   const athOpts = [['', '— не выбран'], ...db.athletes.filter(a => a.status !== 'ушёл' || a.id === aid0).slice().sort((p, q) => shortName(p).localeCompare(shortName(q), 'ru')).map(a => [a.id, shortName(a) + (a.group ? ' · ' + a.group : '') + (a.status === 'ушёл' ? ' · ушёл' : '')])];
   const body = `<div class="nt-ed nc-${x.color || 'none'}"><input type="hidden" name="kind" value="${x.kind}">
@@ -8036,14 +8102,14 @@ function noteEdit(id, o = {}) {
     <div class="row nt-tools"><button type="button" class="btn ghost sm nt-kind">${x.kind === 'list' ? NOTE_IC.text + ' Сделать текстом' : NOTE_IC.list + ' Сделать списком'}</button>
       <label class="nt-pinf"><input type="checkbox" name="pin" ${x.pin ? 'checked' : ''}>${NOTE_IC.pin} Закрепить</label></div>
     <div class="nt-pal" role="radiogroup" aria-label="Цвет">${NOTE_COLORS.map(([k, l]) => `<label class="nc-${k || 'none'}" title="${l}"><input type="radio" name="color" value="${k}" ${(x.color || '') === k ? 'checked' : ''} aria-label="${l}"><i></i></label>`).join('')}</div></div>
-    <div class="fgrid" style="margin-top:12px">${F('date', 'Дата (необязательно)', x.date, 'date', 'data-noclr')}${FS('cal', 'Календарь', [['', '— без календаря'], ...cals.map(c => [c.id, c.name + (c.personal && !/личн/i.test(c.name) ? ' (личный)' : '')])], x.cal || '')}${FS('aid', 'Спортсмен (необязательно)', athOpts, aid0)}</div>
+    <div class="fgrid" style="margin-top:12px">${nfList().length ? FS('folder', 'Папка', [['', '— без папки'], ...nfList().map(f => [f.id, f.name])], x.folder && nfById(x.folder) ? x.folder : '') : ''}${F('date', 'Дата (необязательно)', x.date, 'date', 'data-noclr')}${FS('cal', 'Календарь', [['', '— без календаря'], ...cals.map(c => [c.id, c.name + (c.personal && !/личн/i.test(c.name) ? ' (личный)' : '')])], x.cal || '')}${FS('aid', 'Спортсмен (необязательно)', athOpts, aid0)}</div>
     <p class="small muted" style="margin-top:6px">С датой заметка видна и в дне календаря. Личный календарь — заметка не попадает в обезличенную копию.</p>`;
   modal(n ? 'Заметка' : x.kind === 'list' ? 'Новый список' : 'Новая заметка', body, { submit: 'Сохранить',
     extraBtn: n ? `<button type="button" class="btn danger" data-act="note-del" data-id="${h(n.id)}">Удалить</button>` : '',
     async onSubmit(fd) {
       const f = document.getElementById('dlg-form'), kind = fd.kind === 'list' ? 'list' : 'text';
       const items = [...f.querySelectorAll('.nt-open .nt-row'), ...f.querySelectorAll('.nt-dl .nt-row')].map(r => ({ id: r.dataset.iid || uid('i'), t: r.querySelector('.nt-rt').value.trim(), d: r.querySelector('.nt-rck').checked })).filter(i => i.t);
-      const v = { title: String(fd.title || '').trim(), kind, text: kind === 'text' ? String(fd.text || '').replace(/\s+$/, '') : '', items: kind === 'list' ? items : [], color: NOTE_COLORS.some(c => c[0] === fd.color) ? fd.color : '', pin: !!fd.pin, date: fd.date || '', cal: fd.cal && calById(fd.cal) ? fd.cal : '', aid: fd.aid || '' };
+      const v = { title: String(fd.title || '').trim(), kind, text: kind === 'text' ? String(fd.text || '').replace(/\s+$/, '') : '', items: kind === 'list' ? items : [], color: NOTE_COLORS.some(c => c[0] === fd.color) ? fd.color : '', pin: !!fd.pin, date: fd.date || '', cal: fd.cal && calById(fd.cal) ? fd.cal : '', aid: fd.aid || '', folder: 'folder' in fd ? (fd.folder && nfById(fd.folder) ? fd.folder : '') : (x.folder || '') };
       const empty = !v.title && !v.text && !v.items.length;
       if (!n) { if (empty) { toast('Пустая заметка не сохранена'); return true; } db.notes.push({ id: uid('N'), ...v, ord: Math.min(0, ...db.notes.map(q => q.ord ?? 0)) - 1, cr: new Date().toISOString(), at: new Date().toISOString() }); /* новая — первой */ render.keepScroll = true; persist('Заметка добавлена'); return true; }
       if (empty) { db.notes = db.notes.filter(q => q !== n); render.keepScroll = true; persist('Пустая заметка удалена'); return true; }
@@ -8100,7 +8166,9 @@ function noteDragMove(x, y) {
   S.g.style.left = (x - S.dx) + 'px'; S.g.style.top = (y - S.dy) + 'px'; S.lx = x; S.ly = y;
   if (S.raf) return;
   S.raf = requestAnimationFrame(() => { S.raf = 0; if (!noteDrag.st) return;
-    const el = document.elementFromPoint(S.lx, S.ly), t = el && el.closest('.nt-card'), grid = S.card.parentElement;
+    const el = document.elementFromPoint(S.lx, S.ly), t = el && el.closest('.nt-card'), grid = S.card.parentElement, fp = el && el.closest('[data-nfdrop]');
+    document.querySelectorAll('.nt-fp.drop').forEach(x => { if (x !== fp) x.classList.remove('drop'); }); S.fd = fp ? fp.dataset.nfdrop : null; if (fp) fp.classList.add('drop');
+    if (fp) return;
     if (t && t !== S.card && t.parentElement === grid) { const b = t.getBoundingClientRect(), before = S.ly < b.top + b.height / 2;
       if (before ? t.previousElementSibling !== S.card : t.nextElementSibling !== S.card) { if (before) t.before(S.card); else t.after(S.card); } }
     else if (el && el.closest('.nt-grid') === grid && !t) { const last = grid.lastElementChild, b = last && last.getBoundingClientRect(); if (last && last !== S.card && S.ly > b.bottom) last.after(S.card); }
@@ -8111,7 +8179,13 @@ function noteDragEnd(drop) {
   if (!S.on) return;
   if (S.raf) cancelAnimationFrame(S.raf);
   S.g.remove(); S.card.classList.remove('nt-drag'); document.body.classList.remove('nt-dragging'); noteDrag.skipClick = true; setTimeout(() => { noteDrag.skipClick = false; }, 350);
+  document.querySelectorAll('.nt-fp.drop').forEach(x => x.classList.remove('drop'));
   if (!drop) { render.keepScroll = true; rerender(); return; }
+  if (S.fd != null) {                                    // отпустили на папке — переложить
+    const n = (db.notes || []).find(x => x.id === S.card.dataset.id), to = S.fd === '-' ? '' : S.fd;
+    if (!n || S.fd === '' || (n.folder || '') === to) { render.keepScroll = true; rerender(); return; }
+    n.folder = to; const f = nfById(to); render.keepScroll = true; persist(f ? `Заметка — в папке «${f.name}»` : 'Заметка — без папки'); return;
+  }
   const dom = [...S.card.parentElement.querySelectorAll('.nt-card')].map(c => c.dataset.id), set = new Set(dom);
   const F = noteOrdered(db.notes || []), pos = F.map((n, i) => set.has(n.id) ? i : -1).filter(i => i >= 0), byId = new Map(F.map(n => [n.id, n]));
   if (F.filter(n => set.has(n.id)).map(n => n.id).join() === dom.join()) return;
@@ -8579,7 +8653,11 @@ function todayGroupsDlg() {                              // 12.11.2026: каки
 const CAL_ACT = {
   'today-groups': () => todayGroupsDlg(),
   'cal-new': () => { const U = ui.cal || {}; calForm({ date: U.cur && U.cur >= ix.today ? U.cur : ix.today }); },
-  'note-new': el => noteEdit(null, { kind: el.dataset.k }),
+  'note-new': el => noteEdit(null, { kind: el.dataset.k, folder: ui.cal.nf && ui.cal.nf !== '-' ? ui.cal.nf : '' }),
+  'nf-open': el => { ui.cal.nf = el.dataset.f || ''; ui.cal.nq = ''; ui.cal.nc = ''; render.keepScroll = true; rerender(); },
+  'nf-new': () => nfEdit(null),
+  'nf-edit': el => nfEdit(el.dataset.id),
+  'nf-del': el => nfDel(el.dataset.id),
   'note-open': (el, e) => { if (e && e.target.closest && e.target.closest('a')) return; noteView(el.dataset.id); },   // 15.11.2026: нажатие — просмотр, ✎ — правка
   'note-edit': el => noteEdit(el.dataset.id),
   'note-pin': el => { const n = (db.notes || []).find(x => x.id === el.dataset.id); if (!n) return; n.pin = !n.pin; render.keepScroll = true; persist(n.pin ? 'Заметка закреплена' : 'Заметка откреплена'); if (el.closest('#dlg')) noteView(n.id); },
@@ -8634,6 +8712,8 @@ async function onChange(e) {
   const live = e.type === 'input';
   if (k === 'pf') { ui.people[el.dataset.k] = v; if (live && el.type !== 'number' && el.type !== 'search') return; clearTimeout(typingTimer); typingTimer = setTimeout(() => { if (live) liveRefresh(el); else rerender(); }, live ? 250 : 0); return; }
   if (k === 'arch-q') { (ui.arch || (ui.arch = { q: '' })).q = v; clearTimeout(typingTimer); typingTimer = setTimeout(() => { if (live) liveRefresh(el); else rerender(); }, live ? 250 : 0); return; }   // 14.11.2026: как в остальных поисках — поле не пересоздаётся (на телефоне была ошибка «innerHTML … blur»)
+  if (k === 'nf-q') { const q = String(v || '').trim().toLowerCase(), box = el.closest('.nt-fmenu'); let n = 0;
+    box.querySelectorAll('.nt-fml .nt-fmi').forEach(b => { const on = !q || b.dataset.nfq.includes(q); b.hidden = !on; n += on; }); box.querySelector('.nt-fmn').hidden = !!n; return; }   // фильтр папок в меню — без перерисовки
   if (k === 'cal-notes') { meta.calNoNotes = !v; writeMeta(); rerender(); return; }
   if (k === 'note-q') { ui.cal.nq = v; clearTimeout(typingTimer); typingTimer = setTimeout(() => { if (live) liveRefresh(el); else rerender(); }, live ? 250 : 0); return; }
   if (k === 'cal-tasks') { meta.calNoTasks = !v; writeMeta(); rerender(); return; }
