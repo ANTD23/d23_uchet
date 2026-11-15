@@ -863,10 +863,18 @@ details.tdet[open] > summary::after{transform:rotate(-135deg)}
 .nt-fmi span{flex:1;min-width:0;overflow-wrap:anywhere} .nt-fmi b{font-weight:500;color:var(--ink-3);font-variant-numeric:tabular-nums} .nt-fmi.add{color:var(--ink-2);font-weight:600;border-top:1px solid var(--line);border-radius:0 0 8px 8px;margin-top:4px}
 @media (max-width:860px){ .nt-fmore .menu-pop{position:fixed;left:8px;right:8px;top:auto;bottom:calc(84px + env(safe-area-inset-bottom));max-height:calc(100vh - 170px);min-width:0;max-width:none} }
 .nt-fchip{background:color-mix(in srgb,var(--nh,var(--surface)) 45%,var(--surface));border:1px solid color-mix(in srgb,var(--ink) 10%,transparent)} .nt-fchip.nc-none{background:color-mix(in srgb,var(--ink) 7%,transparent)} .nt-fchip .nt-ic{width:12px;height:12px;margin:0}
+/* 15.11.2026: «Заметки» — первой, отдельной кнопкой, мягко-жёлтой (как в Keep) */
+.cal-views{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.nt-tab{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;border-radius:10px;border:1px solid color-mix(in srgb,#E3CC78 70%,var(--line));background:color-mix(in srgb,#E3CC78 30%,var(--surface));color:var(--ink);font:inherit;font-weight:700;cursor:pointer}
+.nt-tab .nt-ic{margin:0;width:18px;height:18px} .nt-tab:hover{background:color-mix(in srgb,#E3CC78 45%,var(--surface))}
+.nt-tab.on{background:color-mix(in srgb,#E3CC78 62%,var(--surface));border-color:color-mix(in srgb,#C9A93A 80%,var(--ink));box-shadow:0 0 0 2px color-mix(in srgb,#C9A93A 55%,transparent)}
+.cal-bar.nv .seg button{opacity:.85}
+@media (max-width:860px), (pointer:coarse) and (max-height:500px){ .cal-views{width:100%;flex-wrap:nowrap;gap:8px} .cal-views .seg{flex:1;min-width:0;width:auto!important} .nt-tab{padding:0 10px;min-height:44px;font-size:.875rem} .nt-tab .nt-ic{width:16px;height:16px} }
+@media (max-width:380px){ .nt-tabl{display:none} .nt-tab{padding:0;width:44px;justify-content:center} .nt-tab .nt-ic{width:20px;height:20px} }
 .cal-bar.nv{justify-content:flex-end} .cal-nav[hidden]{display:none!important}
 @media (max-width:860px), (pointer:coarse) and (max-height:500px){ .nt-grid{columns:2;column-gap:8px} .nt-card{margin-bottom:8px;padding:10px 10px 8px 12px} .nt-tx{-webkit-line-clamp:9;line-clamp:9;font-size:.875rem} .nt-ul li{font-size:.875rem}
   .nt-bar .srch-b{max-width:none;flex-basis:100%;order:3} .nt-bar>.btn{flex:1} .nt-cfs{order:4}
-  .cal-bar .seg{grid-template-columns:repeat(5,1fr)!important} .cal-bar .seg button{padding:0 2px;font-size:.8125rem} }
+  .cal-bar .seg{grid-template-columns:repeat(4,1fr)!important} .cal-bar .seg button{padding:0 2px;font-size:.8125rem} }
 #dlg-form .nt-ed input.nt-ti,#dlg-form .nt-ed input.nt-rt,#dlg-form .nt-ed textarea{border:0;border-radius:0;background:transparent;box-shadow:none;min-height:0}
 #dlg-form .nt-ed input.nt-rt{border-bottom:1px solid color-mix(in srgb,var(--ink) 12%,transparent);padding:8px 2px} #dlg-form .nt-ed input.nt-rt:focus,#dlg-form .nt-ed input.nt-ti:focus{outline:none;border-bottom:2px solid var(--ink-2)} #dlg-form .nt-ed input.nt-ti{border-bottom:1px solid color-mix(in srgb,var(--ink) 12%,transparent);padding:8px 2px}
 #dlg-form .nt-ed textarea:focus{outline:none;box-shadow:inset 0 0 0 1px var(--line-strong);border-radius:6px}
@@ -6384,7 +6392,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '15.11.2026 (v165)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '15.11.2026 (v166)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -8270,7 +8278,8 @@ function vCal(arg) {
     <p class="small muted" style="margin:8px 0 0">«Из программы» — без ввода: турниры, выезды, аттестация, праздники, дни рождения, окончания абонементов. Меняются в своих разделах.</p></div></details>`;
   return `<div class="topline"><h1>Календарь</h1><div class="row no-print"><button class="btn primary" data-act="cal-new">Новое событие</button><button class="btn" data-act="task-new">Новая задача</button></div></div>
   <div class="cal-bar no-print${NV ? ' nv' : ''}"><div class="cal-nav"${NV ? ' hidden' : ''}><button type="button" class="btn" data-act="cal-today">Сегодня</button><button type="button" class="btn ghost" data-act="cal-nav" data-d="-1" aria-label="Назад">‹</button><button type="button" class="btn ghost" data-act="cal-nav" data-d="1" aria-label="Вперёд">›</button><b class="cal-title">${h(calTitle(U))}</b></div>
-    <div class="seg" role="group" aria-label="Вид календаря">${CAL_VIEWS.map(([k, l]) => `<button type="button" data-act="cal-view" data-v="${k}" class="${U.view === k ? 'on' : ''}" aria-pressed="${U.view === k}">${l}</button>`).join('')}</div></div>
+    <div class="cal-views"><button type="button" class="nt-tab${NV ? ' on' : ''}" data-act="cal-view" data-v="notes" aria-pressed="${NV}" aria-label="Заметки" title="Заметки"><span class="nt-ic" aria-hidden="true">${NOTE_IC.note}</span><span class="nt-tabl">Заметки</span></button>
+    <div class="seg" role="group" aria-label="Вид календаря">${CAL_VIEWS.filter(([k]) => k !== 'notes').map(([k, l]) => `<button type="button" data-act="cal-view" data-v="${k}" class="${U.view === k ? 'on' : ''}" aria-pressed="${U.view === k}">${l}</button>`).join('')}</div></div></div>
   <div class="cal-wrap">${side}<div class="cal-main">${body}</div></div>`;
 }
 function calByDay(items, from, to) {
