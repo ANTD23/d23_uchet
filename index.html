@@ -814,7 +814,9 @@ details.tdet[open] > summary::after{transform:rotate(-135deg)}
 .nt-sec{font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);font-weight:700;margin:4px 2px 8px}
 .nt-grid{columns:4 220px;column-gap:12px;margin-bottom:14px}
 .nt-card{break-inside:avoid;display:block;margin:0 0 12px;padding:12px 12px 10px 14px;border-radius:12px;border:1px solid color-mix(in srgb,var(--nh) 55%,var(--line));background:color-mix(in srgb,var(--nh) 34%,var(--surface));cursor:pointer;transition:box-shadow .15s;color:var(--ink)}
-.nt-card.nc-none{border-color:var(--line);background:var(--surface)} .nt-card:hover{box-shadow:var(--shadow-1, 0 1px 4px rgba(0,0,0,.12))} .nt-card:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.nt-card.nc-none{border-color:var(--line);background:var(--surface)} .nt-card{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.nt-card.nt-drag{opacity:.35;outline:2px dashed var(--ink-3);outline-offset:-2px} .nt-ghost{position:fixed;z-index:1000;pointer-events:none;margin:0;box-shadow:0 10px 28px rgba(0,0,0,.28);transform:rotate(1.5deg);opacity:.95} body.nt-dragging{user-select:none;-webkit-user-select:none;cursor:grabbing} body.nt-dragging .nt-card{cursor:grabbing}
+.nt-hint{margin:-6px 2px 10px} .nt-card:hover{box-shadow:var(--shadow-1, 0 1px 4px rgba(0,0,0,.12))} .nt-card:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .nt-h{display:flex;align-items:flex-start;gap:6px;justify-content:space-between} .nt-t{font-size:1rem;line-height:1.3;overflow-wrap:anywhere;padding-top:3px}
 .nt-pin{flex:none;width:32px;height:32px;margin:-4px -6px 0 0;border:0;border-radius:50%;background:transparent;color:var(--ink-3);cursor:pointer;display:grid;place-items:center;opacity:.45} .nt-pin svg{width:18px;height:18px}
 .nt-card:hover .nt-pin,.nt-pin:focus-visible{opacity:1} .nt-pin.on{opacity:1;color:var(--ink)} .nt-pin.on svg{fill:currentColor} .nt-pin:hover{background:color-mix(in srgb,var(--ink) 8%,transparent)}
@@ -6358,7 +6360,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '15.11.2026 (v160)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '15.11.2026 (v161)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -7800,6 +7802,7 @@ function calInit(d) {
   if (!Array.isArray(d.cals)) d.cals = [{ id: 'c_personal', name: 'Личный', color: '#1F6FD1', personal: true }, { id: 'c_club', name: 'Клубный', color: '#1A7A58' }];
   if (!Array.isArray(d.events)) d.events = [];
   if (!Array.isArray(d.notes)) d.notes = [];                 // 15.11.2026: заметки (как в Google Keep)
+  if (d.notes.some(n => typeof n.ord !== 'number')) d.notes.slice().sort((x, y) => (typeof x.ord === 'number' ? x.ord : -1e9) - (typeof y.ord === 'number' ? y.ord : -1e9) || (y.at || '').localeCompare(x.at || '')).forEach((n, i) => { n.ord = i; });   // порядок: сначала — последние изменённые
   for (const e of d.events) if (e.task && (e.remind === '' || e.remind == null)) e.remind = 1;   // 14.11.2026: у задач нет «не напоминать» — прежнее пустое значение → «за 1 день»
   d.settings.calView = Object.assign({ pc: 'month', mob: 'list', h0: 7, h1: 22, tz: 'Europe/Moscow' }, d.settings.calView || {});
   if (!tzOk(d.settings.calView.tz)) d.settings.calView.tz = 'Europe/Moscow';
@@ -7981,13 +7984,14 @@ function calNotesHTML(U) {
   const q = (U.nq || '').trim().toLowerCase(), cf = U.nc || '';
   const all = (db.notes || []).filter(noteVisible), hidden = (db.notes || []).length - all.length;
   let L = all.filter(n => (!q || noteText(n).toLowerCase().includes(q)) && (!cf || (n.color || 'none') === cf));
-  L.sort((x, y) => (y.at || '').localeCompare(x.at || ''));
+  L = noteOrdered(L);
   const pin = L.filter(n => n.pin), rest = L.filter(n => !n.pin), grid = A => `<div class="nt-grid">${A.map(noteCard).join('')}</div>`;
   const used = new Set(all.map(n => n.color || 'none'));
   const chips = NOTE_COLORS.filter(([k]) => used.has(k || 'none')).map(([k, l]) => `<button type="button" class="nt-cf nc-${k || 'none'}${cf === (k || 'none') ? ' on' : ''}" data-act="note-cf" data-c="${k || 'none'}" aria-pressed="${cf === (k || 'none')}" aria-label="Только: ${l}" title="Только: ${l}"></button>`).join('');
   return `<div class="nt-bar"><button type="button" class="btn primary" data-act="note-new" data-k="text"><span class="nt-ic" aria-hidden="true">${NOTE_IC.text}</span>Заметка</button><button type="button" class="btn" data-act="note-new" data-k="list"><span class="nt-ic" aria-hidden="true">${NOTE_IC.list}</span>Список</button>
     <input type="search" class="srch-b" placeholder="Поиск в заметках" data-change="note-q" value="${h(U.nq || '')}" aria-label="Поиск в заметках">
     ${used.size > 1 ? `<div class="nt-cfs" role="group" aria-label="Цвет"><button type="button" class="btn sm${cf ? '' : ' on'}" data-act="note-cf" data-c="" aria-pressed="${!cf}">Все</button>${chips}</div>` : ''}</div>
+  ${all.length > 1 ? `<p class="small muted nt-hint">${(U.nq || '').trim() || cf ? 'Порядок меняется, когда не выбран поиск и цвет.' : PHONE_MQ.matches ? 'Порядок: нажмите на заметку и подержите, затем перетащите.' : 'Порядок: перетащите заметку мышью на новое место.'}</p>` : ''}
   ${!all.length ? `<div class="card"><div class="empty">Заметок пока нет. «Заметка» — текст, «Список» — пункты с галочками (что купить, что взять на турнир). Цвет и 📌 «закрепить» — в заметке.</div></div>`
     : !L.length ? `<div class="card"><div class="empty">Ничего не найдено${cf ? ' (выбран цвет — нажмите «Все»)' : ''}.</div></div>`
     : `${pin.length ? `<div class="nt-sec">Закреплённые</div>${grid(pin)}${rest.length ? '<div class="nt-sec">Остальные</div>' : ''}` : ''}${rest.length ? grid(rest) : ''}`}
@@ -8018,7 +8022,7 @@ function noteEdit(id, o = {}) {
       const items = [...f.querySelectorAll('.nt-open .nt-row'), ...f.querySelectorAll('.nt-dl .nt-row')].map(r => ({ id: r.dataset.iid || uid('i'), t: r.querySelector('.nt-rt').value.trim(), d: r.querySelector('.nt-rck').checked })).filter(i => i.t);
       const v = { title: String(fd.title || '').trim(), kind, text: kind === 'text' ? String(fd.text || '').replace(/\s+$/, '') : '', items: kind === 'list' ? items : [], color: NOTE_COLORS.some(c => c[0] === fd.color) ? fd.color : '', pin: !!fd.pin, date: fd.date || '', cal: fd.cal && calById(fd.cal) ? fd.cal : '', aid: fd.aid || '' };
       const empty = !v.title && !v.text && !v.items.length;
-      if (!n) { if (empty) { toast('Пустая заметка не сохранена'); return true; } db.notes.push({ id: uid('N'), ...v, cr: new Date().toISOString(), at: new Date().toISOString() }); render.keepScroll = true; persist('Заметка добавлена'); return true; }
+      if (!n) { if (empty) { toast('Пустая заметка не сохранена'); return true; } db.notes.push({ id: uid('N'), ...v, ord: Math.min(0, ...db.notes.map(q => q.ord ?? 0)) - 1, cr: new Date().toISOString(), at: new Date().toISOString() }); /* новая — первой */ render.keepScroll = true; persist('Заметка добавлена'); return true; }
       if (empty) { db.notes = db.notes.filter(q => q !== n); render.keepScroll = true; persist('Пустая заметка удалена'); return true; }
       Object.assign(n, v, { at: new Date().toISOString() }); render.keepScroll = true; persist('Заметка сохранена'); return true;
     } });
@@ -8059,6 +8063,55 @@ async function noteDel(id) {
   if (!await ask(`Удалить заметку «${noteName(n)}»?`)) return;
   db.notes = db.notes.filter(x => x !== n); closeModal(); render.keepScroll = true; persist('Заметка удалена');
 }
+/* 15.11.2026: порядок заметок — перетаскиванием (мышь: потянуть; телефон: нажать и подержать). Порядок — n.ord (меньше — выше), общий для всех заметок */
+const noteDrag = { st: null, skipClick: false };
+function noteDragCan() { const U = ui.cal || {}; return location.hash.startsWith('#cal') && U.view === 'notes' && !(U.nq || '').trim() && !U.nc; }
+function noteDragStart(S) {
+  const c = S.card, r = c.getBoundingClientRect(), g = c.cloneNode(true);
+  g.className += ' nt-ghost'; g.removeAttribute('data-act'); Object.assign(g.style, { width: r.width + 'px', left: r.left + 'px', top: r.top + 'px' }); document.body.appendChild(g);
+  S.g = g; S.dx = S.x0 - r.left; S.dy = S.y0 - r.top; S.on = true; c.classList.add('nt-drag'); document.body.classList.add('nt-dragging');
+  try { navigator.vibrate && navigator.vibrate(15); } catch (e) {}
+}
+function noteDragMove(x, y) {
+  const S = noteDrag.st; if (!S || !S.on) return;
+  S.g.style.left = (x - S.dx) + 'px'; S.g.style.top = (y - S.dy) + 'px'; S.lx = x; S.ly = y;
+  if (S.raf) return;
+  S.raf = requestAnimationFrame(() => { S.raf = 0; if (!noteDrag.st) return;
+    const el = document.elementFromPoint(S.lx, S.ly), t = el && el.closest('.nt-card'), grid = S.card.parentElement;
+    if (t && t !== S.card && t.parentElement === grid) { const b = t.getBoundingClientRect(), before = S.ly < b.top + b.height / 2;
+      if (before ? t.previousElementSibling !== S.card : t.nextElementSibling !== S.card) { if (before) t.before(S.card); else t.after(S.card); } }
+    else if (el && el.closest('.nt-grid') === grid && !t) { const last = grid.lastElementChild, b = last && last.getBoundingClientRect(); if (last && last !== S.card && S.ly > b.bottom) last.after(S.card); }
+    const H = window.innerHeight; if (S.ly < 70) window.scrollBy(0, -12); else if (S.ly > H - 90) window.scrollBy(0, 12); });
+}
+function noteDragEnd(drop) {
+  const S = noteDrag.st; noteDrag.st = null; if (!S) return; clearTimeout(S.tm);
+  if (!S.on) return;
+  if (S.raf) cancelAnimationFrame(S.raf);
+  S.g.remove(); S.card.classList.remove('nt-drag'); document.body.classList.remove('nt-dragging'); noteDrag.skipClick = true; setTimeout(() => { noteDrag.skipClick = false; }, 350);
+  if (!drop) { render.keepScroll = true; rerender(); return; }
+  const dom = [...S.card.parentElement.querySelectorAll('.nt-card')].map(c => c.dataset.id), set = new Set(dom);
+  const F = noteOrdered(db.notes || []), pos = F.map((n, i) => set.has(n.id) ? i : -1).filter(i => i >= 0), byId = new Map(F.map(n => [n.id, n]));
+  if (F.filter(n => set.has(n.id)).map(n => n.id).join() === dom.join()) return;
+  pos.forEach((p, k) => { F[p] = byId.get(dom[k]); });
+  F.forEach((n, i) => { n.ord = i; });
+  render.keepScroll = true; persist('Порядок заметок изменён');
+}
+function noteOrdered(L) { return L.slice().sort((x, y) => (x.ord ?? 0) - (y.ord ?? 0) || (y.at || '').localeCompare(x.at || '')); }
+document.addEventListener('pointerdown', e => {
+  if (e.button > 0 || !e.isPrimary) return; const c = e.target.closest && e.target.closest('.nt-card'); if (!c || e.target.closest('button,a,input')) return;
+  if (!noteDragCan()) return;
+  const S = noteDrag.st = { card: c, x0: e.clientX, y0: e.clientY, touch: e.pointerType !== 'mouse', on: false };
+  if (S.touch) S.tm = setTimeout(() => { if (noteDrag.st === S) { noteDragStart(S); noteDragMove(S.x0, S.y0); } }, 380);
+});
+document.addEventListener('pointermove', e => { const S = noteDrag.st; if (!S || !e.isPrimary) return;
+  if (!S.on) { const d = Math.hypot(e.clientX - S.x0, e.clientY - S.y0); if (S.touch) { if (d > 10) { clearTimeout(S.tm); noteDrag.st = null; } return; } if (d < 6) return; noteDragStart(S); }
+  noteDragMove(e.clientX, e.clientY); });
+document.addEventListener('pointerup', () => noteDragEnd(true));
+document.addEventListener('pointercancel', () => { const S = noteDrag.st; if (S && S.on && S.touch) return; noteDragEnd(false); });   // на телефоне браузер может «отменить» указатель при начале прокрутки — во время перетаскивания прокрутка запрещена
+document.addEventListener('touchmove', e => { if (noteDrag.st && noteDrag.st.on) { e.preventDefault(); const t = e.touches[0]; if (t) noteDragMove(t.clientX, t.clientY); } }, { passive: false });
+document.addEventListener('touchend', () => { if (noteDrag.st && noteDrag.st.on) noteDragEnd(true); });
+document.addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('.nt-card') && noteDragCan()) e.preventDefault(); });
+document.addEventListener('click', e => { if (noteDrag.skipClick && e.target.closest && e.target.closest('.nt-card')) { e.stopPropagation(); e.preventDefault(); noteDrag.skipClick = false; } }, true);
 function calItems(from, to) {
   const L = [];
   for (const ev of db.events || []) { if (!calOn(ev.cal) || !calById(ev.cal)) continue;
