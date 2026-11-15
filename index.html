@@ -839,6 +839,11 @@ details.tdet[open] > summary::after{transform:rotate(-135deg)}
 .nt-pal{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px} .nt-pal label{position:relative;cursor:pointer;display:inline-flex} .nt-pal input{position:absolute;opacity:0;width:1px;height:1px}
 .nt-pal i{width:30px;height:30px;border-radius:50%;display:block;border:1px solid var(--line-strong);background:color-mix(in srgb,var(--nh) 60%,var(--surface))} .nt-pal .nc-none i{background:var(--surface);background-image:linear-gradient(135deg,transparent 46%,var(--ink-3) 47%,var(--ink-3) 53%,transparent 54%)}
 .nt-pal input:checked+i{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ink)} .nt-pal input:focus-visible+i{outline:2px solid var(--ink);outline-offset:4px}
+.nt-view{border-radius:12px;padding:12px 14px;background:color-mix(in srgb,var(--nh) 30%,var(--surface));border:1px solid color-mix(in srgb,var(--nh) 50%,var(--line))} .nt-view.nc-none{background:var(--surface);border-color:var(--line)}
+.nt-vt{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;font-size:1rem} .nt-vl li{font-size:1rem;padding:5px 0} .nt-vl li.dn span{text-decoration:line-through;color:var(--ink-3)}
+.nt-cb.on{background:var(--ink-2);border-color:var(--ink-2)} .nt-cb.on::before{content:'';position:absolute;left:4px;top:0;width:5px;height:10px;border:solid var(--surface);border-width:0 2px 2px 0;transform:rotate(45deg)}
+.nt-vl .nt-cb{width:22px;height:22px} .nt-vl .nt-cb.on::before{left:6px;top:1px;width:6px;height:11px}
+.nt-vpin svg{width:20px;height:20px} .nt-vpin.on svg{fill:currentColor} a.nt-chip{text-decoration:none;color:var(--ink)} a.nt-chip:hover{text-decoration:underline}
 .cal-bar.nv{justify-content:flex-end} .cal-nav[hidden]{display:none!important}
 @media (max-width:860px), (pointer:coarse) and (max-height:500px){ .nt-grid{columns:2;column-gap:8px} .nt-card{margin-bottom:8px;padding:10px 10px 8px 12px} .nt-tx{-webkit-line-clamp:9;line-clamp:9;font-size:.875rem} .nt-ul li{font-size:.875rem}
   .nt-bar .srch-b{max-width:none;flex-basis:100%;order:3} .nt-bar>.btn{flex:1} .nt-cfs{order:4}
@@ -6360,7 +6365,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '15.11.2026 (v161)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '15.11.2026 (v162)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -7775,7 +7780,7 @@ document.addEventListener('click', e => { const b = e.target.closest('.menu-pop 
 function itToggle(cm) { const it = cm.closest('.it.compact'); if (!it) return; const on = !it.classList.contains('open'); it.classList.toggle('open', on); cm.setAttribute('aria-expanded', on);
   ui.itOpen = ui.itOpen || new Set(); if (on) ui.itOpen.add(it.dataset.it); else ui.itOpen.delete(it.dataset.it); }
 document.addEventListener('click', e => { const cm = e.target.closest && e.target.closest('.it-cm'); if (!cm || e.target.closest('a,button')) return; itToggle(cm); });
-document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('nt-card') && e.target === document.activeElement) { e.preventDefault(); noteEdit(e.target.dataset.id); } });   // 15.11.2026: карточка заметки с клавиатуры
+document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('nt-card') && e.target === document.activeElement) { e.preventDefault(); noteView(e.target.dataset.id); } });   // 15.11.2026: карточка заметки с клавиатуры
 document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('it-cm')) { e.preventDefault(); itToggle(e.target); } });
 document.addEventListener('toggle', e => {        // №29: меню «Ещё» целиком на экране (кнопка у левого края — меню не уходит влево)
   const d = e.target; if (!(d instanceof HTMLDetailsElement) || !d.classList.contains('menu') || !d.open) return;
@@ -7976,7 +7981,7 @@ function noteCard(n) {
       ${open.length > MAXI ? `<div class="small muted nt-more">… ещё ${open.length - MAXI}</div>` : ''}${dn.length ? `<div class="small muted nt-more">+ ${dn.length} ${plural(dn.length, 'пункт отмечен', 'пункта отмечено', 'пунктов отмечено')}</div>` : ''}${!L.length ? '<div class="small muted">Список пуст</div>' : ''}`
     : n.text ? `<div class="nt-tx">${calLinkify(n.text)}</div>` : '';
   const chips = [n.date ? `<span class="nt-chip${n.date < ix.today ? ' past' : ''}">${calDayRu(n.date, n.date.slice(0, 4) !== ix.today.slice(0, 4))}</span>` : '', a ? `<span class="nt-chip">${h(shortName(a))}</span>` : '', c ? `<span class="nt-chip"><i style="background:${c.color}"></i>${h(c.name)}</span>` : ''].filter(Boolean).join('');
-  return `<article class="nt-card nc-${n.color || 'none'}" data-act="note-open" data-id="${h(n.id)}" tabindex="0" role="button" aria-label="Заметка «${h(noteName(n))}»">
+  return `<article class="nt-card nc-${n.color || 'none'}" data-act="note-open" data-id="${h(n.id)}" tabindex="0" role="button" aria-label="Открыть заметку «${h(noteName(n))}»">
     <div class="nt-h">${n.title ? `<b class="nt-t">${h(n.title)}</b>` : '<span></span>'}<button type="button" class="nt-pin${n.pin ? ' on' : ''}" data-act="note-pin" data-id="${h(n.id)}" aria-pressed="${!!n.pin}" aria-label="${n.pin ? 'Открепить' : 'Закрепить наверху'}" title="${n.pin ? 'Открепить' : 'Закрепить наверху'}">${NOTE_IC.pin}</button></div>
     ${body}${chips ? `<div class="nt-chips">${chips}</div>` : ''}</article>`;
 }
@@ -7996,6 +8001,21 @@ function calNotesHTML(U) {
     : !L.length ? `<div class="card"><div class="empty">Ничего не найдено${cf ? ' (выбран цвет — нажмите «Все»)' : ''}.</div></div>`
     : `${pin.length ? `<div class="nt-sec">Закреплённые</div>${grid(pin)}${rest.length ? '<div class="nt-sec">Остальные</div>' : ''}` : ''}${rest.length ? grid(rest) : ''}`}
   ${hidden ? `<p class="small muted" style="margin-top:8px">Скрыто заметок: ${hidden} — их календари выключены слева.</p>` : ''}`;
+}
+function noteView(id) {                                 // 15.11.2026: просмотр заметки целиком; ✎ — правка, корзина — удаление, булавка — закрепить
+  const n = (db.notes || []).find(x => x.id === id); if (!n) { notice('Заметка не найдена — возможно, её удалили.'); return; }
+  const L = noteItems(n), open = L.filter(i => !i.d), dn = L.filter(i => i.d), a = n.aid ? ix.ath.get(n.aid) : null, c = n.cal ? calById(n.cal) : null;
+  const li = i => `<li class="${i.d ? 'dn' : ''}"><button type="button" class="nt-cb${i.d ? ' on' : ''}" data-act="note-item" data-id="${h(n.id)}" data-i="${h(i.id)}" role="checkbox" aria-checked="${!!i.d}" aria-label="${i.d ? 'Снять отметку' : 'Отметить'} «${h(i.t)}»"></button><span>${calLinkify(i.t)}</span></li>`;
+  const body = n.kind === 'list'
+    ? (L.length ? `<ul class="nt-ul nt-vl">${open.map(li).join('')}</ul>${!open.length ? '<p class="small muted">Всё отмечено.</p>' : ''}
+      ${dn.length ? `<details class="nt-done" open><summary class="small"><b>Отмечено (${dn.length})</b></summary><ul class="nt-ul nt-vl">${dn.map(li).join('')}</ul></details>` : ''}` : '<p class="muted">Список пуст — нажмите ✎, чтобы добавить пункты.</p>')
+    : n.text ? `<div class="nt-vt">${calLinkify(n.text)}</div>` : '<p class="muted">Пусто — нажмите ✎, чтобы написать.</p>';
+  const meta1 = [n.date ? `<span class="nt-chip">${calDayRu(n.date, true)}</span>` : '', a ? `<a class="nt-chip" href="#person/${a.id}" data-act="close" data-go="#person/${a.id}">${h(shortName(a))}</a>` : '', c ? `<span class="nt-chip"><i style="background:${c.color}"></i>${h(c.name)}${c.personal ? ' · личный' : ''}</span>` : ''].filter(Boolean).join('');
+  const upd = n.at ? new Date(n.at) : null, p2 = v => String(v).padStart(2, '0'), updTxt = upd && !isNaN(upd) ? D.ru(upd.getFullYear() + '-' + p2(upd.getMonth() + 1) + '-' + p2(upd.getDate())) + ', ' + String(upd.getHours()).padStart(2, '0') + ':' + String(upd.getMinutes()).padStart(2, '0') : '';
+  modal(n.title || 'Заметка', `<div class="nt-view nc-${n.color || 'none'}">${body}${meta1 ? `<div class="nt-chips">${meta1}</div>` : ''}</div>${updTxt ? `<p class="small muted" style="margin-top:8px">Изменена ${updTxt}${n.kind === 'list' && L.length ? ' · ' + noteListCnt(n) : ''}</p>` : ''}`, { closeText: 'Закрыть' });
+  const hd = document.querySelector('#dlg .dlg-h'); if (!hd) return;
+  hd.classList.add('nt-vh'); const x = hd.querySelector('[data-act=close]');
+  x.insertAdjacentHTML('beforebegin', `<button type="button" class="btn ghost evc-b nt-vpin${n.pin ? ' on' : ''}" data-act="note-pin" data-id="${h(n.id)}" aria-pressed="${!!n.pin}" aria-label="${n.pin ? 'Открепить' : 'Закрепить наверху'}" title="${n.pin ? 'Открепить' : 'Закрепить наверху'}">${NOTE_IC.pin}</button><button type="button" class="btn ghost evc-b" data-act="note-edit" data-id="${h(n.id)}" aria-label="Изменить заметку" title="Изменить">${EVC_IC.edit}</button><button type="button" class="btn ghost evc-b" data-act="note-del" data-id="${h(n.id)}" aria-label="Удалить заметку" title="Удалить">${EVC_IC.del}</button>`);
 }
 function noteRow(i) { return `<div class="nt-row" data-iid="${h(i.id)}"><input type="checkbox" class="nt-rck" ${i.d ? 'checked' : ''} aria-label="Отмечено"><input type="text" class="nt-rt" value="${h(i.t)}" maxlength="300" placeholder="Пункт" aria-label="Пункт списка"><button type="button" class="nt-rx" aria-label="Удалить пункт" title="Удалить пункт">×</button></div>`; }
 function noteEdit(id, o = {}) {
@@ -8055,7 +8075,7 @@ function noteEdSync() {
 }
 function noteToggleItem(id, iid) {
   const n = (db.notes || []).find(x => x.id === id); if (!n) return; const L = noteItems(n), k = L.findIndex(i => i.id === iid); if (k < 0) return;
-  const [it] = L.splice(k, 1); it.d = !it.d; if (it.d) { const f = L.findIndex(i => i.d); L.splice(f < 0 ? L.length : f, 0, it); } else L.push(it);   // как в Keep: отмеченный — в начало «отмеченных», снятый — в конец списка
+  const [it] = L.splice(k, 1); it.d = !it.d; const f = L.findIndex(i => i.d); L.splice(f < 0 ? L.length : f, 0, it);   // как в Keep: отмеченный — в начало «отмеченных», снятый — в конец списка
   n.items = L; n.at = new Date().toISOString(); render.keepScroll = true; persist(it.d ? 'Пункт отмечен' : 'Отметка снята');
 }
 async function noteDel(id) {
@@ -8557,9 +8577,11 @@ const CAL_ACT = {
   'today-groups': () => todayGroupsDlg(),
   'cal-new': () => { const U = ui.cal || {}; calForm({ date: U.cur && U.cur >= ix.today ? U.cur : ix.today }); },
   'note-new': el => noteEdit(null, { kind: el.dataset.k }),
-  'note-open': (el, e) => { if (e && e.target.closest && e.target.closest('a')) return; noteEdit(el.dataset.id); },
-  'note-pin': el => { const n = (db.notes || []).find(x => x.id === el.dataset.id); if (!n) return; n.pin = !n.pin; render.keepScroll = true; persist(n.pin ? 'Заметка закреплена' : 'Заметка откреплена'); },
-  'note-item': el => noteToggleItem(el.dataset.id, el.dataset.i),
+  'note-open': (el, e) => { if (e && e.target.closest && e.target.closest('a')) return; noteView(el.dataset.id); },   // 15.11.2026: нажатие — просмотр, ✎ — правка
+  'note-edit': el => noteEdit(el.dataset.id),
+  'note-pin': el => { const n = (db.notes || []).find(x => x.id === el.dataset.id); if (!n) return; n.pin = !n.pin; render.keepScroll = true; persist(n.pin ? 'Заметка закреплена' : 'Заметка откреплена'); if (el.closest('#dlg')) noteView(n.id); },
+  'note-item': el => { const inDlg = !!el.closest('#dlg'), sc = inDlg && document.querySelector('#dlg .dlg-b') ? document.querySelector('#dlg .dlg-b').scrollTop : 0; noteToggleItem(el.dataset.id, el.dataset.i);
+    if (inDlg) { noteView(el.dataset.id); const b = document.querySelector('#dlg .dlg-b'); if (b) b.scrollTop = sc; } },
   'note-del': el => noteDel(el.dataset.id),
   'note-cf': el => { const U = ui.cal; U.nc = U.nc === el.dataset.c ? '' : el.dataset.c; render.keepScroll = true; rerender(); },
   'task-new': el => { const U = ui.cal || {}, aid = el.dataset.aid || ''; calForm({ task: true, aid, date: !aid && location.hash.startsWith('#cal') && U.cur && U.cur >= ix.today ? U.cur : ix.today }); },
