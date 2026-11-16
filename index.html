@@ -834,8 +834,8 @@ details.tdet[open] > summary::after{transform:rotate(-135deg)}
 .nt-sw{flex:none;width:26px;height:26px;border-radius:7px;display:grid;place-items:center;background:color-mix(in srgb,var(--nh) 50%,var(--surface));border:1px solid var(--line);color:var(--ink-2)} .nt-sw svg{width:16px;height:16px}
 .nt-ed{border-radius:12px;padding:10px 12px;background:color-mix(in srgb,var(--nh) 30%,var(--surface));border:1px solid color-mix(in srgb,var(--nh) 50%,var(--line))} .nt-ed.nc-none{background:var(--surface)}
 .nt-ti{width:100%;font-weight:700;font-size:1.0625rem;border:0;background:transparent;padding:6px 2px;color:var(--ink)} .nt-ti:focus{outline:none;box-shadow:inset 0 -2px 0 var(--ink-3)}
-.nt-ed textarea{width:100%;border:0;background:transparent;resize:vertical;min-height:140px;font:inherit;line-height:1.45;padding:6px 2px;color:var(--ink)} .nt-ed textarea:focus{outline:none;box-shadow:inset 0 0 0 1px var(--line-strong);border-radius:6px}
-.nt-row{display:flex;align-items:center;gap:8px;padding:2px 0} .nt-rck{flex:none;width:20px;height:20px} .nt-rt{flex:1;min-width:0;border:0;border-bottom:1px solid transparent;background:transparent;padding:6px 2px;font:inherit;color:var(--ink)} .nt-rt:focus{outline:none;border-bottom-color:var(--ink-3)}
+.nt-ed textarea[name=text]{width:100%;border:0;background:transparent;resize:vertical;min-height:140px;font:inherit;line-height:1.45;padding:6px 2px;color:var(--ink)} .nt-ed textarea[name=text]:focus{outline:none;box-shadow:inset 0 0 0 1px var(--line-strong);border-radius:6px}
+.nt-row{display:flex;align-items:flex-start;gap:8px;padding:2px 0} .nt-rck{flex:none;width:20px;height:20px;margin-top:9px} .nt-row .nt-rx{margin-top:2px} .nt-rt{flex:1;min-width:0;border:0;border-bottom:1px solid transparent;background:transparent;padding:6px 2px;font:inherit;color:var(--ink);resize:none;overflow:hidden;line-height:1.4;display:block} .nt-rt:focus{outline:none;border-bottom-color:var(--ink-3)}
 .nt-rx{flex:none;width:32px;height:32px;border:0;background:transparent;color:var(--ink-3);font-size:1.25rem;border-radius:50%;cursor:pointer;opacity:.6} .nt-rx:hover{opacity:1;background:color-mix(in srgb,var(--ink) 8%,transparent)}
 .nt-dl .nt-rt{text-decoration:line-through;color:var(--ink-3)} .nt-done{margin-top:8px} .nt-done summary{cursor:pointer;padding:6px 0} .nt-add{margin-top:4px}
 .nt-tools{gap:8px 14px;margin-top:10px;align-items:center} .nt-tools .btn svg{width:16px;height:16px;vertical-align:-3px;margin-right:4px} .nt-pinf{display:inline-flex;align-items:center;gap:6px;cursor:pointer} .nt-pinf svg{width:16px;height:16px} .nt-pinf input{width:18px;height:18px}
@@ -875,9 +875,9 @@ details.tdet[open] > summary::after{transform:rotate(-135deg)}
 @media (max-width:860px), (pointer:coarse) and (max-height:500px){ .nt-grid{columns:2;column-gap:8px} .nt-card{margin-bottom:8px;padding:10px 10px 8px 12px} .nt-tx{-webkit-line-clamp:9;line-clamp:9;font-size:.875rem} .nt-ul li{font-size:.875rem}
   .nt-bar .srch-b{max-width:none;flex-basis:100%;order:3} .nt-bar>.btn{flex:1} .nt-cfs{order:4}
   .cal-bar .seg{grid-template-columns:repeat(4,1fr)!important} .cal-bar .seg button{padding:0 2px;font-size:.8125rem} }
-#dlg-form .nt-ed input.nt-ti,#dlg-form .nt-ed input.nt-rt,#dlg-form .nt-ed textarea{border:0;border-radius:0;background:transparent;box-shadow:none;min-height:0}
-#dlg-form .nt-ed input.nt-rt{border-bottom:1px solid color-mix(in srgb,var(--ink) 12%,transparent);padding:8px 2px} #dlg-form .nt-ed input.nt-rt:focus,#dlg-form .nt-ed input.nt-ti:focus{outline:none;border-bottom:2px solid var(--ink-2)} #dlg-form .nt-ed input.nt-ti{border-bottom:1px solid color-mix(in srgb,var(--ink) 12%,transparent);padding:8px 2px}
-#dlg-form .nt-ed textarea:focus{outline:none;box-shadow:inset 0 0 0 1px var(--line-strong);border-radius:6px}
+#dlg-form .nt-ed input.nt-ti,#dlg-form .nt-ed .nt-rt,#dlg-form .nt-ed textarea{border:0;border-radius:0;background:transparent;box-shadow:none;min-height:0}
+#dlg-form .nt-ed .nt-rt{border-bottom:1px solid color-mix(in srgb,var(--ink) 12%,transparent);padding:8px 2px;resize:none;overflow:hidden} #dlg-form .nt-ed .nt-rt:focus,#dlg-form .nt-ed input.nt-ti:focus{outline:none;border-bottom:2px solid var(--ink-2)} #dlg-form .nt-ed input.nt-ti{border-bottom:1px solid color-mix(in srgb,var(--ink) 12%,transparent);padding:8px 2px}
+#dlg-form .nt-ed textarea[name=text]:focus{outline:none;box-shadow:inset 0 0 0 1px var(--line-strong);border-radius:6px}
 @media print{.nt-card{background:none!important;border-color:#999!important} .nt-pin,.nt-cb::after{display:none}}
 /* 14.11.2026: задачи на «Сегодня» — нежно-салатовый фон */
 :root{--task-bg:color-mix(in srgb,#A6DA5B 22%,var(--surface));--task-line:color-mix(in srgb,#7FB82E 45%,var(--surface))}
@@ -6392,7 +6392,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '15.11.2026 (v166)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '16.11.2026 (v167)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -8094,7 +8094,7 @@ function noteView(id) {                                 // 15.11.2026: прос�
   hd.classList.add('nt-vh'); const x = hd.querySelector('[data-act=close]');
   x.insertAdjacentHTML('beforebegin', `<button type="button" class="btn ghost evc-b nt-vpin${n.pin ? ' on' : ''}" data-act="note-pin" data-id="${h(n.id)}" aria-pressed="${!!n.pin}" aria-label="${n.pin ? 'Открепить' : 'Закрепить наверху'}" title="${n.pin ? 'Открепить' : 'Закрепить наверху'}">${NOTE_IC.pin}</button><button type="button" class="btn ghost evc-b" data-act="note-edit" data-id="${h(n.id)}" aria-label="Изменить заметку" title="Изменить">${EVC_IC.edit}</button><button type="button" class="btn ghost evc-b" data-act="note-del" data-id="${h(n.id)}" aria-label="Удалить заметку" title="Удалить">${EVC_IC.del}</button>`);
 }
-function noteRow(i) { return `<div class="nt-row" data-iid="${h(i.id)}"><input type="checkbox" class="nt-rck" ${i.d ? 'checked' : ''} aria-label="Отмечено"><input type="text" class="nt-rt" value="${h(i.t)}" maxlength="300" placeholder="Пункт" aria-label="Пункт списка"><button type="button" class="nt-rx" aria-label="Удалить пункт" title="Удалить пункт">×</button></div>`; }
+function noteRow(i) { return `<div class="nt-row" data-iid="${h(i.id)}"><input type="checkbox" class="nt-rck" ${i.d ? 'checked' : ''} aria-label="Отмечено"><textarea class="nt-rt" rows="1" maxlength="300" placeholder="Пункт" aria-label="Пункт списка" autocomplete="off" autocapitalize="sentences" enterkeyhint="enter">${h(i.t)}</textarea><button type="button" class="nt-rx" aria-label="Удалить пункт" title="Удалить пункт">×</button></div>`; }
 function noteEdit(id, o = {}) {
   const n = id ? (db.notes || []).find(x => x.id === id) : null; if (id && !n) { notice('Заметка не найдена — возможно, её удалили.'); return; }
   const x = n || { title: '', kind: o.kind === 'list' ? 'list' : 'text', text: '', items: [], color: '', pin: false, date: o.date || '', cal: '', aid: o.aid || '', folder: o.folder && nfById(o.folder) ? o.folder : '' };
@@ -8116,7 +8116,7 @@ function noteEdit(id, o = {}) {
     extraBtn: n ? `<button type="button" class="btn danger" data-act="note-del" data-id="${h(n.id)}">Удалить</button>` : '',
     async onSubmit(fd) {
       const f = document.getElementById('dlg-form'), kind = fd.kind === 'list' ? 'list' : 'text';
-      const items = [...f.querySelectorAll('.nt-open .nt-row'), ...f.querySelectorAll('.nt-dl .nt-row')].map(r => ({ id: r.dataset.iid || uid('i'), t: r.querySelector('.nt-rt').value.trim(), d: r.querySelector('.nt-rck').checked })).filter(i => i.t);
+      const items = [...f.querySelectorAll('.nt-open .nt-row'), ...f.querySelectorAll('.nt-dl .nt-row')].map(r => ({ id: r.dataset.iid || uid('i'), t: r.querySelector('.nt-rt').value.replace(/\s*\n\s*/g, ' ').trim(), d: r.querySelector('.nt-rck').checked })).filter(i => i.t);
       const v = { title: String(fd.title || '').trim(), kind, text: kind === 'text' ? String(fd.text || '').replace(/\s+$/, '') : '', items: kind === 'list' ? items : [], color: NOTE_COLORS.some(c => c[0] === fd.color) ? fd.color : '', pin: !!fd.pin, date: fd.date || '', cal: fd.cal && calById(fd.cal) ? fd.cal : '', aid: fd.aid || '', folder: 'folder' in fd ? (fd.folder && nfById(fd.folder) ? fd.folder : '') : (x.folder || '') };
       const empty = !v.title && !v.text && !v.items.length;
       if (!n) { if (empty) { toast('Пустая заметка не сохранена'); return true; } db.notes.push({ id: uid('N'), ...v, ord: Math.min(0, ...db.notes.map(q => q.ord ?? 0)) - 1, cr: new Date().toISOString(), at: new Date().toISOString() }); /* новая — первой */ render.keepScroll = true; persist('Заметка добавлена'); return true; }
@@ -8138,17 +8138,28 @@ function noteEdSync() {
     if (e.target.classList.contains('nt-rx') && r) { const p = r.previousElementSibling || r.nextElementSibling; r.remove(); cnt(); ensure(); const t = (p && p.querySelector('.nt-rt')) || open.querySelector('.nt-rt'); if (t) t.focus(); }
     if (e.target.closest('.nt-add')) { const nr = newRow(); open.appendChild(nr); nr.querySelector('.nt-rt').focus(); }
     if (e.target.closest('.nt-clr')) { dl.innerHTML = ''; cnt(); } });
+  /* 16.11.2026: пункт — многострочное поле; Enter на телефоне не перехватываем во время набора слова (клавиатура Android «перезапускалась»):
+     перенос строки, который клавиатура вставляет сама, превращаем в новый пункт в событии input. Вставка нескольких строк — несколько пунктов. */
+  const grow = t => { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; };
+  const split = t => { const r = t.closest('.nt-row'), parts = t.value.split(/\r?\n/); if (parts.length < 2) { grow(t); return; }
+    const after = t.value.length - (t.selectionEnd ?? t.value.length);   // текст после курсора уходит в последний новый пункт, курсор — перед ним
+    t.value = parts[0]; grow(t); let last = r, nt = null;
+    for (const p of parts.slice(1)) { const nr = newRow(p); last.after(nr); last = nr; nt = nr.querySelector('.nt-rt'); grow(nt); }
+    cnt(); nt.focus(); const c = Math.max(0, nt.value.length - after); nt.setSelectionRange(c, c); };
+  q('.nt-lw').addEventListener('input', e => { if (e.target.classList.contains('nt-rt')) split(e.target); });
   q('.nt-lw').addEventListener('keydown', e => { if (!e.target.classList.contains('nt-rt')) return; const r = e.target.closest('.nt-row');
-    if (e.key === 'Enter') { e.preventDefault(); const pos = e.target.selectionStart, v = e.target.value, nr = newRow(v.slice(pos)); e.target.value = v.slice(0, pos); r.after(nr); const t = nr.querySelector('.nt-rt'); t.focus(); t.setSelectionRange(0, 0); }
+    if (e.isComposing || e.keyCode === 229) return;          // идёт набор слова (клавиатура телефона) — не мешаем
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); const t = e.target; t.setRangeText('\n', t.selectionStart, t.selectionEnd, 'end'); split(t); }
     else if (e.key === 'Backspace' && !e.target.value && e.target.selectionStart === 0) { const p = r.previousElementSibling; if (p) { e.preventDefault(); r.remove(); cnt(); const t = p.querySelector('.nt-rt'); t.focus(); t.setSelectionRange(t.value.length, t.value.length); } } });
   q('.nt-kind').addEventListener('click', () => { const k = q('[name=kind]'), ta = q('[name=text]');
     if (k.value === 'text') { const lines = ta.value.split('\n').map(x => x.replace(/^\s*(?:[-*•]|\[\s?[xх]?\s?\])\s*/i, '').trim()).filter(Boolean); open.innerHTML = ''; lines.forEach(t => open.appendChild(newRow(t))); k.value = 'list'; ensure(); }
     else { const rows = [...open.querySelectorAll('.nt-row'), ...dl.querySelectorAll('.nt-row')].map(r => r.querySelector('.nt-rt').value.trim()).filter(Boolean); ta.value = rows.join('\n'); open.innerHTML = ''; dl.innerHTML = ''; cnt(); k.value = 'text'; }
     const L = k.value === 'list'; q('.nt-tw').hidden = L; q('.nt-lw').hidden = !L; q('.nt-kind').innerHTML = L ? NOTE_IC.text + ' Сделать текстом' : NOTE_IC.list + ' Сделать списком';
     const h2 = document.querySelector('#dlg .dlg-h h2'); if (h2 && h2.textContent !== 'Заметка') h2.textContent = L ? 'Новый список' : 'Новая заметка';
+    open.querySelectorAll('.nt-rt').forEach(t => { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; });
     (L ? open.querySelector('.nt-rt') : ta).focus(); });
   q('.nt-pal').addEventListener('change', e => { const ed = q('.nt-ed'); ed.className = ed.className.replace(/\bnc-\S+/, 'nc-' + (e.target.value || 'none')); });
-  ensure();
+  ensure(); f.querySelectorAll('.nt-rt').forEach(grow);
 }
 function noteToggleItem(id, iid) {
   const n = (db.notes || []).find(x => x.id === id); if (!n) return; const L = noteItems(n), k = L.findIndex(i => i.id === iid); if (k < 0) return;
