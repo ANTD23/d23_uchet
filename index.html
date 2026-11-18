@@ -1688,7 +1688,10 @@ function fillTemplate(text, ix, a, extra = {}, subId = null) {
     'окончание_нового': sc.end ? D.ru(sc.end) : '',    // 27.10.2026: окончание этого (нового, в т. ч. «ждём оплату») абонемента
     'срок_оплаты': D.ru(payBy),
     'группа': a.group || '',
-    'продление': (() => { const n = (sc.extDates || []).length; return n && sc.baseEnd ? ` Продлён на ${n} ${plural(n, 'занятие', 'занятия', 'занятий')} (${extReason(sc)}), прежний срок — до ${D.ru(sc.baseEnd)}.` : ''; })(),   // 25.10.2026
+    'продление': (() => { const n = (sc.extDates || []).length, b = p && +p.bonus > 0 ? +p.bonus : 0;
+      const t1 = n && sc.baseEnd ? ` Продлён на ${n} ${plural(n, 'занятие', 'занятия', 'занятий')} (${extReason(sc)}), прежний срок — до ${D.ru(sc.baseEnd)}.` : '';
+      const t2 = b ? ` Добавлено ${b} ${plural(b, 'занятие', 'занятия', 'занятий')}${p.bonusNote ? ' (' + p.bonusNote + ')' : ''}${p.bonusFrom ? ', с ' + D.ru(p.bonusFrom) : ''}.` : '';   // 18.11.2026: продление тренером
+      return t1 + t2; })(),   // 25.10.2026
     ...extra,
   };
   const EMPTY_OK = new Set(['продление']);              // пусто — просто убрать
@@ -3255,6 +3258,9 @@ function attentionCalc() {
   }
   for (const p of db.subs) {                       // 25.10.2026: срок сдвинулся («с», «о», болезнь со справкой), а срок клиенту через программу не сообщали — напомнить
     const a = ix.ath.get(p.athleteId), r = ix.subCalc.get(p.id); if (!a || !r || p.pending || a.status === 'ушёл' || r.terminated || r.notActive || r.pkg || (+p.count || 0) <= 1) continue;
+    { const b = +p.bonus > 0 ? +p.bonus : 0, nq = p.notified && p.notified.period, ca = ix.athCalc.get(a.id) || {};   // 18.11.2026: продлён тренером (например, при возвращении после болезни) — сообщить новый срок
+      if (b && p.bonusFrom && r.end && r.end >= t && a.status === 'занимается' && (ca.sub === p || ca.nextSub === p) && p.bonusFrom >= D.add(t, -21) && !(nq && nq.at >= p.bonusFrom && nq.end === r.end)) {
+        out.push({ tone: 'warn', a, text: `${shortName(a)}: абонемент продлён на ${b} ${plural(b, 'занятие', 'занятия', 'занятий')}${p.bonusNote ? ' (' + p.bonusNote + ')' : ''} — теперь до ${D.ru(r.end)}, сообщите новый срок`, tpl: 'Абонемент продлён', sub: p.id }); continue; } }
     if (notifyState(p, 'period') || !r.end || r.end < t || freezeHold(p.id)) continue;
     const ca = ix.athCalc.get(a.id) || {}; if (ca.sub !== p && ca.nextSub !== p) continue;
     const ev = (r.extDates || []).filter(x => x.d >= D.add(t, -14)); if (!ev.length) continue;   // свежие (за 2 недели) — старые уже не новость
@@ -6316,6 +6322,7 @@ function vData() {
     <div class="fgrid"><label class="f"><span>Новый PIN</span><input type="password" id="pin-new" inputmode="numeric" autocomplete="off"></label>
     <label class="f"><span>Ещё раз</span><input type="password" id="pin-new2" inputmode="numeric" autocomplete="off"></label></div>
     <button class="btn primary" data-act="pin-on" style="margin-top:8px">Включить PIN</button>`}</div>
+  ${offCard()}
   <div class="card"><h2>Копия в файл</h2>
   <p>База хранится в этом браузере на этом устройстве. Копия в файле нужна, чтобы ничего не потерять и чтобы работать с компьютера и телефона.</p>
   <div class="stats" style="margin:12px 0"><div class="stat"><b>${db.athletes.length}</b><span class="small muted">спортсменов</span></div><div class="stat"><b>${db.sessions.length}</b><span class="small muted">занятий</span></div><div class="stat"><b>${db.subs.length}</b><span class="small muted">абонементов</span></div><div class="stat"><b>${size} КБ</b><span class="small muted">объём</span></div></div>
@@ -6392,7 +6399,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '16.11.2026 (v167)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '18.11.2026 (v169)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -6862,7 +6869,11 @@ function extendDlg(a, q, ret) {                      // 08.11.2026 (вариан
   { submit: 'Продлить', onSubmit(fd) { const n = +fd.n; if (!Number.isInteger(n) || n < 1) { notice('Число занятий — целое, от 1'); return false; }
       const note = String(fd.note || '').trim(); if (!note) { notice('Укажите причину — она будет в карточке и в истории изменений'); return false; }
       const p = db.subs.find(x => x.id === q.p.id); p.bonus = (+p.bonus > 0 ? +p.bonus : 0) + n; p.bonusNote = [p.bonusNote, note].filter(Boolean).join('; '); p.bonusFrom = ret;
-      render.keepScroll = true; persist(shortName(a) + ': абонемент продлён на ' + n + ' зан. с ' + D.ru(ret)); setTimeout(() => debtRemind(a.id, ret), 300); } });
+      render.keepScroll = true; persist(shortName(a) + ': абонемент продлён на ' + n + ' зан. с ' + D.ru(ret));
+      setTimeout(async () => {                         // 18.11.2026: сразу предложить сообщить новый срок (иначе — пункт на «Сегодня»)
+        const r2 = ix.subCalc.get(p.id), end = r2 && r2.end;
+        if (end && await uiDialog(`${shortName(a)}: абонемент продлён на ${n} ${plural(n, 'занятие', 'занятия', 'занятий')} — теперь до ${D.ru(end)}.\n\nСообщить новый срок сейчас? Если «Позже» — напоминание будет на «Сегодня».`, { ok: 'Написать', cancelText: 'Позже' })) openMsg(a.id, 'Абонемент продлён', {}, p.id);
+        else debtRemind(a.id, ret); }, 300); } });
 }
 function openFreezeOf(a) { return (db.freezes || []).find(f => f.athleteId === a.id && f.from && !f.to && !f.returned) || null; }
 function openPause(id) {
@@ -7724,6 +7735,7 @@ const ACT = {
   'subs-sort': el => { const k = el.dataset.k; if (ui.subs.sort === k) ui.subs.dir = -ui.subs.dir; else { ui.subs.sort = k; ui.subs.dir = k === 'start' || k === 'pay' ? -1 : 1; } rerender(); },
   'subs-dir': () => { ui.subs.dir = -ui.subs.dir; rerender(); },
   'subs-filter': el => { ui.subs.filter = el.dataset.f; rerender(); },
+  'off-check': () => { offState = null; offCheck().then(() => { render.keepScroll = true; rerender(); toast(offState && offState.ver ? 'Сохранена версия ' + offState.ver : 'Программа на устройстве ещё не сохранена'); }); },
   'freeze-new': el => openFreeze(null, el.dataset.id), 'freeze-edit': el => openFreeze(el.dataset.id),
   'freeze-del': async el => { if (!await ask('Удалить заморозку?')) return; db.freezes = db.freezes.filter(f => f.id !== el.dataset.id); closeModal(); persist('Заморозка удалена'); },
   'freeze-mark': el => { closeModal(); markFreeze(el.dataset.id); },
@@ -8862,6 +8874,30 @@ document.addEventListener('toggle', e => { if (e.target.matches && e.target.matc
   if (e.target.matches && e.target.matches('details[data-tid]')) { const S = new Set(meta.tournOpen || []), id = e.target.dataset.tid; if (e.target.open) S.add(id); else S.delete(id); meta.tournOpen = [...S].filter(x => (db.tourneys || []).some(T => T.id === x)); writeMeta(); } }, true);
 document.addEventListener('input', safeChange);
 
+/* 18.11.2026: «Работа без интернета» в «Данных» — сохранена ли программа на устройстве и какая версия */
+let offState = null;
+function offWeb() { return location.protocol === 'https:' || location.hostname === 'localhost'; }
+async function offCheck() {
+  if (!offWeb() || !('serviceWorker' in navigator) || !window.caches) { offState = { na: true }; return; }
+  try { const reg = await navigator.serviceWorker.getRegistration();
+    const m = (await caches.match('index.html', { ignoreSearch: true, ignoreVary: true })) || (await caches.match('./', { ignoreSearch: true, ignoreVary: true }));
+    let ver = ''; if (m) { const t = await m.text(), k = t.match(/const APP_VER = '([^']+)'/); ver = k ? k[1] : ''; }
+    offState = { reg: !!(reg && (reg.active || reg.waiting || reg.installing)), ver, app: matchMedia('(display-mode: standalone)').matches || navigator.standalone === true };
+  } catch (e) { offState = { err: String(e && e.message || e) }; }
+}
+function offCard() {
+  if (!offWeb()) return '';
+  if (!offState) { offCheck().then(() => { if (route().v === 'data') { render.keepScroll = true; rerender(); } }); return ''; }
+  const S = offState; if (S.na) return '';
+  const ok = S.reg && S.ver, same = S.ver === APP_VER;
+  return `<div class="card"><h2>Работа без интернета</h2>
+    <p>${ok ? (same ? `<b style="color:var(--ok)">✓ Готово.</b> Программа сохранена на этом устройстве (версия ${h(S.ver)}) — откроется и без интернета.`
+      : `<b style="color:var(--warn, #B7791F)">Сохранена прежняя версия (${h(S.ver)}).</b> Новая (${h(APP_VER)}) ещё сохраняется — подержите программу открытой с интернетом 10–20 секунд и откройте этот раздел снова.`)
+      : `<b style="color:var(--bad)">Не готово:</b> программа ещё не сохранена на устройстве — без интернета не откроется. Откройте её с интернетом, подождите 10–20 секунд и проверьте здесь снова.${S.err ? ' (' + h(S.err) + ')' : ''}`}</p>
+    <p class="small muted">${S.app ? 'Открыта как приложение (значок на главном экране) — так и открывайте в поездке.' : 'Совет: установите программу значком на главный экран (меню браузера → «Добавить на главный экран» / «Установить приложение») и открывайте её этим значком — так она надёжнее работает без интернета.'} Перед поездкой загляните сюда: должно быть «✓ Готово» с текущей версией.</p>
+    <button class="btn sm" data-act="off-check">Проверить ещё раз</button></div>`;
+}
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener && navigator.serviceWorker.addEventListener('controllerchange', () => { offState = null; if (route().v === 'data') rerender(); });
 /* установка как приложение и работа без интернета — только когда программа открыта как сайт (https).
    Автономная версия (файл с компьютера) этот блок пропускает и к сети Интернет не обращается. */
 if (location.protocol === 'https:' || location.hostname === 'localhost') {
