@@ -503,6 +503,7 @@ details.legend-d > summary{cursor:pointer;color:var(--ink-2);font-size:.9375rem;
 details.legend-d .legend{padding:4px 0 6px}
 .jlist > li.mrow{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:12px 16px}
 .mrow-h{display:flex;align-items:center;gap:12px;flex:1 1 280px;min-width:0}
+.mrow-bl{display:flex;flex-direction:column;align-items:center;gap:4px;flex:none} .tr-mini{font:inherit;font-size:.8125rem;font-weight:600;line-height:1.2;padding:3px 8px;min-height:28px;min-width:64px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer} .tr-mini.on{background:var(--accent-btn);border-color:var(--accent-btn);color:var(--accent-btn-ink)}
 .mrow .mchips{gap:6px;margin-top:4px}
 .mrow .rem{display:flex;flex-direction:column;align-items:flex-end;line-height:1;flex:none;min-width:52px;text-align:right}
 .mrow .rem b{font-size:1.625rem;font-weight:750;font-variant-numeric:tabular-nums}
@@ -4121,9 +4122,9 @@ function markRow(s, a, showGroup) {
       : (() => { const x = provFreeze(a.id, s.date, s.date); return x && x.c.ret && x.c.ret <= s.date ? `<span class="chip warn" title="Вернулся после болезни ${D.ru(x.g.from)} — ${D.ru(x.g.to)}, справка не внесена">❄ спросить справку</span>` : ''; })(),
     nd ? `<button class="chip bad" style="border:0;cursor:pointer" data-act="brief-new" data-id="${a.id}" data-date="${s.date}" title="Отметить проведённый инструктаж">нет инструктажа${nd.kind === 'внеплановый' ? ' (перерыв)' : ''}</button>` : '',
     showGroup ? '<span class="chip muted">' + h(groupOn(a, s.date) || 'без группы') + '</span>' + (groupOn(a, s.date) && groupOn(a, s.date) !== s.group && m ? ` <button class="btn sm no-print" data-act="move-own" data-sid="${s.id}" data-aid="${a.id}">Перенести в «${h(groupOn(a, s.date))}»</button>` : '') : '',
-    m === '+' && (trial || trialAllowed(a, s.date)) ? `<button class="btn sm${trial ? ' primary' : ''}" data-act="trial" data-sid="${s.id}" data-aid="${a.id}" aria-pressed="${trial}" title="Пробное занятие — оплачивается как разовое посещение; отметка для статистики">пробное</button>` : '',
-    m === '+' && trial ? `<button class="btn sm" data-act="trial-pay" data-sid="${s.id}" data-aid="${a.id}" title="Нажмите, чтобы поменять для этого занятия">${trialIsFree(db.settings, s.trial[a.id], s.date) ? 'бесплатно' : 'платно'}</button>` : ''].filter(Boolean).join(' ');
-  return `<li class="mrow${m ? '' : ' unmarked'}"><div class="mrow-h">${beltHTML(ac.belt, ac.stripes)}<div class="who${warnedOf(a) ? ' wn' : ''}${hasDebt(a.id) ? ' debt-nm' : ''}"${hasDebt(a.id) ? ' title="Есть неоплаченные посещения"' : ''}><b>${h(shortName(a))}${pvIc(a, s.date, s.group)}${warnedIc(warnedOf(a), a)}${refIc(a, '0000-00-00', s.date)}${leftIc(a, s.date, s.date)}${pauseIc(a, s.date, s.date)}</b>${chips ? `<span class="row mchips">${chips}</span>` : ''}</div>
+    ''].filter(Boolean).join(' ');
+  const trMini = m === '+' && (trial || trialAllowed(a, s.date)) ? `<button class="tr-mini${trial ? ' on' : ''}" data-act="trial" data-sid="${s.id}" data-aid="${a.id}" aria-pressed="${trial}" title="Пробное занятие — отметка для статистики; нажмите, чтобы ${trial ? 'снять' : 'отметить'}">пробное</button>${trial ? `<button class="tr-mini" data-act="trial-pay" data-sid="${s.id}" data-aid="${a.id}" title="Нажмите, чтобы поменять для этого занятия">${trialIsFree(db.settings, s.trial[a.id], s.date) ? 'бесплатно' : 'платно'}</button>` : ''}` : '';   // 20.11.2026: «пробное» — под поясом
+  return `<li class="mrow${m ? '' : ' unmarked'}"><div class="mrow-h"><div class="mrow-bl">${beltHTML(ac.belt, ac.stripes)}${trMini}</div><div class="who${warnedOf(a) ? ' wn' : ''}${hasDebt(a.id) ? ' debt-nm' : ''}"${hasDebt(a.id) ? ' title="Есть неоплаченные посещения"' : ''}><b>${h(shortName(a))}${pvIc(a, s.date, s.group)}${warnedIc(warnedOf(a), a)}${refIc(a, '0000-00-00', s.date)}${leftIc(a, s.date, s.date)}${pauseIc(a, s.date, s.date)}</b>${chips ? `<span class="row mchips">${chips}</span>` : ''}</div>
     ${rb ? `<span class="rem${rb === 1 ? ' warn' : rb === 2 ? ' hl2' : ''}" title="Осталось занятий по абонементу"><b>${rb}</b><span>осталось</span></span>` : ''}</div>
     <div class="marks m${keys.length}" role="group" aria-label="Отметка: ${h(shortName(a))}">${keys.map(k => { const d = dbt && k === '+', tg = !d && k === '+' && m === '+' ? payMarks(a.id).tag.get(s.date + '|' + s.group) : null;
       const fr = !d && !tg && k === '+' && m === '+' && freeOn(a, s.date, s.group);
@@ -4871,6 +4872,7 @@ function candNew(pre = {}) {
   <div class="fgrid">${F('last', 'Фамилия', pre.last || '', 'text', 'required autocomplete="off"')}${F('first', 'Имя', pre.first || '', 'text', 'required autocomplete="off"')}
   ${F('birth', 'Дата рождения', pre.birth || '', 'date', 'required max="' + t + '"')}
   <div class="wide twin-box" hidden></div>
+  ${FS('belt', 'Пояс (если занимался раньше)', db.settings.belts, pre.belt || db.settings.belts[0])}${FS('stripes', 'Страйпы', [0, 1, 2, 3, 4], pre.stripes || 0)}
   ${FS('group', 'Группа *', [['', '— выберите —'], ...G], pre.group || '')}
   <p class="small wide cand-age" hidden></p>
   ${F('date', 'Дата пробного', date0, 'date', 'required')}
@@ -4900,6 +4902,7 @@ function candNew(pre = {}) {
     else Object.assign(a, { motherPhone: ph, motherName: cn, mainContact: ph ? 'мать' : '' });
     db.athletes.push(a);
     const s = candMark(a, fd.date, fd.group, fd.pay || 'paid');
+    if ((fd.belt && fd.belt !== db.settings.belts[0]) || +fd.stripes > 0) db.awards.push({ id: uid('w'), athleteId: a.id, date: fd.date, belt: fd.belt || db.settings.belts[0], stripes: +fd.stripes || 0, by: '', note: 'указан при записи кандидатом' });   // 20.11.2026
     if (fd.brief && fd.date <= ix.today) a.briefings = [{ id: uid('b'), date: fd.date, kind: 'первичный', reason: '', by: coachList()[0] || '' }];
     if (pre.lead) { const L = (db.leads || []).find(x => x.id === pre.lead); if (L) L.aid = a.id; }
     render.keepScroll = true;
@@ -6667,7 +6670,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '20.11.2026 (v175)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '20.11.2026 (v176)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
