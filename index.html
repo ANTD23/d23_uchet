@@ -410,6 +410,10 @@ body.kb-on .tabbar{display:none}
   .dlg-f{padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px))}
   .dlg-f .btn{flex:1 1 auto}
   .dlg-f .spacer{display:none}
+  /* 19.11.2026: клавиатура открыта — все кнопки окна в одну строку, ниже и плотнее (больше места для текста) */
+  body.kb-on .dlg-f:not(.kb-wrap){flex-wrap:nowrap;gap:6px;padding:8px 10px}
+  body.kb-on .dlg-f:not(.kb-wrap) .btn{flex:1 1 0;min-width:0;min-height:44px;padding-left:6px;padding-right:6px;font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  body.kb-on .dlg-f:not(.kb-wrap) #kb-hide{flex:0 0 40px;min-width:40px;padding:0}
 }
 @media (max-width:400px){ .tabbar a{font-size:.6875rem;letter-spacing:-.01em} }
 .seg.full{display:grid;grid-template-columns:repeat(3,1fr);width:100%;max-width:480px} .seg.full button{white-space:normal;line-height:1.2;padding:4px 6px}
@@ -3035,7 +3039,9 @@ function kbSync() {
   document.body.classList.toggle('kb-on', on);
   if (!on) return;
   const dlg = a.closest('dialog'), tgt = dlg ? dlg.querySelector('.dlg-f, .ask-f') : null;
-  if (tgt) { if (kbBtn.parentNode !== tgt) tgt.prepend(kbBtn); kbBtn.classList.remove('kb-float'); }
+  if (tgt) { if (kbBtn.parentNode !== tgt) tgt.prepend(kbBtn); kbBtn.classList.remove('kb-float');
+    tgt.classList.remove('kb-wrap');   // одна строка; если какая-то подпись не помещается целиком — как раньше, в две строки
+    if ([...tgt.querySelectorAll('.btn')].some(x => x.offsetWidth && x.scrollWidth > x.clientWidth + 1)) tgt.classList.add('kb-wrap'); }
   else if (!dlg) { if (kbBtn.parentNode !== document.body) document.body.appendChild(kbBtn); kbBtn.classList.add('kb-float'); }
   else kbBtn.remove();
 }
@@ -6430,7 +6436,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '19.11.2026 (v171)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '19.11.2026 (v172)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
