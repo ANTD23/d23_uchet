@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="theme-color" content="#1C1F23">
 <meta name="color-scheme" content="light dark">
 <title>Club D23 — учёт</title>
@@ -333,9 +333,16 @@ details.attn-later > summary{cursor:pointer;list-style:revert}
 .mlast small{font-size:.75rem;color:var(--ink-2);font-variant-numeric:tabular-nums;line-height:1}
 
 /* модальное окно (на телефоне — шторка снизу) */
-dialog{border:0;border-radius:16px;padding:0;width:min(640px,96vw);max-height:92vh;background:var(--surface);color:var(--ink);box-shadow:var(--shadow-2)}
+dialog{border:0;border-radius:16px;padding:0;width:min(640px,96vw);max-height:92vh;max-height:92dvh;background:var(--surface);color:var(--ink);box-shadow:var(--shadow-2)}
 dialog::backdrop{background:rgba(8,12,16,.5)}
-dialog form{display:flex;flex-direction:column;max-height:92vh}
+dialog form{display:flex;flex-direction:column;max-height:92vh;max-height:92dvh}
+/* 19.11.2026: телефон — пока открыта клавиатура: кнопка «скрыть клавиатуру», нижняя панель вкладок прячется */
+#kb-hide{display:none;align-items:center;justify-content:center;gap:4px;min-width:48px;padding:0 10px}
+#kb-hide svg{width:24px;height:24px}
+body.kb-on #kb-hide{display:inline-flex}
+#kb-hide.kb-float{position:fixed;right:12px;bottom:12px;z-index:60;min-height:44px;border-radius:22px;background:var(--surface);box-shadow:var(--shadow-2)}
+.dlg-f #kb-hide,.ask-f #kb-hide{flex:0 0 auto;min-width:48px}
+body.kb-on .tabbar{display:none}
 .dlg-h{display:flex;align-items:center;gap:10px;padding:10px 10px 10px 20px;border-bottom:1px solid var(--line);min-height:60px}
 .dlg-h h2{margin:0;flex:1;font-size:1.1875rem}
 .dlg-h{flex-shrink:0} .dlg-h h2{min-width:0;overflow-wrap:anywhere}   /* 15.11.2026: длинный заголовок не сжимает шапку и не наезжает на содержимое */
@@ -395,8 +402,8 @@ dialog form{display:flex;flex-direction:column;max-height:92vh}
   table.t{font-size:.875rem} table.t td,table.t th{padding:8px 6px}
   .alert{flex-wrap:wrap} .alert > .row{width:100%;padding-left:36px} .attn-sec{margin:10px 8px 12px}
   input[type=text],input[type=date],input[type=number],input[type=tel],input[type=search],input[type=password],input[type=month],input[type=time],input[type=email],select{min-height:48px}
-  dialog{width:100%;max-width:100%;margin:auto 0 0;border-radius:20px 20px 0 0;max-height:94vh}
-  dialog form{max-height:94vh}
+  dialog{width:100%;max-width:100%;margin:auto 0 0;border-radius:20px 20px 0 0;max-height:94vh;max-height:94dvh}
+  dialog form{max-height:94vh;max-height:94dvh}
   .dlg-h::before{content:"";position:absolute;left:50%;top:6px;width:40px;height:4px;margin-left:-20px;border-radius:2px;background:var(--line-strong)}
   .dlg-h{position:relative;padding-top:14px}
   .dlg-b{padding:16px}
@@ -879,6 +886,11 @@ details.tdet[open] > summary::after{transform:rotate(-135deg)}
 #dlg-form .nt-ed .nt-rt{border-bottom:1px solid color-mix(in srgb,var(--ink) 12%,transparent);padding:8px 2px;resize:none;overflow:hidden} #dlg-form .nt-ed .nt-rt:focus,#dlg-form .nt-ed input.nt-ti:focus{outline:none;border-bottom:2px solid var(--ink-2)} #dlg-form .nt-ed input.nt-ti{border-bottom:1px solid color-mix(in srgb,var(--ink) 12%,transparent);padding:8px 2px}
 #dlg-form .nt-ed textarea[name=text]:focus{outline:none;box-shadow:inset 0 0 0 1px var(--line-strong);border-radius:6px}
 @media print{.nt-card{background:none!important;border-color:#999!important} .nt-pin,.nt-cb::after{display:none}}
+/* 19.11.2026: «абонемент закончился, нового нет» — мягкий персиковый фон */
+:root{--ended-bg:color-mix(in srgb,#E8A57E 26%,var(--surface));--ended-line:color-mix(in srgb,#D99A62 40%,var(--surface))}
+.it.is-ended,.it.is-ended.fresh,.pl.is-ended{background:var(--ended-bg)} .it.is-ended{border-color:var(--ended-line)}
+.it.is-ended .it-cm:hover,.pl.is-ended:hover{background:color-mix(in srgb,#E8A57E 34%,var(--surface))}
+@media print{.it.is-ended,.pl.is-ended{background:none}}
 /* 14.11.2026: задачи на «Сегодня» — нежно-салатовый фон */
 :root{--task-bg:color-mix(in srgb,#A6DA5B 22%,var(--surface));--task-line:color-mix(in srgb,#7FB82E 45%,var(--surface))}
 .it.is-task,.it.is-task.fresh,.pl.is-task{background:var(--task-bg)} .it.is-task{border-color:var(--task-line)}
@@ -3010,6 +3022,25 @@ function fitMonth() {
 }
 addEventListener('resize', () => { if (document.querySelector('.mscroll')) fitMonth(); });
 if (window.visualViewport) visualViewport.addEventListener('resize', () => { if (document.querySelector('.mscroll')) fitMonth(); });
+/* 19.11.2026: телефон — кнопка «скрыть клавиатуру» (Яндекс и любая другая): в окне — слева в нижней строке, на странице — в правом нижнем углу */
+const KB_SEL = 'input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=reset]):not([type=date]):not([type=month]):not([type=time]):not([type=file]):not([type=range]):not([type=color]):not([type=hidden]),textarea,[contenteditable=""],[contenteditable=true]';
+const kbBtn = document.createElement('button');
+kbBtn.type = 'button'; kbBtn.id = 'kb-hide'; kbBtn.className = 'btn ghost'; kbBtn.title = 'Скрыть клавиатуру'; kbBtn.setAttribute('aria-label', 'Скрыть клавиатуру');
+kbBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3" width="19" height="11.5" rx="2"/><path d="M6 6.8h.01M9 6.8h.01M12 6.8h.01M15 6.8h.01M18 6.8h.01M6 10.5h.01M18 10.5h.01M9 10.5h6M8.5 18l3.5 3 3.5-3"/></svg>';
+kbBtn.addEventListener('mousedown', e => e.preventDefault());   // нажатие не забирает фокус у поля
+kbBtn.addEventListener('click', () => { const a = document.activeElement; if (a && a !== document.body && a.blur) a.blur(); kbSync(); });
+function kbSync() {
+  const a = document.activeElement;
+  const on = PHONE_MQ.matches && !!a && !!a.matches && a.matches(KB_SEL) && !a.readOnly && !a.disabled;
+  document.body.classList.toggle('kb-on', on);
+  if (!on) return;
+  const dlg = a.closest('dialog'), tgt = dlg ? dlg.querySelector('.dlg-f, .ask-f') : null;
+  if (tgt) { if (kbBtn.parentNode !== tgt) tgt.prepend(kbBtn); kbBtn.classList.remove('kb-float'); }
+  else if (!dlg) { if (kbBtn.parentNode !== document.body) document.body.appendChild(kbBtn); kbBtn.classList.add('kb-float'); }
+  else kbBtn.remove();
+}
+document.addEventListener('focusin', kbSync);
+document.addEventListener('focusout', () => setTimeout(kbSync, 0));
 function render() {                                     // 14.11.2026: защита от повторного входа — перерисовка, начатая во время перерисовки (событие «change»/«blur» удаляемого поля), выполняется после неё
   if (render.busy) { render.again = true; return; }
   render.busy = true; try { renderNow(); } finally { render.busy = false; }
@@ -3140,7 +3171,7 @@ function warnedOf(a) {                            // «предупреждён�
 function warnedIc(w, a) { const t = (a ? shortName(a) + ': ' : '') + (w ? (w.pend ? 'предупреждён об оплате' : 'предупреждён об окончании абонемента') + ' ' + D.ru(w.at) : '');   // нажатие — подсказка внизу (на телефоне title не показывается)
   return w ? `<span class="wn-ic" role="button" tabindex="0" data-act="mark-info" data-txt="${h(t)}" title="${h(t)}" aria-label="${h(t)}">✉</span>` : ''; }
 function resetZoom() {                            // вернуть масштаб 100% (если страницу увеличили щипком или полем ввода)
-  const m = document.querySelector('meta[name=viewport]'); if (!m) return; const c0 = 'width=device-width, initial-scale=1, viewport-fit=cover';
+  const m = document.querySelector('meta[name=viewport]'); if (!m) return; const c0 = 'width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content';
   m.setAttribute('content', c0 + ', maximum-scale=1'); setTimeout(() => m.setAttribute('content', c0), 400);
 }
 window.addEventListener('orientationchange', () => { if (route().v === 'journal') setTimeout(resetZoom, 300); });   // поворот телефона в журнале — масштаб 100%
@@ -3192,7 +3223,7 @@ function attentionCalc() {
         if (s.remaining === 0 && !c.nextSub) out.push({ tone: warned ? 'muted' : 'warn', a, text: `${nm}: пакет разовых использован (${N} из ${N}${s.end ? ', последнее ' + D.ru(s.end) : ''}), новой оплаты нет${wtxt}`, tpl: 'Пакет разовых использован' });
         else if (s.remaining === 1 && !c.nextSub) out.push({ tone: warned ? 'muted' : 'warn', a, text: `${nm}: пакет разовых — осталось одно занятие из ${N}${wtxt}`, tpl: 'Пакет разовых заканчивается' });
       }
-      else if (s.remaining === 0 && !c.nextSub && !single) out.push({ tone: warned ? 'muted' : s.provSick ? 'sick' : 'bad', a, text: `${nm}: абонемент использован${s.end ? ' ' + D.ru(s.end) : ''}, нового нет${wtxt}`, tpl: 'Абонемент закончился', wait: true });
+      else if (s.remaining === 0 && !c.nextSub && !single) out.push({ tone: warned ? 'muted' : s.provSick ? 'sick' : 'bad', a, text: `${nm}: абонемент использован${s.end ? ' ' + D.ru(s.end) : ''}, нового нет${wtxt}`, tpl: 'Абонемент закончился', wait: true, ended: true });
       else if (s.remaining === 1 && !c.nextSub && !single) out.push({ tone: warned ? 'muted' : s.provSick ? 'sick' : 'bad', a, text: `${nm}: осталось одно занятие${s.end ? ' (' + D.ru(s.end) + ')' : ''}${wtxt}`, tpl: 'Абонемент заканчивается' });
       else if (s.remaining === 2 && !c.nextSub && !single) out.push({ tone: warned ? 'muted' : s.provSick ? 'sick' : 'warn', a, text: `${nm}: осталось два занятия${s.end ? ' (последнее ' + D.ru(s.end) + ')' : ''}${wtxt}`, tpl: 'Абонемент заканчивается', rem2: true });
     }
@@ -3301,7 +3332,7 @@ function attentionCalc() {
     who = who.filter(a => !gapNow.includes(a) && !(sickOpen(a.id, ss.date) && sickSpent(a.id, ss.date)) && !waitFirst(a.id, ss.date));   // 29.10.2026: новый оплачен, ждёт первого посещения — тоже не просим   // 28.10.2026: болеет (дата «по» не внесена), а абонемент уже кончился — отметка ничего не меняет, не просим
     if (who.length) out.push({ tone: 'warn', text: `${D.ru(ss.date)}, ${ss.group}: нет отметки у ${who.length} чел. (${who.slice(0, 4).map(shortName).join(', ')}${who.length > 4 ? '…' : ''}) — поставьте «+», «н» или «б»`, session: ss.id });
   }
-  for (const { a, g, d, s } of gapMap.values()) out.push({ tone: 'warn', a, text: `${shortName(a)}: нет отметки ${d.map(x => D.short(x)).join(', ')} — абонемент закончился ${D.ru(g.end)}, новый не оплачен. Его не было или отметку пропустили?`, session: s, nosub: a.id });   // №34
+  for (const { a, g, d, s } of gapMap.values()) out.push({ tone: 'warn', ended: true, a, text: `${shortName(a)}: нет отметки ${d.map(x => D.short(x)).join(', ')} — абонемент закончился ${D.ru(g.end)}, новый не оплачен. Его не было или отметку пропустили?`, session: s, nosub: a.id });   // №34
   { const from = D.max(D.add(t, -21), pStartOf(db));
     for (const G of db.settings.groups) {
       if (G.bySchedule || !everScheduled(G)) continue;                       // «Разово» и группы без расписания не проверяем
@@ -3454,9 +3485,9 @@ function attnItem(x, compact) {
   const fr = attnFresh(x);
   if (compact) {                                          // 23.10.2026: «Скоро», «Можно позже», «Заморозка» — одной-двумя строками; нажатие раскрывает телефон и кнопки
     const k = attnKey(x), open = (ui.itOpen || new Set()).has(k);
-    return `<article class="it compact ${x.tone}${x.taskRef ? ' is-task' : ''}${/ — предупреждён \d/.test(x.text) ? ' is-warned' : ''}${open ? ' open' : ''}${fr ? ' fresh' : ''}" data-it="${h(k)}"><div class="it-c"><div class="it-cm" role="button" tabindex="0" aria-expanded="${open}" title="Показать телефон и действия"><div class="it-h">${title ? `<b>${h(title)}</b>` : ''}${fr ? '<span class="it-new">новое</span>' : ''}${ph}<span class="it-more" aria-hidden="true">▾</span></div><p class="it-t">${attnTxt(body)}</p></div>${done}</div>${actsHTML(acts)}</article>`;
+    return `<article class="it compact ${x.tone}${x.taskRef ? ' is-task' : ''}${x.ended ? ' is-ended' : ''}${/ — предупреждён \d/.test(x.text) ? ' is-warned' : ''}${open ? ' open' : ''}${fr ? ' fresh' : ''}" data-it="${h(k)}"><div class="it-c"><div class="it-cm" role="button" tabindex="0" aria-expanded="${open}" title="Показать телефон и действия"><div class="it-h">${title ? `<b>${h(title)}</b>` : ''}${fr ? '<span class="it-new">новое</span>' : ''}${ph}<span class="it-more" aria-hidden="true">▾</span></div><p class="it-t">${attnTxt(body)}</p></div>${done}</div>${actsHTML(acts)}</article>`;
   }
-  return `<article class="it ${x.tone}${x.taskRef ? ' is-task' : ''}${/ — предупреждён \d/.test(x.text) ? ' is-warned' : ''}${fr ? ' fresh' : ''}"><div class="it-h">${title ? `<b>${h(title)}</b>` : ''}${fr ? '<span class="it-new">новое</span>' : ''}${ph}</div><p class="it-t">${attnTxt(body)}</p>${actsHTML(acts, done)}</article>`;
+  return `<article class="it ${x.tone}${x.taskRef ? ' is-task' : ''}${x.ended ? ' is-ended' : ''}${/ — предупреждён \d/.test(x.text) ? ' is-warned' : ''}${fr ? ' fresh' : ''}"><div class="it-h">${title ? `<b>${h(title)}</b>` : ''}${fr ? '<span class="it-new">новое</span>' : ''}${ph}</div><p class="it-t">${attnTxt(body)}</p>${actsHTML(acts, done)}</article>`;
 }
 function vToday() {
   const t = ix.today, dw = D.dow(t);
@@ -3616,7 +3647,7 @@ function planRow(it) {
     x.lead || it.lead ? `<button class="btn sm" data-act="lead-edit" data-id="${h(x.lead || it.lead.id)}">Заявка</button>` : '',
     aid ? `<a class="btn sm ghost" href="#person/${h(aid)}">Карточка</a>` : '',
   ]);
-  return `<li class="pl t-${it.tone || 'warn'}${it.done ? ' done' : ''}${x.taskRef ? ' is-task' : ''}">${cb}<div class="pl-b"><div class="pl-h">${name ? `<b>${h(name)}</b>` : ''}${w.phone ? ` ${telLink(w.phone)}${w.rel ? ' <span class="small muted">' + h(w.rel) + '</span>' : ''}` : ''}${it.tone === 'bad' && !it.done ? ' <span class="chip bad">срочно</span>' : ''}</div>
+  return `<li class="pl t-${it.tone || 'warn'}${it.done ? ' done' : ''}${x.taskRef ? ' is-task' : ''}${x.ended ? ' is-ended' : ''}">${cb}<div class="pl-b"><div class="pl-h">${name ? `<b>${h(name)}</b>` : ''}${w.phone ? ` ${telLink(w.phone)}${w.rel ? ' <span class="small muted">' + h(w.rel) + '</span>' : ''}` : ''}${it.tone === 'bad' && !it.done ? ' <span class="chip bad">срочно</span>' : ''}</div>
     <div class="pl-t">${attnTxt(text)}</div>${it.done || !btns ? '' : `<div class="pl-a">${btns}</div>`}</div></li>`;
 }
 function vPlan() { meta.todayMode = 'plan'; writeMeta(); return vToday(); }   // адрес #plan — «Сегодня» с открытым планом
@@ -6399,7 +6430,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '18.11.2026 (v169)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '19.11.2026 (v171)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
