@@ -916,6 +916,11 @@ details.tdet[open] > summary::after{transform:rotate(-135deg)}
 .tk-over{color:var(--bad);font-weight:600;font-size:.875rem;margin-top:2px} .tkc.tk-done .evc-r:first-child b{text-decoration:line-through} .cal-tkbad{color:var(--bad);font-weight:600}
 .p-tasks .tk-it{padding-left:16px}
 .cal-soon .cl-it{gap:12px}
+/* 20.11.2026: задачи в списке календаря — мягкий салатовый, как на «Сегодня» */
+.list li.cl-it.tk-it{background:var(--task-bg);box-shadow:inset 3px 0 0 var(--task-line)}
+.list li.cl-it.tk-it:hover{background:color-mix(in srgb,#A6DA5B 32%,var(--surface))}
+.list li.cl-it.tk-it.tk-done{background:color-mix(in srgb,#A6DA5B 10%,var(--surface))}
+@media print{.list li.cl-it.tk-it{background:none;box-shadow:none}}
 .cg-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
 .cg{min-width:calc(56px + var(--n) * 84px)} .cg.one{min-width:0}
 .cg-h,.cg-ad{display:grid;grid-template-columns:56px repeat(var(--n),minmax(0,1fr))}
@@ -6676,7 +6681,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '20.11.2026 (v178)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '20.11.2026 (v179)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
