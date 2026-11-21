@@ -818,7 +818,12 @@ details.tdet[open] > summary::after{transform:rotate(-135deg)}
 .cd:hover{background:var(--surface-2)} .cd.oth{background:var(--surface-2)} .cd.oth .cdn{color:var(--ink-3)} .cd.we .cdn{color:var(--bad)}
 .cdn{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:13px;font-weight:600;font-size:.875rem} .cd.tod .cdn{background:var(--accent-btn);color:var(--accent-btn-ink)}
 .ce-more{display:block;font:inherit;font-size:.75rem;color:var(--ink-2);padding:2px 4px;font-weight:600;border:0;background:none;text-align:left;cursor:pointer;border-radius:4px} .ce-more:hover{background:var(--sunk);color:var(--ink)}
-.cl-day{margin:0 0 10px} .cl-day.tod{border-color:var(--accent-btn)} .cl-dh{padding:10px 16px 6px;font-weight:700;cursor:pointer} .cl-day.tod .cl-dh{color:var(--accent-btn)}
+.cl-day{margin:0 0 10px}
+/* 22.11.2026: «Список» — каждый месяц своим мягким фоном, с заголовком; чётные/нечётные месяцы чередуются */
+.cl-mon{margin:0 0 16px;padding:4px 10px 2px;border-radius:16px;border:1px solid var(--mon-line)} .cl-mon.ma{--mon-bg:color-mix(in srgb,#EBC98F 20%,var(--bg));--mon-line:color-mix(in srgb,#D9A65A 32%,var(--bg))} .cl-mon.mb{--mon-bg:color-mix(in srgb,#9FBEE0 20%,var(--bg));--mon-line:color-mix(in srgb,#6E95C4 32%,var(--bg))}
+.cl-mon{background:var(--mon-bg)} .cl-mh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:8px 6px 10px;font-size:1.125rem} .cl-mn{font-size:.8125rem;font-weight:500;color:var(--ink-2)}
+@media (max-width:640px){.cl-mon{padding:2px 6px 1px;margin:0 -6px 14px;border-radius:14px}}
+@media print{.cl-mon{background:none;border:0;padding:0}} .cl-day.tod{border-color:var(--accent-btn)} .cl-dh{padding:10px 16px 6px;font-weight:700;cursor:pointer} .cl-day.tod .cl-dh{color:var(--accent-btn)}
 .cl-it{display:flex;align-items:center;gap:10px} .cl-tm{flex:none;width:96px;font-size:.875rem;color:var(--ink-2);font-variant-numeric:tabular-nums} .cl-dot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--c)}
 .earn-d{gap:8px 14px} .earn-d input{margin-left:4px} .earn-q{gap:6px;margin-top:8px} .earn-q .btn.on{background:var(--accent-btn);color:var(--accent-btn-ink);border-color:var(--accent-btn)} .earn-ck{display:flex;align-items:flex-start;gap:8px;cursor:pointer} .earn-ck input{width:18px;height:18px;flex:none;margin-top:2px}
 /* 15.11.2026: заметки — доска как в Google Keep; мягкие (меланжевые) цвета: оттенок, смешанный с фоном темы */
@@ -4194,6 +4199,10 @@ function subRings(a) {                           // кольца: последн
         for (let k = 0; k < 120; k++) { d = nthTrainDay(ix, d, 1, subGroups(ix, p)); if (!d) break; const m = mk.get(d);
           if (m === '+' || (!m && d >= ix.today)) { nx = d; break; } d = D.add(d, 1); } }
       if (nx) L.next.set(nx, q); } });
+  // 22.11.2026: первый абонемент (до него — ничего или только разовые) — кольцо начала на первом занятии
+  list.forEach((q, i) => { if (q.pending || subTotal(q) <= 1) return; const rq = ix.subCalc.get(q.id); if (!rq || !rq.first || rq.notActive) return;
+    if (list.slice(0, i).some(p => !p.pending && subTotal(p) > 1 && (p.onlyGroup || '') === (q.onlyGroup || ''))) return;
+    if (!L.next.has(rq.first)) { L.next.set(rq.first, q); (L.first = L.first || new Set()).add(q.id); } });
   return L;
 }
 function monthView(tabs, groups) {
@@ -4218,7 +4227,7 @@ function monthView(tabs, groups) {
   let anyWait = false;
   const nextCell = (a, L, s) => { const q = L.next.get(s.date); if (!q || !inGroupOn(a, s.group, s.date)) return '';
     if (q.pending) { anyWait = true; return ` next-paid wait" title="Новый абонемент на ${subTotal(q)} зан. — ждём оплату; первое занятие по нему`; }
-    return ` next-paid" title="Следующий абонемент оплачен${q.payDate ? ' ' + D.ru(q.payDate) : ''} (${subTotal(q)} зан.) — первое занятие по нему`; };
+    return ` next-paid" title="${L.first && L.first.has(q.id) ? 'Абонемент' : 'Следующий абонемент'} оплачен${q.payDate ? ' ' + D.ru(q.payDate) : ''} (${subTotal(q)} зан.) — первое занятие по нему`; };
   let anyCert = false, anyProv = false, anyPv = false, anyRef = false;
   const lastCell = (a, L, s) => { const p = L.fact.get(s.date + '|' + s.group) || (s.marks[a.id] == null && L.plan.get(s.date) && inGroupOn(a, s.group, s.date) ? L.plan.get(s.date) : null);
     if (!p) { const q = s.marks[a.id] == null && L.cert.get(s.date) && inGroupOn(a, s.group, s.date) ? L.cert.get(s.date) : null; const r = q && ix.subCalc.get(q.id);
@@ -6681,7 +6690,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '20.11.2026 (v179)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '22.11.2026 (v181)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -8638,8 +8647,10 @@ function calListHTML(U, items) {
       <div class="who"><b>${h(x.title || 'Без названия')}</b><span class="small">${h([x.over ? 'просрочено с ' + calDayRu(x.over) : '', x.done ? 'выполнено' : '', x.aid && ix.ath.get(x.aid) ? shortName(ix.ath.get(x.aid)) : '', c.name, x.rep ? 'повторяется' : ''].filter(Boolean).join(' · '))}</span></div></li>`;
     return `<li class="click cl-it" data-act="cal-open" data-ix="${i}" style="--c:${c.color}"><span class="cl-tm">${h(calMulti(x) ? (x.date < from ? '…' : x.time ? 'с ' + x.time : 'весь день') : x.time ? x.time + (x.timeEnd ? '–' + x.timeEnd : '') : 'весь день')}</span><span class="cl-dot" aria-hidden="true"></span>
       <div class="who"><b>${h(x.title || 'Без названия')}</b><span class="small">${h([calMulti(x) ? calEndTxt(x) : '', calTzTxt(x), c.name, x.place, x.sub, x.rep ? 'повторяется' : ''].filter(Boolean).join(' · '))}</span></div></li>`; };
-  return `${days.length ? days.map(d => { const w = DOW_FULL[D.dow(d)], rel = d === ix.today ? 'Сегодня, ' : d === D.add(ix.today, 1) ? 'Завтра, ' : '';
-    return `<div class="card flat cl-day${d === ix.today ? ' tod' : ''}"><div class="cl-dh" data-act="cal-goday" data-d="${d}">${rel}${rel ? w : w[0].toUpperCase() + w.slice(1)}, ${calDayRu(d, d.slice(0, 4) !== ix.today.slice(0, 4))}</div><ul class="list">${byFirst.get(d).map(row).join('')}</ul></div>`; }).join('')
+  const mons = []; for (const d of days) { const ym = d.slice(0, 7); if (!mons.length || mons[mons.length - 1][0] !== ym) mons.push([ym, []]); mons[mons.length - 1][1].push(d); }   // 20.11.2026→22.11.2026: месяцы — отдельными блоками
+  const monHead = ym => { const [y, m] = ym.split('-').map(Number), n = mons.find(x => x[0] === ym)[1].reduce((k, d) => k + byFirst.get(d).length, 0); return `<h3 class="cl-mh"><span>${MONTHS[m - 1][0].toUpperCase() + MONTHS[m - 1].slice(1)} ${y}</span><span class="cl-mn">${n} ${plural(n, 'запись', 'записи', 'записей')}</span></h3>`; };
+  return `${days.length ? mons.map(([ym, ds]) => `<section class="cl-mon m${+ym.slice(5) % 2 ? 'a' : 'b'}">${monHead(ym)}${ds.map(d => { const w = DOW_FULL[D.dow(d)], rel = d === ix.today ? 'Сегодня, ' : d === D.add(ix.today, 1) ? 'Завтра, ' : '';
+    return `<div class="card flat cl-day${d === ix.today ? ' tod' : ''}"><div class="cl-dh" data-act="cal-goday" data-d="${d}">${rel}${rel ? w : w[0].toUpperCase() + w.slice(1)}, ${calDayRu(d, d.slice(0, 4) !== ix.today.slice(0, 4))}</div><ul class="list">${byFirst.get(d).map(row).join('')}</ul></div>`; }).join('')}</section>`).join('')
     : `<div class="card"><div class="empty">С ${calDayRu(from)} по ${calDayRu(to)} событий нет${(meta.calOff || []).length ? ' (часть календарей скрыта)' : ''}.</div></div>`}
   <div class="row no-print" style="margin-top:10px"><button type="button" class="btn" data-act="cal-more">Показать ещё 60 дней</button><span class="small muted">показано по ${calDayRu(to, true)}</span></div>`;
 }
