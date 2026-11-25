@@ -112,6 +112,10 @@ a{color:var(--sick)} a[href^="tel"]{white-space:nowrap}
 .people-filter-toggle::after{content:"";width:8px;height:8px;border:solid currentColor;border-width:0 2px 2px 0;transform:translateY(-2px) rotate(45deg)}
 .people-filter-toggle[aria-expanded="true"]::after{transform:translateY(2px) rotate(225deg)}
 #people-filters[hidden]{display:none}
+.people-statuses{grid-column:1/-1;min-width:0;margin:0;padding:0 12px 6px}
+.people-statuses>div{display:flex;flex-wrap:wrap;gap:2px 14px}
+.people-statuses label{display:inline-flex;align-items:center;gap:6px;min-height:var(--tap);cursor:pointer;overflow-wrap:anywhere}
+.people-statuses input{width:18px;height:18px;flex:none;margin:0}
 .num{font-variant-numeric:tabular-nums}
 h1{font-size:1.75rem;line-height:1.2;margin:0 0 .25rem;letter-spacing:-.01em}
 h2{font-size:1.25rem;line-height:1.3;margin:0 0 .75rem}
@@ -2422,12 +2426,12 @@ const STANDALONE = location.protocol === 'file:';     // автономная в
 const STORAGE_OK = (() => { try { localStorage.setItem('d23crm.test', '1'); localStorage.removeItem('d23crm.test'); return true; } catch (e) { return false; } })();
 let db = null, ix = null, meta = { lastExport: null, exportedRev: 0, handle: false };
 const UI_DEFAULTS = {
-  people: { q: '', group: 'все', status: 'занимается', belt: 'все', sex: 'все', ageMode: 'сейчас', ageFrom: '', ageTo: '', yFrom: '', yTo: '', sort: 'name' },
+  people: { q: '', group: 'все', statuses: ['занимается'], belt: 'все', sex: 'все', ageMode: 'сейчас', ageFrom: '', ageTo: '', yFrom: '', yTo: '', sort: 'name' },
   subs: { filter: 'active', q: '', sort: 'start', dir: -1 },
   attest: { group: 'все', q: '', adm: 'все' },
 };
 const ui = {
-  people: { q: '', group: 'все', status: 'занимается', belt: 'все', sex: 'все', ageMode: 'сейчас', ageFrom: '', ageTo: '', yFrom: '', yTo: '', sort: 'name' },
+  people: { q: '', group: 'все', statuses: ['занимается'], belt: 'все', sex: 'все', ageMode: 'сейчас', ageFrom: '', ageTo: '', yFrom: '', yTo: '', sort: 'name' },
   subs: { filter: 'active', q: '', sort: 'start', dir: -1 },
   journal: { date: null, group: '' , tab: 'session', month: null, mgroup: '', history: { open: false, from: null, to: null, page: 0 } },
   attest: { tab: 'admission', group: 'все', date: '' },
@@ -4319,7 +4323,7 @@ function filteredPeople() {
   const F = ui.people, q = F.q.trim().toLowerCase().replace(/ё/g, 'е');
   let list = db.athletes.filter(a => {
     const c = ix.athCalc.get(a.id);
-    if (F.status !== 'все' && a.status !== F.status) return false;
+    if (F.statuses !== null && !F.statuses.includes(a.status || '')) return false;
     if (F.group !== 'все' && a.group !== F.group && a.group2 !== F.group) return false;
     if (F.belt !== 'все' && c.belt !== F.belt) return false;
     if (F.sex !== 'все' && a.sex !== F.sex) return false;
@@ -4343,6 +4347,12 @@ function filteredPeople() {
 }
 function vPeople() {
   const F = ui.people, S = db.settings, list = filteredPeople();
+  const statusChanged = F.statuses?.length !== 1 || F.statuses[0] !== 'занимается';
+  const statuses = [...new Set([...S.statuses, 'кандидат', ...db.athletes.map(a => a.status || '')])];
+  const statusFilter = `<fieldset class="people-statuses"><legend>Статус</legend><div>
+    <label><input type="checkbox" id="people-status-all" data-change="people-status" data-all ${F.statuses === null ? 'checked' : F.statuses.length ? 'data-mixed' : ''}>Все статусы</label>
+    ${statuses.map((status, i) => `<label><input type="checkbox" id="people-status-${i}" data-change="people-status" value="${h(status)}" ${F.statuses === null || F.statuses.includes(status) ? 'checked' : ''}>${h(status || 'Без статуса')}</label>`).join('')}
+  </div></fieldset>`;
   const filtersOpen = ui.peopleFiltOpen ?? !PHONE_MQ.matches;
   const sel = (k, items, label) => `<label class="f"><span>${label}</span><select data-change="pf" data-k="${k}">${items.map(x => opt(x, F[k])).join('')}</select></label>`;
   const num = (k, label, ph) => `<label class="f"><span>${label}</span><input type="number" inputmode="numeric" data-change="pf" data-k="${k}" value="${h(F[k])}" placeholder="${ph}"></label>`;
@@ -4356,11 +4366,11 @@ function vPeople() {
   ${(() => { const C = db.athletes.filter(a => a.status === 'кандидат').sort((x, y) => (x.candFrom || '').localeCompare(y.candFrom || '')); return C.length ? `<div class="card no-print cand-list"><h2 style="margin:0 0 6px">Кандидаты · ${C.length}</h2><p class="small muted" style="margin:0 0 8px">Пришли на пробное. В составе групп и статистике их нет, пока вы не решите: «В группу» или «В архив».</p><ul class="cand-pl">${C.map(a => { const tr = candTrials(a);
     return `<li class="click" data-go="#person/${a.id}" role="link" tabindex="0"><div class="who"><b>${h(shortName(a))}</b><span class="small">${h(a.group || '')}${a.birth ? ' · ' + D.age(a.birth, ix.today) + ' ' + plural(D.age(a.birth, ix.today), 'год', 'года', 'лет') : ''} · ${tr.length ? 'пробное ' + tr.map(d => D.ru(d)).join(', ') : 'пробное ' + D.ru(a.candNext || a.candFrom)}${a.candNext && a.candNext >= ix.today && tr.length ? ' · следующее ' + D.ru(a.candNext) : ''}</span></div><span class="cand-go" aria-hidden="true">›</span></li>`; }).join('')}</ul></div>` : ''; })()}
   <div class="card no-print"><input type="search" class="srch-b" placeholder="Поиск: фамилия, имя, родитель, телефон" data-change="pf" data-k="q" value="${h(F.q)}" style="margin-bottom:10px">
-  <div><button type="button" class="btn people-filter-toggle" data-act="people-filters-toggle" aria-controls="people-filters" aria-expanded="${filtersOpen}">Фильтры${['group', 'belt', 'sex'].some(k => F[k] !== 'все') || F.status !== 'занимается' || F.ageFrom || F.ageTo || F.yFrom || F.yTo ? ' (включены)' : ''}</button>
-  <div class="filters" id="people-filters" ${filtersOpen ? '' : 'hidden'}>${sel('status', ['все', ...S.statuses, 'кандидат'], 'Статус')}${sel('group', ['все', ...S.groups.map(g => g.name)], 'Группа')}${sel('belt', ['все', ...S.belts], 'Пояс')}${sel('sex', ['все', 'М', 'Ж'], 'Пол')}
+  <div><button type="button" class="btn people-filter-toggle" data-act="people-filters-toggle" aria-controls="people-filters" aria-expanded="${filtersOpen}">Фильтры${['group', 'belt', 'sex'].some(k => F[k] !== 'все') || statusChanged || F.ageFrom || F.ageTo || F.yFrom || F.yTo ? ' (включены)' : ''}</button>
+  <div class="filters" id="people-filters" ${filtersOpen ? '' : 'hidden'}>${statusFilter}${sel('group', ['все', ...S.groups.map(g => g.name)], 'Группа')}${sel('belt', ['все', ...S.belts], 'Пояс')}${sel('sex', ['все', 'М', 'Ж'], 'Пол')}
   ${sel('ageMode', ['сейчас', 'на дату соревнований', 'на 31.12'], 'Возраст считать')}${num('ageFrom', 'Возраст от', '0')}${num('ageTo', 'Возраст до', '99')}${num('yFrom', 'Год рожд. от', '2008')}${num('yTo', 'Год рожд. до', '2020')}
   ${sel('sort', ['name', 'age', 'group'], 'Сортировка').replace('>name<', '>по фамилии<').replace('>age<', '>по возрасту<').replace('>group<', '>по группе<')}
-  ${['group', 'belt', 'sex'].some(k => F[k] !== 'все') || F.status !== 'занимается' || F.ageFrom || F.ageTo || F.yFrom || F.yTo || F.ageMode !== 'сейчас' || F.sort !== 'name' ? '<div class="f filt-reset"><button class="btn" data-act="reset-filters" data-page="people">Сбросить фильтры</button></div>' : ''}</div></div>
+  ${['group', 'belt', 'sex'].some(k => F[k] !== 'все') || statusChanged || F.ageFrom || F.ageTo || F.yFrom || F.yTo || F.ageMode !== 'сейчас' || F.sort !== 'name' ? '<div class="f filt-reset"><button class="btn" data-act="reset-filters" data-page="people">Сбросить фильтры</button></div>' : ''}</div></div>
   ${F.ageMode !== 'сейчас' && S.competition.date ? `<div class="small muted">Соревнования: ${h(S.competition.name)}, ${D.ru(S.competition.date)}</div>` : ''}</div>
   <div class="print-only"><b>${h(S.club)}</b> — список спортсменов (${list.length}), ${D.ru(ix.today)}</div>
   <div class="card flat show-m"><ul class="list sublist">${list.map(a => { const c = ix.athCalc.get(a.id); const ag = ageOf(c, F.ageMode);
@@ -6779,7 +6789,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '26.11.2026 (v186)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '26.11.2026 (v187)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -9203,6 +9213,17 @@ async function onChange(e) {
   if (k === 'money-q') { ui.money.q = v; clearTimeout(typingTimer); typingTimer = setTimeout(() => { if (live) liveRefresh(el); else rerender(); }, live ? 250 : 0); return; }
   if (k === 'subs-q') { ui.subs.q = v; clearTimeout(typingTimer); typingTimer = setTimeout(() => { if (live) liveRefresh(el); else rerender(); }, live ? 250 : 0); return; }
   if (live) return;
+  if (k === 'people-status') {
+    const options = [...el.closest('fieldset').querySelectorAll('input:not([data-all])')];
+    if (el.hasAttribute('data-all')) ui.people.statuses = el.checked ? null : [];
+    else {
+      const selected = options.filter(input => input.checked).map(input => input.value);
+      ui.people.statuses = selected.length === options.length ? null : selected;
+    }
+    rerender();
+    document.getElementById(el.id)?.focus({ preventScroll: true });
+    return;
+  }
   if (k === 'session-group') { const s = db.sessions.find(x => x.id === el.dataset.id); const n = Object.keys(s.marks).length;
     if (s.group && n && !await ask(`Перенести занятие ${D.ru(s.date)} из «${s.group}» в «${v || 'без группы'}»? Все ${n} отметок перейдут вместе с ним.`)) { rerender(); return; }
     s.group = v; render.keepScroll = true; persist('Группа занятия изменена'); }
