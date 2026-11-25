@@ -1091,10 +1091,12 @@ function isTrainDay(ix, date, groups) {
   return (groups.byDate ? groups.byDate(date) : groups).some(g => { const G = ix.group.get(g); return G && daysOn(G, date)[d]; });   // №18: до даты перевода — прежняя группа
 }
 function hasSchedule(ix, groups) { return groups.some(g => everScheduled(ix.group.get(g))); }
-function nthTrainDay(ix, fromInclusive, n, groups) {          // n-е занятие начиная с даты
+function nthTrainDay(ix, fromInclusive, n, groups, awayFrom, awayTo) {          // n-е занятие начиная с даты
   if (!fromInclusive || n < 1 || !hasSchedule(ix, groups)) return null;
   let d = fromInclusive, c = 0;
-  for (let i = 0; i < 1000; i++) { if (isTrainDay(ix, d, groups)) { c++; if (c === n) return d; } d = D.add(d, 1); }
+  for (let i = 0; i < 1000; i++) {
+    if (awayFrom && d >= awayFrom && d <= awayTo) d = D.add(awayTo, 1);
+    if (isTrainDay(ix, d, groups)) { c++; if (c === n) return d; } d = D.add(d, 1); }
   return null;
 }
 function countTrainDays(ix, from, to, groups) {
@@ -1251,7 +1253,13 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
       if (visit && (!r.autoDate || visit.date <= r.autoDate)) { r.act = visit.date; r.first = visit.date; r.actKind = 'visit'; }
       else if (r.autoDate && ix.today >= r.autoDate) { r.act = r.autoDate; r.first = nthTrainDay(ix, r.autoDate, 1, groups) || r.autoDate; r.actKind = 'auto'; }
     }
+    const away = p.absence && !pkg && !p.pending && +p.count > 1 ? p.absence : null;
     if (!r.act) {
+      if (away && !blocked && r.autoDate) {
+        const from = [ix.today, r.from, p.payDate].filter(Boolean).sort().pop();
+        r.expectedFirst = nthTrainDay(ix, from, 1, groups, away.from, away.to);
+        r.expectedEnd = nthTrainDay(ix, r.expectedFirst, subTotal(p) - (+p.carryWas || 0) - (+p.carryMissed || 0), groups, away.from, away.to);
+      }
       blocked = !stopFor(p); r.notActive = true; r.actKind = 'none'; r.remaining = subTotal(p);   // возвращённый (закрытый) абонемент следующие не задерживает
       if (r.autoDate) r.autoNotifyBy = D.add(r.autoDate, -3);                      // п. 9.2.3
       setSubStatus(ix, p, r); ix.subFirst.set(p.id, null); ix.subCalc.set(p.id, r); done.push([p, r]); continue;
@@ -1259,6 +1267,11 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
     ix.subFirst.set(p.id, r.first);
     const nm = list.slice(i + 1).find(q => q.start && q.start > r.first);
     r.next = nm ? nm.start : null;
+    let awayTo = away && away.to;
+    if (away) {
+      const visit = marks.find(m => !m.used && m.mark === '+' && m.date >= r.first && m.date >= away.from && m.date <= away.to && m.date <= ix.today && (!r.next || m.date < r.next) && (!stopFor(p) || m.date < stopFor(p)));
+      if (visit) { r.earlyReturn = visit.date; awayTo = D.add(visit.date, -1); }
+    }
     const fr = (ix.freezesByAth.get(aid) || []).map(f => ({ f, c: calcFreeze(ix, f), g: freezeRange(ix, f) }));
     const inFr = (x, d) => !!x.g && d >= x.g.from && d <= x.g.to;          // №5/№16: дни действующей заморозки
     const frUnconf = x => !x.f.certDate && ['prov', 'wait', 'a', 'b'].includes(x.c.mode);   // 23.10.2026: справка ещё не внесена
@@ -1270,6 +1283,7 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
       if (r.next && m.date >= r.next) break;
       if (stopFor(p) && m.date >= stopFor(p)) break;                                  // п. 10.3: договор прекращён
       if (m.used) continue;
+      if (away && m.date >= away.from && m.date <= awayTo && m.mark !== '+') continue;
       if (p.bonusFrom && m.date < p.bonusFrom && used >= Math.max(0, (+p.count || 0) - carry)) continue;   // 08.11.2026: продление решением клуба действует с даты возвращения — перерыв его не «съедает»
       if ((perVisitOn(A0, m.date) || pkg) && m.mark !== '+') continue;                  // №13 (О11, К7): у разовика и у пакета разовых списывается только «+»
       if (m.auto && ((+p.count || 0) <= 1 || pkg)) continue;                          // разовая оплата и пакет разовых — раздел 9 не применяется
@@ -1293,6 +1307,7 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
       if (m.mark === '+') (r.plusList = r.plusList || []).push({ date: m.date, group: m.group || '', n: carry + used });   // какое по счёту посещение этой оплаты (журнал: «3/10», «р»)   // 20.10.2026: посещение в счёт «ждём оплату» — в журнале «д»
       r.lastCharged = m.date; r.lastChargedGroup = m.group || '';
     }
+    if (r.earlyReturn && !(r.plusList || []).some(m => m.date === r.earlyReturn)) delete r.earlyReturn;
     if (used >= cap && used > 0) { r.lastPaid = r.lastCharged; r.lastPaidGroup = r.lastChargedGroup; }   // для показа: последнее занятие, оплаченное этим абонементом (без долга)
     r.charged = used + carry;
     r.remaining = subTotal(p) - r.charged;
@@ -1304,12 +1319,12 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
       const todayMarked = marks.some(m => m.date === ix.today && m.mark);   // 07.11.2026: сегодняшнее занятие без отметки — ещё не прошло для прогноза, а не потерянное занятие
       for (const g of groups) { const gd = ix.groupDates.get(g) || []; let k = r.next ? lowerBound(gd, r.next) - 1 : gd.length - 1; if (k >= 0 && gd[k] === ix.today && !todayMarked) k--; if (k >= 0 && gd[k] >= r.first && gd[k] > maxGroupDate) maxGroupDate = gd[k]; }
       const from = D.max(D.max(D.add(r.first, -1), maxGroupDate), D.add(ix.today, -1));   // невнесённые прошлые занятия не делают прогноз «в прошлом»
-      r.end = nthTrainDay(ix, D.add(from, 1), r.remaining, groups) || ''; r.endKind = 'forecast'; r._from = from;
+      r.end = nthTrainDay(ix, D.add(from, 1), r.remaining, groups, away && away.from, awayTo) || ''; r.endKind = 'forecast'; r._from = from;
       cursor = r.end ? D.add(r.end, 1) : '9999-12-31'; cursorForecast = true;
     }
     if (r.extDates && r.extDates.length && !pkg && r.end && (r.endKind === 'forecast' || r.endKind === 'fact')) {   // 25.10.2026: прежний срок — если бы «с», «о», болезнь со справкой списались
       const n = r.extDates.length, all = [...(r.chargedDates || []), ...r.extDates.map(x => x.d)].sort();
-      if (r.endKind === 'forecast' && r.remaining - n > 0) r.baseEnd = nthTrainDay(ix, D.add(r._from, 1), r.remaining - n, groups) || '';
+      if (r.endKind === 'forecast' && r.remaining - n > 0) r.baseEnd = nthTrainDay(ix, D.add(r._from, 1), r.remaining - n, groups, away && away.from, awayTo) || '';
       else r.baseEnd = all[Math.max(0, cap - 1)] || '';
       if (r.baseEnd && r.baseEnd >= r.end) delete r.baseEnd;
     }
@@ -1727,6 +1742,10 @@ function fillTemplate(text, ix, a, extra = {}, subId = null) {
     'дата_начала': p && subFirst(ix, p) ? D.ru(subFirst(ix, p)) : '',
     'дата_автоактивации': sc.autoDate ? D.ru(sc.autoDate) : '',
     'дата_окончания': D.ru(end),
+    'согласованное_отсутствие': p && p.absence ? D.ru(p.absence.from) + ' — ' + D.ru(p.absence.to) : '',
+    'прогноз_абонемента': sc.end ? 'Предварительная дата последнего занятия — ' + D.ru(sc.end) + '.' :
+      sc.expectedEnd ? 'Если первое занятие будет ' + D.ru(sc.expectedFirst) + ', предварительная дата последнего занятия — ' + D.ru(sc.expectedEnd) + '.' : 'Сообщу дату окончания, когда её можно будет рассчитать по расписанию.',
+    'дата_возврата': D.ru(sc.earlyReturn),
     'окончание_нового': sc.end ? D.ru(sc.end) : '',    // 27.10.2026: окончание этого (нового, в т. ч. «ждём оплату») абонемента
     'срок_оплаты': D.ru(payBy),
     'группа': a.group || '',
@@ -2510,6 +2529,14 @@ function normalize(d) {
     const have = new Set((d.settings.templates || []).map(t => t.title));
     d.settings.templates = [...(d.settings.templates || []), ...NEW_TEMPLATES_14.filter(o => !have.has(o.title)).map(o => ({ ...o }))];
     d.settings.tplVersion = 14;
+  }
+  if (d.settings.tplVersion === 14) {
+    const additions = [
+      { title: 'Оплата с периодом отсутствия', text: 'Здравствуйте! Абонемент оплачен. Согласованный период отсутствия: {согласованное_отсутствие}. {прогноз_абонемента} При более раннем возвращении пересчитаю срок.' },
+      { title: 'Срок после досрочного возвращения', text: 'Здравствуйте! Вы вернулись к занятиям {дата_возврата}. С учётом фактического перерыва последнее оплаченное занятие по расписанию — {дата_окончания}.' }
+    ];
+    d.settings.templates.push(...additions.filter(t => !d.settings.templates.some(x => x.title === t.title)));
+    d.settings.tplVersion = 15;
   }
   if (!d.settings.pvRazovo) {                          // 28.10.2026 (по просьбе тренера, один раз): в группе «Разово» — «Оплата разово» в карточке; на расчёт прошлого не влияет (проверено)
     const G = (d.settings.groups || []).find(g => g.name === 'Разово');
@@ -3335,6 +3362,10 @@ function attentionCalc() {
     const a = ix.ath.get(p.athleteId), r = ix.subCalc.get(p.id); if (!a || !r || p.pending || a.status === 'ушёл' || r.terminated || (+p.count || 0) <= 1) continue;   // разовые оплаты — без уведомлений об активации
     if (r.notActive && r.autoDate && r.autoNotifyBy && D.add(r.autoNotifyBy, -3) <= t) out.push({ tone: r.autoNotifyBy <= t ? 'bad' : 'warn', a, text: `${shortName(a)}: абонемент не активирован — автоактивация ${D.ru(r.autoDate)}, сообщить до ${D.ru(r.autoNotifyBy)} (п. 9.2.3)`, tpl: 'Автоактивация абонемента', sub: p.id });
     const q = notifyState(p, 'period'), ca = ix.athCalc.get(a.id) || {};
+    if (r.earlyReturn && r.end && r.end >= r.earlyReturn && (ca.sub === p || ca.nextSub === p) && !(q && q.at >= r.earlyReturn && q.end === r.end)) {
+      out.push({ tone: 'warn', a, sub: p.id, tpl: 'Срок после досрочного возвращения', text: `${shortName(a)}: вернулся раньше, ${D.ru(r.earlyReturn)}. Сообщите пересчитанный срок абонемента — до ${D.ru(r.end)}.` });
+      continue;
+    }
     if (!r.notActive && r.first && r.end && r.end >= t && r.remaining > 1 && (ca.sub === p || ca.nextSub === p) && (q ? q.stale : r.first >= (db.settings.notifyFrom || '9999') && D.max(r.first, p.payDate || '') >= D.add(t, -14))) {   // новый — оплачен или начат за последние 2 недели
       if (q) out.push({ tone: 'warn', a, text: `${shortName(a)}: срок абонемента изменился${periodWhy(p, r, q)}: было до ${D.ru(q.end)}, теперь ${D.ru(r.first)} — ${D.ru(r.end)}, сообщите новый срок`, tpl: 'Абонемент продлён', sub: p.id });
       else if (r.actKind === 'visit' || r.actKind === 'auto') out.push({ tone: 'bad', a, text: `${shortName(a)}: абонемент активирован ${D.ru(r.first)}${r.actKind === 'auto' ? ' (автоматически)' : ''} — сообщите период ${D.ru(r.first)} — ${D.ru(r.end)} (п. 9.3.7)`, tpl: 'Новый абонемент оплачен', sub: p.id });
@@ -3556,7 +3587,7 @@ function vToday() {
       <button class="btn ghost" data-act="open-session-pick">Другая группа или дата</button></div>
     ${hiddenToday.length && !hol ? `<p class="small muted" style="margin:10px 0 0">Сегодня по расписанию, но скрыто: ${hiddenToday.map(n => '«' + h(n) + '»').join(', ')}. Отметить — «Другая группа или дата».</p>` : ''}</div>
   ${quick}</div>
-  <div class="tg-c">${calSoonCard()}${trialsCard()}
+  <div class="tg-c">${todayNotes(t)}${calSoonCard()}${trialsCard()}
   ${bdays.length ? `<div class="card flat"><div style="padding:14px 16px 4px"><h2>Дни рождения на неделе</h2></div><ul class="list">${bdays.map(x => `<li class="click" data-go="#person/${x.a.id}"><div class="who"><b>${h(fullName(x.a))}</b><span class="small">${x.k === 0 ? '<b>сегодня</b>' : x.k === 1 ? 'завтра' : DOW_FULL[D.dow(x.d)]}, ${D.ru(x.d)} · исполняется ${x.age} ${plural(x.age, 'год', 'года', 'лет')}</span></div><span class="chip">${h(x.a.group || '')}</span></li>`).join('')}</ul></div>` : ''}</div>
   <div class="tg-b"><div class="card flat attn-card"><div class="row" style="padding:14px 16px 8px;gap:10px 12px"><h2 style="margin:0;flex:1 1 220px">Требует внимания <span class="muted small">${mode === 'plan' ? (P.total ? 'сделано ' + P.doneN + ' из ' + P.total : '') : (al.length || '') + (done.length ? ' · сделано ' + done.length : '')}</span></h2>
     <div class="seg no-print" role="group" aria-label="Вид списка">${[['urg', 'По срочности'], ['plan', 'План на день']].map(([m, l]) => `<button type="button" data-act="today-mode" data-m="${m}" class="${mode === m ? 'on' : ''}" aria-pressed="${mode === m}">${l}</button>`).join('')}</div></div>
@@ -4666,23 +4697,41 @@ function dateClear(root, sel = '.dlg-b input[type=date]:not([required])') {
 }
 function athleteSearch(sel) {                     // 20.10.2026: одно поле — печатаете буквы, ниже подходящие фамилии; список всех не разворачивается
   const lab = sel.closest('label') || sel, norm = t => String(t).toLowerCase().replace(/ё/g, 'е').trim();
-  const all = [...sel.options].filter(o => o.value).map(o => { const a = ix.ath.get(o.value); return { v: o.value, t: o.textContent, last: norm(a ? a.last : o.textContent),
+  const all = [...sel.options].filter(o => o.value).map(o => { const a = ix.ath.get(o.value); return { option: o, v: o.value, t: o.textContent, name: norm(a ? fullName(a) : o.textContent), last: norm(a ? a.last : o.textContent),
     sub: a ? [a.group, a.status !== 'занимается' ? a.status : '', a.birth ? D.ru(a.birth) : ''].filter(Boolean).join(' · ') : '' }; });
   const title = (lab.querySelector && lab.querySelector('span') || {}).textContent || 'Спортсмен';
   const box = document.createElement('div'); box.className = 'wide ath-pick';
-  box.innerHTML = `<label class="f"><span>${h(title)}</span><span class="ap-in"><input type="text" placeholder="Начните вводить фамилию" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" enterkeyhint="search" aria-autocomplete="list"><button type="button" class="btn ghost ap-x" aria-label="Очистить" hidden>✕</button></span></label><div class="ap-list" role="listbox"></div>`;
+  box.innerHTML = `<label class="f"><span>${h(title)}</span><span class="ap-in"><input type="text" placeholder="Введите имя или фамилию" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" enterkeyhint="search" aria-autocomplete="list"><button type="button" class="btn ghost ap-x" aria-label="Очистить" hidden>✕</button></span></label><div class="ap-list" role="listbox"></div>`;
   lab.parentNode.insertBefore(box, lab); lab.style.display = 'none'; sel.required = false;   // выбор проверяется при сохранении («Выберите спортсмена»)
   const inp = box.querySelector('input'), list = box.querySelector('.ap-list'), x = box.querySelector('.ap-x');
+  const chosen = document.createElement('div');
+  if (sel.multiple) { chosen.className = 'row'; box.appendChild(chosen); }
+  const showChosen = () => {
+    chosen.innerHTML = all.filter(o => o.option.selected).map(o => `<button type="button" class="btn sm" data-remove="${h(o.v)}" aria-label="Убрать: ${h(o.t)}">${h(o.t)} ×</button>`).join('');
+  };
   let found = [], cur = -1;
   const show = () => { list.innerHTML = found.slice(0, 12).map((o, i) => `<button type="button" class="ap-it${i === cur ? ' on' : ''}" role="option" data-i="${i}"><b>${h(o.t)}</b>${o.sub ? `<span class="small muted">${h(o.sub)}</span>` : ''}</button>`).join('')
     + (found.length > 12 ? `<div class="small muted ap-more">и ещё ${found.length - 12} — уточните</div>` : '') + (inp.value.trim() && !found.length ? '<div class="small muted ap-more">Не найдено</div>' : ''); };
-  const pick = o => { sel.value = o.v; sel.dispatchEvent(new Event('change', { bubbles: true })); inp.value = o.t; found = []; cur = -1; list.innerHTML = ''; x.hidden = false; };
+  const pick = o => {
+    if (sel.multiple) {
+      o.option.selected = true; sel.dispatchEvent(new Event('change', { bubbles: true }));
+      inp.value = ''; showChosen(); search(); inp.focus(); return;
+    }
+    sel.value = o.v; sel.dispatchEvent(new Event('change', { bubbles: true })); inp.value = o.t; found = []; cur = -1; list.innerHTML = ''; x.hidden = false; };
   const search = () => { const q = norm(inp.value); cur = -1;
-    if (sel.value) { sel.value = ''; sel.dispatchEvent(new Event('change', { bubbles: true })); }
-    found = !q ? [] : all.filter(o => o.last.startsWith(q)).concat(all.filter(o => !o.last.startsWith(q) && norm(o.t).split(/\s+/).some(w => w.startsWith(q))));   // сначала по фамилии, потом по имени
-    if (q && !found.length) found = all.filter(o => norm(o.t).includes(q));   // ничего с начала слова — ищем внутри
+    if (!sel.multiple && sel.value) { sel.value = ''; sel.dispatchEvent(new Event('change', { bubbles: true })); }
+    const available = sel.multiple ? all.filter(o => !o.option.selected) : all;
+    const matches = q ? available.filter(o => o.name.includes(q) || norm(o.t).includes(q)) : [];
+    found = matches.filter(o => o.last.startsWith(q)).concat(matches.filter(o => !o.last.startsWith(q)));
     if (found.length) cur = 0; x.hidden = !inp.value; show(); };
-  if (sel.value) { const o = all.find(o => o.v === sel.value); if (o) { inp.value = o.t; x.hidden = false; } }
+  if (sel.multiple) {
+    showChosen();
+    chosen.addEventListener('click', e => {
+      const button = e.target.closest('[data-remove]'); if (!button) return;
+      all.find(o => o.v === button.dataset.remove).option.selected = false;
+      sel.dispatchEvent(new Event('change', { bubbles: true })); showChosen(); search(); inp.focus();
+    });
+  } else if (sel.value) { const o = all.find(o => o.v === sel.value); if (o) { inp.value = o.t; x.hidden = false; } }
   inp.addEventListener('input', search);
   inp.addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); if (found[cur]) pick(found[cur]); }
@@ -5102,6 +5151,10 @@ function openSub(id, athleteId) {
   ${F('payDate', 'Дата оплаты', v.payDate, 'date')}${FN.checks !== false ? `<label class="row" style="gap:8px;align-self:end;min-height:40px"><input type="checkbox" name="check" ${v.check ? 'checked' : ''} style="width:20px;height:20px"><span>Чек в «Мой налог» выбит${v.check && v.check !== true ? ' <span class="small muted">' + h(D.short(String(v.check))) + '</span>' : ''}</span></label>` : ''}
   <label class="row wide" id="pkg-wrap" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="pkg" ${p ? (isPkg(ix, p) ? 'checked' : '') : ''} style="width:20px;height:20px"><span><b>Пакет разовых посещений</b> (п. 8.8 оферты): занятие списывается только когда человек пришёл, пропуски не списываются, срока и автоактивации нет.</span></label>
   <p class="small wide" id="tariff-note" style="margin:-4px 0 0"></p></div>
+  <details class="more-fields" ${v.absence ? 'open' : ''}><summary>Продлить на период отсутствия</summary><div class="fgrid">
+    ${F('awayFrom', 'Первый день отсутствия', v.absence?.from || '', 'date')}${F('awayTo', 'Последний день отсутствия', v.absence?.to || '', 'date')}</div>
+    <p class="small muted">В эти даты занятия по абонементу сохраняются. Если спортсмен придёт раньше, отметьте «был» в журнале — программа пересчитает срок.</p>
+    ${r?.earlyReturn ? `<p>Вернулся ${D.ru(r.earlyReturn)}${r.end ? ' · окончание ' + D.ru(r.end) : ''}</p>` : ''}</details>
   <details class="more-fields" ${p ? 'open' : ''}><summary>Дополнительно: дата активации, только группа, продление, «ждём оплату»</summary><div class="fgrid" style="margin-top:10px">
   ${F('start', 'Дата активации (пусто — автоматически)', v.start, 'date')}
   <p class="small muted wide" style="margin:-4px 0 0">Пусто: абонемент активируется сам в день первого посещения после оплаты (при оплате заранее — первого посещения после окончания текущего), а если посещений не будет — на 30-й день: считая со следующего дня после оплаты, а при оплате заранее — со следующего дня после окончания текущего абонемента (п. 9.2). Дату ставьте вручную, только если нужно иначе.</p>
@@ -5121,7 +5174,7 @@ function openSub(id, athleteId) {
   <div class="small" style="margin-top:8px">${activationText(p, r)}</div>
   <div class="small" style="margin-top:4px">${r.pkg ? 'Пакет разовых: списывается только за посещение, без срока; использовано ' + Math.max(0, subTotal(p) - r.remaining) + ' из ' + subTotal(p) + '. ' : ''}${r.end ? (r.endKind === 'fact' ? 'Последнее списанное занятие: ' : r.endKind === 'terminated' ? 'Договор прекращён: ' : 'Окончание по расписанию: ') + D.ru(r.end) : ''}${r.notifyBy ? ' · сообщить об окончании не позднее ' + D.ru(r.notifyBy) : ''}</div>${refundInfo(ix, p) && (+p.count || 0) > 1 && !r.terminated ? `<div class="small" style="margin-top:4px">При отказе от договора на сегодня — к возврату <b>${refundInfo(ix, p).sum.toLocaleString('ru')} ₽</b>${refundInfo(ix, p).price ? ' (' + refundInfo(ix, p).left + ' × ' + refundInfo(ix, p).price.toLocaleString('ru') + ' ₽' + (refundInfo(ix, p).own ? ', своя цена' : '') + ')' : ' (абонемент не активирован — вся сумма)'}, п. 10.4${ix.ath.get(p.athleteId) && ix.ath.get(p.athleteId).status === 'ушёл' ? ', договор прекращён ' + D.ru(ix.ath.get(p.athleteId).endedAt) : ''}</div>` : ''}</div>` : ''}`;
   modal(p ? 'Абонемент' : 'Новая оплата', body, {
-    extraBtn: p ? `<button type="button" class="btn danger" data-act="sub-del" data-id="${p.id}">Удалить</button>${p.pending ? `<button type="button" class="btn primary" data-act="sub-paid" data-id="${p.id}">Оплачено сегодня</button>` : ''}<button type="button" class="btn" data-act="msg" data-id="${aid}" data-sub="${p.id}" data-tpl="Новый абонемент оплачен">Сообщение</button>` : '',
+    extraBtn: p ? `<button type="button" class="btn danger" data-act="sub-del" data-id="${p.id}">Удалить</button>${p.pending ? `<button type="button" class="btn primary" data-act="sub-paid" data-id="${p.id}">Оплачено сегодня</button>` : ''}<button type="button" class="btn" data-act="msg" data-id="${aid}" data-sub="${p.id}" data-tpl="${p.absence ? (r?.earlyReturn ? 'Срок после досрочного возвращения' : 'Оплата с периодом отсутствия') : 'Новый абонемент оплачен'}">Сообщение</button>` : '',
     async onSubmit(fd) {
       if (!fd.athleteId) { notice('Выберите спортсмена'); return false; }
       if (!(+fd.count >= 1)) { notice('Количество занятий должно быть не меньше 1'); return false; }
@@ -5129,6 +5182,10 @@ function openSub(id, athleteId) {
       { const own = +fd.refundPrice || 0, auto = refundAuto({ amount: fd.amount, count: fd.count });
         if (own < 0) { notice('Цена занятия не может быть отрицательной'); return false; }
         if (own && auto && own < auto) { notice(`Цена занятия для возврата не может быть ниже расчётной: ${auto} ₽ (п. 10.4.2 договора — сумма ÷ число занятий, вверх до 10 ₽). Оставьте поле пустым или укажите ${auto} ₽ и больше.`); return false; } }
+      if (fd.awayFrom || fd.awayTo) {
+        if (!fd.awayFrom || !fd.awayTo || fd.awayTo < fd.awayFrom) { notice('Укажите первый и последний день отсутствия по порядку.'); return false; }
+        if (fd.pending || fd.pkg || +fd.count <= 1) { notice('Продление на период отсутствия доступно для оплаченного абонемента на несколько занятий. Чтобы убрать период, очистите обе даты.'); return false; }
+      }
       const same = !p && db.subs.find(q => q.athleteId === fd.athleteId && q.payDate && q.payDate === fd.payDate && +q.count === +fd.count && (q.onlyGroup || '') === (fd.onlyGroup || ''));
       if (same && !await ask(`У этого человека уже записана оплата ${D.ru(fd.payDate)} на ${same.count} зан. (${(+same.amount || 0).toLocaleString('ru')} ₽). Записать ещё одну?\n\nЕсли это повтор по ошибке — нажмите «Отмена».`)) return false;
       if (fd.start && !fd.pending && (!p || fd.start !== p.start)) {   // №24 (В1): ручная дата — только после окончания текущего абонемента (п. 9.3.2)
@@ -5154,6 +5211,7 @@ function openSub(id, athleteId) {
       if (+fd.bonus > 0 && !String(fd.bonusNote || '').trim()) { notice('Укажите причину продления — она будет видна в карточке и в истории изменений.'); return false; }
       const wasPend = !!(tgt && tgt.pending);
       Object.assign(t, { athleteId: fd.athleteId, payDate: fd.pending ? '' : fd.payDate, start: fd.start, count: +fd.count || 0, bonus: +fd.bonus > 0 ? +fd.bonus : '', bonusNote: +fd.bonus > 0 ? String(fd.bonusNote || '').trim() : '', bonusFrom: +fd.bonus > 0 ? (v.bonusFrom || '') : '', amount: +fd.amount || 0, refundPrice: +fd.refundPrice > 0 ? +fd.refundPrice : '', onlyGroup: fd.onlyGroup, carryWas: +fd.carryWas || 0, carryMissed: +fd.carryMissed || 0, note: fd.note.trim(), pending: !!fd.pending, acc: fd.acc || '' });
+      if (fd.awayFrom) t.absence = { from: fd.awayFrom, to: fd.awayTo }; else delete t.absence;
       if (+t.count > 1 && !t.pending) t.pkg = !!fd.pkg; else delete t.pkg;   // 21.10.2026: пакет разовых — явной отметкой
       if (wasPend && !fd.pending && t.notified && t.notified.end) { t.notified = { ...t.notified }; delete t.notified.end; }   /* №30-Б: оплата «ждём оплату» через форму */
       if (FN.orgs) t.payer = fd.payer || '';
@@ -5162,7 +5220,7 @@ function openSub(id, athleteId) {
       if (!tgt) db.subs.push(t);
       persist(p ? 'Абонемент сохранён' : t.pending ? 'Записан абонемент «ждём оплату»' : tgt ? 'Оплата записана — «ждём оплату» оплачен' : 'Оплата записана');
       const term = () => { const rr = ix.subCalc.get(t.id); if (!rr) return ''; if (rr.pkg) return 'пакет разовых, без срока: использовано ' + Math.max(0, subTotal(t) - rr.remaining) + ' из ' + subTotal(t); return rr.notActive ? 'не активирован — начнётся с первого посещения' + (rr.autoDate ? ', не позднее ' + D.ru(rr.autoDate) : '') : (rr.first ? 'действует с ' + D.ru(rr.first) : '') + (rr.end ? ' по ' + D.ru(rr.end) : ''); };   // показ нового срока, расчёт прежний
-      if (!p && !t.pending && t.count > 1) setTimeout(() => { const rr = ix.subCalc.get(t.id); openMsg(t.athleteId, rr && rr.pkg ? 'Пакет разовых оплачен' : rr && rr.notActive ? 'Абонемент оплачен' : 'Новый абонемент оплачен', {}, t.id);   // пакет — без дат активации и окончания
+      if ((!p || wasPend || t.absence) && !t.pending && t.count > 1) setTimeout(() => { const rr = ix.subCalc.get(t.id); openMsg(t.athleteId, t.absence ? (rr?.earlyReturn ? 'Срок после досрочного возвращения' : 'Оплата с периодом отсутствия') : rr && rr.pkg ? 'Пакет разовых оплачен' : rr && rr.notActive ? 'Абонемент оплачен' : 'Новый абонемент оплачен', {}, t.id);   // пакет — без дат активации и окончания
         const bx = document.querySelector('#dlg .dlg-b'); if (bx) bx.insertAdjacentHTML('afterbegin', `<div class="pay-res"><b>✓ Оплата записана: ${t.count} ${plural(t.count, 'занятие', 'занятия', 'занятий')}</b><span>${h(term())}</span></div>`); }, 50);
       else if (!p && !t.pending) { const ts = document.querySelector('.toast'); if (ts && ts.firstChild && ts.firstChild.nodeType === 3 && term()) ts.firstChild.nodeValue = 'Оплата записана · ' + term(); }
     },
@@ -5268,6 +5326,7 @@ function openAward(id, athleteId) {
 let msgAttnKey = '';
 /* какие шаблоны что означают: «end» — предупреждение об окончании, «period» — сообщён срок действия */
 const NOTIFY_TPL = { 'Абонемент заканчивается': 'end', 'Абонемент закончился': 'end', 'Осталось одно занятие': 'end', 'Осталось одно занятие (официально)': 'end', 'Абонемент использован': 'end',
+  'Оплата с периодом отсутствия': 'period', 'Срок после досрочного возвращения': 'period',
   'Новый абонемент оплачен': 'period', 'Абонемент продлён': 'period', 'Оплата принята': 'period',
   'Пакет разовых заканчивается': 'end', 'Пакет разовых использован': 'end', 'Новый абонемент — ждём оплату': 'end' };   // пакет разовых: срока нет — только «об окончании»
 const NOTIFY_TXT = { end: 'Отметить в карточке: предупреждён об окончании абонемента', period: 'Отметить в карточке: срок действия абонемента сообщён' };
@@ -5280,7 +5339,7 @@ function notifySub(aid, type, subId) {            // к какому абоне�
 }
 function markNotified(p, type) {
   const r = ix.subCalc.get(p.id);
-  p.notified = Object.assign({}, p.notified || {}, { [type]: { at: ix.today, end: (r && r.end) || '', first: (r && r.first) || '' } });
+  p.notified = Object.assign({}, p.notified || {}, { [type]: { at: ix.today, end: (r && (r.end || r.expectedEnd)) || '', first: (r && r.first) || '' } });
 }
 function notifyState(p, type) {                   // null — не отмечено; stale — после отметки срок изменился (заморозка, отмена занятия)
   const n = p && p.notified && p.notified[type]; if (!n) return null;
@@ -6690,7 +6749,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '22.11.2026 (v181)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '25.11.2026 (v184)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -6751,7 +6810,7 @@ function validateDb(d) {                         // минимальная пр�
   if (d.athletes.some(a => !a || !a.id)) return 'спортсмен без идентификатора';
   if (new Set(d.athletes.map(a => a.id)).size !== d.athletes.length) return 'повторяющиеся идентификаторы';
   if (d.sessions.some(s => !s || !iso.test(s.date || '') || !s.marks || typeof s.marks !== 'object')) return 'занятие с неверной датой или без отметок';
-  if (d.subs.some(p => !p || !p.athleteId || (p.payDate && !iso.test(p.payDate)) || (p.start && !iso.test(p.start)))) return 'абонемент с неверными данными';
+  if (d.subs.some(p => !p || !p.athleteId || (p.payDate && !iso.test(p.payDate)) || (p.start && !iso.test(p.start)) || (p.absence && (!iso.test(p.absence.from) || !iso.test(p.absence.to) || p.absence.from > p.absence.to)))) return 'абонемент с неверными данными';
   if (d.leads != null && (!Array.isArray(d.leads) || d.leads.some(L => !L || !L.id))) return 'заявка с неверными данными';
   const okD = v => v == null || v === '' || iso.test(v);                                   // №23 (И11.5): даты — пусто или ГГГГ-ММ-ДД
   if (d.freezes != null && (!Array.isArray(d.freezes) || d.freezes.some(f => !f || !f.athleteId || !['from', 'to', 'returned', 'certDate'].every(k => okD(f[k]))))) return 'заморозка с неверной датой';
@@ -7748,7 +7807,7 @@ function stripPerson(d, id) {                   // удалить человек
   // №3: в ключах «сделано» и в плане на день — ФИО и текст пунктов, в т. ч. общих («нет отметки у … (Фамилия Имя, …)»)
   const nm = [A0 && shortName(A0), A0 && fullName(A0)].filter(x => x && x.trim().length > 2), has = t => nm.some(n => String(t || '').includes(n));
   if (d.attnDone) for (const k of Object.keys(d.attnDone)) if (k.startsWith(id + '|') || has(k)) delete d.attnDone[k];
-  (d.notes || []).forEach(n => { if (n.aid === id) n.aid = ''; if (has(n.title) || has(n.text) || noteItems(n).some(i => has(i.t))) { n.title = 'Заметка'; n.text = ''; n.items = []; } });   // 15.11.2026
+  (d.notes || []).forEach(n => { if (n.aid === id) n.aid = ''; if (Array.isArray(n.aids)) n.aids = n.aids.filter(aid => aid !== id); if (has(n.title) || has(n.text) || noteItems(n).some(i => has(i.t))) { n.title = 'Заметка'; n.text = ''; n.items = []; } });   // 15.11.2026
   (d.events || []).forEach(e => { if (e.aid === id) { e.aid = ''; if (has(e.title) || has(e.note)) { e.title = 'Задача'; e.note = ''; } } });   // 14.11.2026: задачи по спортсмену — без связи и без ФИО
   if (d.attnSeen) for (const k of Object.keys(d.attnSeen)) if (k.startsWith(id + '|') || has(k)) delete d.attnSeen[k];
   if (d.planLog && d.planLog.items) for (const [k, v] of Object.entries(d.planLog.items)) if (k.startsWith(id + '|') || (v && v.aid === id) || has(k) || has(v && v.text)) delete d.planLog.items[k];
@@ -7964,7 +8023,13 @@ const ACT = {
     if (el.dataset.m !== '+' && s.trial) delete s.trial[el.dataset.aid];
     if (el.dataset.m === 'с' && cur !== 'с' && !tripOf(s.date)) toast('Внимание: ' + D.ru(s.date) + ' не входит ни в один объявленный период выезда (п. 9.6.2.1). Внесите выезд в «Турниры» → «Ближайшее соревнование и выезды» или поставьте другую отметку.');
     const askE = el.dataset.m === '+' && cur !== '+' ? [el.dataset.aid] : [];
-    render.keepScroll = true; persist(); endedAsk(askE, s.date); },
+    render.keepScroll = true; persist(); endedAsk(askE, s.date);
+    if (askE.length && !endedNeed(askE[0], s.date)) {
+      const reminder = attention().find(x => x.a?.id === askE[0] && x.tpl === 'Срок после досрочного возвращения' && ix.subCalc.get(x.sub)?.earlyReturn === s.date);
+      if (reminder) uiDialog(reminder.text, { ok: 'Написать', cancelText: 'Позже' }).then(send => {
+        if (send) openMsg(askE[0], reminder.tpl, {}, reminder.sub, attnKey(reminder));
+      });
+    } },
   'mark-all': async el => { const s = db.sessions.find(x => x.id === el.dataset.id); const m = el.dataset.m; const before = JSON.stringify(s.marks);
     if (m === 'о' && !await ask('Отметить занятие отменённым для всех? Оно не спишется ни у кого.')) return;
     if (m === '+') { const n = sessionMembers(s).filter(a => !s.marks[a.id] && !perVisitOn(a, s.date) && a.status !== 'приостановил' && a.status !== 'кандидат').length;   // кандидата отмечают по одному (пробное)
@@ -8307,6 +8372,18 @@ const NOTE_IC = {
   list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4" width="5" height="5" rx="1"/><path d="M5 6.5l1 1 1.5-2M12 6.5h9M12 17h9"/><rect x="3.5" y="14.5" width="5" height="5" rx="1"/></svg>',
   text: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 11h16M4 16h10"/></svg>' };
 function noteVisible(n) { return !n.cal || (calById(n.cal) && calOn(n.cal)); }
+function noteAthleteIds(n) { return Array.isArray(n.aids) ? n.aids : n.aid ? [n.aid] : []; }
+function noteAthletes(n) { return noteAthleteIds(n).map(id => ix.ath.get(id)).filter(Boolean); }
+function noteEnd(n) { return n.end || n.date; }
+function noteInRange(n, from, to) { return !!n.date && n.date <= to && noteEnd(n) >= from; }
+function noteDates(n) { return noteEnd(n) === n.date ? D.ru(n.date) : D.ru(n.date) + ' — ' + D.ru(noteEnd(n)); }
+function noteTodayButton(n) {
+  return `<button type="button" class="btn sm no-print" data-act="note-today" data-id="${h(n.id)}">${n.hideToday ? 'Вернуть в «Сегодня»' : 'Убрать из «Сегодня»'}</button>`;
+}
+function todayNotes(day) {
+  const notes = noteOrdered((db.notes || []).filter(n => !n.hideToday && noteInRange(n, day, day)));
+  return notes.length ? `<section class="card"><h2>Заметки</h2><ul class="list">${notes.map(n => `<li><div class="who"><button class="btn ghost" data-act="note-open" data-id="${h(n.id)}">${h(noteName(n))}</button><span class="small">${h([noteDates(n), ...noteAthletes(n).map(a => shortName(a))].join(' · '))}</span></div>${noteTodayButton(n)}</li>`).join('')}</ul></section>` : '';
+}
 function noteItems(n) { return Array.isArray(n.items) ? n.items : []; }
 function noteText(n) { return [n.title, n.text, ...noteItems(n).map(i => i.t)].filter(Boolean).join('\n'); }
 function notePreview(n, max = 60) { const t = (n.kind === 'list' ? (noteItems(n).find(i => !i.d && i.t) || noteItems(n)[0] || {}).t : (n.text || '').split('\n').find(x => x.trim())) || ''; return t.length > max ? t.slice(0, max - 1) + '…' : t; }
@@ -8314,7 +8391,7 @@ function noteListCnt(n) { const L = noteItems(n), d = L.filter(i => i.d).length;
 function noteName(n) { return n.title || notePreview(n) || 'Заметка'; }
 function noteCalItems(from, to) {
   if (meta.calNoNotes) return [];
-  return (db.notes || []).filter(n => n.date && n.date >= from && n.date <= to && noteVisible(n)).map(n => ({ isNote: true, id: n.id, cal: n.cal || '', title: noteName(n), date: n.date, end: n.date, time: '', color: n.color || '' }));
+  return (db.notes || []).filter(n => noteInRange(n, from, to) && noteVisible(n)).map(n => ({ isNote: true, id: n.id, cal: n.cal || '', title: noteName(n), date: n.date, end: noteEnd(n), time: '', color: n.color || '' }));
 }
 /* 15.11.2026: папки заметок — db.noteFolders [{ id, name, color, ord }], у заметки n.folder ('' — без папки). Один уровень, без вложенных. */
 function nfList() { return (db.noteFolders || []).slice().sort((a, b) => (a.ord ?? 0) - (b.ord ?? 0)); }
@@ -8352,12 +8429,12 @@ function nfFit() {                                       // 15.11.2026: папк
   more.querySelector('.nt-fmc').textContent = n;
 }
 function noteCard(n) {
-  const L = noteItems(n), open = L.filter(i => !i.d), dn = L.filter(i => i.d), a = n.aid ? ix.ath.get(n.aid) : null, c = n.cal ? calById(n.cal) : null, MAXI = 10;
+  const L = noteItems(n), open = L.filter(i => !i.d), dn = L.filter(i => i.d), athletes = noteAthletes(n), c = n.cal ? calById(n.cal) : null, MAXI = 10;
   const body = n.kind === 'list'
     ? `<ul class="nt-ul">${open.slice(0, MAXI).map(i => `<li><button type="button" class="nt-cb" data-act="note-item" data-id="${h(n.id)}" data-i="${h(i.id)}" role="checkbox" aria-checked="false" aria-label="Отметить «${h(i.t)}»"></button><span>${h(i.t)}</span></li>`).join('')}</ul>
       ${open.length > MAXI ? `<div class="small muted nt-more">… ещё ${open.length - MAXI}</div>` : ''}${dn.length ? `<div class="small muted nt-more">+ ${dn.length} ${plural(dn.length, 'пункт отмечен', 'пункта отмечено', 'пунктов отмечено')}</div>` : ''}${!L.length ? '<div class="small muted">Список пуст</div>' : ''}`
     : n.text ? `<div class="nt-tx">${calLinkify(n.text)}</div>` : '';
-  const chips = [!(ui.cal && ui.cal.nf) ? nfChip(n) : '', n.date ? `<span class="nt-chip${n.date < ix.today ? ' past' : ''}">${calDayRu(n.date, n.date.slice(0, 4) !== ix.today.slice(0, 4))}</span>` : '', a ? `<span class="nt-chip">${h(shortName(a))}</span>` : '', c ? `<span class="nt-chip"><i style="background:${c.color}"></i>${h(c.name)}</span>` : ''].filter(Boolean).join('');
+  const chips = [!(ui.cal && ui.cal.nf) ? nfChip(n) : '', n.date ? `<span class="nt-chip${noteEnd(n) < ix.today ? ' past' : ''}">${noteDates(n)}</span>` : '', athletes.map(a => `<span class="nt-chip">${h(shortName(a))}</span>`).join(''), c ? `<span class="nt-chip"><i style="background:${c.color}"></i>${h(c.name)}</span>` : ''].filter(Boolean).join('');
   return `<article class="nt-card nc-${n.color || 'none'}" data-act="note-open" data-id="${h(n.id)}" tabindex="0" role="button" aria-label="Открыть заметку «${h(noteName(n))}»">
     <div class="nt-h">${n.title ? `<b class="nt-t">${h(n.title)}</b>` : '<span></span>'}<button type="button" class="nt-pin${n.pin ? ' on' : ''}" data-act="note-pin" data-id="${h(n.id)}" aria-pressed="${!!n.pin}" aria-label="${n.pin ? 'Открепить' : 'Закрепить наверху'}" title="${n.pin ? 'Открепить' : 'Закрепить наверху'}">${NOTE_IC.pin}</button></div>
     ${body}${chips ? `<div class="nt-chips">${chips}</div>` : ''}</article>`;
@@ -8394,15 +8471,15 @@ function calNotesHTML(U) {
 }
 function noteView(id) {                                 // 15.11.2026: просмотр заметки целиком; ✎ — правка, корзина — удаление, булавка — закрепить
   const n = (db.notes || []).find(x => x.id === id); if (!n) { notice('Заметка не найдена — возможно, её удалили.'); return; }
-  const L = noteItems(n), open = L.filter(i => !i.d), dn = L.filter(i => i.d), a = n.aid ? ix.ath.get(n.aid) : null, c = n.cal ? calById(n.cal) : null;
+  const L = noteItems(n), open = L.filter(i => !i.d), dn = L.filter(i => i.d), athletes = noteAthletes(n), c = n.cal ? calById(n.cal) : null;
   const li = i => `<li class="${i.d ? 'dn' : ''}"><button type="button" class="nt-cb${i.d ? ' on' : ''}" data-act="note-item" data-id="${h(n.id)}" data-i="${h(i.id)}" role="checkbox" aria-checked="${!!i.d}" aria-label="${i.d ? 'Снять отметку' : 'Отметить'} «${h(i.t)}»"></button><span>${calLinkify(i.t)}</span></li>`;
   const body = n.kind === 'list'
     ? (L.length ? `<ul class="nt-ul nt-vl">${open.map(li).join('')}</ul>${!open.length ? '<p class="small muted">Всё отмечено.</p>' : ''}
       ${dn.length ? `<details class="nt-done" open><summary class="small"><b>Отмечено (${dn.length})</b></summary><ul class="nt-ul nt-vl">${dn.map(li).join('')}</ul></details>` : ''}` : '<p class="muted">Список пуст — нажмите ✎, чтобы добавить пункты.</p>')
     : n.text ? `<div class="nt-vt">${calLinkify(n.text)}</div>` : '<p class="muted">Пусто — нажмите ✎, чтобы написать.</p>';
-  const meta1 = [nfChip(n), n.date ? `<span class="nt-chip">${calDayRu(n.date, true)}</span>` : '', a ? `<a class="nt-chip" href="#person/${a.id}" data-act="close" data-go="#person/${a.id}">${h(shortName(a))}</a>` : '', c ? `<span class="nt-chip"><i style="background:${c.color}"></i>${h(c.name)}${c.personal ? ' · личный' : ''}</span>` : ''].filter(Boolean).join('');
+  const meta1 = [nfChip(n), n.date ? `<span class="nt-chip">${noteDates(n)}</span>` : '', athletes.map(a => `<a class="nt-chip" href="#person/${h(a.id)}" data-act="close" data-go="#person/${h(a.id)}">${h(shortName(a))}</a>`).join(''), c ? `<span class="nt-chip"><i style="background:${c.color}"></i>${h(c.name)}${c.personal ? ' · личный' : ''}</span>` : ''].filter(Boolean).join('');
   const upd = n.at ? new Date(n.at) : null, p2 = v => String(v).padStart(2, '0'), updTxt = upd && !isNaN(upd) ? D.ru(upd.getFullYear() + '-' + p2(upd.getMonth() + 1) + '-' + p2(upd.getDate())) + ', ' + String(upd.getHours()).padStart(2, '0') + ':' + String(upd.getMinutes()).padStart(2, '0') : '';
-  modal(n.title || 'Заметка', `<div class="nt-view nc-${n.color || 'none'}">${body}${meta1 ? `<div class="nt-chips">${meta1}</div>` : ''}</div>${updTxt ? `<p class="small muted" style="margin-top:8px">Изменена ${updTxt}${n.kind === 'list' && L.length ? ' · ' + noteListCnt(n) : ''}</p>` : ''}`, { closeText: 'Закрыть' });
+  modal(n.title || 'Заметка', `<div class="nt-view nc-${n.color || 'none'}">${body}${meta1 ? `<div class="nt-chips">${meta1}</div>` : ''}${n.date ? noteTodayButton(n) : ''}</div>${updTxt ? `<p class="small muted" style="margin-top:8px">Изменена ${updTxt}${n.kind === 'list' && L.length ? ' · ' + noteListCnt(n) : ''}</p>` : ''}`, { closeText: 'Закрыть' });
   const hd = document.querySelector('#dlg .dlg-h'); if (!hd) return;
   hd.classList.add('nt-vh'); const x = hd.querySelector('[data-act=close]');
   x.insertAdjacentHTML('beforebegin', `<button type="button" class="btn ghost evc-b nt-vpin${n.pin ? ' on' : ''}" data-act="note-pin" data-id="${h(n.id)}" aria-pressed="${!!n.pin}" aria-label="${n.pin ? 'Открепить' : 'Закрепить наверху'}" title="${n.pin ? 'Открепить' : 'Закрепить наверху'}">${NOTE_IC.pin}</button><button type="button" class="btn ghost evc-b" data-act="note-edit" data-id="${h(n.id)}" aria-label="Изменить заметку" title="Изменить">${EVC_IC.edit}</button><button type="button" class="btn ghost evc-b" data-act="note-del" data-id="${h(n.id)}" aria-label="Удалить заметку" title="Удалить">${EVC_IC.del}</button>`);
@@ -8411,8 +8488,9 @@ function noteRow(i) { return `<div class="nt-row" data-iid="${h(i.id)}"><input t
 function noteEdit(id, o = {}) {
   const n = id ? (db.notes || []).find(x => x.id === id) : null; if (id && !n) { notice('Заметка не найдена — возможно, её удалили.'); return; }
   const x = n || { title: '', kind: o.kind === 'list' ? 'list' : 'text', text: '', items: [], color: '', pin: false, date: o.date || '', cal: '', aid: o.aid || '', folder: o.folder && nfById(o.folder) ? o.folder : '' };
-  const L = noteItems(x), cals = db.cals || [], aid0 = x.aid || '';
-  const athOpts = [['', '— не выбран'], ...db.athletes.filter(a => a.status !== 'ушёл' || a.id === aid0).slice().sort((p, q) => shortName(p).localeCompare(shortName(q), 'ru')).map(a => [a.id, shortName(a) + (a.group ? ' · ' + a.group : '') + (a.status === 'ушёл' ? ' · ушёл' : '')])];
+  const L = noteItems(x), cals = db.cals || [], selected = new Set(noteAthleteIds(x));
+  const athletes = db.athletes.filter(a => a.status !== 'ушёл' || selected.has(a.id)).sort((a, b) => shortName(a).localeCompare(shortName(b), 'ru'));
+  const athletePicker = `<label class="f wide"><span>Спортсмены</span><select multiple name="noteAthletes">${athletes.map(a => `<option value="${h(a.id)}" ${selected.has(a.id) ? 'selected' : ''}>${h(fullName(a))}</option>`).join('')}</select></label>`;
   const body = `<div class="nt-ed nc-${x.color || 'none'}"><input type="hidden" name="kind" value="${x.kind}">
     <input type="text" name="title" class="nt-ti" value="${h(x.title)}" placeholder="Заголовок" maxlength="200" autocomplete="off" aria-label="Заголовок">
     <div class="nt-tw"${x.kind === 'list' ? ' hidden' : ''}><textarea name="text" rows="7" placeholder="Заметка…" aria-label="Текст заметки">${h(x.text || '')}</textarea></div>
@@ -8423,17 +8501,24 @@ function noteEdit(id, o = {}) {
     <div class="row nt-tools"><button type="button" class="btn ghost sm nt-kind">${x.kind === 'list' ? NOTE_IC.text + ' Сделать текстом' : NOTE_IC.list + ' Сделать списком'}</button>
       <label class="nt-pinf"><input type="checkbox" name="pin" ${x.pin ? 'checked' : ''}>${NOTE_IC.pin} Закрепить</label></div>
     <div class="nt-pal" role="radiogroup" aria-label="Цвет">${NOTE_COLORS.map(([k, l]) => `<label class="nc-${k || 'none'}" title="${l}"><input type="radio" name="color" value="${k}" ${(x.color || '') === k ? 'checked' : ''} aria-label="${l}"><i></i></label>`).join('')}</div></div>
-    <div class="fgrid" style="margin-top:12px">${nfList().length ? FS('folder', 'Папка', [['', '— без папки'], ...nfList().map(f => [f.id, f.name])], x.folder && nfById(x.folder) ? x.folder : '') : ''}${F('date', 'Дата (необязательно)', x.date, 'date', 'data-noclr')}${FS('cal', 'Календарь', [['', '— без календаря'], ...cals.map(c => [c.id, c.name + (c.personal && !/личн/i.test(c.name) ? ' (личный)' : '')])], x.cal || '')}${FS('aid', 'Спортсмен (необязательно)', athOpts, aid0)}</div>
-    <p class="small muted" style="margin-top:6px">С датой заметка видна и в дне календаря. Личный календарь — заметка не попадает в обезличенную копию.</p>`;
+    <div class="fgrid" style="margin-top:12px">${nfList().length ? FS('folder', 'Папка', [['', '— без папки'], ...nfList().map(f => [f.id, f.name])], x.folder && nfById(x.folder) ? x.folder : '') : ''}${F('date', 'Дата начала', x.date, 'date', 'data-noclr')}${F('end', 'Дата окончания', x.end || '', 'date', 'data-noclr')}${FS('cal', 'Календарь', [['', '— без календаря'], ...cals.map(c => [c.id, c.name + (c.personal && !/личн/i.test(c.name) ? ' (личный)' : '')])], x.cal || '')}${athletePicker}</div>
+    <p class="small muted" style="margin-top:6px">Для одного дня укажите только дату начала. Заметка видна в календаре и в «Сегодня» с первой по последнюю дату включительно. Личный календарь — заметка не попадает в обезличенную копию.</p>`;
   modal(n ? 'Заметка' : x.kind === 'list' ? 'Новый список' : 'Новая заметка', body, { submit: 'Сохранить',
     extraBtn: n ? `<button type="button" class="btn danger" data-act="note-del" data-id="${h(n.id)}">Удалить</button>` : '',
     async onSubmit(fd) {
       const f = document.getElementById('dlg-form'), kind = fd.kind === 'list' ? 'list' : 'text';
       const items = [...f.querySelectorAll('.nt-open .nt-row'), ...f.querySelectorAll('.nt-dl .nt-row')].map(r => ({ id: r.dataset.iid || uid('i'), t: r.querySelector('.nt-rt').value.replace(/\s*\n\s*/g, ' ').trim(), d: r.querySelector('.nt-rck').checked })).filter(i => i.t);
-      const v = { title: String(fd.title || '').trim(), kind, text: kind === 'text' ? String(fd.text || '').replace(/\s+$/, '') : '', items: kind === 'list' ? items : [], color: NOTE_COLORS.some(c => c[0] === fd.color) ? fd.color : '', pin: !!fd.pin, date: fd.date || '', cal: fd.cal && calById(fd.cal) ? fd.cal : '', aid: fd.aid || '', folder: 'folder' in fd ? (fd.folder && nfById(fd.folder) ? fd.folder : '') : (x.folder || '') };
+      if (fd.end && (!fd.date || fd.end < fd.date)) {
+        toast(fd.date ? 'Дата окончания раньше даты начала' : 'Укажите дату начала');
+        f.elements[fd.date ? 'end' : 'date'].focus();
+        return false;
+      }
+      const aids = Array.from(f.elements.noteAthletes.selectedOptions, option => option.value);
+      const v = { title: String(fd.title || '').trim(), kind, text: kind === 'text' ? String(fd.text || '').replace(/\s+$/, '') : '', items: kind === 'list' ? items : [], color: NOTE_COLORS.some(c => c[0] === fd.color) ? fd.color : '', pin: !!fd.pin, date: fd.date || '', cal: fd.cal && calById(fd.cal) ? fd.cal : '', aids, end: fd.end || '', folder: 'folder' in fd ? (fd.folder && nfById(fd.folder) ? fd.folder : '') : (x.folder || '') };
       const empty = !v.title && !v.text && !v.items.length;
       if (!n) { if (empty) { toast('Пустая заметка не сохранена'); return true; } db.notes.push({ id: uid('N'), ...v, ord: Math.min(0, ...db.notes.map(q => q.ord ?? 0)) - 1, cr: new Date().toISOString(), at: new Date().toISOString() }); /* новая — первой */ render.keepScroll = true; persist('Заметка добавлена'); return true; }
       if (empty) { db.notes = db.notes.filter(q => q !== n); render.keepScroll = true; persist('Пустая заметка удалена'); return true; }
+      delete n.aid;
       Object.assign(n, v, { at: new Date().toISOString() }); render.keepScroll = true; persist('Заметка сохранена'); return true;
     } });
   noteEdSync();
@@ -8442,6 +8527,7 @@ function noteEdit(id, o = {}) {
 function noteEdSync() {
   const f = document.getElementById('dlg-form'); if (!f || !f.querySelector('.nt-ed')) return;
   const q = s => f.querySelector(s), open = q('.nt-open'), dl = q('.nt-dl'), done = q('.nt-done');
+  athleteSearch(f.elements.noteAthletes);
   const newRow = (t = '', d = false) => { const w = document.createElement('div'); w.innerHTML = noteRow({ id: uid('i'), t, d }); return w.firstElementChild; };
   const cnt = () => { const k = dl.querySelectorAll('.nt-row').length; q('.nt-dn').textContent = k; done.hidden = !k; };
   const ensure = () => { if (!open.querySelector('.nt-row') && q('[name=kind]').value === 'list') open.appendChild(newRow()); };
@@ -8637,11 +8723,17 @@ function calMonthHTML(U, from, to, items) {
 }
 function calListHTML(U, items) {
   const [from, to] = calRange(U), byFirst = new Map();
-  for (const x of items) { const d = D.max(x.date, from); if (!byFirst.has(d)) byFirst.set(d, []); byFirst.get(d).push(x); }
+  for (const x of items) {
+    const first = D.max(x.date, from), last = x.isNote ? D.min(x.end, to) : first;
+    for (let d = first; d <= last; d = D.add(d, 1)) {
+      if (!byFirst.has(d)) byFirst.set(d, []);
+      byFirst.get(d).push(x);
+    }
+  }
   const days = [...byFirst.keys()].sort();
-  const row = x => { if (x.isNote) { const n = (db.notes || []).find(n => n.id === x.id) || {}, a = n.aid ? ix.ath.get(n.aid) : null, c = n.cal ? calById(n.cal) : null;
+  const row = x => { if (x.isNote) { const n = (db.notes || []).find(n => n.id === x.id) || {}, athletes = noteAthletes(n), c = n.cal ? calById(n.cal) : null;
       return `<li class="click cl-it nt-it" data-act="note-open" data-id="${h(x.id)}"><span class="cl-tm">заметка</span><span class="nt-sw nc-${x.color || 'none'}" aria-hidden="true">${NOTE_IC.note}</span>
-      <div class="who"><b>${h(x.title)}</b><span class="small">${h([n.title ? notePreview(n, 80) : '', n.kind === 'list' ? noteListCnt(n) : '', a ? shortName(a) : '', c ? c.name : ''].filter(Boolean).join(' · '))}</span></div></li>`; }
+      <div class="who"><b>${h(x.title)}</b><span class="small">${h([n.title ? notePreview(n, 80) : '', n.kind === 'list' ? noteListCnt(n) : '', calMulti(x) ? noteDates(n) : '', ...athletes.map(a => shortName(a)), c ? c.name : ''].filter(Boolean).join(' · '))}</span></div></li>`; }
     const c = calById(x.cal) || { color: '#888', name: '' }, i = calShown.push(x) - 1;
     if (x.task) return `<li class="click cl-it tk-it${x.done ? ' tk-done' : x.late ? ' tk-late' : ''}" data-act="cal-open" data-ix="${i}" style="--c:${c.color}"><span class="cl-tm">${h(x.time || 'задача')}</span><button type="button" class="tk-cb${x.done ? ' on' : ''}" data-act="task-set" data-id="${h(x.id)}" data-key="${h(x.key)}" data-on="${x.done ? '' : '1'}" aria-pressed="${!!x.done}" aria-label="${x.done ? 'Снять отметку «выполнено»' : 'Отметить выполненной'}" title="${x.done ? 'Снять отметку' : 'Выполнено'}">${x.done ? '✓' : ''}</button>
       <div class="who"><b>${h(x.title || 'Без названия')}</b><span class="small">${h([x.over ? 'просрочено с ' + calDayRu(x.over) : '', x.done ? 'выполнено' : '', x.aid && ix.ath.get(x.aid) ? shortName(ix.ath.get(x.aid)) : '', c.name, x.rep ? 'повторяется' : ''].filter(Boolean).join(' · '))}</span></div></li>`;
@@ -8700,7 +8792,7 @@ function calForm(o) {                                    // o: вхождени�
   if (!cals.length) { notice('Сначала добавьте календарь: «Календари» → «+ Добавить календарь».'); return; }
   const x = ev ? (o.raw ? { ...o, ...o.raw } : o.over ? { ...o, date: o.over, end: o.over } : o) : { title: '', date: o.date || ix.today, end: '', time: o.time || '', timeEnd: o.time ? calPad(Math.min(23, +o.time.slice(0, 2) + 1)) + ':' + o.time.slice(3) : '', place: '', note: '', cal: '' };
   const isTask = ev ? !!ev.task : !!o.task, aid0 = ev ? ev.aid || '' : o.aid || '';   // 14.11.2026: задача — срок, спортсмен, галочка «выполнено»
-  const athOpts = [['', '— не выбран'], ...db.athletes.filter(a => a.status !== 'ушёл' || a.id === aid0).slice().sort((p, q) => shortName(p).localeCompare(shortName(q), 'ru')).map(a => [a.id, shortName(a) + (a.group ? ' · ' + a.group : '') + (a.status === 'ушёл' ? ' · ушёл' : '')])];
+  const athOpts = [['', '— не выбран'], ...db.athletes.filter(a => a.status !== 'ушёл' || a.id === aid0).slice().sort((p, q) => shortName(p).localeCompare(shortName(q), 'ru')).map(a => [a.id, fullName(a)])];
   const cls = (html, c) => html.replace('class="f', `class="${c} f`);
   const defCal = ev ? ev.cal : (cals.find(c => c.id === ui.cal?.lastCal && calOn(c.id)) || cals.find(c => calOn(c.id)) || cals[0]).id;
   const allDay = !x.time, wd = R.wd && R.wd.length ? R.wd.map(Number) : [D.dow(x.date)], repEnd = R.until ? 'until' : R.count ? 'count' : '';
@@ -8708,7 +8800,7 @@ function calForm(o) {                                    // o: вхождени�
     <label class="f wide"><span>Название</span><input type="text" name="title" value="${h(x.title)}" required maxlength="200" autocomplete="off"></label>
     ${FS('cal', 'Календарь', cals.map(c => [c.id, c.name + (c.personal && !/личн/i.test(c.name) ? ' (личный)' : '')]), defCal)}
     <label class="cal-ckf ev-only"><input type="checkbox" name="allDay" ${allDay ? 'checked' : ''}>Весь день</label>
-    ${cls(FS('aid', 'Спортсмен (необязательно)', athOpts, aid0), 'tk-only')}
+    <div class="wide tk-only">${FS('aid', 'Спортсмен (необязательно)', athOpts, aid0)}</div>
     <div class="f cal-dt"><span id="cal-l-s">${isTask ? 'Срок' : 'Начало'}</span><div class="cal-dtr${allDay ? ' ad' : ''}"><input type="date" name="date" value="${h(x.date)}" required data-noclr aria-labelledby="cal-l-s" aria-label="Дата начала"><input type="time" name="time" value="${h(x.time)}" aria-label="Время начала" step="300"></div></div>
     <div class="f cal-dt ev-only"><span id="cal-l-e">Окончание</span><div class="cal-dtr${allDay ? ' ad' : ''}"><input type="date" name="end" value="${h(x.end && x.end > x.date ? x.end : x.date)}" required data-noclr aria-label="Дата окончания"><input type="time" name="timeEnd" value="${h(x.timeEnd)}" aria-label="Время окончания" step="300"></div></div>
     <p class="wide small cal-dur ev-only" aria-live="polite"></p><p class="wide small muted tk-only" style="margin:-4px 0 0">Время — по желанию: без времени задача стоит на весь день. Не выполнили в срок — задача переходит на следующий день с пометкой «просрочено».</p>
@@ -8776,6 +8868,7 @@ function calForm(o) {                                    // o: вхождени�
       }
       render.keepScroll = true; persist('Сохранено'); return true;
     } });
+  athleteSearch(document.querySelector('#dlg-form [name=aid]'));
   calFormSync();
 }
 function calFormSync() {                                  // поля окна события: «весь день», повтор
@@ -8994,6 +9087,13 @@ const CAL_ACT = {
   'nf-edit': el => nfEdit(el.dataset.id),
   'nf-del': el => nfDel(el.dataset.id),
   'note-open': (el, e) => { if (e && e.target.closest && e.target.closest('a')) return; noteView(el.dataset.id); },   // 15.11.2026: нажатие — просмотр, ✎ — правка
+  'note-today': el => {
+    const n = db.notes.find(n => n.id === el.dataset.id); if (!n) return;
+    const inDialog = !!el.closest('#dlg');
+    n.hideToday = !n.hideToday; n.at = new Date().toISOString();
+    render.keepScroll = true; persist(n.hideToday ? 'Заметка убрана из «Сегодня»' : 'Показ в «Сегодня» включён');
+    if (inDialog) noteView(n.id);
+  },
   'note-edit': el => noteEdit(el.dataset.id),
   'note-pin': el => { const n = (db.notes || []).find(x => x.id === el.dataset.id); if (!n) return; n.pin = !n.pin; render.keepScroll = true; persist(n.pin ? 'Заметка закреплена' : 'Заметка откреплена'); if (el.closest('#dlg')) noteView(n.id); },
   'note-item': el => { const inDlg = !!el.closest('#dlg'), sc = inDlg && document.querySelector('#dlg .dlg-b') ? document.querySelector('#dlg .dlg-b').scrollTop : 0; noteToggleItem(el.dataset.id, el.dataset.i);
