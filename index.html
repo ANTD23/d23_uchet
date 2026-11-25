@@ -2426,7 +2426,7 @@ const UI_DEFAULTS = {
 const ui = {
   people: { q: '', group: 'все', status: 'занимается', belt: 'все', sex: 'все', ageMode: 'сейчас', ageFrom: '', ageTo: '', yFrom: '', yTo: '', sort: 'name' },
   subs: { filter: 'active', q: '', sort: 'start', dir: -1 },
-  journal: { date: null, group: '' , tab: 'session', month: null, mgroup: '' },
+  journal: { date: null, group: '' , tab: 'session', month: null, mgroup: '', history: { open: false, from: null, to: null, page: 0 } },
   attest: { tab: 'admission', group: 'все', date: '' },
   report: { from: null, to: null },
   leads: { filter: 'active', q: '', from: null, to: null, per: 'year' },
@@ -3936,7 +3936,9 @@ function vJournal() {
   if (!J.mgroup) J.mgroup = groups[0] || '';
   const tabs = `<div class="seg no-print"><button data-act="jtab" data-tab="session" class="${J.tab === 'session' ? 'on' : ''}">Занятия</button><button data-act="jtab" data-tab="month" class="${J.tab === 'month' ? 'on' : ''}">Месяц</button></div>`;
   if (J.tab === 'month') return monthView(tabs, groups);
-  const recent = [...ix.sessionsSorted].reverse().slice(0, 40);
+  const history = J.history;
+  if (history.from === null) history.from = D.add(ix.today, -6);
+  if (history.to === null) history.to = ix.today;
   const t = ix.today, todayS = ix.sessionsSorted.filter(x => x.date === t);
   const tg = [...new Set([...db.settings.groups.filter(g => daysOn(g, t)[D.dow(t)] && !g.todayOff).map(g => g.name), ...todayS.map(x => x.group)])];
   const tBtns = tg.map(g => { const x = todayS.find(y => y.group === g), n = x ? Object.values(x.marks).filter(m => m === '+').length : 0;
@@ -3947,11 +3949,35 @@ function vJournal() {
     <div class="row"><label class="f" style="min-width:160px"><span>Дата</span><input type="date" data-noclr id="j-date" value="${J.date}"></label>
     <label class="f" style="min-width:180px;flex:1"><span>Группа</span><select id="j-group">${groups.map(g => opt(g, J.group || suggestGroup(J.date))).join('')}</select></label>
     <button class="btn primary" data-act="open-session-form" style="align-self:flex-end">Открыть</button></div></div>
-  <div class="card flat"><div style="padding:14px 16px 4px"><h2>Последние занятия</h2></div>
-  ${recent.length ? `<ul class="list">${recent.map(s => {
+  <details class="card flat" data-journal-history ${history.open ? 'open' : ''}>
+    <summary style="padding:12px 16px;cursor:pointer;min-height:44px"><b>Последние занятия</b></summary>
+    <div class="row" style="padding:4px 16px 12px">
+      <label class="f" style="width:auto"><span>С</span><input type="date" data-change="journal-history" data-k="from" value="${history.from}"></label>
+      <label class="f" style="width:auto"><span>По</span><input type="date" data-change="journal-history" data-k="to" value="${history.to}"></label>
+    </div>
+    <div id="journal-history-results">${history.open ? journalHistoryRows() : ''}</div>
+  </details>`;
+}
+function journalHistoryRows() {
+  const history = ui.journal.history;
+  if (history.from && history.to && history.from > history.to)
+    return '<div class="empty">Дата начала позже даты окончания. Измените одну из дат.</div>';
+  const sessions = ix.sessionsSorted.filter(s => (!history.from || s.date >= history.from) && (!history.to || s.date <= history.to)).reverse();
+  if (!sessions.length) return '<div class="empty">' + (ix.sessionsSorted.length ? 'За выбранный период занятий нет.' : 'Занятий пока нет. Откройте первое занятие выше.') + '</div>';
+  const pageSize = 10;
+  const lastPage = Math.ceil(sessions.length / pageSize) - 1;
+  history.page = Math.max(0, Math.min(history.page, lastPage));
+  const start = history.page * pageSize;
+  const page = sessions.slice(start, start + pageSize);
+  const rows = page.map(s => {
     const v = Object.values(s.marks), c = m => v.filter(x => x === m).length;
     return `<li class="click" data-go="#session/${s.id}"><div class="who"><b>${D.ru(s.date)}, ${DOW[D.dow(s.date)]} — ${h(s.group || 'без группы')}</b><span class="small">был ${c('+')} · не был ${c('н')}${c('б') ? ' · болел ' + c('б') : ''}${c('о') ? ' · отменено' : ''}</span></div>${!s.group ? '<span class="chip warn">нет группы</span>' : offSchedule(s) ? '<span class="chip warn" title="В этот день недели у группы нет занятий по расписанию">не по расписанию</span>' : ''}</li>`;
-  }).join('')}</ul>` : '<div class="empty">Занятий пока нет. Откройте первое занятие выше.</div>'}</div>`;
+  }).join('');
+  const pager = lastPage ? `<div class="row" style="padding:10px 16px">
+    <button class="btn sm" data-act="journal-page" data-step="-1" ${history.page === 0 ? 'disabled' : ''}>Назад</button>
+    <span class="small">${start + 1}–${start + page.length} из ${sessions.length}</span>
+    <button class="btn sm" data-act="journal-page" data-step="1" ${history.page === lastPage ? 'disabled' : ''}>Далее</button></div>` : '';
+  return `<ul class="list">${rows}</ul>${pager}`;
 }
 function offSchedule(s) { const g = ix.group.get(s.group); return everScheduled(g) && !daysOn(g, s.date)[D.dow(s.date)]; }
 function suggestGroup(date) {
@@ -6749,7 +6775,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '25.11.2026 (v184)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '25.11.2026 (v185)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -8011,6 +8037,10 @@ const ACT = {
   'open-session': el => { const s = findOrCreateSession(el.dataset.date, el.dataset.group); location.hash = '#session/' + s.id; },
   'open-session-pick': () => { ui.journal.tab = 'session'; location.hash = '#journal'; },
   'open-session-form': () => { const d = $('#j-date').value, g = $('#j-group').value; if (!d) return; ui.journal.date = d; ui.journal.group = g; const s = findOrCreateSession(d, g); location.hash = '#session/' + s.id; },
+  'journal-page': el => {
+    ui.journal.history.page += Number(el.dataset.step);
+    $('#journal-history-results').innerHTML = journalHistoryRows();
+  },
   'jtab': el => { ui.journal.tab = el.dataset.tab; rerender(); },
   'jmonth': el => { ui.journal.month = el.dataset.m; render.forceFocus = true; rerender(); },
   'mark': el => { const s = db.sessions.find(x => x.id === el.dataset.sid); const cur = s.marks[el.dataset.aid];
@@ -9233,6 +9263,12 @@ async function onChange(e) {
   else if (k === 'lockmin') { meta.lockMin = +v; writeMeta(); rerender(); }
   else if (k === 'awaymin') { meta.awayMin = +v; writeMeta(); rerender(); }
   else if (k === 'sched-from') { if (v) { ui.schedFrom = v; rerender(); } }
+  else if (k === 'journal-history') {
+    const history = ui.journal.history;
+    history[el.dataset.k] = v;
+    history.page = 0;
+    $('#journal-history-results').innerHTML = journalHistoryRows();
+  }
   else if (k === 'money-from' || k === 'money-to') { if (v) { ui.money[k === 'money-from' ? 'from' : 'to'] = v; ui.money.per = ''; rerender(); } }
   else if (k === 'money-acc') { ui.money.acc = v; rerender(); }
   else if (k === 'money-catx' || k === 'money-catg') { const U = ui.money, L = moneyCatList(), cur = new Set(U.cats || L.map(c => c.id));
@@ -9268,6 +9304,11 @@ document.addEventListener('toggle', e => { if (e.target.matches && e.target.matc
   if (e.target.matches && e.target.matches('details[data-tripsold]')) ui.tripsOld = e.target.open;
   if (e.target.matches && e.target.matches('details[data-attrules]')) ui.attRules = e.target.open;
   if (e.target.matches && e.target.matches('details[data-tripsbox]')) ui.tripsBox = e.target.open;
+  if (e.target.matches('details[data-journal-history]')) {
+    ui.journal.history.open = e.target.open;
+    const results = e.target.querySelector('#journal-history-results');
+    if (e.target.open && !results.hasChildNodes()) results.innerHTML = journalHistoryRows();
+  }
   if (e.target.matches && e.target.matches('details[data-pausebox]')) ui.pauseBox = e.target.open;
   if (e.target.matches && e.target.matches('details[data-contacts]')) ui.contactsOpen = e.target.open ? e.target.dataset.id : '';   // открыто — только у этой карточки, пока не ушли
   if (e.target.matches && e.target.matches('details[data-frz]')) { meta.frzOpen = e.target.open; writeMeta(); }
