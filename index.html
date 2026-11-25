@@ -664,6 +664,21 @@ div.f{display:flex;flex-direction:column;gap:6px;font-size:.875rem;color:var(--i
 .stepper input{text-align:center;font-weight:700;font-size:1.125rem}
 details.more-fields{margin-top:14px;border-top:1px solid var(--line);padding-top:6px}
 details.more-fields > summary{cursor:pointer;font-weight:600;color:var(--ink);min-height:var(--tap);display:flex;align-items:center}
+.payment-section{padding:0 0 14px;margin:0 0 14px;border-bottom:1px solid var(--line)}
+.payment-section h3{margin:0 0 8px}
+.payment-section #pkg-wrap{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start}
+.payment-section #pkg-wrap input{margin:2px 0}
+.pay-mode{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.pay-mode label{display:inline-flex;align-items:center;gap:7px;padding:4px 12px;min-height:var(--tap);border:1px solid var(--line-strong);border-radius:var(--r-s);cursor:pointer}
+.pay-mode label:has(:checked){background:var(--accent-soft);border-color:var(--accent-btn);font-weight:600}
+.pay-received{display:contents}
+.payment-section [hidden],.pay-fold [hidden]{display:none!important}
+.pay-fold{border-bottom:1px solid var(--line);padding:0 0 4px}
+.pay-fold summary{cursor:pointer;padding:8px 0;min-height:var(--tap);font-weight:600}
+.pay-fold>summary span{display:inline-block;max-width:100%;vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:400;font-size:.875rem;color:var(--ink-2)}
+.pay-fold>summary span:not(:empty)::before{content:" · "}
+.pay-option{margin-left:12px}
+.pay-option summary{font-size:.9375rem}
 .pay-res{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border-radius:var(--r);background:var(--ok-bg);color:var(--ok);margin-bottom:14px}
 .pay-res span{color:var(--ink)}
 @media (max-width:860px), (pointer:coarse) and (max-height:500px){.contacts{margin:14px -14px -14px} .subbox .big{font-size:2.5rem}}
@@ -5182,33 +5197,46 @@ function openSub(id, athleteId) {
   const up = !p && aid ? (ix.athCalc.get(aid).debtDates || []) : [];
   const FN = finS(db), lastAcc = last && last.acc;
   const retNoSub = !p && aid && !last && (ix.marks.get(aid) || []).some(m => m.mark === '+' && m.date < D.add(up[0] || ix.today, -21));   // 12.11.2026: вернувшийся без абонементов в программе — обычный абонемент, не разовые
-  const v = p || { acc: lastAcc || FN.defAcc, athleteId: aid, payDate: ix.today, start: up.length ? up[0] : '', count: aid && ix.ath.get(aid).payPerVisit ? (up.length || 1) : last ? (+last.count || db.settings.defaultCount || 12) : retNoSub ? (db.settings.defaultCount || 12) : (up.length || db.settings.defaultCount || 12), amount: last ? last.amount : '', onlyGroup: '', carryWas: 0, carryMissed: 0, note: '' };
+  const v = p || { acc: lastAcc || FN.defAcc, athleteId: aid, payDate: ix.today, start: up.length ? up[0] : '', count: aid && ix.ath.get(aid).payPerVisit ? (up.length || 1) : last ? (+last.count || db.settings.defaultCount || 12) : retNoSub ? (db.settings.defaultCount || 12) : (up.length || db.settings.defaultCount || 12), amount: last ? last.amount : '', onlyGroup: '', note: '' };
   const r = p ? ix.subCalc.get(p.id) : null;
-  const body = `<div class="fgrid">${aid && p ? `<input type="hidden" name="athleteId" value="${aid}"><div class="wide"><b>${h(fullName(ix.ath.get(aid)))}</b></div>` : FS('athleteId', 'Спортсмен', [['', '— выберите —'], ...athleteOptions(aid)], aid, 'required class="wide"')}
+  const body = `<section class="payment-section"><h3>Спортсмен</h3>
+  <div class="fgrid">${aid && p ? `<input type="hidden" name="athleteId" value="${h(aid)}"><div class="wide"><b>${h(fullName(ix.ath.get(aid)))}</b></div>` : FS('athleteId', 'Имя или фамилия', [['', '— выберите —'], ...athleteOptions(aid)], aid, 'required class="wide"')}
   <p class="small wide" id="unpaid-note" style="margin:-4px 0 0;${up.length ? '' : 'display:none'}"><b>Есть неоплаченные посещения: ${up.map(d => D.short(d)).join(', ')}.</b> Дата активации поставлена на первое из них, чтобы оплата их покрыла.</p>
-  ${(FN.accounts || []).length && FN.accounts.length <= 4 ? `<div class="f wide"><span>Как оплачено</span><div class="choice" role="group" aria-label="Как оплачено">${FN.accounts.map(A => `<button type="button" data-acc="${h(A.id)}" aria-pressed="${(v.acc || '') === A.id}">${h(A.name)}</button>`).join('')}</div><input type="hidden" name="acc" value="${h(v.acc || '')}">${v.acc && !FN.accounts.some(A => A.id === v.acc) ? '<p class="small muted" style="margin:4px 0 0">Прежний счёт удалён — выберите способ оплаты.</p>' : ''}</div>` : `${FS('acc', 'Как оплачено', [...(v.acc ? [] : [['', '— не указано —']]), ...FN.accounts.map(A => [A.id, A.name]), ...(v.acc && !FN.accounts.some(A => A.id === v.acc) ? [[v.acc, 'счёт удалён']] : [])], v.acc || '')}`}
-  <div class="f"><span>Оплачено занятий</span><div class="stepper"><button type="button" data-step="-1" aria-label="Меньше занятий">−</button><input type="number" name="count" value="${h(v.count)}" min="1" inputmode="numeric" required aria-label="Оплачено занятий"><button type="button" data-step="1" aria-label="Больше занятий">+</button></div></div>${F('amount', 'Сумма, ₽', v.amount, 'number', 'inputmode="numeric"')}
-  ${F('payDate', 'Дата оплаты', v.payDate, 'date')}${FN.checks !== false ? `<label class="row" style="gap:8px;align-self:end;min-height:40px"><input type="checkbox" name="check" ${v.check ? 'checked' : ''} style="width:20px;height:20px"><span>Чек в «Мой налог» выбит${v.check && v.check !== true ? ' <span class="small muted">' + h(D.short(String(v.check))) + '</span>' : ''}</span></label>` : ''}
+  </div></section>
+  <section class="payment-section"><h3>За что платят</h3><div class="fgrid">
+  <div class="f"><span>Количество занятий</span><div class="stepper"><button type="button" data-step="-1" aria-label="Меньше занятий">−</button><input type="number" name="count" value="${h(v.count)}" min="1" inputmode="numeric" required aria-label="Количество занятий"><button type="button" data-step="1" aria-label="Больше занятий">+</button></div></div>
   <label class="row wide" id="pkg-wrap" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--sunk)"><input type="checkbox" name="pkg" ${p ? (isPkg(ix, p) ? 'checked' : '') : ''} style="width:20px;height:20px"><span><b>Пакет разовых посещений</b> (п. 8.8 оферты): занятие списывается только когда человек пришёл, пропуски не списываются, срока и автоактивации нет.</span></label>
-  <p class="small wide" id="tariff-note" style="margin:-4px 0 0"></p></div>
-  <details class="more-fields" ${v.absence ? 'open' : ''}><summary>Продлить на период отсутствия</summary><div class="fgrid">
+  <p class="small wide" id="tariff-note" style="margin:-4px 0 0"></p></div></section>
+  <section class="payment-section"><h3>Оплата</h3>
+  <div class="pay-mode" role="radiogroup" aria-label="Статус оплаты">
+    <label><input type="radio" name="paymentState" value="paid" ${v.pending ? '' : 'checked'}>Оплачено</label>
+    <label><input type="radio" name="paymentState" value="pending" ${v.pending ? 'checked' : ''}>Ждём оплату</label>
+  </div><div class="fgrid">
+  ${F('amount', 'Сумма, ₽', v.amount, 'number', 'inputmode="numeric"')}
+  <div class="pay-received">  ${F('payDate', 'Дата оплаты', v.payDate || (v.pending ? ix.today : ''), 'date')}
+  ${(FN.accounts || []).length && FN.accounts.length <= 4 ? `<div class="f wide"><span>Как оплачено</span><div class="choice" role="group" aria-label="Как оплачено">${FN.accounts.map(A => `<button type="button" data-acc="${h(A.id)}" aria-pressed="${(v.acc || '') === A.id}">${h(A.name)}</button>`).join('')}</div><input type="hidden" name="acc" value="${h(v.acc || '')}">${v.acc && !FN.accounts.some(A => A.id === v.acc) ? '<p class="small muted" style="margin:4px 0 0">Прежний счёт удалён — выберите способ оплаты.</p>' : ''}</div>` : `${FS('acc', 'Как оплачено', [...(v.acc ? [] : [['', '— не указано —']]), ...FN.accounts.map(A => [A.id, A.name]), ...(v.acc && !FN.accounts.some(A => A.id === v.acc) ? [[v.acc, 'счёт удалён']] : [])], v.acc || '')}`}
+  ${FN.orgs ? FS('payer', 'Плательщик', [['', 'физическое лицо'], ['org', 'организация или ИП']], v.payer || '') : ''}
+  ${FN.checks !== false ? `<label class="row" style="gap:8px;align-self:end;min-height:40px"><input type="checkbox" name="check" ${v.check ? 'checked' : ''} style="width:20px;height:20px"><span>Чек в «Мой налог» выбит${v.check && v.check !== true ? ' <span class="small muted">' + h(D.short(String(v.check))) + '</span>' : ''}</span></label>` : ''}
+  </div></div></section>
+  <details class="pay-fold"><summary>Условия абонемента <span data-pay-summary="terms"></span></summary><div class="fgrid">
+  ${F('start', 'Дата активации (пусто — автоматически)', v.start, 'date')}
+  <p class="small muted wide" style="margin:-4px 0 0">Пусто: абонемент активируется сам в день первого посещения после оплаты (при оплате заранее — первого посещения после окончания текущего), а если посещений не будет — на 30-й день: считая со следующего дня после оплаты, а при оплате заранее — со следующего дня после окончания текущего абонемента (п. 9.2). Дату ставьте вручную, только если нужно иначе.</p>
+  ${FS('onlyGroup', 'Абонемент только на группу', [['', 'все группы человека'], ...db.settings.groups.map(g => g.name)], v.onlyGroup)}
+  ${F('refundPrice', 'Цена занятия для возврата, ₽', v.refundPrice || '', 'number', 'min="0" step="10" inputmode="numeric" placeholder="пусто — по п. 10.4.2"')}
+  <p class="small muted wide" style="margin:-4px 0 0">Пусто — цена считается сама: сумма ÷ число занятий, вверх до 10 ₽ (5 500 → 460, 5 000 → 420). Свою цену можно поставить только не ниже расчётной.</p>
+  </div></details>
+  <details class="pay-fold"><summary>Отсутствие и продление <span data-pay-summary="extension"></span></summary>
+    <details id="pay-away" class="pay-option"><summary>Продлить на период отсутствия</summary><div class="fgrid">
     ${F('awayFrom', 'Первый день отсутствия', v.absence?.from || '', 'date')}${F('awayTo', 'Последний день отсутствия', v.absence?.to || '', 'date')}</div>
     <p class="small muted">В эти даты занятия по абонементу сохраняются. Если спортсмен придёт раньше, отметьте «был» в журнале — программа пересчитает срок.</p>
     ${r?.earlyReturn ? `<p>Вернулся ${D.ru(r.earlyReturn)}${r.end ? ' · окончание ' + D.ru(r.end) : ''}</p>` : ''}</details>
-  <details class="more-fields" ${p ? 'open' : ''}><summary>Дополнительно: дата активации, только группа, продление, «ждём оплату»</summary><div class="fgrid" style="margin-top:10px">
-  ${F('start', 'Дата активации (пусто — автоматически)', v.start, 'date')}
-  <p class="small muted wide" style="margin:-4px 0 0">Пусто: абонемент активируется сам в день первого посещения после оплаты (при оплате заранее — первого посещения после окончания текущего), а если посещений не будет — на 30-й день: считая со следующего дня после оплаты, а при оплате заранее — со следующего дня после окончания текущего абонемента (п. 9.2). Дату ставьте вручную, только если нужно иначе.</p>
-  ${FN.orgs ? FS('payer', 'Плательщик', [['', 'физическое лицо'], ['org', 'организация или ИП']], v.payer || '') : ''}
-  ${F('refundPrice', 'Цена занятия для возврата, ₽', v.refundPrice || '', 'number', 'min="0" step="10" inputmode="numeric" placeholder="пусто — по п. 10.4.2"')}
-  <p class="small muted wide" style="margin:-4px 0 0">Пусто — цена считается сама: сумма ÷ число занятий, вверх до 10 ₽ (5 500 → 460, 5 000 → 420). Свою цену можно поставить только не ниже расчётной.</p>
-  ${FS('onlyGroup', 'Абонемент только на группу', [['', 'все группы человека'], ...db.settings.groups.map(g => g.name)], v.onlyGroup)}
-  <details class="wide" ${+v.bonus > 0 ? 'open' : ''}><summary class="small"><b>Продлить решением главного тренера</b>${+v.bonus > 0 ? ' — сейчас +' + v.bonus + ' зан.' : ''}</summary><div class="fgrid" style="margin-top:8px">
+  <details class="pay-option" ${+v.bonus > 0 ? 'open' : ''}><summary class="small"><b>Продлить решением главного тренера</b>${+v.bonus > 0 ? ' — сейчас +' + v.bonus + ' зан.' : ''}</summary><div class="fgrid" style="margin-top:8px">
   ${F('bonus', 'Добавить занятий (бесплатно)', +v.bonus > 0 ? v.bonus : '', 'number', 'min="0" step="1" inputmode="numeric" placeholder="0"')}${r && r.end ? F('bonusTo', 'или продлить до даты', '', 'date', 'min="' + D.add(r.end, 1) + '"') : ''}
   ${F('bonusNote', 'Причина', v.bonusNote || '', 'text', 'placeholder="например: травма на тренировке, решение тренера"')}${v.bonusFrom && +v.bonus > 0 ? `<p class="small wide" style="margin:0">Добавленные занятия списываются с ${D.ru(v.bonusFrom)} (с возвращения после перерыва).</p>` : ''}</div>
   <p class="small muted" style="margin:6px 0 0">Добавленные занятия идут после оплаченных: срок абонемента сдвигается по расписанию. В сумму возврата при отказе они не входят.${r && r.end ? ' Дата «до» пересчитывается в число занятий по расписанию группы.' : ''}</p></details>
-  <label class="row wide" style="gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:${v.pending ? 'var(--bad-bg)' : 'var(--sunk)'}"><input type="checkbox" name="pending" ${v.pending ? 'checked' : ''} style="width:20px;height:20px"><span><b>Ждём оплату</b> — человек занимается, но абонемент ещё не оплачен. Посещения списываются с него как обычно.</span></label>
-  <label class="f wide"><span>Примечание</span><input type="text" name="note" value="${h(v.note)}"></label></div>
-  <details style="margin-top:10px"><summary class="small">Перенос из прежнего журнала</summary><div class="fgrid" style="margin-top:8px">${F('carryWas', 'Был (перенос)', v.carryWas || 0, 'number')}${F('carryMissed', 'Не был (перенос)', v.carryMissed || 0, 'number')}</div></details></details>
+  </details>
+  <details class="pay-fold"><summary>Добавить примечание <span data-pay-summary="note"></span></summary>
+  <label class="f wide"><span>Примечание</span><input type="text" name="note" value="${h(v.note)}"></label></details>
   ${r ? `<div class="card" style="margin:12px 0 0;background:var(--sunk)"><div class="stats"><div class="stat"><b>${r.was}</b><span class="small muted">был</span></div><div class="stat"><b>${r.missed}</b><span class="small muted">не был</span></div><div class="stat"><b>${r.sick}</b><span class="small muted">болел</span></div>${r.blank ? `<div class="stat"><b>${r.blank}</b><span class="small muted">из «не был» — пустые клетки</span></div>` : ''}<div class="stat"><b>${r.remaining}</b><span class="small muted">остаток</span></div>${r.baseEnd ? `<div class="stat"><b>+${r.extDates.length}</b><span class="small muted">продлён</span></div>` : ''}</div>
   ${r.baseEnd ? `<div class="small" style="margin-top:8px"><b>Продлён на ${r.extDates.length} ${plural(r.extDates.length, 'занятие', 'занятия', 'занятий')}</b> — ${h(extReason(r))}. Первоначальный срок — до ${D.ru(r.baseEnd)}, теперь — до ${D.ru(r.end)}.</div>` : ''}
   <div class="small" style="margin-top:8px">${activationText(p, r)}</div>
@@ -5216,15 +5244,22 @@ function openSub(id, athleteId) {
   modal(p ? 'Абонемент' : 'Новая оплата', body, {
     extraBtn: p ? `<button type="button" class="btn danger" data-act="sub-del" data-id="${p.id}">Удалить</button>${p.pending ? `<button type="button" class="btn primary" data-act="sub-paid" data-id="${p.id}">Оплачено сегодня</button>` : ''}<button type="button" class="btn" data-act="msg" data-id="${aid}" data-sub="${p.id}" data-tpl="${p.absence ? (r?.earlyReturn ? 'Срок после досрочного возвращения' : 'Оплата с периодом отсутствия') : 'Новый абонемент оплачен'}">Сообщение</button>` : '',
     async onSubmit(fd) {
+      fd.pending = fd.paymentState === 'pending';
       if (!fd.athleteId) { notice('Выберите спортсмена'); return false; }
+      if (!fd.pending && !fd.payDate) { notice('Укажите дату оплаты'); return false; }
+      if (fd.pending) { fd.payDate = ''; fd.pkg = false; fd.check = false; }
       if (!(+fd.count >= 1)) { notice('Количество занятий должно быть не меньше 1'); return false; }
       if (+fd.amount < 0) { notice('Сумма не может быть отрицательной'); return false; }
       { const own = +fd.refundPrice || 0, auto = refundAuto({ amount: fd.amount, count: fd.count });
         if (own < 0) { notice('Цена занятия не может быть отрицательной'); return false; }
         if (own && auto && own < auto) { notice(`Цена занятия для возврата не может быть ниже расчётной: ${auto} ₽ (п. 10.4.2 договора — сумма ÷ число занятий, вверх до 10 ₽). Оставьте поле пустым или укажите ${auto} ₽ и больше.`); return false; } }
       if (fd.awayFrom || fd.awayTo) {
-        if (!fd.awayFrom || !fd.awayTo || fd.awayTo < fd.awayFrom) { notice('Укажите первый и последний день отсутствия по порядку.'); return false; }
-        if (fd.pending || fd.pkg || +fd.count <= 1) { notice('Продление на период отсутствия доступно для оплаченного абонемента на несколько занятий. Чтобы убрать период, очистите обе даты.'); return false; }
+        if (fd.pending || fd.pkg || +fd.count <= 1) {
+          if (!await ask('Для выбранного вида оплаты период отсутствия неприменим. Сохранить без периода отсутствия?')) return false;
+          fd.awayFrom = fd.awayTo = '';
+        } else if (!fd.awayFrom || !fd.awayTo || fd.awayTo < fd.awayFrom) {
+          notice('Укажите первый и последний день отсутствия по порядку.'); return false;
+        }
       }
       const same = !p && db.subs.find(q => q.athleteId === fd.athleteId && q.payDate && q.payDate === fd.payDate && +q.count === +fd.count && (q.onlyGroup || '') === (fd.onlyGroup || ''));
       if (same && !await ask(`У этого человека уже записана оплата ${D.ru(fd.payDate)} на ${same.count} зан. (${(+same.amount || 0).toLocaleString('ru')} ₽). Записать ещё одну?\n\nЕсли это повтор по ошибке — нажмите «Отмена».`)) return false;
@@ -5250,7 +5285,7 @@ function openSub(id, athleteId) {
       if (+fd.bonus < 0 || (fd.bonus !== '' && fd.bonus != null && !Number.isInteger(+fd.bonus))) { notice('Добавить занятий — целое число не меньше 0'); return false; }
       if (+fd.bonus > 0 && !String(fd.bonusNote || '').trim()) { notice('Укажите причину продления — она будет видна в карточке и в истории изменений.'); return false; }
       const wasPend = !!(tgt && tgt.pending);
-      Object.assign(t, { athleteId: fd.athleteId, payDate: fd.pending ? '' : fd.payDate, start: fd.start, count: +fd.count || 0, bonus: +fd.bonus > 0 ? +fd.bonus : '', bonusNote: +fd.bonus > 0 ? String(fd.bonusNote || '').trim() : '', bonusFrom: +fd.bonus > 0 ? (v.bonusFrom || '') : '', amount: +fd.amount || 0, refundPrice: +fd.refundPrice > 0 ? +fd.refundPrice : '', onlyGroup: fd.onlyGroup, carryWas: +fd.carryWas || 0, carryMissed: +fd.carryMissed || 0, note: fd.note.trim(), pending: !!fd.pending, acc: fd.acc || '' });
+      Object.assign(t, { athleteId: fd.athleteId, payDate: fd.pending ? '' : fd.payDate, start: fd.start, count: +fd.count || 0, bonus: +fd.bonus > 0 ? +fd.bonus : '', bonusNote: +fd.bonus > 0 ? String(fd.bonusNote || '').trim() : '', bonusFrom: +fd.bonus > 0 ? (v.bonusFrom || '') : '', amount: +fd.amount || 0, refundPrice: +fd.refundPrice > 0 ? +fd.refundPrice : '', onlyGroup: fd.onlyGroup, note: fd.note.trim(), pending: !!fd.pending, acc: fd.acc || '' });
       if (fd.awayFrom) t.absence = { from: fd.awayFrom, to: fd.awayTo }; else delete t.absence;
       if (+t.count > 1 && !t.pending) t.pkg = !!fd.pkg; else delete t.pkg;   // 21.10.2026: пакет разовых — явной отметкой
       if (wasPend && !fd.pending && t.notified && t.notified.end) { t.notified = { ...t.notified }; delete t.notified.end; }   /* №30-Б: оплата «ждём оплату» через форму */
@@ -5265,7 +5300,7 @@ function openSub(id, athleteId) {
       else if (!p && !t.pending) { const ts = document.querySelector('.toast'); if (ts && ts.firstChild && ts.firstChild.nodeType === 3 && term()) ts.firstChild.nodeValue = 'Оплата записана · ' + term(); }
     },
   });
-  tariffHook(p);
+  bindPaymentForm(p);
   document.querySelectorAll('#dlg [data-acc]').forEach(b => b.onclick = () => { document.querySelector('#dlg [name=acc]').value = b.dataset.acc; document.querySelectorAll('#dlg [data-acc]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
   document.querySelectorAll('#dlg [data-step]').forEach(b => b.onclick = () => { const i = document.querySelector('#dlg [name=count]'); i.value = Math.max(1, (+i.value || 0) + +b.dataset.step); i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); });
   const bt = document.querySelector('#dlg [name=bonusTo]');
@@ -5274,7 +5309,8 @@ function openSub(id, athleteId) {
     document.querySelector('#dlg [name=bonus]').value = cur + add;
     toast(add ? `До ${D.ru(bt.value)} — ещё ${add} ${plural(add, 'занятие', 'занятия', 'занятий')} по расписанию` : 'До этой даты занятий по расписанию нет'); };
   const sel = document.querySelector('#dlg select[name=athleteId]');
-  if (sel) sel.onchange = () => { const id = sel.value; if (!id) return;
+  if (sel) sel.onchange = () => { const id = sel.value;
+    if (!id) { document.querySelector('#unpaid-note').style.display = 'none'; document.querySelector('#dlg [name=start]').value = ''; return; }
     const lp = [...(ix.subsByAth.get(id) || [])].pop(); if (lp && lp.amount) document.querySelector('#dlg [name=amount]').value = lp.amount;
     const u2 = ix.athCalc.get(id).debtDates || [], note = document.querySelector('#unpaid-note');
     document.querySelector('#dlg [name=start]').value = u2.length ? u2[0] : '';
@@ -6659,16 +6695,38 @@ function fillSrcAdd() {
 }
 
 /* ---------- ТАРИФ В ОКНЕ ОПЛАТЫ ---------- */
-function tariffHook(p) {
+function bindPaymentForm(p) {
   const d = document.getElementById('dlg'), am = d.querySelector('[name=amount]'), cn = d.querySelector('[name=count]'), pd = d.querySelector('[name=payDate]'), sel = d.querySelector('select[name=athleteId]'), hid = d.querySelector('input[name=athleteId]');
   const note = d.querySelector('#tariff-note'); if (!am || !note) return;
+  const form = am.form, fields = form.elements;
+  const pending = () => fields.paymentState.value === 'pending';
+  function updateSections() {
+    const waiting = pending(), n = +cn.value;
+    d.querySelector('.pay-received').hidden = waiting;
+    am.closest('label').querySelector('span').textContent = waiting ? 'Ожидаемая сумма, ₽' : 'Сумма, ₽';
+    pkw.hidden = waiting || n <= 1;
+    const away = d.querySelector('#pay-away');
+    away.hidden = waiting || n <= 1 || pk.checked;
+    const terms = [fields.start.value && 'с ' + D.ru(fields.start.value), fields.onlyGroup.value,
+      +fields.refundPrice.value > 0 && rubN(fields.refundPrice.value) + ' ₽ за занятие'];
+    const dates = [fields.awayFrom.value, fields.awayTo.value].filter(Boolean).map(D.ru).join(' – ');
+    const extension = [dates && (away.hidden ? 'период неприменим' : dates), +fields.bonus.value > 0 && '+' + fields.bonus.value + ' зан.'];
+    d.querySelector('[data-pay-summary="terms"]').textContent = terms.filter(Boolean).join(' · ');
+    d.querySelector('[data-pay-summary="extension"]').textContent = extension.filter(Boolean).join(' · ');
+    d.querySelector('[data-pay-summary="note"]').textContent = fields.note.value.trim();
+  }
+  form.addEventListener('input', updateSections);
+  form.addEventListener('change', updateSections);
   am.addEventListener('input', () => { am.dataset.touched = '1'; });
   const upd = () => {
-    const aid = sel ? sel.value : hid ? hid.value : '', a = aid && ix.ath.get(aid); if (!a) { note.innerHTML = ''; return; }
+    if (!form.isConnected) return;
+    const aid = sel ? sel.value : hid ? hid.value : '', a = aid && ix.ath.get(aid);
     pkAuto(a);
-    const date = (pd && pd.value) || ix.today, tf = tariffFor(db, a, cn.value, date, pk && +cn.value > 1 ? pk.checked : undefined);
+    updateSections();
+    if (!a) { note.textContent = ''; return; }
+    const date = (pd && pd.value) || ix.today, tf = tariffFor(db, a, cn.value, date, +cn.value > 1 ? !pending() && pk.checked : undefined);
     if (!tf) { note.innerHTML = `<span class="muted">Число занятий не из тарифа (${db.settings.prices.count} или 1) — сумму укажите сами.</span>`
-      + ((+cn.value || 0) > 1 ? ' <b style="color:var(--warn)">Если это несколько разовых посещений вперёд — отметьте «Пакет разовых посещений»: иначе это абонемент со сроком по расписанию.</b>' : ''); return; }
+      + (!pending() && (+cn.value || 0) > 1 ? ' <b style="color:var(--warn)">Если это несколько разовых посещений вперёд — отметьте «Пакет разовых посещений»: иначе это абонемент со сроком по расписанию.</b>' : ''); return; }
     if (tf.price == null) { note.innerHTML = '<b style="color:var(--warn)">Нет даты рождения — тариф (детский или базовый) не определить.</b> Укажите её в карточке.'; return; }
     if (!p && !am.dataset.touched) am.value = tf.price;
     const prev = (ix.subsByAth.get(a.id) || []).filter(q => q !== p && !q.pending && q.payDate && q.payDate < date && +q.count === +db.settings.prices.count).pop();
@@ -6680,10 +6738,12 @@ function tariffHook(p) {
   cn.addEventListener('input', () => { cn.dataset.touched = '1'; });
   const pk = d.querySelector('[name=pkg]'), pkw = d.querySelector('#pkg-wrap');
   if (pk) pk.addEventListener('change', () => { pk.dataset.touched = '1'; am.dataset.touched = ''; });
-  const pkAuto = a => { if (!pk) return; const n = +cn.value || 0; if (pkw) pkw.style.display = n > 1 ? '' : 'none';   // по умолчанию: «Оплата разово» или число занятий не из тарифа — пакет
-    if (!p && !pk.dataset.touched) pk.checked = n > 1 && !!a && (perVisitOn(a, (pd && pd.value) || ix.today) || n !== +db.settings.prices.count); };
+  const pkAuto = a => { if (!pk) return; const n = +cn.value || 0;    // по умолчанию: «Оплата разово» или число занятий не из тарифа — пакет
+    if (n <= 1) pk.checked = false;
+    else if (!p && !pk.dataset.touched) pk.checked = n > 1 && !!a && (perVisitOn(a, (pd && pd.value) || ix.today) || n !== +db.settings.prices.count); };
   if (sel && !p) sel.addEventListener('change', () => { const a = ix.ath.get(sel.value);   // 20.10.2026: разовику — не 12, а число неоплаченных посещений (или 1); пакет — укажите число занятий сами
     if (a && a.payPerVisit && !cn.dataset.touched) { const c = ix.athCalc.get(a.id); cn.value = Math.max(1, (c && c.debtDates || []).length); } });
+  form.querySelectorAll('[name=paymentState]').forEach(radio => radio.addEventListener('change', upd));
   [am, cn, pd].forEach(x => x && x.addEventListener('input', upd)); [cn, pd, sel, pk].forEach(x => x && x.addEventListener('change', () => setTimeout(upd, 0)));
   upd();
 }
@@ -6789,7 +6849,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '26.11.2026 (v187)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '26.11.2026 (v188)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
