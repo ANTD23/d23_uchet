@@ -7093,9 +7093,9 @@ function vData() {
   let snaps = []; try { snaps = JSON.parse(bigGet(LS_SNAP) || '[]'); } catch (e) {}
   const size = Math.round(JSON.stringify(db).length / 1024);
   return `<h1>Данные</h1><p class="small muted" style="margin:-6px 0 12px">Версия программы: ${APP_VER}</p>
-  ${STANDALONE ? `<div class="card"><h2>Автономная версия</h2><p>Программа открыта как файл с диска и работает без интернета и без сайта. Её данные хранятся <b>отдельно</b> от версии на сайте и от других браузеров: это как ещё одно устройство. Переносите данные только копией-файлом и работайте там, куда последней загрузили свежую копию.</p>
-  <p class="small muted keep">Не переименовывайте и не перемещайте этот файл: в части браузеров данные привязаны к его пути. Копии отсюда сохраняются с пометкой «авт».</p></div>` : ''}
-  <div class="card"><h2>Защита PIN-кодом</h2>
+  ${STANDALONE ? `${settingsHeading('Автономная версия')}<p>Программа открыта как файл с диска и работает без интернета и без сайта. Её данные хранятся <b>отдельно</b> от версии на сайте и от других браузеров: это как ещё одно устройство. Переносите данные только копией-файлом и работайте там, куда последней загрузили свежую копию.</p>
+  <p class="small muted keep">Не переименовывайте и не перемещайте этот файл: в части браузеров данные привязаны к его пути. Копии отсюда сохраняются с пометкой «авт».</p></details>` : ''}
+  ${settingsHeading('Защита PIN-кодом')}
   ${!window.crypto || !crypto.subtle ? (STANDALONE ? '<p class="muted">Этот браузер не даёт шифрования для файла с диска. Откройте файл в Chrome, Edge или Яндекс Браузере на компьютере.</p>' : '<p class="muted">Этот браузер не поддерживает шифрование — откройте программу по адресу https://.</p>') : pinOn() ? `
     <p>PIN включён: данные в этом браузере и сохраняемые копии зашифрованы (AES-256). Программа блокируется, если вы ушли из неё (другое приложение, вкладка, свернули) дольше, чем ${awayMin() ? awayMin() + ' мин.' : '— сразу'}, и после ${lockMin()} мин. бездействия в самой программе. Вернулись раньше — PIN не спросит. Если окно открыла сама программа (выбор файла или папки, звонок, сообщение, печать) — не раньше чем через ${Math.max(lockMin(), awayMin())} мин.</p>
     <div class="row" style="gap:8px;align-items:flex-end"><label class="f"><span>Ушли из программы — блокировать через</span><select data-change="awaymin">${[0, 1, 3, 5, 10, 15, 30].map(n => opt(n, awayMin(), n ? n + ' мин.' : 'сразу')).join('')}</select></label><label class="f"><span>Бездействие в программе — блокировать через</span><select data-change="lockmin">${[1, 3, 5, 10, 15, 30].map(n => opt(n, lockMin(), n + ' мин.')).join('')}</select></label>
@@ -7110,9 +7110,9 @@ function vData() {
     <p class="small"><b>Без PIN данные не восстановить.</b> Запишите его и храните отдельно от телефона. Не короче 8 символов.</p>
     <div class="fgrid"><label class="f"><span>Новый PIN</span><input type="password" id="pin-new" inputmode="numeric" autocomplete="off"></label>
     <label class="f"><span>Ещё раз</span><input type="password" id="pin-new2" inputmode="numeric" autocomplete="off"></label></div>
-    <button class="btn primary" data-act="pin-on" style="margin-top:8px">Включить PIN</button>`}</div>
+    <button class="btn primary" data-act="pin-on" style="margin-top:8px">Включить PIN</button>`}</details>
   ${offCard()}
-  <div class="card"><h2>Копия в файл</h2>
+  ${settingsHeading('Копия в файл')}
   <p>База хранится в этом браузере на этом устройстве. Копия в файле нужна, чтобы ничего не потерять и чтобы работать с компьютера и телефона.</p>
   <div class="stats" style="margin:12px 0"><div class="stat"><b>${db.athletes.length}</b><span class="small muted">спортсменов</span></div><div class="stat"><b>${db.sessions.length}</b><span class="small muted">занятий</span></div><div class="stat"><b>${db.subs.length}</b><span class="small muted">абонементов</span></div><div class="stat"><b>${size} КБ</b><span class="small muted">объём</span></div></div>
   <p class="small">Последнее изменение: ${new Date(db.updatedAt).toLocaleString('ru')}. ${meta.lastExport ? 'Копия сохранена: ' + new Date(meta.lastExport).toLocaleString('ru') + (dirty() ? ' — после неё были изменения.' : ' — актуальна.') : 'Копию ещё не сохраняли.'}</p>
@@ -7121,26 +7121,26 @@ function vData() {
   <p class="small muted keep" style="margin-top:10px">Имя копии: <b>D23_данные_ГГГГ-ММ-ДД_ЧЧ-ММ_${isPhone() ? 'тел' : 'пк'}.json</b> — дата, время и откуда сохранено. В списке файлов самая свежая копия оказывается последней по имени.
   ${window.showDirectoryPicker ? `Копии сохраняются в папку${meta.copyDirName ? ' «' + h(meta.copyDirName) + '»' : ', которую вы выберете при первом сохранении'}.` : (canShareFiles() ? 'На телефоне «Сохранить копию» кладёт файл в «Загрузки», а «Поделиться копией в…» сразу открывает меню телефона — выберите Яндекс Диск (папку на Диске выбираете там же). На Android файл называется «….json.txt» — это та же копия, программа её загружает.' : 'На телефоне копия сохраняется в «Загрузки» — оттуда отправьте её на Яндекс Диск.')}
   ${meta.lastExportName ? '<br>Последняя сохранённая: ' + h(meta.lastExportName) + '.' : ''}${meta.lastImportName ? '<br>Последняя загруженная: ' + h(meta.lastImportName) + ' (' + new Date(meta.lastImportAt).toLocaleString('ru') + ').' : ''}</p>
-  ${window.showDirectoryPicker ? `<label class="row small" style="gap:8px;margin-top:6px">Хранить в папке последние <input type="number" min="0" max="999" data-change="set" data-path="copiesKeep" value="${db.settings.copiesKeep ?? 30}" style="width:80px"> копий (0 — не удалять старые)</label>` : ''}</div>
-  <div class="card"><h2>Как работать с компьютера и телефона через Яндекс Диск</h2>
+  ${window.showDirectoryPicker ? `<label class="row small" style="gap:8px;margin-top:6px">Хранить в папке последние <input type="number" min="0" max="999" data-change="set" data-path="copiesKeep" value="${db.settings.copiesKeep ?? 30}" style="width:80px"> копий (0 — не удалять старые)</label>` : ''}</details>
+  ${settingsHeading('Как работать с компьютера и телефона через Яндекс Диск')}
   <ol style="padding-left:20px;margin:0">
   <li>На компьютере «Сохранить копию» кладёт новый файл с датой и временем в папку Яндекс Диска (папку выбираете один раз).</li>
   <li>На телефоне: «Загрузить копию из файла…» → Яндекс Диск → самый нижний по имени файл (самый свежий).</li>
   <li>Закончили на телефоне — «Сохранить копию» и отправьте файл из «Загрузок» на Яндекс Диск. На компьютере перед работой — «Загрузить последнюю копию из папки».</li></ol>
-  <p class="small muted keep">Правило одно: работаете там, куда последним загрузили свежую копию. Если загрузить файл старше текущих данных, программа предупредит.</p></div>
-  <div class="card"><h2>Прежние версии</h2><p class="small muted">Программа сама хранит последние 5 версий в этом браузере: на начало каждого дня работы и перед загрузкой копии.</p>
-  ${snaps.length ? `<ul class="list">${snaps.map((s, i) => `<li><div class="who"><b>${new Date(s.at).toLocaleString('ru')}</b><span class="small">${h(s.reason)}</span></div><button class="btn sm" data-act="snap-restore" data-i="${i}">Вернуть эту версию</button></li>`).join('')}</ul>` : '<p class="muted">Пока нет.</p>'}</div>
-  <div class="card"><h2>Выгрузка таблиц</h2><div class="row"><button class="btn" data-act="people-csv" data-fmt="xlsx">Спортсмены (Excel)</button><button class="btn" data-act="subs-csv" data-fmt="xlsx">Абонементы (Excel)</button><button class="btn" data-act="visits-csv" data-fmt="xlsx">Посещения (Excel)</button></div><div class="row" style="margin-top:6px"><button class="btn sm" data-act="people-csv">Спортсмены (CSV)</button><button class="btn sm" data-act="subs-csv">Абонементы (CSV)</button><button class="btn sm" data-act="visits-csv">Посещения (CSV)</button></div>
-  <p class="small muted">CSV открывается в Excel. Файлы содержат персональные данные: храните на устройстве с паролем, организаторам соревнований передавайте только объём заявки.</p></div>
-  <div class="card"><h2>Обезличенная копия</h2><p>Для проверки расчётов посторонним (разработчику, юристу, ИИ): вместо ФИО — «Спортсмен 1, 2…», без телефонов, родителей, примечаний, медсправок; от даты рождения остаётся только год. Посещения, абонементы, заморозки и суммы — как есть.</p>
-  <button class="btn" data-act="export-anon">Скачать обезличенную копию</button><p class="small muted keep" style="margin-top:6px">Такую копию не загружайте обратно вместо своих данных — программа предупредит.</p></div>
+  <p class="small muted keep">Правило одно: работаете там, куда последним загрузили свежую копию. Если загрузить файл старше текущих данных, программа предупредит.</p></details>
+  ${settingsHeading('Прежние версии')}<p class="small muted">Программа сама хранит последние 5 версий в этом браузере: на начало каждого дня работы и перед загрузкой копии.</p>
+  ${snaps.length ? `<ul class="list">${snaps.map((s, i) => `<li><div class="who"><b>${new Date(s.at).toLocaleString('ru')}</b><span class="small">${h(s.reason)}</span></div><button class="btn sm" data-act="snap-restore" data-i="${i}">Вернуть эту версию</button></li>`).join('')}</ul>` : '<p class="muted">Пока нет.</p>'}</details>
+  ${settingsHeading('Выгрузка таблиц')}<div class="row"><button class="btn" data-act="people-csv" data-fmt="xlsx">Спортсмены (Excel)</button><button class="btn" data-act="subs-csv" data-fmt="xlsx">Абонементы (Excel)</button><button class="btn" data-act="visits-csv" data-fmt="xlsx">Посещения (Excel)</button></div><div class="row" style="margin-top:6px"><button class="btn sm" data-act="people-csv">Спортсмены (CSV)</button><button class="btn sm" data-act="subs-csv">Абонементы (CSV)</button><button class="btn sm" data-act="visits-csv">Посещения (CSV)</button></div>
+  <p class="small muted">CSV открывается в Excel. Файлы содержат персональные данные: храните на устройстве с паролем, организаторам соревнований передавайте только объём заявки.</p></details>
+  ${settingsHeading('Обезличенная копия')}<p>Для проверки расчётов посторонним (разработчику, юристу, ИИ): вместо ФИО — «Спортсмен 1, 2…», без телефонов, родителей, примечаний, медсправок; от даты рождения остаётся только год. Посещения, абонементы, заморозки и суммы — как есть.</p>
+  <button class="btn" data-act="export-anon">Скачать обезличенную копию</button><p class="small muted keep" style="margin-top:6px">Такую копию не загружайте обратно вместо своих данных — программа предупредит.</p></details>
   ${(() => { const R = retention(), li = l => l.map(a => `<li class="click" data-go="#person/${a.id}"><div class="who"><b>${h(fullName(a))}</b><span class="small">${a.endedAt ? 'договор прекращён ' + D.ru(a.endedAt) + ', хранить до ' + D.ru(keepUntil(a.endedAt)) : 'дата прекращения договора не указана'}</span></div></li>`).join('');
-    return `<div class="card"><h2>Срок хранения персональных данных</h2><p class="small muted keep">По п. 12.3.1 оферты данные хранятся 3 года после прекращения договора. Дата прекращения ставится сама, когда статус меняется на «ушёл».</p>
+    return `${settingsHeading('Срок хранения персональных данных')}<p class="small muted keep">По п. 12.3.1 оферты данные хранятся 3 года после прекращения договора. Дата прекращения ставится сама, когда статус меняется на «ушёл».</p>
     ${R.expired.length ? `<h3>Срок истёк — удалить (кнопка «Удалить» в карточке), затем составить акт</h3><ul class="list">${li(R.expired)}</ul>` : '<p>Истёкших сроков нет.</p>'}
     ${(() => { const CE = candExpired(); return CE.length ? `<h3>Кандидаты без договора — ${+db.settings.leadsKeep || 6} мес. прошло: обезличить</h3><ul class="list">${CE.map(a => `<li><div class="who"><b>${h(fullName(a))}</b><span class="small">не продолжил после пробного ${D.ru(a.endedAt)}</span></div></li>`).join('')}</ul><button class="btn" data-act="cand-anon">Обезличить (${CE.length})</button>` : ''; })()}
-    ${R.noDate.length ? `<details><summary class="small">«Ушёл» без даты прекращения договора: ${R.noDate.length}</summary><ul class="list">${li(R.noDate)}</ul></details>` : ''}</div>`; })()}
+    ${R.noDate.length ? `<details><summary class="small">«Ушёл» без даты прекращения договора: ${R.noDate.length}</summary><ul class="list">${li(R.noDate)}</ul></details>` : ''}</details>`; })()}
   ${destroyCardHTML()}
-  <div class="card"><h2>Удаление</h2><button class="btn danger" data-act="wipe">Удалить все данные из этого браузера</button></div>`;
+  ${settingsHeading('Удаление')}<button class="btn danger" data-act="wipe">Удалить все данные из этого браузера</button></details>`;
 }
 
 /* ---------- копия в файл / из файла ---------- */
@@ -7189,7 +7189,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '27.11.2026 (v195)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '27.11.2026 (v196)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -8210,11 +8210,11 @@ function destroyPerson(a, reason, note, cats) {
 }
 function destroyCardHTML() {
   const log = (db.destroyLog || []).slice().reverse(), old = log.filter(x => keepUntil(x.date) <= ix.today);
-  return `<div class="card"><h2>Журнал уничтожения персональных данных</h2>
+  return `${settingsHeading('Журнал уничтожения персональных данных')}
   <p class="small muted">Каждое уничтожение данных человека записывается сюда: ФИО, категории данных, причина, дата (приказ Роскомнадзора от 28.10.2022 № 179). Из журнала печатаются акт об уничтожении и выгрузка. Записи и акты хранятся 3 года.</p>
   ${log.length ? `<ul class="list">${log.map(x => `<li style="flex-wrap:wrap"><div class="who"><b>№ ${h(x.no || '')} · ${D.ru(x.date)} · ${h(x.subject)}</b><span class="small">${h(x.reason)}${x.copiesDone ? ' · копии очищены ' + D.ru(x.copiesDone) : ' · <b>копии ещё не очищены</b>'}</span></div>
     <div class="row" style="gap:6px">${x.copiesDone ? '' : `<button class="btn sm" data-act="destroy-copies" data-id="${x.id}">Копии очищены</button>`}<button class="btn sm" data-act="destroy-act" data-id="${x.id}">Акт</button><button class="btn sm" data-act="destroy-extract" data-id="${x.id}">Выгрузка</button></div></li>`).join('')}</ul>
-  <div class="row" style="margin-top:8px"><button class="btn" data-act="destroy-extract" data-id="">Выгрузка всего журнала</button>${old.length ? `<button class="btn danger" data-act="destroy-prune">Удалить записи старше 3 лет (${old.length})</button>` : ''}</div>` : '<p class="small">Записей нет.</p>'}</div>`;
+  <div class="row" style="margin-top:8px"><button class="btn" data-act="destroy-extract" data-id="">Выгрузка всего журнала</button>${old.length ? `<button class="btn danger" data-act="destroy-prune">Удалить записи старше 3 лет (${old.length})</button>` : ''}</div>` : '<p class="small">Записей нет.</p>'}</details>`;
 }
 function operatorLine() { const S = db.settings; return `${h(S.operatorName || S.awardedBy || '')}${S.operatorAddress ? ', ' + h(S.operatorAddress) : ', адрес: ________________________________'}`; }
 const PRINT_CSS = 'h1{font-size:14pt;text-align:center;margin:0 0 4px}h2{font-size:11pt;text-align:center;font-weight:normal;margin:0 0 12px}p{margin:4px 0}.sig{margin-top:28px}.l{display:inline-block;min-width:180px;border-bottom:1px solid #000}ol li{margin:5px 0}';
@@ -9810,12 +9810,12 @@ function offCard() {
   if (!offState) { offCheck().then(() => { if (route().v === 'data') { render.keepScroll = true; rerender(); } }); return ''; }
   const S = offState; if (S.na) return '';
   const ok = S.reg && S.ver, same = S.ver === APP_VER;
-  return `<div class="card"><h2>Работа без интернета</h2>
+  return `${settingsHeading('Работа без интернета')}
     <p>${ok ? (same ? `<b style="color:var(--ok)">✓ Готово.</b> Программа сохранена на этом устройстве (версия ${h(S.ver)}) — откроется и без интернета.`
       : `<b style="color:var(--warn, #B7791F)">Сохранена прежняя версия (${h(S.ver)}).</b> Новая (${h(APP_VER)}) ещё сохраняется — подержите программу открытой с интернетом 10–20 секунд и откройте этот раздел снова.`)
       : `<b style="color:var(--bad)">Не готово:</b> программа ещё не сохранена на устройстве — без интернета не откроется. Откройте её с интернетом, подождите 10–20 секунд и проверьте здесь снова.${S.err ? ' (' + h(S.err) + ')' : ''}`}</p>
     <p class="small muted">${S.app ? 'Открыта как приложение (значок на главном экране) — так и открывайте в поездке.' : 'Совет: установите программу значком на главный экран (меню браузера → «Добавить на главный экран» / «Установить приложение») и открывайте её этим значком — так она надёжнее работает без интернета.'} Перед поездкой загляните сюда: должно быть «✓ Готово» с текущей версией.</p>
-    <button class="btn sm" data-act="off-check">Проверить ещё раз</button></div>`;
+    <button class="btn sm" data-act="off-check">Проверить ещё раз</button></details>`;
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener && navigator.serviceWorker.addEventListener('controllerchange', () => { offState = null; if (route().v === 'data') rerender(); });
 /* установка как приложение и работа без интернета — только когда программа открыта как сайт (https).
