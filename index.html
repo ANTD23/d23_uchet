@@ -1011,6 +1011,10 @@ details.tdet[open] > summary::after{transform:rotate(-135deg)}
 .holiday-add{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px}
 .holiday-add input{min-width:0;width:auto;max-width:100%}
 .holiday-add #hol-reason{flex:1 1 7em}
+.settings-section.card{padding:0 14px;margin-bottom:8px}
+.settings-section>summary{padding:12px 0;cursor:pointer}
+.settings-section>summary h2{display:inline;margin:0;font-size:1rem}
+.settings-section[open]{padding-bottom:14px}
 </style></head>
 <body><div id="app"></div>
 <script>
@@ -2590,6 +2594,7 @@ const UI_DEFAULTS = {
   attest: { group: 'все', q: '', adm: 'все' },
 };
 const ui = {
+  settingsOpen: new Set(),
   holidayYears: new Set(),
   people: { q: '', group: 'все', statuses: ['занимается'], belt: 'все', sex: 'все', ageMode: 'сейчас', ageFrom: '', ageTo: '', yFrom: '', yTo: '', sort: 'name' },
   subs: { filter: 'active', q: '', sort: 'start', dir: -1 },
@@ -5915,6 +5920,10 @@ function printProtocol() {
 .holiday-add{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px}
 .holiday-add input{min-width:0;width:auto;max-width:100%}
 .holiday-add #hol-reason{flex:1 1 7em}
+.settings-section.card{padding:0 14px;margin-bottom:8px}
+.settings-section>summary{padding:12px 0;cursor:pointer}
+.settings-section>summary h2{display:inline;margin:0;font-size:1rem}
+.settings-section[open]{padding-bottom:14px}
 </style></head><body><table class="pp-wrap"><thead><tr><td></td></tr></thead><tbody><tr><td>
   <h2 style="margin:0">Протокол сдачи нормативов (этап 1)</h2><p>${h(db.settings.club)}<br>Дата: ${D.ru(U.date)}${U.group !== 'все' ? ' · группа: ' + h(U.group) : ''}</p>
   <table><tr><th>№</th><th>ФИО</th><th>Возр.</th><th>Цель</th><th>Прыжок, см<br>1 / 2 / 3</th><th>Подтяг.</th><th>Отжим.</th><th>Скруч.</th><th>5-е: подъём ног (П)<br>или рукоход (Р)</th><th>Итог</th></tr>
@@ -6012,16 +6021,19 @@ function holidayYears(holidays) {
     <summary>${h(year)} <span class="small muted">${days.length} ${plural(days.length,'день','дня','дней')}</span></summary>
     <ul>${days.map(x => `<li><time class="num" datetime="${h(x.date)}">${h(D.short(x.date))}</time><span>${h(x.reason)}</span><button type="button" class="btn sm ghost" data-act="hol-del" data-date="${h(x.date)}" aria-label="Удалить ${h(D.ru(x.date))}">×</button></li>`).join('')}</ul></details>`).join('');
 }
+function settingsHeading(title) {
+  return `<details class="card settings-section" data-settings-section="${h(title)}" ${ui.settingsOpen.has(title) ? 'open' : ''}><summary><h2>${h(title)}</h2></summary>`;
+}
 function vSettings() {
   const S = db.settings, A = S.attest, C = S.competition;
   const inp = (path, val, type = 'text', extra = '') => `<input type="${type}" data-change="set" data-path="${path}" value="${h(val ?? '')}" ${extra}>`;
   const L = (label, html) => `<label class="f"><span>${label}</span>${html}</label>`;
   const th = ['light', 'dark', 'soft', 'amoled'].includes(meta.theme) ? meta.theme : '';
   return `<h1>Настройки</h1>
-  <div class="card"><h2>Оформление</h2><div class="row" style="gap:12px"><span id="theme-l">Тема</span><div class="seg full" role="group" aria-labelledby="theme-l" style="grid-template-columns:repeat(auto-fit,minmax(100px,1fr));max-width:720px">${[['', 'Как в системе'], ['light', 'Светлая'], ['dark', 'Тёмная'], ['amoled', 'Чёрная (AMOLED)'], ['soft', 'Тёмная мягкая']].map(([v, l]) => `<button type="button" data-act="theme" data-v="${v}" class="${th === v ? 'on' : ''}" aria-pressed="${th === v}">${l}</button>`).join('')}</div></div>
-  <p class="small muted" style="margin:10px 0 0">«Как в системе» — тема меняется вместе с настройкой телефона или компьютера. «Тёмная» — стальная с жёлтыми кнопками; «Чёрная (AMOLED)» — такая же, но фон чисто чёрный: на AMOLED-экране телефона чёрные точки не светятся — меньше расход батареи и глубже чёрный; «Тёмная мягкая» — прежняя тёмная. Выбор запоминается на этом устройстве; на данные и печать не влияет.</p></div>
+  ${settingsHeading('Оформление')}<div class="row" style="gap:12px"><span id="theme-l">Тема</span><div class="seg full" role="group" aria-labelledby="theme-l" style="grid-template-columns:repeat(auto-fit,minmax(100px,1fr));max-width:720px">${[['', 'Как в системе'], ['light', 'Светлая'], ['dark', 'Тёмная'], ['amoled', 'Чёрная (AMOLED)'], ['soft', 'Тёмная мягкая']].map(([v, l]) => `<button type="button" data-act="theme" data-v="${v}" class="${th === v ? 'on' : ''}" aria-pressed="${th === v}">${l}</button>`).join('')}</div></div>
+  <p class="small muted" style="margin:10px 0 0">«Как в системе» — тема меняется вместе с настройкой телефона или компьютера. «Тёмная» — стальная с жёлтыми кнопками; «Чёрная (AMOLED)» — такая же, но фон чисто чёрный: на AMOLED-экране телефона чёрные точки не светятся — меньше расход батареи и глубже чёрный; «Тёмная мягкая» — прежняя тёмная. Выбор запоминается на этом устройстве; на данные и печать не влияет.</p></details>
   ${(() => { if (!ui.schedFrom) ui.schedFrom = ix.today; return ''; })()}
-  <div class="card"><h2>Группы и расписание</h2>
+  ${settingsHeading('Группы и расписание')}
   <label class="row small" style="gap:8px;margin:0 0 8px"><b>Изменения расписания действуют с</b><input type="date" data-noclr data-change="sched-from" value="${ui.schedFrom}" style="width:auto"></label>
   <p class="small muted">Галочки показывают расписание на эту дату. Изменение действует только с неё: прошлые занятия, сроки абонементов и заморозки до этой даты считаются по прежнему расписанию (п. 9.3.8 оферты).</p>
   <p class="small muted">Отметьте дни занятий — по ним считается окончание абонементов. «Посещ. по расписанию» — для групп, куда ходят нерегулярно (например, «Разово»): для допуска к аттестации пропуском считается каждый день по расписанию, когда клуб работал, даже если в группе в этот день никого не было. При переименовании группа поменяется везде: у спортсменов, в журнале и абонементах. «Мест» — сколько человек комфортно помещается на ковёр (для заполняемости в «Показателях»). «Гости» — группа для приезжих: все её спортсмены считаются гостями; приезжих в обычной группе отмечайте галочкой «Гость» в карточке.</p>
@@ -6032,27 +6044,27 @@ function vSettings() {
   <td style="text-align:center"><input type="checkbox" data-change="group-guest" data-i="${i}" ${g.guest ? 'checked' : ''} style="width:20px;height:20px"></td>
   <td style="text-align:center"><input type="checkbox" data-change="group-today" data-i="${i}" ${g.todayOff ? '' : 'checked'} style="width:20px;height:20px" aria-label="«${h(g.name)}» — показывать в «Тренировки сегодня»"></td>
   <td><button class="btn sm ghost" data-act="group-del" data-i="${i}" aria-label="Удалить группу">✕</button></td></tr>${(g.schedHistory || []).length > 1 ? `<tr><td colspan="13" class="small muted" style="padding-top:0">История расписания: ${g.schedHistory.map((e, k) => `${k ? 'с ' + D.ru(e.from) : 'исходное'}: ${e.days.map((x, j) => x ? DOW[j] : '').filter(Boolean).join(' ') || 'нет дней'}${k ? ` <button class="btn sm ghost" data-act="sched-del" data-i="${i}" data-from="${e.from}" aria-label="Удалить это изменение">✕</button>` : ''}`).join(' · ')}</td></tr>` : ''}`).join('')}</tbody></table></div>
-  <button class="btn" data-act="group-add" style="margin-top:8px">Добавить группу</button></div>
-  <div class="grid2"><section class="card"><h2>Нерабочие дни</h2>
+  <button class="btn" data-act="group-add" style="margin-top:8px">Добавить группу</button></details>
+  ${settingsHeading('Нерабочие дни')}
   <p class="small muted">В эти дни занятий нет у всего клуба. Даты исключаются из расчёта срока абонемента.</p>
   ${holidayYears(S.holidays)}
-  <div class="holiday-add"><input type="date" id="hol-date" aria-label="Дата нерабочего дня"><input type="text" id="hol-reason" placeholder="Причина" aria-label="Причина"><button class="btn sm" data-act="hol-add">Добавить</button></div></section>
-  ${calSettingsCard()}</div>
-  <div class="card"><h2>Клуб</h2><div class="fgrid">${L('Клуб и адрес', inp('club', S.club))}<div class="f"><span>Тренеры</span><div>${h(coachList().join(', ') || '—')} · <a href="#money/coaches">изменить в «Деньги» → «Тренеры»</a></div></div>${L('Кем присваивается пояс', inp('awardedBy', S.awardedBy))}${L('Оператор персональных данных (ФИО полностью, для актов)', inp('operatorName', S.operatorName || S.awardedBy))}${L('Адрес оператора для актов', inp('operatorAddress', S.operatorAddress || ''))}${L('Занятий в абонементе по умолчанию', inp('defaultCount', S.defaultCount, 'number'))}${L('Начало ведения программы (суммы оплат считаются с этой даты)', inp('programStart', S.programStart || S.sickCheckFrom, 'date', 'data-noclr'))}${L('Цель: взрослых (18+) занимается', inp('adultTarget', S.adultTarget ?? 16, 'number', 'min="0"'))}${L('«Показатели» считать с (раньше — неточный перенос из Excel)', inp('statsFrom', S.statsFrom || '', 'date'))}${L('Инструктаж проверять с (раньше — только бумажный журнал)', inp('briefFrom', S.briefFrom || '', 'date'))}
-  <label class="f wide"><span>Пояса (по одному в строке, по порядку)</span><textarea data-change="belts" style="min-height:120px">${h(S.belts.join('\n'))}</textarea></label></div></div>
-  <div class="card"><h2>Цены (Приложение № 1 к оферте)</h2><p class="small muted">По ним программа подставляет сумму в окне оплаты: на ${S.prices.count} занятий — детский тариф, если на дату оплаты ещё нет ${S.prices.kidUnder} лет (Положение о льготах, п. 3.1), иначе базовый; одно занятие — разовое посещение. Сумму в окне оплаты можно изменить — по договорённости.</p>
-  <div class="fgrid">${L('Разовое посещение, ₽', inp('prices.single', S.prices.single, 'number', 'min="0" step="10"'))}${L('Абонемент на ' + S.prices.count + ' занятий, ₽', inp('prices.sub', S.prices.sub, 'number', 'min="0" step="10"'))}${L('Детский абонемент, ₽', inp('prices.subKid', S.prices.subKid, 'number', 'min="0" step="10"'))}${L('Детский — пока не исполнилось, лет', inp('prices.kidUnder', S.prices.kidUnder, 'number', 'min="1" max="18"'))}</div></div>
-  <div class="card"><h2>Пробное занятие</h2><div class="fgrid"><label class="row wide" style="gap:8px"><input type="checkbox" data-change="trialfree" data-k="on" ${S.trialFree && S.trialFree.on ? 'checked' : ''} style="width:20px;height:20px"><span><b>Пробное занятие бесплатное</b></span></label>${L('С даты', `<input type="date" data-change="trialfree" data-k="from" value="${h((S.trialFree && S.trialFree.from) || '')}">`)}</div>
-  <p class="small muted">Выключено — пробное платное, как разовое посещение. Включено — с этой даты отметка «пробное» не создаёт долга и не списывается; прежние пробные считаются как были. У конкретного занятия можно поменять кнопкой «платно / бесплатно» рядом с «пробное». Если меняете правило — поменяйте и оферту.</p></div>
-  <div class="card"><h2>Источники, причины ухода, заявки</h2><div class="fgrid"><label class="f wide"><span>Откуда узнают о клубе (по одному в строке; новый можно добавить и в карточке — «+ другой источник…»)</span><textarea data-change="sources" style="min-height:110px">${h((S.sources || []).join('\n'))}</textarea></label>
+  <div class="holiday-add"><input type="date" id="hol-date" aria-label="Дата нерабочего дня"><input type="text" id="hol-reason" placeholder="Причина" aria-label="Причина"><button class="btn sm" data-act="hol-add">Добавить</button></div></details>
+  ${calSettingsCard()}
+  ${settingsHeading('Клуб')}<div class="fgrid">${L('Клуб и адрес', inp('club', S.club))}<div class="f"><span>Тренеры</span><div>${h(coachList().join(', ') || '—')} · <a href="#money/coaches">изменить в «Деньги» → «Тренеры»</a></div></div>${L('Кем присваивается пояс', inp('awardedBy', S.awardedBy))}${L('Оператор персональных данных (ФИО полностью, для актов)', inp('operatorName', S.operatorName || S.awardedBy))}${L('Адрес оператора для актов', inp('operatorAddress', S.operatorAddress || ''))}${L('Занятий в абонементе по умолчанию', inp('defaultCount', S.defaultCount, 'number'))}${L('Начало ведения программы (суммы оплат считаются с этой даты)', inp('programStart', S.programStart || S.sickCheckFrom, 'date', 'data-noclr'))}${L('Цель: взрослых (18+) занимается', inp('adultTarget', S.adultTarget ?? 16, 'number', 'min="0"'))}${L('«Показатели» считать с (раньше — неточный перенос из Excel)', inp('statsFrom', S.statsFrom || '', 'date'))}${L('Инструктаж проверять с (раньше — только бумажный журнал)', inp('briefFrom', S.briefFrom || '', 'date'))}
+  <label class="f wide"><span>Пояса (по одному в строке, по порядку)</span><textarea data-change="belts" style="min-height:120px">${h(S.belts.join('\n'))}</textarea></label></div></details>
+  ${settingsHeading('Цены (Приложение № 1 к оферте)')}<p class="small muted">По ним программа подставляет сумму в окне оплаты: на ${S.prices.count} занятий — детский тариф, если на дату оплаты ещё нет ${S.prices.kidUnder} лет (Положение о льготах, п. 3.1), иначе базовый; одно занятие — разовое посещение. Сумму в окне оплаты можно изменить — по договорённости.</p>
+  <div class="fgrid">${L('Разовое посещение, ₽', inp('prices.single', S.prices.single, 'number', 'min="0" step="10"'))}${L('Абонемент на ' + S.prices.count + ' занятий, ₽', inp('prices.sub', S.prices.sub, 'number', 'min="0" step="10"'))}${L('Детский абонемент, ₽', inp('prices.subKid', S.prices.subKid, 'number', 'min="0" step="10"'))}${L('Детский — пока не исполнилось, лет', inp('prices.kidUnder', S.prices.kidUnder, 'number', 'min="1" max="18"'))}</div></details>
+  ${settingsHeading('Пробное занятие')}<div class="fgrid"><label class="row wide" style="gap:8px"><input type="checkbox" data-change="trialfree" data-k="on" ${S.trialFree && S.trialFree.on ? 'checked' : ''} style="width:20px;height:20px"><span><b>Пробное занятие бесплатное</b></span></label>${L('С даты', `<input type="date" data-change="trialfree" data-k="from" value="${h((S.trialFree && S.trialFree.from) || '')}">`)}</div>
+  <p class="small muted">Выключено — пробное платное, как разовое посещение. Включено — с этой даты отметка «пробное» не создаёт долга и не списывается; прежние пробные считаются как были. У конкретного занятия можно поменять кнопкой «платно / бесплатно» рядом с «пробное». Если меняете правило — поменяйте и оферту.</p></details>
+  ${settingsHeading('Источники, причины ухода, заявки')}<div class="fgrid"><label class="f wide"><span>Откуда узнают о клубе (по одному в строке; новый можно добавить и в карточке — «+ другой источник…»)</span><textarea data-change="sources" style="min-height:110px">${h((S.sources || []).join('\n'))}</textarea></label>
   <label class="f wide"><span>Причины ухода (по одному в строке; «Иное» — с пояснением)</span><textarea data-change="leave-reasons" style="min-height:110px">${h((S.leaveReasons || LEAVE_REASONS).join('\n'))}</textarea></label>${L('Обезличивать заявки без договора через, мес.', inp('leadsKeep', S.leadsKeep, 'number', 'min="1" max="36"'))}</div>
-  <p class="small muted">Переименовали источник или причину — у спортсменов, кому они уже проставлены, останется прежнее название (оно видно в карточке и в «Показателях» отдельной строкой).</p></div>
-  <div class="card"><h2>Контроль новичка</h2><p class="small muted">Пункт «Новичок» в «Требует внимания»: человек пришёл недавно и ходит меньше, чем нужно, чтобы втянуться. Большинство уходящих новичков уходит в первые недели — написать или поговорить лучше сразу.</p>
-  <div class="fgrid">${L('Первые дни в клубе, дн.', inp('newbie.days', S.newbie.days, 'number', 'min="7" max="60"'))}${L('…за них посещений не меньше', inp('newbie.minVisits', S.newbie.minVisits, 'number', 'min="1" max="10"'))}${L('Пропусков подряд — сигнал', inp('newbie.missRow', S.newbie.missRow, 'number', 'min="1" max="6"'))}${L('Сколько дней считать новичком', inp('newbie.watch', S.newbie.watch, 'number', 'min="14" max="120"'))}</div></div>
-  <div class="card"><h2>Шаблоны сообщений</h2><p class="small muted">Подстановки: {имя}, {фи}, {фио}, {остаток}, {долг}, {занятий}, {дата_начала}, {дата_окончания}, {срок_оплаты}, {группа}, {окончание_нового} — окончание нового абонемента «ждём оплату» (в {дата_окончания} у него — окончание прежнего), {продление} — «Продлён на 1 занятие (соревнования 24.10), прежний срок — до …» (если продления не было — пусто).</p>
+  <p class="small muted">Переименовали источник или причину — у спортсменов, кому они уже проставлены, останется прежнее название (оно видно в карточке и в «Показателях» отдельной строкой).</p></details>
+  ${settingsHeading('Контроль новичка')}<p class="small muted">Пункт «Новичок» в «Требует внимания»: человек пришёл недавно и ходит меньше, чем нужно, чтобы втянуться. Большинство уходящих новичков уходит в первые недели — написать или поговорить лучше сразу.</p>
+  <div class="fgrid">${L('Первые дни в клубе, дн.', inp('newbie.days', S.newbie.days, 'number', 'min="7" max="60"'))}${L('…за них посещений не меньше', inp('newbie.minVisits', S.newbie.minVisits, 'number', 'min="1" max="10"'))}${L('Пропусков подряд — сигнал', inp('newbie.missRow', S.newbie.missRow, 'number', 'min="1" max="6"'))}${L('Сколько дней считать новичком', inp('newbie.watch', S.newbie.watch, 'number', 'min="14" max="120"'))}</div></details>
+  ${settingsHeading('Шаблоны сообщений')}<p class="small muted">Подстановки: {имя}, {фи}, {фио}, {остаток}, {долг}, {занятий}, {дата_начала}, {дата_окончания}, {срок_оплаты}, {группа}, {окончание_нового} — окончание нового абонемента «ждём оплату» (в {дата_окончания} у него — окончание прежнего), {продление} — «Продлён на 1 занятие (соревнования 24.10), прежний срок — до …» (если продления не было — пусто).</p>
   <p class="small muted">{изменение_срока} — изменение относительно последней сообщённой даты. {справка_о_болезни} — запрос справки при оформленной заморозке. {срок_абонемента} — срок действия с учётом договорённости и фактического возвращения. {период_отсутствия} — пояснение к продлению при согласованном отсутствии. {условия_оплаты} — период, автоактивация или согласованное отсутствие; {период_ожидания} — период нового неоплаченного абонемента, если известен; {даты_долга} — даты неоплаченных посещений. Для переноса занятия используются {дата_занятия}, {прежнее_время}, {новая_дата} и {новое_время}.</p>
   ${S.templates.map((t, i) => `<fieldset><legend>${h(t.title)}</legend><input type="text" data-change="tpl" data-i="${i}" data-k="title" value="${h(t.title)}" style="margin-bottom:6px"><textarea data-change="tpl" data-i="${i}" data-k="text">${h(t.text)}</textarea><button class="btn sm danger" data-act="tpl-del" data-i="${i}" style="margin-top:6px">Удалить шаблон</button></fieldset>`).join('')}
-  <button class="btn" data-act="tpl-add">Добавить шаблон</button></div>`;
+  <button class="btn" data-act="tpl-add">Добавить шаблон</button></details>`;
 }
 
 /* ---------- ДЕНЬГИ ---------- */
@@ -7177,7 +7189,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '27.11.2026 (v194)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '27.11.2026 (v195)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -7342,6 +7354,10 @@ function openPrint(title, html, css = '', opt = {}) {
 .holiday-add{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px}
 .holiday-add input{min-width:0;width:auto;max-width:100%}
 .holiday-add #hol-reason{flex:1 1 7em}
+.settings-section.card{padding:0 14px;margin-bottom:8px}
+.settings-section>summary{padding:12px 0;cursor:pointer}
+.settings-section>summary h2{display:inline;margin:0;font-size:1rem}
+.settings-section[open]{padding-bottom:14px}
 </style></head><body${opt.app ? ' class="print-win"' : ''}>${opt.pages ? html : ppWrap(html)}<script>window.print()<\/script></body></html>`);
   w.document.close();
 }
@@ -8635,6 +8651,10 @@ document.addEventListener('click', e => { const cm = e.target.closest && e.targe
 document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('nt-card') && e.target === document.activeElement) { e.preventDefault(); noteView(e.target.dataset.id); } });   // 15.11.2026: карточка заметки с клавиатуры
 document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('it-cm')) { e.preventDefault(); itToggle(e.target); } });
 document.addEventListener('toggle', e => {
+  if (e.target.matches('details[data-settings-section]')) {
+    const title = e.target.dataset.settingsSection;
+    if (e.target.open) ui.settingsOpen.add(title); else ui.settingsOpen.delete(title);
+  }
   if (e.target.matches('details[data-hol-year]')) {
     const year = e.target.dataset.holYear;
     if (e.target.open) ui.holidayYears.add(year); else ui.holidayYears.delete(year);
@@ -9513,13 +9533,13 @@ function calSoonCard() {                                  // «Сегодня»:
 }
 function calSettingsCard() {
   const S = db.settings.calView, V = CAL_VIEWS, hrs = []; for (let k = 0; k <= 24; k++) hrs.push([k, calPad(k) + ':00']);
-  return `<div class="card"><h2>Календарь</h2><div class="fgrid">
+  return `${settingsHeading('Календарь')}<div class="fgrid">
     <label class="f"><span>Открывать на компьютере</span><select data-change="cal-set" data-k="pc">${V.map(([k, l]) => opt(k, S.pc, l)).join('')}</select></label>
     <label class="f"><span>Открывать на телефоне</span><select data-change="cal-set" data-k="mob">${V.map(([k, l]) => opt(k, S.mob, l)).join('')}</select></label>
     <label class="f"><span>«Неделя» и «День»: с</span><select data-change="cal-set" data-k="h0">${hrs.slice(0, 24).map(([k, l]) => opt(k, S.h0, l)).join('')}</select></label>
     <label class="f"><span>до</span><select data-change="cal-set" data-k="h1">${hrs.slice(1).map(([k, l]) => opt(k, S.h1, l)).join('')}</select></label>
     <label class="f wide"><span>Основной часовой пояс</span><select data-change="cal-set" data-k="tz">${tzOptions(calTz(), Date.now())}</select></label></div>
-    <p class="small muted">Календарь показывает время по основному поясу. Событие, время которого вводили в другом поясе (например, турнир в Бангкоке), пересчитывается автоматически. Вид по умолчанию — при открытии программы; в самом календаре вид переключается кнопками. Свои календари добавляются и удаляются в разделе «Календарь».</p></div>`;
+    <p class="small muted">Календарь показывает время по основному поясу. Событие, время которого вводили в другом поясе (например, турнир в Бангкоке), пересчитывается автоматически. Вид по умолчанию — при открытии программы; в самом календаре вид переключается кнопками. Свои календари добавляются и удаляются в разделе «Календарь».</p></details>`;
 }
 function todayGroupsDlg() {                              // 12.11.2026: какие группы показывать в «Тренировки сегодня»
   const G = db.settings.groups, dw = D.dow(ix.today);
@@ -9571,6 +9591,10 @@ const CAL_ACT = {
 };
 Object.assign(ACT, CAL_ACT, PA_ACT);
 document.addEventListener('toggle', e => {
+  if (e.target.matches('details[data-settings-section]')) {
+    const title = e.target.dataset.settingsSection;
+    if (e.target.open) ui.settingsOpen.add(title); else ui.settingsOpen.delete(title);
+  }
   if (e.target.matches('details[data-hol-year]')) {
     const year = e.target.dataset.holYear;
     if (e.target.open) ui.holidayYears.add(year); else ui.holidayYears.delete(year);
@@ -9583,6 +9607,10 @@ function catFit(d) {                                  // список стате
   body.style.maxHeight = Math.max(180, Math.min(480, lim - top - extra)) + 'px';
 }   // 13.11.2026: меню статей остаётся открытым при отметках и целиком на экране   // 13.11.2026: меню статей остаётся открытым при отметках
 document.addEventListener('toggle', e => {
+  if (e.target.matches('details[data-settings-section]')) {
+    const title = e.target.dataset.settingsSection;
+    if (e.target.open) ui.settingsOpen.add(title); else ui.settingsOpen.delete(title);
+  }
   if (e.target.matches('details[data-hol-year]')) {
     const year = e.target.dataset.holYear;
     if (e.target.open) ui.holidayYears.add(year); else ui.holidayYears.delete(year);
@@ -9740,6 +9768,10 @@ function safeChange(e) { try { const r = onChange(e); if (r && typeof r.catch ==
 function showError(err) { console.error(err); notice('Ошибка: ' + (err && err.message || err) + '\nДействие не выполнено. Если повторяется — сохраните копию данных и опишите, что нажимали.'); }
 document.addEventListener('change', safeChange);
 document.addEventListener('toggle', e => {
+  if (e.target.matches('details[data-settings-section]')) {
+    const title = e.target.dataset.settingsSection;
+    if (e.target.open) ui.settingsOpen.add(title); else ui.settingsOpen.delete(title);
+  }
   if (e.target.matches('details[data-hol-year]')) {
     const year = e.target.dataset.holYear;
     if (e.target.open) ui.holidayYears.add(year); else ui.holidayYears.delete(year);
