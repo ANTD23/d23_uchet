@@ -4237,13 +4237,8 @@ function vJournal() {
   const history = J.history;
   if (history.from === null) history.from = D.add(ix.today, -6);
   if (history.to === null) history.to = ix.today;
-  const t = ix.today, todayS = ix.sessionsSorted.filter(x => x.date === t);
-  const tg = [...new Set([...db.settings.groups.filter(g => daysOn(g, t)[D.dow(t)] && !g.todayOff).map(g => g.name), ...todayS.map(x => x.group)])];
-  const tBtns = tg.map(g => { const x = todayS.find(y => y.group === g), n = x ? Object.values(x.marks).filter(m => m === '+').length : 0;
-    return `<button class="btn ${x ? '' : 'primary'}" data-act="open-session" data-date="${t}" data-group="${h(g)}">${x ? h(g || 'без группы') + ' · отмечено ' + n : 'Отметить «' + h(g) + '»'}</button>`; }).join('');
   return `<div class="topline"><h1>Посещения</h1>${tabs}</div>
-  <div class="card"><h2>Сегодня, ${DOW_FULL[D.dow(t)]}</h2><div class="today-groups">${tBtns || '<span class="muted">По расписанию сегодня занятий нет. Откройте занятие на другую дату ниже.</span>'}</div></div>
-  <div class="card"><h2>Другая дата или группа</h2>
+  <div class="card"><h2>Открыть занятие</h2>
     <div class="row"><label class="f" style="min-width:160px"><span>Дата</span><input type="date" data-noclr id="j-date" value="${J.date}"></label>
     <label class="f" style="min-width:180px;flex:1"><span>Группа</span><select id="j-group">${groups.map(g => opt(g, J.group || suggestGroup(J.date))).join('')}</select></label>
     <button class="btn primary" data-act="open-session-form" style="align-self:flex-end">Открыть</button></div></div>
@@ -7219,7 +7214,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '28.11.2026 (v203)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '28.11.2026 (v204)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
