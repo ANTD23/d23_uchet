@@ -1217,8 +1217,40 @@ function computeSubs(ix) {
     const shared = withBlankCells(ix, aid, (ix.marks.get(aid) || []).map(m => ({ ...m, used: !!(m.trial && trialIsFree(ix.db.settings, m.trialV, m.date)) })));   // №38: бесплатное пробное — не списывается и не долг   // одна отметка — одно списание на все цепочки
     const hasMain = chains.has('');
     const order = [...chains.keys()].sort((a, b) => (a === '') - (b === ''));       // сначала «только на группу», основной последним
-    const fin = [];                                                                 // 29.10.2026: долги — после всех цепочек, иначе «только на группу» забирала посещение,
-    for (const og of order) fin.push(calcChain(ix, aid, og, chains.get(og), shared, hasMain));   // которое покрывает новая основная оплата (Плешков: разовая 27.10 «Разово» + разовая 29.10)
+    const calculate = () => order.map(group => calcChain(ix, aid, group, chains.get(group), shared, hasMain));
+    let fin = calculate();
+    // Сначала сохраняем обычное распределение: оплата занятия в его группе или общий абонемент.
+    // Для непокрытого «+» разрешаем списание по расписанию другой оплаченной группы.
+    const passes = all.filter(p => p.onlyGroup && !p.pending && +p.count > 1);
+    const guestCounts = new Map();
+    for (const m of shared) {
+      if (m.used || m.mark !== '+' || !passes.length) continue;
+      const home = groupOn(ix.ath.get(aid), m.date);
+      const candidates = passes.filter(p => {
+        const r = ix.subCalc.get(p.id);
+        return p.onlyGroup !== m.group && subKey(p) <= m.date &&
+          !(r.endKind === 'terminated' && r.end <= m.date) &&
+          (!r.next || m.date < r.next) && (!r.first || r.first <= m.date || !p.start);
+      });
+      // При нескольких подходящих оплатах предпочтительна действующая в основной группе.
+      const available = candidates.filter(p => {
+        const r = ix.subCalc.get(p.id);
+        const charged = (r.chargedDates || []).filter(d => d <= m.date).length;
+        const carry = (+p.carryWas || 0) + (+p.carryMissed || 0);
+        const limit = p.bonusFrom && m.date < p.bonusFrom ? +p.count : subTotal(p);
+        return charged + carry + (guestCounts.get(p.id) || 0) < limit;
+      });
+      const pool = available.length ? available : candidates;
+      const pass = pool.find(p => p.onlyGroup === home) || pool[0];
+      if (pass) {
+        m.guestGroup = pass.onlyGroup;
+        guestCounts.set(pass.id, (guestCounts.get(pass.id) || 0) + 1);
+      }
+    }
+    if (guestCounts.size) {
+      for (const m of shared) m.used = !!(m.trial && trialIsFree(ix.db.settings, m.trialV, m.date));
+      fin = calculate();
+    }
     for (const f of fin) f();
   }
 }
@@ -1276,7 +1308,7 @@ function setSubStatus(ix, p, r) {
   if (p.pending) { r.pending = true; r.status = 'ждём оплату'; r.tone = 'bad'; }
 }
 function calcChain(ix, aid, og, list, shared, hasMain) {
-  const marks = shared.filter(m => !og || m.group === og);                     // те же объекты: флаг used общий
+  const chainMarks = shared.filter(m => m.guestGroup ? m.guestGroup === og : !og || m.group === og);                     // те же объекты: флаг used общий
   let cursor = '', blocked = false, cursorForecast = false;
   const A0 = ix.ath.get(aid), leftAt = A0 && A0.status === 'ушёл' ? (A0.endedAt || '') : '';   // п. 10.3
   const refundAt = A0 ? [A0.refund && A0.refund.date, ...(A0.refundsPast || []).map(R => R.date), A0.closedAt].filter(Boolean).sort().pop() || '' : '';   // отказ с возвратом (и вернувшийся из архива без старого абонемента, 13.11.2026): абонементы до этой даты закрыты навсегда
@@ -1284,6 +1316,7 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
   const done = [];
   for (let i = 0; i < list.length; i++) {
     const p = list[i];
+    const marks = p.pending || +p.count <= 1 ? chainMarks.filter(m => !m.guestGroup) : chainMarks;
     const r = { was: 0, missed: 0, sick: 0, sickCharged: 0, comp: 0, cancel: 0, next: null, end: '', endKind: '', remaining: null, status: '', tone: '', lastCharged: '', charged: 0 };
     const groups = subGroups(ix, p), pkg = isPkg(ix, p); if (pkg) r.pkg = true;
     if (p.start) { r.act = p.start; r.first = p.start; r.actKind = 'manual'; }
@@ -1349,6 +1382,9 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
       m.used = true; used++; if (m.auto) r.blank = (r.blank || 0) + 1; (r.chargedDates = r.chargedDates || []).push(m.date);   // 23.10.2026: «отработано» — по датам списанных занятий
       if (mk === '+') r.was++; else if (mk === 'н' || mk === 'с') r.missed++; else { r.sick++; r.sickCharged++; (r.sickDates = r.sickDates || []).push(m.date); if (prov) { r.provSick = (r.provSick || 0) + 1; (r.provDates = r.provDates || []).push(m.date); } }
       if (mk === '+' && m.mark === '+' && p.pending) (r.owedPlus = r.owedPlus || []).push(m.date);
+      if (m.mark === '+' && m.group && (og ? m.group !== og : A0 && !inGroupOn(A0, m.group, m.date))) {
+        (r.extraVisits ||= []).push({ id: m.sid, date: m.date, group: m.group });
+      }
       if (m.mark === '+') (r.plusList = r.plusList || []).push({ date: m.date, group: m.group || '', n: carry + used });   // какое по счёту посещение этой оплаты (журнал: «3/10», «р»)   // 20.10.2026: посещение в счёт «ждём оплату» — в журнале «д»
       r.lastCharged = m.date; r.lastChargedGroup = m.group || '';
     }
@@ -1382,10 +1418,10 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
   }
   return () => {
   // посещения без действующего абонемента — долг того абонемента, после которого они были
-  for (const m of marks) {
+  for (const m of chainMarks) {
     if (m.used || m.mark !== '+') continue;
     let t = null;
-    for (const [p, r] of done) if (r.first && r.first <= m.date && !(r.next && m.date >= r.next) && !(stopFor(p) && m.date >= stopFor(p))) t = r;
+    for (const [p, r] of done) if ((!m.guestGroup || (!p.pending && +p.count > 1)) && r.first && r.first <= m.date && !(r.next && m.date >= r.next) && !(stopFor(p) && m.date >= stopFor(p))) t = r;
     if (!t && (!og || !hasMain) && m.date >= (ix.db.settings.sickCheckFrom || '')) { if (!ix.unpaid.has(aid)) ix.unpaid.set(aid, []); ix.unpaid.get(aid).push(m.date); }
     if (t) { m.used = true; t.was++; t.charged++; t.remaining--; t.debtVisits = (t.debtVisits || 0) + 1; (t.debtDates = t.debtDates || []).push(m.date); if (m.date > t.lastCharged) t.lastCharged = m.date; if (t.remaining <= 0 && t.endKind !== 'fact') { t.end = t.lastPaid || t.end; t.endKind = 'fact'; } }   // 21.10.2026: занятия в долг не сдвигают окончание — абонемент кончился на последнем оплаченном
   }
@@ -1774,10 +1810,28 @@ function lastCommunicatedPeriod(p) {
   return history.lastPeriod || [history.period, history.end, history.finished]
     .filter(record => record?.end).sort((a, b) => b.at.localeCompare(a.at))[0];
 }
+function extraVisitKey(visit) { return JSON.stringify([visit.id, visit.date, visit.group]); }
 function periodChangeText(p, sc, endDate) {
   const last = lastCommunicatedPeriod(p);
   if (!last?.end || last.end === sc.end) return 'Дата окончания абонемента — ' + endDate + '.';
   const lines = [];
+  if (sc.end && sc.end < last.end) {
+    const previous = last.extraVisits ? new Set(last.extraVisits) : null;
+    const byGroup = new Map();
+    for (const visit of sc.extraVisits || []) {
+      if (previous ? previous.has(extraVisitKey(visit)) : visit.date <= last.at) continue;
+      if (!byGroup.has(visit.group)) byGroup.set(visit.group, []);
+      byGroup.get(visit.group).push(D.short(visit.date));
+    }
+    for (const [group, dates] of byGroup) {
+      const n = dates.length;
+      const count = n === 1 ? 'учтено одно дополнительное занятие' : n === 2 ? 'учтены два дополнительных занятия' : plural(n, 'учтено ' + n + ' дополнительное занятие', 'учтены ' + n + ' дополнительных занятия', 'учтено ' + n + ' дополнительных занятий');
+      const groupNo = /^группа\s*[#№]\s*(\d+)$/iu.exec(group);
+      const label = groupNo ? '№ ' + groupNo[1] : '«' + group + '»';
+      const when = dates.length < 2 ? dates[0] : dates.slice(0,-1).join(', ') + ' и ' + dates[dates.length-1];
+      lines.push('По абонементу ' + count + ' в группе ' + label + ' — ' + when + '.');
+    }
+  }
   if (sc.end > last.end) {
     const reasons = { 'о': 'Отмена занятия', 'с': 'Участие в соревнованиях', 'б': 'Болезнь' };
     for (const event of sc.extDates || []) {
@@ -5510,7 +5564,7 @@ function openSub(id, athleteId) {
   <details class="pay-fold"><summary>Условия абонемента <span data-pay-summary="terms"></span></summary><div class="fgrid">
   ${F('start', 'Дата активации (пусто — автоматически)', v.start, 'date')}
   <p class="small muted wide" style="margin:-4px 0 0">Пусто: абонемент активируется сам в день первого посещения после оплаты (при оплате заранее — первого посещения после окончания текущего), а если посещений не будет — на 30-й день: считая со следующего дня после оплаты, а при оплате заранее — со следующего дня после окончания текущего абонемента (п. 9.2). Дату ставьте вручную, только если нужно иначе.</p>
-  ${FS('onlyGroup', 'Абонемент только на группу', [['', 'все группы человека'], ...db.settings.groups.map(g => g.name)], v.onlyGroup)}
+  ${FS('onlyGroup', 'Группа абонемента', [['', 'все группы человека'], ...db.settings.groups.map(g => g.name)], v.onlyGroup)}
   ${F('refundPrice', 'Цена занятия для возврата, ₽', v.refundPrice || '', 'number', 'min="0" step="10" inputmode="numeric" placeholder="пусто — по п. 10.4.2"')}
   <p class="small muted wide" style="margin:-4px 0 0">Пусто — цена считается сама: сумма ÷ число занятий, вверх до 10 ₽ (5 500 → 460, 5 000 → 420). Свою цену можно поставить только не ниже расчётной.</p>
   </div></details>
@@ -5709,7 +5763,7 @@ function markNotified(p, type) {
   if (type === 'period' && r?.earlyReturn) record.earlyReturn = r.earlyReturn;
   p.notified = { ...p.notified, [type]: record };
   if (record.end && !p.pending && !r.pkg) {
-    p.notified.lastPeriod = { ...record, events: (r.extDates || []).map(x => x.k + x.d), bonus: +p.bonus || 0 };
+    p.notified.lastPeriod = { ...record, extraVisits: (r.extraVisits || []).map(extraVisitKey), events: (r.extDates || []).map(x => x.k + x.d), bonus: +p.bonus || 0 };
   }
 }
 function notifyState(p, type) {                   // null — не отмечено; stale — после отметки срок изменился (заморозка, отмена занятия)
@@ -7214,7 +7268,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '28.11.2026 (v204)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '28.11.2026 (v206)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
