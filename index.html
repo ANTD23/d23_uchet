@@ -1002,6 +1002,15 @@ details.tdet[open] > summary::after{transform:rotate(-135deg)}
   .cl-tm{width:76px;font-size:.8125rem}
 }
 @media print{.cal-side{display:none} .cal-wrap{display:block}}
+.holiday-year{border-bottom:1px solid var(--line)}
+.holiday-year summary{cursor:pointer;padding:8px 4px;font-weight:650}
+.holiday-year summary span{float:right;font-weight:400}
+.holiday-year ul{list-style:none;margin:0 0 6px;padding:0;max-height:15rem;overflow:auto}
+.holiday-year li{display:grid;grid-template-columns:4em minmax(0,1fr) auto;align-items:center;gap:8px;padding:2px 5px;font-size:.86rem;overflow-wrap:anywhere}
+.holiday-year time{font-weight:600}
+.holiday-add{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px}
+.holiday-add input{min-width:0;width:auto;max-width:100%}
+.holiday-add #hol-reason{flex:1 1 7em}
 </style></head>
 <body><div id="app"></div>
 <script>
@@ -2581,6 +2590,7 @@ const UI_DEFAULTS = {
   attest: { group: 'все', q: '', adm: 'все' },
 };
 const ui = {
+  holidayYears: new Set(),
   people: { q: '', group: 'все', statuses: ['занимается'], belt: 'все', sex: 'все', ageMode: 'сейчас', ageFrom: '', ageTo: '', yFrom: '', yTo: '', sort: 'name' },
   subs: { filter: 'active', q: '', sort: 'start', dir: -1 },
   journal: { date: null, group: '' , tab: 'session', month: null, mgroup: '', history: { open: false, from: null, to: null, page: 0 } },
@@ -5896,7 +5906,16 @@ function printProtocol() {
   const nrm = (x, k) => { const p = x.r.per && x.r.per[k]; return p && p.norm !== '' && p.norm != null ? p.norm : '—'; };
   const fifthNorms = x => { const N = x.r.norm; if (!N) return '—'; const B = x.t.target === 'пояс', v = k => { const n = N[B ? k + 'B' : k + 'S']; return n === '' || n == null ? '—' : n; };
     if (!x.r.monOk) return 'П (согн.) ' + v('leg'); return 'П ' + v('leg') + ' · Р ' + v('mon'); };
-  w.document.write(`<html><head><meta charset="utf-8"><title>Протокол ${D.ru(U.date)}</title><style>body{font:11pt Arial,sans-serif;margin:12mm}table{border-collapse:collapse;width:100%}*{color:#000}td,th{border:1px solid #000;padding:5px 6px;text-align:center}td:nth-child(2){text-align:left}th{font-size:9pt;border-bottom:2px solid #000}.n{font-size:8pt;font-style:italic}tr{page-break-inside:avoid}${PRINT_NOHF}</style></head><body><table class="pp-wrap"><thead><tr><td></td></tr></thead><tbody><tr><td>
+  w.document.write(`<html><head><meta charset="utf-8"><title>Протокол ${D.ru(U.date)}</title><style>body{font:11pt Arial,sans-serif;margin:12mm}table{border-collapse:collapse;width:100%}*{color:#000}td,th{border:1px solid #000;padding:5px 6px;text-align:center}td:nth-child(2){text-align:left}th{font-size:9pt;border-bottom:2px solid #000}.n{font-size:8pt;font-style:italic}tr{page-break-inside:avoid}${PRINT_NOHF}.holiday-year{border-bottom:1px solid var(--line)}
+.holiday-year summary{cursor:pointer;padding:8px 4px;font-weight:650}
+.holiday-year summary span{float:right;font-weight:400}
+.holiday-year ul{list-style:none;margin:0 0 6px;padding:0;max-height:15rem;overflow:auto}
+.holiday-year li{display:grid;grid-template-columns:4em minmax(0,1fr) auto;align-items:center;gap:8px;padding:2px 5px;font-size:.86rem;overflow-wrap:anywhere}
+.holiday-year time{font-weight:600}
+.holiday-add{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px}
+.holiday-add input{min-width:0;width:auto;max-width:100%}
+.holiday-add #hol-reason{flex:1 1 7em}
+</style></head><body><table class="pp-wrap"><thead><tr><td></td></tr></thead><tbody><tr><td>
   <h2 style="margin:0">Протокол сдачи нормативов (этап 1)</h2><p>${h(db.settings.club)}<br>Дата: ${D.ru(U.date)}${U.group !== 'все' ? ' · группа: ' + h(U.group) : ''}</p>
   <table><tr><th>№</th><th>ФИО</th><th>Возр.</th><th>Цель</th><th>Прыжок, см<br>1 / 2 / 3</th><th>Подтяг.</th><th>Отжим.</th><th>Скруч.</th><th>5-е: подъём ног (П)<br>или рукоход (Р)</th><th>Итог</th></tr>
   ${rows.map((x, i) => `<tr><td>${i + 1}</td><td>${h(fullName(x.a))}</td><td>${x.r.age ?? ''}</td><td>${h(x.t.target)}</td><td><span class="n">норма ${nrm(x, 'jump')}</span><br>&nbsp;</td><td><span class="n">${nrm(x, 'pull')}${x.r.pullKind === 'вис, сек' ? ' с вис' : ''}</span><br>&nbsp;</td><td><span class="n">${nrm(x, 'push')}${x.r.pushKind === 'с колен' ? ' с колен' : ''}</span><br>&nbsp;</td><td><span class="n">${nrm(x, 'crunch')}</span><br>&nbsp;</td><td><span class="n">${fifthNorms(x)}</span><br>&nbsp;</td><td></td></tr>`).join('')}</table>
@@ -5981,6 +6000,18 @@ function reportSummary(R) {
 }
 
 /* ---------- НАСТРОЙКИ ---------- */
+function holidayYears(holidays) {
+  const years = new Map();
+  for (const day of [...holidays].sort((a,b) => a.date.localeCompare(b.date))) {
+    const year = day.date.slice(0,4);
+    if (!years.has(year)) years.set(year, []);
+    years.get(year).push(day);
+  }
+  if (!years.size) return '<p class="small muted">Нерабочие дни не указаны.</p>';
+  return Array.from(years, ([year, days]) => `<details class="holiday-year" data-hol-year="${h(year)}" ${ui.holidayYears.has(year) ? 'open' : ''}>
+    <summary>${h(year)} <span class="small muted">${days.length} ${plural(days.length,'день','дня','дней')}</span></summary>
+    <ul>${days.map(x => `<li><time class="num" datetime="${h(x.date)}">${h(D.short(x.date))}</time><span>${h(x.reason)}</span><button type="button" class="btn sm ghost" data-act="hol-del" data-date="${h(x.date)}" aria-label="Удалить ${h(D.ru(x.date))}">×</button></li>`).join('')}</ul></details>`).join('');
+}
 function vSettings() {
   const S = db.settings, A = S.attest, C = S.competition;
   const inp = (path, val, type = 'text', extra = '') => `<input type="${type}" data-change="set" data-path="${path}" value="${h(val ?? '')}" ${extra}>`;
@@ -6002,15 +6033,11 @@ function vSettings() {
   <td style="text-align:center"><input type="checkbox" data-change="group-today" data-i="${i}" ${g.todayOff ? '' : 'checked'} style="width:20px;height:20px" aria-label="«${h(g.name)}» — показывать в «Тренировки сегодня»"></td>
   <td><button class="btn sm ghost" data-act="group-del" data-i="${i}" aria-label="Удалить группу">✕</button></td></tr>${(g.schedHistory || []).length > 1 ? `<tr><td colspan="13" class="small muted" style="padding-top:0">История расписания: ${g.schedHistory.map((e, k) => `${k ? 'с ' + D.ru(e.from) : 'исходное'}: ${e.days.map((x, j) => x ? DOW[j] : '').filter(Boolean).join(' ') || 'нет дней'}${k ? ` <button class="btn sm ghost" data-act="sched-del" data-i="${i}" data-from="${e.from}" aria-label="Удалить это изменение">✕</button>` : ''}`).join(' · ')}</td></tr>` : ''}`).join('')}</tbody></table></div>
   <button class="btn" data-act="group-add" style="margin-top:8px">Добавить группу</button></div>
-  <div class="grid2"><div class="card"><h2>Нерабочие дни</h2><p class="small muted">Праздники, выезды на соревнования, ремонт — дни, когда занятий нет у всего клуба. В срок абонемента не засчитываются.</p>
-  <ul class="list" style="max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:8px">${[...S.holidays].sort((a, b) => a.date.localeCompare(b.date)).map(x => `<li><span class="num" style="width:90px">${D.ru(x.date)}</span><span class="who small">${h(x.reason)}</span><button class="btn sm ghost" data-act="hol-del" data-date="${x.date}" aria-label="Удалить">✕</button></li>`).join('') || '<li class="muted">Нет</li>'}</ul>
-  <div class="row" style="margin-top:8px"><input type="date" id="hol-date" style="width:auto"><input type="text" id="hol-reason" placeholder="Причина" style="flex:1;min-width:120px"><button class="btn" data-act="hol-add">Добавить</button></div></div>
-  ${calSettingsCard()}
-  <div class="card"><h2>Перенесено</h2><ul class="list">
-    <li><a href="#tourn">Соревнования и выезды (п. 9.6 оферты) → «Турниры»</a></li>
-    <li><a href="#attest/setup">Аттестация: даты и правила допуска → «Аттестация» → «Настройки»</a></li>
-    <li><a href="#money/coaches">Тренеры (для документов и оплаты) → «Деньги» → «Тренеры»</a></li>
-    <li><a href="#money/setup">Деньги: счета, статьи, регулярные платежи, налог → «Деньги» → «Настройки»</a></li></ul></div></div>
+  <div class="grid2"><section class="card"><h2>Нерабочие дни</h2>
+  <p class="small muted">В эти дни занятий нет у всего клуба. Даты исключаются из расчёта срока абонемента.</p>
+  ${holidayYears(S.holidays)}
+  <div class="holiday-add"><input type="date" id="hol-date" aria-label="Дата нерабочего дня"><input type="text" id="hol-reason" placeholder="Причина" aria-label="Причина"><button class="btn sm" data-act="hol-add">Добавить</button></div></section>
+  ${calSettingsCard()}</div>
   <div class="card"><h2>Клуб</h2><div class="fgrid">${L('Клуб и адрес', inp('club', S.club))}<div class="f"><span>Тренеры</span><div>${h(coachList().join(', ') || '—')} · <a href="#money/coaches">изменить в «Деньги» → «Тренеры»</a></div></div>${L('Кем присваивается пояс', inp('awardedBy', S.awardedBy))}${L('Оператор персональных данных (ФИО полностью, для актов)', inp('operatorName', S.operatorName || S.awardedBy))}${L('Адрес оператора для актов', inp('operatorAddress', S.operatorAddress || ''))}${L('Занятий в абонементе по умолчанию', inp('defaultCount', S.defaultCount, 'number'))}${L('Начало ведения программы (суммы оплат считаются с этой даты)', inp('programStart', S.programStart || S.sickCheckFrom, 'date', 'data-noclr'))}${L('Цель: взрослых (18+) занимается', inp('adultTarget', S.adultTarget ?? 16, 'number', 'min="0"'))}${L('«Показатели» считать с (раньше — неточный перенос из Excel)', inp('statsFrom', S.statsFrom || '', 'date'))}${L('Инструктаж проверять с (раньше — только бумажный журнал)', inp('briefFrom', S.briefFrom || '', 'date'))}
   <label class="f wide"><span>Пояса (по одному в строке, по порядку)</span><textarea data-change="belts" style="min-height:120px">${h(S.belts.join('\n'))}</textarea></label></div></div>
   <div class="card"><h2>Цены (Приложение № 1 к оферте)</h2><p class="small muted">По ним программа подставляет сумму в окне оплаты: на ${S.prices.count} занятий — детский тариф, если на дату оплаты ещё нет ${S.prices.kidUnder} лет (Положение о льготах, п. 3.1), иначе базовый; одно занятие — разовое посещение. Сумму в окне оплаты можно изменить — по договорённости.</p>
@@ -7150,7 +7177,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '27.11.2026 (v193)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '27.11.2026 (v194)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -7306,7 +7333,16 @@ function openParentsList() {
 function openPrint(title, html, css = '', opt = {}) {
   extMark(); const w = window.open('', '_blank');
   if (!w) { notice('Браузер заблокировал окно печати. Разрешите всплывающие окна для этой страницы.'); return; }
-  w.document.write(`<html><head><meta charset="utf-8"><title>${h(title)}</title><style>*{color:#000}body{font:10.5pt Arial,sans-serif;margin:12mm}table{border-collapse:collapse;width:100%}td,th{border:1px solid #000;padding:4px 6px;text-align:left}th{background:#fff;font-weight:700;border-bottom:2px solid #000}h3{margin:14px 0 4px}tr{page-break-inside:avoid}${css}${opt.pages ? '' : PRINT_NOHF}</style></head><body${opt.app ? ' class="print-win"' : ''}>${opt.pages ? html : ppWrap(html)}<script>window.print()<\/script></body></html>`);
+  w.document.write(`<html><head><meta charset="utf-8"><title>${h(title)}</title><style>*{color:#000}body{font:10.5pt Arial,sans-serif;margin:12mm}table{border-collapse:collapse;width:100%}td,th{border:1px solid #000;padding:4px 6px;text-align:left}th{background:#fff;font-weight:700;border-bottom:2px solid #000}h3{margin:14px 0 4px}tr{page-break-inside:avoid}${css}${opt.pages ? '' : PRINT_NOHF}.holiday-year{border-bottom:1px solid var(--line)}
+.holiday-year summary{cursor:pointer;padding:8px 4px;font-weight:650}
+.holiday-year summary span{float:right;font-weight:400}
+.holiday-year ul{list-style:none;margin:0 0 6px;padding:0;max-height:15rem;overflow:auto}
+.holiday-year li{display:grid;grid-template-columns:4em minmax(0,1fr) auto;align-items:center;gap:8px;padding:2px 5px;font-size:.86rem;overflow-wrap:anywhere}
+.holiday-year time{font-weight:600}
+.holiday-add{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px}
+.holiday-add input{min-width:0;width:auto;max-width:100%}
+.holiday-add #hol-reason{flex:1 1 7em}
+</style></head><body${opt.app ? ' class="print-win"' : ''}>${opt.pages ? html : ppWrap(html)}<script>window.print()<\/script></body></html>`);
   w.document.close();
 }
 /* ---------- бланк для печати (как в книге учёта посещений) ---------- */
@@ -8539,7 +8575,7 @@ const ACT = {
   'group-add': () => { db.settings.groups.push({ name: 'Новая группа', days: [false, false, false, false, false, false, false] }); render.keepScroll = true; persist(); },
   'group-del': async el => { const g = db.settings.groups[+el.dataset.i]; const used = db.athletes.filter(a => a.group === g.name || a.group2 === g.name).length + db.sessions.filter(s => s.group === g.name).length;
     if (used && !await ask(`Группа «${g.name}» используется (${used}). Удалить её из списка? Записи в журнале и у спортсменов останутся с этим названием.`)) return; db.settings.groups.splice(+el.dataset.i, 1); render.keepScroll = true; persist(); },
-  'hol-add': () => { const d = $('#hol-date').value; if (!d) return; db.settings.holidays = db.settings.holidays.filter(x => x.date !== d); db.settings.holidays.push({ date: d, reason: $('#hol-reason').value.trim() || 'нерабочий день' }); render.keepScroll = true; persist('Добавлено'); },
+  'hol-add': () => { const d = $('#hol-date').value; if (!d) return; ui.holidayYears.add(d.slice(0,4)); db.settings.holidays = db.settings.holidays.filter(x => x.date !== d); db.settings.holidays.push({ date: d, reason: $('#hol-reason').value.trim() || 'нерабочий день' }); render.keepScroll = true; persist('Добавлено'); },
   'trip-for': el => openTripFor(el.dataset.id),
   'trip-add': async () => { const from = $('#trip-from').value, to = $('#trip-to').value, ann = $('#trip-ann').value;
     if (!from || !to) { notice('Укажите даты отъезда и возвращения.'); return; }
@@ -8598,7 +8634,11 @@ function itToggle(cm) { const it = cm.closest('.it.compact'); if (!it) return; c
 document.addEventListener('click', e => { const cm = e.target.closest && e.target.closest('.it-cm'); if (!cm || e.target.closest('a,button')) return; itToggle(cm); });
 document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('nt-card') && e.target === document.activeElement) { e.preventDefault(); noteView(e.target.dataset.id); } });   // 15.11.2026: карточка заметки с клавиатуры
 document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('it-cm')) { e.preventDefault(); itToggle(e.target); } });
-document.addEventListener('toggle', e => {        // №29: меню «Ещё» целиком на экране (кнопка у левого края — меню не уходит влево)
+document.addEventListener('toggle', e => {
+  if (e.target.matches('details[data-hol-year]')) {
+    const year = e.target.dataset.holYear;
+    if (e.target.open) ui.holidayYears.add(year); else ui.holidayYears.delete(year);
+  }        // №29: меню «Ещё» целиком на экране (кнопка у левого края — меню не уходит влево)
   const d = e.target; if (!(d instanceof HTMLDetailsElement) || !d.classList.contains('menu') || !d.open) return;
   const pop = d.querySelector('.menu-pop'); if (!pop) return;
   pop.style.left = ''; pop.style.right = '';
@@ -9530,7 +9570,11 @@ const CAL_ACT = {
   'cal-del': el => calDelEv(el.dataset.id, el.dataset.key),
 };
 Object.assign(ACT, CAL_ACT, PA_ACT);
-document.addEventListener('toggle', e => { if (!(e.target.matches && e.target.matches('details[data-catmenu]'))) return; const was = ui.money && ui.money.catOpen; if (ui.money) ui.money.catOpen = e.target.open;
+document.addEventListener('toggle', e => {
+  if (e.target.matches('details[data-hol-year]')) {
+    const year = e.target.dataset.holYear;
+    if (e.target.open) ui.holidayYears.add(year); else ui.holidayYears.delete(year);
+  } if (!(e.target.matches && e.target.matches('details[data-catmenu]'))) return; const was = ui.money && ui.money.catOpen; if (ui.money) ui.money.catOpen = e.target.open;
   if (e.target.open) catFit(e.target); }, true);
 function catFit(d) {                                  // список статей — по высоте свободного места на экране (страница не прокручивается)
   const body = d && d.querySelector('.cat-body'), p = d && d.querySelector('.menu-pop'); if (!body || !p) return;
@@ -9538,7 +9582,11 @@ function catFit(d) {                                  // список стате
   body.style.maxHeight = ''; const top = p.getBoundingClientRect().top, extra = p.offsetHeight - body.offsetHeight, lim = innerHeight - (PHONE_MQ.matches ? 84 : 12);
   body.style.maxHeight = Math.max(180, Math.min(480, lim - top - extra)) + 'px';
 }   // 13.11.2026: меню статей остаётся открытым при отметках и целиком на экране   // 13.11.2026: меню статей остаётся открытым при отметках
-document.addEventListener('toggle', e => { if (e.target.matches && e.target.matches('details[data-calside]') && PHONE_MQ.matches && ui.cal) ui.cal.side = e.target.open; }, true);
+document.addEventListener('toggle', e => {
+  if (e.target.matches('details[data-hol-year]')) {
+    const year = e.target.dataset.holYear;
+    if (e.target.open) ui.holidayYears.add(year); else ui.holidayYears.delete(year);
+  } if (e.target.matches && e.target.matches('details[data-calside]') && PHONE_MQ.matches && ui.cal) ui.cal.side = e.target.open; }, true);
 document.addEventListener('click', e => {
   const act = e.target.closest('[data-act]');
   if (act && !(act.tagName === 'INPUT' || act.tagName === 'SELECT')) {
@@ -9692,6 +9740,10 @@ function safeChange(e) { try { const r = onChange(e); if (r && typeof r.catch ==
 function showError(err) { console.error(err); notice('Ошибка: ' + (err && err.message || err) + '\nДействие не выполнено. Если повторяется — сохраните копию данных и опишите, что нажимали.'); }
 document.addEventListener('change', safeChange);
 document.addEventListener('toggle', e => {
+  if (e.target.matches('details[data-hol-year]')) {
+    const year = e.target.dataset.holYear;
+    if (e.target.open) ui.holidayYears.add(year); else ui.holidayYears.delete(year);
+  }
   if (e.target.matches && e.target.matches('details[data-later]')) { meta.laterOpen = e.target.open; writeMeta(); }
   if (e.target.matches && e.target.matches('details[data-tripsold]')) ui.tripsOld = e.target.open;
   if (e.target.matches && e.target.matches('details[data-attrules]')) ui.attRules = e.target.open;
