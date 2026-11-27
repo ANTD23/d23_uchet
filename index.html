@@ -1017,6 +1017,14 @@ details.tdet[open] > summary::after{transform:rotate(-135deg)}
 .settings-section[open]{padding-bottom:14px}
 .result-list-toggle{width:100%;justify-content:flex-start;margin-bottom:8px}
 @media screen{.result-list-toggle[aria-expanded="false"] + :is(#people-results,#subs-results){display:none}}
+.group-mark-status::before{content:'· '}
+@media (max-width:860px){
+  .tg-a .today-groups{display:grid;grid-template-columns:minmax(0,1fr);gap:6px}
+  .tg-a .today-groups .btn{min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere}
+  .tg-a .today-groups [data-act="open-session"]{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left}
+  .group-mark-status{font-size:.86em;font-weight:500}
+  .group-mark-status::before{content:none}
+}
 </style></head>
 <body><div id="app"></div>
 <script>
@@ -3851,9 +3859,12 @@ function vToday() {
   const hiddenToday = db.settings.groups.filter(g => g.todayOff && daysOn(g, t)[dw] && !todaySessions.some(s => s.group === g.name)).map(g => g.name);
   const groupsBtns = [...new Set([...planned.map(g => g.name), ...todaySessions.map(s => s.group)])].map(g => {
     const s = todaySessions.find(x => x.group === g);
-    const { total, missing } = sessionProgress(s || { group:g, date:t, marks:{} });
-    const status = missing.length ? 'осталось отметить ' + missing.length : total ? 'все отмечены' : 'нет обязательных отметок';
-    return `<button class="btn ${s ? '' : 'primary'}" data-act="open-session" data-date="${t}" data-group="${h(g)}">${(s ? h(g || 'без группы') : 'Отметить «' + h(g) + '»') + ' · ' + status}</button>`;
+    let status = '';
+    if (g !== 'Разово') {
+      const { total, missing } = sessionProgress(s || { group:g, date:t, marks:{} });
+      status = missing.length ? 'осталось отметить ' + missing.length : total ? 'все отмечены' : 'нет обязательных отметок';
+    }
+    return `<button class="btn ${s ? '' : 'primary'}" data-act="open-session" data-date="${t}" data-group="${h(g)}"><span>${s ? h(g || 'без группы') : 'Отметить «' + h(g) + '»'}</span>${status ? `<span class="group-mark-status">${status}</span>` : ''}</button>`;
   }).join('');
   const all = attention(), doneMap = attnDoneMap(); attnSeenUpd(all);
   const al = all.filter(x => !doneMap[attnKey(x)]), doneAny = all.filter(x => doneMap[attnKey(x)]), done = doneAny.filter(x => doneMap[attnKey(x)] === t);   // 13.11.2026: в «Сделано» — только отмеченное сегодня; отмеченное раньше не показывается и не возвращается
@@ -7208,7 +7219,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '28.11.2026 (v201)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '28.11.2026 (v203)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
