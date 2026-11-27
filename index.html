@@ -1015,6 +1015,8 @@ details.tdet[open] > summary::after{transform:rotate(-135deg)}
 .settings-section>summary{padding:12px 0;cursor:pointer}
 .settings-section>summary h2{display:inline;margin:0;font-size:1rem}
 .settings-section[open]{padding-bottom:14px}
+.result-list-toggle{width:100%;justify-content:flex-start;margin-bottom:8px}
+@media screen{.result-list-toggle[aria-expanded="false"] + :is(#people-results,#subs-results){display:none}}
 </style></head>
 <body><div id="app"></div>
 <script>
@@ -2590,14 +2592,14 @@ const STORAGE_OK = (() => { try { localStorage.setItem('d23crm.test', '1'); loca
 let db = null, ix = null, meta = { lastExport: null, exportedRev: 0, handle: false };
 const UI_DEFAULTS = {
   people: { q: '', group: 'все', statuses: ['занимается'], belt: 'все', sex: 'все', ageMode: 'сейчас', ageFrom: '', ageTo: '', yFrom: '', yTo: '', sort: 'name' },
-  subs: { filter: 'active', q: '', sort: 'start', dir: -1 },
+  subs: { filter: 'ending', q: '', sort: 'start', dir: -1 },
   attest: { group: 'все', q: '', adm: 'все' },
 };
 const ui = {
   settingsOpen: new Set(),
   holidayYears: new Set(),
   people: { q: '', group: 'все', statuses: ['занимается'], belt: 'все', sex: 'все', ageMode: 'сейчас', ageFrom: '', ageTo: '', yFrom: '', yTo: '', sort: 'name' },
-  subs: { filter: 'active', q: '', sort: 'start', dir: -1 },
+  subs: { filter: 'ending', q: '', sort: 'start', dir: -1 },
   journal: { date: null, group: '' , tab: 'session', month: null, mgroup: '', history: { open: false, from: null, to: null, page: 0 } },
   attest: { tab: 'admission', group: 'все', date: '' },
   report: { from: null, to: null },
@@ -4650,6 +4652,8 @@ function vPeople() {
   ${['group', 'belt', 'sex'].some(k => F[k] !== 'все') || statusChanged || F.ageFrom || F.ageTo || F.yFrom || F.yTo || F.ageMode !== 'сейчас' || F.sort !== 'name' ? '<div class="f filt-reset"><button class="btn" data-act="reset-filters" data-page="people">Сбросить фильтры</button></div>' : ''}</div></div>
   ${F.ageMode !== 'сейчас' && S.competition.date ? `<div class="small muted">Соревнования: ${h(S.competition.name)}, ${D.ru(S.competition.date)}</div>` : ''}</div>
   <div class="print-only"><b>${h(S.club)}</b> — список спортсменов (${list.length}), ${D.ru(ix.today)}</div>
+  <button type="button" class="btn result-list-toggle no-print" data-act="result-list-toggle" aria-controls="people-results" aria-expanded="${!!ui.peopleListOpen}"><span aria-hidden="true">${ui.peopleListOpen ? '▾' : '▸'}</span> Список спортсменов · ${list.length}</button>
+  <div id="people-results">
   <div class="card flat show-m"><ul class="list sublist">${list.map(a => { const c = ix.athCalc.get(a.id); const ag = ageOf(c, F.ageMode);
     return `<li class="click" data-go="#person/${a.id}">${beltHTML(c.belt, c.stripes)}<div class="who"><b>${h(shortName(a))}</b><span class="small">${h(a.group || 'без группы')}${ag != null ? ' · ' + ag + ' ' + plural(ag, 'год', 'года', 'лет') : ''}${a.status !== 'занимается' ? ' · ' + h(a.status) : ''}</span>${c.contact ? `<span class="small">${telLink(c.contact)} ${c.contactWho}</span>` : (c.noParentPhone ? '<span class="small"><span class="chip bad">нет телефона</span></span>' : '')}</div>
     <div class="subside">${chipSub(c)}${chipMed(c.med)}</div></li>`; }).join('') || '<li class="empty">Никого не нашлось. Сбросьте фильтры.</li>'}</ul></div>
@@ -4659,7 +4663,7 @@ function vPeople() {
     <td>${beltHTML(c.belt, c.stripes)}</td><td class="r num">${ag ?? ''}</td><td class="hide-m num">${D.ru(a.birth)}</td><td>${h(a.group)}${a.group2 ? ' / ' + h(a.group2) : ''}</td>
     <td class="hide-m">${c.contact ? telLink(c.contact) + ' <span class="small muted">' + c.contactWho + '</span>' : (c.noParentPhone ? '<span class="chip bad">нет телефона</span>' : '')}</td>
     <td class="no-print">${chipSub(c)}</td><td class="hide-m">${c.med === 'действует' ? '<span class="small muted">до ' + D.ru(a.medUntil) + '</span>' : chipMed(c.med)}</td></tr>`; }).join('') || '<tr><td colspan="8" class="empty">Никого не нашлось. Сбросьте фильтры.</td></tr>'}
-  </tbody></table></div>`;
+  </tbody></table></div></div>`;
 }
 
 /* ---------- КАРТОЧКА ---------- */
@@ -5442,6 +5446,8 @@ function vSubs() {
   <select data-change="subs-sort" style="width:auto">${[['name', 'по фамилии'], ['pay', 'по дате оплаты'], ['rem', 'по остатку'], ['end', 'по окончанию'], ['start', 'по дате начала']].map(([k, l]) => opt(k, U.sort, 'Сортировка: ' + l)).join('')}</select>
   <button class="btn" data-act="subs-dir" title="Обратный порядок" aria-label="${U.dir > 0 ? 'По возрастанию' : 'По убыванию'}">${U.dir > 0 ? '▲<span class="hide-m"> по возрастанию</span>' : '▼<span class="hide-m"> по убыванию</span>'}</button></div>
   <div class="legend" style="margin-top:10px"><span><i class="lg-rem1"></i>осталось 1 занятие</span><span><i class="lg-rem2"></i>осталось 2 занятия</span><span class="small opt-m">(если следующий ещё не оплачен)</span><span><i class="lg-pend"></i>ждём оплату</span></div></div>
+  <button type="button" class="btn result-list-toggle no-print" data-act="result-list-toggle" aria-controls="subs-results" aria-expanded="${!!ui.subsListOpen}"><span aria-hidden="true">${ui.subsListOpen ? '▾' : '▸'}</span> Список абонементов · ${rows.length}</button>
+  <div id="subs-results">
   ${(U.filter === 'debt' || U.filter === 'all') && unpaidList().length ? `<div class="card flat"><div style="padding:12px 16px 2px"><h3 style="margin:0">Не оплачено</h3></div><ul class="list sublist">${unpaidList().map(({ a, c }) => { const cd = a.status === 'кандидат' || a.cand, tr = new Set(cd ? (ix.marks.get(a.id) || []).filter(m => m.trial).map(m => m.date) : []);   // 20.11.2026: компактно; у кандидата — «кандидат, пробное ДД.ММ.ГГГГ»
     const what = c.unpaid.map(d => (tr.has(d) ? 'пробное ' : '') + D.ru(d)).join(', ');
     return `<li class="click" data-act="sub-new" data-id="${a.id}" title="Внести оплату"><div class="who"><b class="nm">${h(shortName(a))}</b><span class="small">${h(a.group || '')} · ${cd ? 'кандидат, ' + (tr.size ? '' : 'посещение ') + what : 'без абонемента: ' + what}</span></div><div class="subside"><span class="chip bad">не оплачено ${c.unpaid.length}</span></div></li>`; }).join('')}</ul></div>` : ''}
@@ -5455,7 +5461,7 @@ function vSubs() {
   return `<tr class="click${hl}" data-act="sub-edit" data-id="${p.id}"><td><b class="nm">${h(shortName(a))}</b><div class="small muted">${h(p.onlyGroup || a.group)}</div></td><td class="hide-m num">${D.ru(p.payDate)}</td><td class="num">${startLabel(p, r, true)}</td>
   <td class="r num">${p.count}</td><td class="r num hide-m">${amountCell(p)}</td><td class="r num hide-m">${r.was}</td><td class="r num hide-m">${r.missed}</td><td class="r num hide-m">${r.sick}</td>
   <td class="r num"><b>${r.remaining}</b></td><td class="num">${r.end ? D.ru(r.end) + (r.baseEnd ? `<div class="small muted" title="${h('Срок ' + extNote(r))}">было ${D.short(r.baseEnd)}, +${r.extDates.length}</div>` : '') : (r.endKind === 'nosched' ? '<span class="small muted">нет расписания</span>' : r.endKind === 'pkg' ? '<span class="small muted">пакет, без срока</span>' : '')}</td><td><span class="chip ${r.tone}">${h(r.status)}</span>${notifyBadges(p, r)}</td></tr>`; }).join('') || '<tr><td colspan="11" class="empty">Нет абонементов в этом списке</td></tr>'}</tbody></table></div>
-  <p class="small muted">Списывается «был» и «не был» (п. 9.4). «Болел» не списывается, пока заморозка не прекращена (п. 9.5). Окончание — прогноз по расписанию группы и нерабочим дням (п. 9.3).</p>`;
+  <p class="small muted">Списывается «был» и «не был» (п. 9.4). «Болел» не списывается, пока заморозка не прекращена (п. 9.5). Окончание — прогноз по расписанию группы и нерабочим дням (п. 9.3).</p></div>`;
 }
 function openSub(id, athleteId) {
   const p = id ? db.subs.find(x => x.id === id) : null;
@@ -5924,6 +5930,8 @@ function printProtocol() {
 .settings-section>summary{padding:12px 0;cursor:pointer}
 .settings-section>summary h2{display:inline;margin:0;font-size:1rem}
 .settings-section[open]{padding-bottom:14px}
+.result-list-toggle{width:100%;justify-content:flex-start;margin-bottom:8px}
+@media screen{.result-list-toggle[aria-expanded="false"] + :is(#people-results,#subs-results){display:none}}
 </style></head><body><table class="pp-wrap"><thead><tr><td></td></tr></thead><tbody><tr><td>
   <h2 style="margin:0">Протокол сдачи нормативов (этап 1)</h2><p>${h(db.settings.club)}<br>Дата: ${D.ru(U.date)}${U.group !== 'все' ? ' · группа: ' + h(U.group) : ''}</p>
   <table><tr><th>№</th><th>ФИО</th><th>Возр.</th><th>Цель</th><th>Прыжок, см<br>1 / 2 / 3</th><th>Подтяг.</th><th>Отжим.</th><th>Скруч.</th><th>5-е: подъём ног (П)<br>или рукоход (Р)</th><th>Итог</th></tr>
@@ -7189,7 +7197,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '27.11.2026 (v197)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '27.11.2026 (v199)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -7358,6 +7366,8 @@ function openPrint(title, html, css = '', opt = {}) {
 .settings-section>summary{padding:12px 0;cursor:pointer}
 .settings-section>summary h2{display:inline;margin:0;font-size:1rem}
 .settings-section[open]{padding-bottom:14px}
+.result-list-toggle{width:100%;justify-content:flex-start;margin-bottom:8px}
+@media screen{.result-list-toggle[aria-expanded="false"] + :is(#people-results,#subs-results){display:none}}
 </style></head><body${opt.app ? ' class="print-win"' : ''}>${opt.pages ? html : ppWrap(html)}<script>window.print()<\/script></body></html>`);
   w.document.close();
 }
@@ -8560,6 +8570,12 @@ const ACT = {
   'subs-period': el => { const U = ui.subs, k = el.dataset.k; U.pAll = k === 'all';
     if (k !== 'all') { const r = subsPresetRange(k); U.pFrom = r[0]; U.pTo = r[1]; }
     U.filter = 'period'; rerender(); },   // 09.11.2026: кнопка периода сразу показывает оплаты этого периода в списке
+  'result-list-toggle': button => {
+    const key = button.getAttribute('aria-controls') === 'subs-results' ? 'subsListOpen' : 'peopleListOpen';
+    ui[key] = !ui[key];
+    button.setAttribute('aria-expanded', String(ui[key]));
+    button.querySelector('span').textContent = ui[key] ? '▾' : '▸';
+  },
   'people-filters-toggle': button => {
     const panel = $('#people-filters');
     ui.peopleFiltOpen = panel.hidden;
