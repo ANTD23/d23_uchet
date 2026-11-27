@@ -1756,8 +1756,22 @@ function fillTemplate(text, ix, a, extra = {}, subId = null) {
     const pc = prev ? ix.subCalc.get(prev.id) : null;
     end = pc && pc.end ? pc.end : ''; payBy = subFirst(ix, p) || (pc && pc.end ? payDeadline(ix, prev, pc.end) : '');
   }
+  const away = !p?.pending && !sc.pkg && +p?.count > 1 && p.absence?.from && p.absence?.to ? p.absence : null;
+  const agreement = away ? `По договорённости срок его действия продлён на период отсутствия с ${D.ru(away.from)} по ${D.ru(away.to)} включительно.` : '';
+  const returnNotice = away && !sc.earlyReturn && ix.today <= away.to
+    ? '\nПри досрочном возвращении к занятиям мы пересчитаем срок действия абонемента и сообщим новую дату окончания.' : '';
+  const firstDate = D.ru(sc.first) || '{дата_начала}', endDate = D.ru(end) || '{дата_окончания}';
+  const returnedPeriod = sc.earlyReturn
+    ? `Занятия возобновлены ${D.ru(sc.earlyReturn)}. Срок действия абонемента пересчитан. Новая дата окончания — ${endDate}.` : '';
+  const activePeriod = returnedPeriod || (away
+    ? `Абонемент действует с ${firstDate}. ${agreement}\nС учётом продления последнее занятие по расписанию — ${endDate}.${returnNotice}`
+    : `Абонемент активирован ${firstDate}. Последнее занятие по расписанию — ${endDate}.`);
   const map = {
-    'условия_оплаты': p?.absence ? 'Согласованный период отсутствия — ' + D.ru(p.absence.from) + ' – ' + D.ru(p.absence.to) + '.' + (sc.end || sc.expectedEnd ? ' Предварительная дата последнего занятия — ' + D.ru(sc.end || sc.expectedEnd) + '.' : '') :
+    'срок_абонемента': activePeriod,
+    'период_отсутствия': away && !sc.earlyReturn ? '\n' + agreement + returnNotice : '',
+    'условия_оплаты': away && sc.first && sc.end && !sc.notActive ? activePeriod :
+      away ? `Согласованный период отсутствия — с ${D.ru(away.from)} по ${D.ru(away.to)} включительно.` +
+        (sc.expectedFirst && sc.expectedEnd ? ` Если первое занятие состоится ${D.ru(sc.expectedFirst)}, последнее занятие по расписанию — ${D.ru(sc.expectedEnd)}.` : '') + returnNotice :
       sc.first && sc.end && !sc.notActive ? 'Период действия абонемента — с ' + D.ru(sc.first) + ' по ' + D.ru(sc.end) + '.' :
       sc.autoDate ? 'Дата автоматической активации — ' + D.ru(sc.autoDate) + '. При более ранней активации по посещению срок действия будет рассчитан с даты активации.' : '',
     'период_ожидания': p?.pending && sc.first && sc.end ? 'Новый абонемент действует с ' + D.ru(sc.first) + ' по ' + D.ru(sc.end) + '.\n' : '',
@@ -1782,7 +1796,7 @@ function fillTemplate(text, ix, a, extra = {}, subId = null) {
       return t1 + t2; })(),   // 25.10.2026
     ...extra,
   };
-  const EMPTY_OK = new Set(['продление', 'период_ожидания', 'условия_оплаты', 'даты_долга']);              // пусто — просто убрать
+  const EMPTY_OK = new Set(['продление', 'период_отсутствия', 'период_ожидания', 'условия_оплаты', 'даты_долга']);              // пусто — просто убрать
   if (text.includes('{долг}') || text.includes('{даты_долга}')) {
     const debt = owedAll(a.id);
     if (extra.долг == null && debt.n) map.долг = String(debt.n);
@@ -2465,7 +2479,7 @@ const MESSAGE_TEMPLATES = [
   },
   {
     "title": "Абонемент активирован",
-    "text": "Здравствуйте.\n{фи}.\nАбонемент активирован {дата_начала}. Последнее занятие по расписанию — {дата_окончания}."
+    "text": "Здравствуйте.\n{фи}.\n{срок_абонемента}"
   },
   {
     "title": "Автоактивация абонемента",
@@ -2473,7 +2487,7 @@ const MESSAGE_TEMPLATES = [
   },
   {
     "title": "Абонемент продлён",
-    "text": "Здравствуйте.\n{фи}.\nНовая дата окончания абонемента — {дата_окончания}.{продление}"
+    "text": "Здравствуйте.\n{фи}.\nНовая дата окончания абонемента — {дата_окончания}.{продление}{период_отсутствия}"
   },
   {
     "title": "Новый абонемент — ждём оплату",
@@ -2497,7 +2511,7 @@ const MESSAGE_TEMPLATES = [
   },
   {
     "title": "Срок после досрочного возвращения",
-    "text": "Здравствуйте.\n{фи}.\nДата возвращения к занятиям — {дата_возврата}. С учётом фактического перерыва последнее занятие по абонементу — {дата_окончания}."
+    "text": "Здравствуйте.\n{фи}.\nЗанятия возобновлены {дата_возврата}. Срок действия абонемента пересчитан. Новая дата окончания — {дата_окончания}."
   },
   {
     "title": "Возвращение к занятиям",
@@ -2657,6 +2671,19 @@ function normalize(d) {
     const defaults = MESSAGE_TEMPLATES.filter(t => !custom.some(c => c.title === t.title));
     d.settings.templates = [...defaults.map(t => ({ ...t })), ...custom];
     d.settings.tplVersion = 16;
+  }
+  if (d.settings.tplVersion === 16) {
+    const previous = {
+      "Абонемент активирован": "Здравствуйте.\n{фи}.\nАбонемент активирован {дата_начала}. Последнее занятие по расписанию — {дата_окончания}.",
+      "Срок после досрочного возвращения": "Здравствуйте.\n{фи}.\nДата возвращения к занятиям — {дата_возврата}. С учётом фактического перерыва последнее занятие по абонементу — {дата_окончания}.",
+      "Абонемент продлён": "Здравствуйте.\n{фи}.\nНовая дата окончания абонемента — {дата_окончания}.{продление}"
+    };
+    for (const t of d.settings.templates) {
+      if (t.text === previous[t.title] && Object.hasOwn(previous, t.title)) {
+        t.text = MESSAGE_TEMPLATES.find(item => item.title === t.title).text;
+      }
+    }
+    d.settings.tplVersion = 17;
   }
   if (!d.settings.pvRazovo) {                          // 28.10.2026 (по просьбе тренера, один раз): в группе «Разово» — «Оплата разово» в карточке; на расчёт прошлого не влияет (проверено)
     const G = (d.settings.groups || []).find(g => g.name === 'Разово');
@@ -5863,7 +5890,7 @@ function vSettings() {
   <div class="card"><h2>Контроль новичка</h2><p class="small muted">Пункт «Новичок» в «Требует внимания»: человек пришёл недавно и ходит меньше, чем нужно, чтобы втянуться. Большинство уходящих новичков уходит в первые недели — написать или поговорить лучше сразу.</p>
   <div class="fgrid">${L('Первые дни в клубе, дн.', inp('newbie.days', S.newbie.days, 'number', 'min="7" max="60"'))}${L('…за них посещений не меньше', inp('newbie.minVisits', S.newbie.minVisits, 'number', 'min="1" max="10"'))}${L('Пропусков подряд — сигнал', inp('newbie.missRow', S.newbie.missRow, 'number', 'min="1" max="6"'))}${L('Сколько дней считать новичком', inp('newbie.watch', S.newbie.watch, 'number', 'min="14" max="120"'))}</div></div>
   <div class="card"><h2>Шаблоны сообщений</h2><p class="small muted">Подстановки: {имя}, {фи}, {фио}, {остаток}, {долг}, {занятий}, {дата_начала}, {дата_окончания}, {срок_оплаты}, {группа}, {окончание_нового} — окончание нового абонемента «ждём оплату» (в {дата_окончания} у него — окончание прежнего), {продление} — «Продлён на 1 занятие (соревнования 24.10), прежний срок — до …» (если продления не было — пусто).</p>
-  <p class="small muted">{условия_оплаты} — период, автоактивация или согласованное отсутствие; {период_ожидания} — период нового неоплаченного абонемента, если известен; {даты_долга} — даты неоплаченных посещений. Для переноса занятия используются {дата_занятия}, {прежнее_время}, {новая_дата} и {новое_время}.</p>
+  <p class="small muted">{срок_абонемента} — срок действия с учётом договорённости и фактического возвращения. {период_отсутствия} — пояснение к продлению при согласованном отсутствии. {условия_оплаты} — период, автоактивация или согласованное отсутствие; {период_ожидания} — период нового неоплаченного абонемента, если известен; {даты_долга} — даты неоплаченных посещений. Для переноса занятия используются {дата_занятия}, {прежнее_время}, {новая_дата} и {новое_время}.</p>
   ${S.templates.map((t, i) => `<fieldset><legend>${h(t.title)}</legend><input type="text" data-change="tpl" data-i="${i}" data-k="title" value="${h(t.title)}" style="margin-bottom:6px"><textarea data-change="tpl" data-i="${i}" data-k="text">${h(t.text)}</textarea><button class="btn sm danger" data-act="tpl-del" data-i="${i}" style="margin-top:6px">Удалить шаблон</button></fieldset>`).join('')}
   <button class="btn" data-act="tpl-add">Добавить шаблон</button></div>`;
 }
@@ -6990,7 +7017,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '27.11.2026 (v190)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '27.11.2026 (v191)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
