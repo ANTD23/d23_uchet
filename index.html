@@ -1746,6 +1746,28 @@ function payDeadline(ix, p, end) {      // день первого заняти�
   if (!p || !end) return '';
   return nthTrainDay(ix, D.add(end, 1), 1, subGroups(ix, p)) || '';
 }
+function lastCommunicatedPeriod(p) {
+  const history = p?.notified || {};
+  return history.lastPeriod || [history.period, history.end, history.finished]
+    .filter(record => record?.end).sort((a, b) => b.at.localeCompare(a.at))[0];
+}
+function periodChangeText(p, sc, endDate) {
+  const last = lastCommunicatedPeriod(p);
+  if (!last?.end || last.end === sc.end) return 'Дата окончания абонемента — ' + endDate + '.';
+  const lines = [];
+  if (sc.end > last.end) {
+    const reasons = { 'о': 'Отмена занятия', 'с': 'Участие в соревнованиях', 'б': 'Болезнь' };
+    for (const event of sc.extDates || []) {
+      const added = last.events ? !last.events.includes(event.k + event.d) : event.d > last.at;
+      if (added && reasons[event.k]) lines.push(reasons[event.k] + ' — ' + D.ru(event.d) + '.');
+    }
+    const bonus = +p.bonus || 0;
+    const added = last.bonus != null ? bonus - last.bonus : p.bonusFrom > last.at ? bonus : 0;
+    if (added > 0) lines.push('Клуб добавил ' + added + ' ' + plural(added, 'занятие', 'занятия', 'занятий') + (p.bonusNote ? ' (' + p.bonusNote + ')' : '') + '.');
+  }
+  lines.push('Прежняя дата окончания — ' + D.ru(last.end) + '.', 'Новая дата окончания — ' + endDate + '.');
+  return lines.join('\n');
+}
 function fillTemplate(text, ix, a, extra = {}, subId = null) {
   const c = ix.athCalc.get(a.id) || {};
   const p = (subId && ix.db.subs.find(x => x.id === subId)) || c.sub || null;
@@ -1767,6 +1789,9 @@ function fillTemplate(text, ix, a, extra = {}, subId = null) {
     ? `Абонемент действует с ${firstDate}. ${agreement}\nС учётом продления последнее занятие по расписанию — ${endDate}.${returnNotice}`
     : `Абонемент активирован ${firstDate}. Последнее занятие по расписанию — ${endDate}.`);
   const map = {
+    'изменение_срока': periodChangeText(p, sc, endDate),
+    'справка_о_болезни': (ix.freezesByAth.get(a.id) || []).some(f => f.subId === p?.id && !f.certDate && !f.noCert)
+      ? ' Для подтверждения периода болезни предоставьте справку.' : '',
     'срок_абонемента': activePeriod,
     'период_отсутствия': away && !sc.earlyReturn ? '\n' + agreement + returnNotice : '',
     'условия_оплаты': away && sc.first && sc.end && !sc.notActive ? activePeriod :
@@ -1785,7 +1810,7 @@ function fillTemplate(text, ix, a, extra = {}, subId = null) {
     'дата_окончания': D.ru(end),
     'согласованное_отсутствие': p && p.absence ? D.ru(p.absence.from) + ' — ' + D.ru(p.absence.to) : '',
     'прогноз_абонемента': sc.end ? 'Предварительная дата последнего занятия — ' + D.ru(sc.end) + '.' :
-      sc.expectedEnd ? 'Если первое занятие будет ' + D.ru(sc.expectedFirst) + ', предварительная дата последнего занятия — ' + D.ru(sc.expectedEnd) + '.' : 'Сообщу дату окончания, когда её можно будет рассчитать по расписанию.',
+      sc.expectedEnd ? 'Если первое занятие будет ' + D.ru(sc.expectedFirst) + ', предварительная дата последнего занятия — ' + D.ru(sc.expectedEnd) + '.' : 'Клуб сообщит дату окончания после расчёта по расписанию.',
     'дата_возврата': D.ru(sc.earlyReturn),
     'окончание_нового': sc.end ? D.ru(sc.end) : '',    // 27.10.2026: окончание этого (нового, в т. ч. «ждём оплату») абонемента
     'срок_оплаты': D.ru(payBy),
@@ -1796,7 +1821,7 @@ function fillTemplate(text, ix, a, extra = {}, subId = null) {
       return t1 + t2; })(),   // 25.10.2026
     ...extra,
   };
-  const EMPTY_OK = new Set(['продление', 'период_отсутствия', 'период_ожидания', 'условия_оплаты', 'даты_долга']);              // пусто — просто убрать
+  const EMPTY_OK = new Set(['справка_о_болезни', 'продление', 'период_отсутствия', 'период_ожидания', 'условия_оплаты', 'даты_долга']);              // пусто — просто убрать
   if (text.includes('{долг}') || text.includes('{даты_долга}')) {
     const debt = owedAll(a.id);
     if (extra.долг == null && debt.n) map.долг = String(debt.n);
@@ -2483,11 +2508,11 @@ const MESSAGE_TEMPLATES = [
   },
   {
     "title": "Автоактивация абонемента",
-    "text": "Здравствуйте.\n{фи}.\nДата автоматической активации абонемента — {дата_автоактивации}. При более ранней активации по посещению срок действия будет рассчитан с даты активации."
+    "text": "Здравствуйте.\n{фи}.\nЕсли до {дата_автоактивации} абонемент не будет активирован посещением, в эту дату он активируется автоматически."
   },
   {
     "title": "Абонемент продлён",
-    "text": "Здравствуйте.\n{фи}.\nНовая дата окончания абонемента — {дата_окончания}.{продление}{период_отсутствия}"
+    "text": "Здравствуйте.\n{фи}.\n{изменение_срока}{период_отсутствия}"
   },
   {
     "title": "Новый абонемент — ждём оплату",
@@ -2519,11 +2544,11 @@ const MESSAGE_TEMPLATES = [
   },
   {
     "title": "Справка для заморозки",
-    "text": "Здравствуйте.\n{фи}.\nДля оформления заморозки предоставьте в клуб справку о периоде болезни или травмы."
+    "text": "Здравствуйте.\n{фи}.\nДля оформления заморозки абонемента предоставьте справку с указанием периода болезни или травмы."
   },
   {
     "title": "После пробного занятия",
-    "text": "Здравствуйте.\n{фи}.\nПробное занятие в группе «{группа}» состоялось. Просим сообщить, планируется ли продолжение занятий."
+    "text": "Здравствуйте.\n{фи}.\nПробное занятие в группе «{группа}» состоялось. Просим сообщить, продолжит ли спортсмен занятия."
   },
   {
     "title": "Занятие отменено",
@@ -2531,7 +2556,7 @@ const MESSAGE_TEMPLATES = [
   },
   {
     "title": "Перенос занятия",
-    "text": "Здравствуйте.\n{фи}.\nЗанятие группы «{группа}», назначенное на {дата_занятия} в {прежнее_время}, переносится на {новая_дата} в {новое_время}."
+    "text": "Здравствуйте.\n{фи}.\nЗанятие группы «{группа}» перенесено с {дата_занятия} в {прежнее_время} на {новая_дата} в {новое_время}."
   },
   {
     "title": "Возврат при отказе от договора",
@@ -2540,6 +2565,10 @@ const MESSAGE_TEMPLATES = [
   {
     "title": "С днём рождения",
     "text": "Здравствуйте.\n{фи}.\nКлуб D23 поздравляет с днём рождения."
+  },
+  {
+    "title": "Заморозка оформлена",
+    "text": "Здравствуйте.\n{фи}.\nЗаморозка абонемента по болезни оформлена.{справка_о_болезни}"
   }
 ];
 const LS_DB = 'd23crm.db', LS_META = 'd23crm.meta', LS_SNAP = 'd23crm.snaps';
@@ -2564,6 +2593,75 @@ const PHONE_MQ = matchMedia('(max-width:860px), (pointer:coarse) and (max-height
 const h = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const $ = (s, el = document) => el.querySelector(s);
 const opt = (v, cur, label) => `<option value="${h(v)}"${String(v) === String(cur) ? ' selected' : ''}>${h(label ?? v)}</option>`;
+
+function historicalMessageTemplates() {
+  return [...DEFAULT_SETTINGS.templates, ...OFFICIAL_TEMPLATES, ...ABSENCE_TEMPLATES,
+      ...NEW_TEMPLATES_5, ...NEW_TEMPLATES_6, ...NEW_TEMPLATES_7, ...NEW_TEMPLATES_8, ...NEW_TEMPLATES_9,
+      ...NEW_TEMPLATES_10, ...NEW_TEMPLATES_11, ...NEW_TEMPLATES_13, ...NEW_TEMPLATES_14];
+}
+
+function updateMessageTone(templates) {
+  const current = new Map(MESSAGE_TEMPLATES.map(t => [t.title, t.text]));
+  const header = 'Здравствуйте.\n{фи}.\n';
+  // Эти варианты нужны только для сохранившихся шаблонов из прежних версий.
+  const retired = {
+    'Осталось одно занятие': 'По абонементу осталось одно занятие. Для продолжения занятий необходимо оплатить следующий абонемент.',
+    'Осталось одно занятие (официально)': 'Действие абонемента заканчивается {дата_окончания}. Следующий абонемент необходимо оплатить до {срок_оплаты}.',
+    'Абонемент использован': 'Все занятия по абонементу использованы. Количество занятий — {занятий}.',
+    'Оплата принята': 'Оплата получена. Чек отправлен. Количество занятий — {занятий}. Абонемент действует с {дата_начала}.',
+    'Пропуск без предупреждения': 'Занятие пропущено без предварительного уведомления и списано по условиям абонемента. В случае болезни сообщите об отсутствии и предоставьте справку для оформления заморозки.',
+    'Новый абонемент оплачен': 'Оплата получена. Период действия нового абонемента — с {дата_начала} по {дата_окончания}.',
+    'Абонемент оплачен': 'Оплата получена. Абонемент активируется при первом посещении или автоматически {дата_автоактивации}. После активации клуб сообщит даты начала и окончания.',
+    'Давно не были': 'Просим сообщить предполагаемую дату возвращения к занятиям. Остаток занятий — {остаток}. Дата окончания абонемента — {дата_окончания}. В случае болезни для оформления заморозки требуется справка.',
+    'Как здоровье': 'Просим сообщить предполагаемую дату возвращения к занятиям. На первое занятие после выздоровления предоставьте справку о периоде болезни или травмы.',
+    'Стал реже ходить': 'Количество посещений сократилось. Просим сообщить, планирует ли спортсмен продолжать занятия.',
+    'Новичок пропускает': 'Последние занятия группы «{группа}» пропущены. Просим сообщить, планирует ли спортсмен продолжать занятия.',
+    'Оплата с периодом отсутствия': 'Оплата получена. Количество занятий — {занятий}.\n{условия_оплаты}',
+  };
+  const greeting = /^\s*(?:всем\s+)?привет(?:ик)?(?=[\s,!?.:—-]|$)(?:[ \t,]+(?:всем|друзья|ребята)(?=[\s,!?.:—-]|$))?[ \t]*[,!.:—-]*\s*/iu;
+  const signature = text => text.trim().replace(greeting, 'Здравствуйте.\n').replace(/^здравствуйте(?=[\s,!?.:—-]|$)[\s,!?.:—-]*(?:\{(?:имя|фио?)\}[\s,.!:—-]*)?/iu, '').replace(/\s+/gu, ' ').trim();
+  const known = new Map();
+  for (const t of [...historicalMessageTemplates(), ...MESSAGE_TEMPLATES, ...PREVIOUS_TONE_TEMPLATES]) {
+    const replacement = current.get(t.title) || (Object.hasOwn(retired, t.title) && header + retired[t.title]);
+    if (replacement) known.set(signature(t.text), replacement);
+  }
+  for (const t of templates) {
+    if (typeof t?.text !== 'string') continue;
+    const text = t.text.replace(/(^|[.!?]\s+|\n\s*)(?:всем\s+)?пока(?:-пока)?[!.]*\s*$/iu, '$1').trimEnd();
+    const standard = known.get(signature(text));
+    if (standard) { t.text = standard; continue; }
+    // К штатному тексту могли дописать отдельной строкой сумму или условие.
+    const lines = text.split(/\r?\n/);
+    let revised = text;
+    for (let n = lines.length - 1; n > 0; n--) {
+      const prefix = known.get(signature(lines.slice(0, n).join('\n')));
+      if (prefix) { revised = [prefix, ...lines.slice(n)].join('\n'); break; }
+    }
+    // Для свободного текста сохраняем данные, условия и подстановки автора.
+    t.text = revised.replace(greeting, 'Здравствуйте.\n')
+      .replace(/^(\s*\{(?:имя|фио?)\})[,! ]+привет[!.]?\s*/iu, 'Здравствуйте.\n$1.\n')
+      .replace(/^Здравствуйте\.\n(\{(?:имя|фио?)\})[!,]\s*/u, 'Здравствуйте.\n$1.\n')
+      .replace(/(^|[.!?]\s+|\n)(?:скажи|напиши|подскажи),\s*когда (?:ты )?(придёшь|вернёшься)(?=[.!?\s]|$)/giu,
+        (_, before, verb) => before + 'Сообщите, когда планируете ' + (verb.toLowerCase() === 'придёшь' ? 'прийти' : 'вернуться'))
+      .replace(/(^|[.!?]\s+|\n)(?:не забудь принести|принеси) справку(?=[.!?\s]|$)/giu, '$1Предоставьте справку')
+      .replace(/(^|[.!?]\s+|\n)давай сверимся и закроем[.!]?/giu, '$1Просим проверить сведения об оплате.');
+  }
+}
+
+const PREVIOUS_TONE_TEMPLATES = [
+  {
+    "title": "Справка для заморозки",
+    "text": "Здравствуйте.\n{фи}.\nДля оформления заморозки предоставьте в клуб справку о периоде болезни или травмы."
+  },
+  {
+    "title": "После пробного занятия",
+    "text": "Здравствуйте.\n{фи}.\nПробное занятие в группе «{группа}» состоялось. Просим сообщить, планируется ли продолжение занятий."
+  },
+  {
+    "title": "Перенос занятия",
+    "text": "Здравствуйте.\n{фи}.\nЗанятие группы «{группа}», назначенное на {дата_занятия} в {прежнее_время}, переносится на {новая_дата} в {новое_время}."
+  }
+];
 
 function emptyDb() {
   return { app: 'D23CRM', version: 1, rev: 0, updatedAt: new Date().toISOString(),
@@ -2664,9 +2762,7 @@ function normalize(d) {
     d.settings.tplVersion = 15;
   }
   if (d.settings.tplVersion === 15) {
-    const old = [...DEFAULT_SETTINGS.templates, ...OFFICIAL_TEMPLATES, ...ABSENCE_TEMPLATES,
-      ...NEW_TEMPLATES_5, ...NEW_TEMPLATES_6, ...NEW_TEMPLATES_7, ...NEW_TEMPLATES_8, ...NEW_TEMPLATES_9,
-      ...NEW_TEMPLATES_10, ...NEW_TEMPLATES_11, ...NEW_TEMPLATES_13, ...NEW_TEMPLATES_14];
+    const old = historicalMessageTemplates();
     const custom = d.settings.templates.filter(t => !old.some(o => o.title === t.title && o.text === t.text));
     const defaults = MESSAGE_TEMPLATES.filter(t => !custom.some(c => c.title === t.title));
     d.settings.templates = [...defaults.map(t => ({ ...t })), ...custom];
@@ -2684,6 +2780,28 @@ function normalize(d) {
       }
     }
     d.settings.tplVersion = 17;
+  }
+  if (d.settings.tplVersion === 17) {
+    const old = {"Автоактивация абонемента": "Здравствуйте.\n{фи}.\nДата автоматической активации абонемента — {дата_автоактивации}. При более ранней активации по посещению срок действия будет рассчитан с даты активации.", "Абонемент продлён": "Здравствуйте.\n{фи}.\nНовая дата окончания абонемента — {дата_окончания}.{продление}{период_отсутствия}"};
+    const freezeTitle = 'Заморозка оформлена';
+    const freezeDefault = MESSAGE_TEMPLATES.find(t => t.title === freezeTitle);
+    const original = DEFAULT_SETTINGS.templates.find(t => t.title === freezeTitle).text;
+    let hasFreeze = false;
+    for (const t of d.settings.templates) {
+      if (Object.hasOwn(old, t.title) && t.text === old[t.title]) t.text = MESSAGE_TEMPLATES.find(x => x.title === t.title).text;
+      if (String(t.title).trim().toLowerCase() !== freezeTitle.toLowerCase()) continue;
+      t.title = freezeTitle;
+      hasFreeze = true;
+      const body = t.text.trim().replace(/^(?:привет|здравствуйте)[\s,!.:–—-]*(?:\{(?:имя|фио?)\}[\s,!.:–—-]*)?/iu, '');
+      if (body === original.slice(original.indexOf('!') + 1).trim()) t.text = freezeDefault.text;
+      else t.text = t.text.replace(/^\s*привет(?=[\s,!.:–—-]|$)[\s,!.:–—-]*/iu, 'Здравствуйте.\n');
+    }
+    if (!hasFreeze) d.settings.templates.push({ ...freezeDefault });
+    d.settings.tplVersion = 18;
+  }
+  if (d.settings.tplVersion === 18) {
+    updateMessageTone(d.settings.templates);
+    d.settings.tplVersion = 19;
   }
   if (!d.settings.pvRazovo) {                          // 28.10.2026 (по просьбе тренера, один раз): в группе «Разово» — «Оплата разово» в карточке; на расчёт прошлого не влияет (проверено)
     const G = (d.settings.groups || []).find(g => g.name === 'Разово');
@@ -3372,9 +3490,10 @@ function pendWarnTxt(p) { const e = notifyState(p, 'end'); return e ? ' — пр
 function warnedOf(a) {                            // «предупреждён»: плашка горит — отметка об окончании (или об оплате у «ждём оплату») есть и не устарела, следующий не оплачен
   const c = a && ix.athCalc.get(a.id); if (!c || a.status === 'ушёл' || c.nextSub) return null;
   const p = c.pendingSub || c.sub; if (!p) return null;
-  const e = notifyState(p, 'end'); return e && !e.stale ? { at: e.at, pend: !!c.pendingSub } : null;
+  const finished = !c.pendingSub && c.subCalc?.remaining === 0;
+  const e = notifyState(p, finished ? 'finished' : 'end'); return e && !e.stale ? { at: e.at, pend: !!c.pendingSub, finished } : null;
 }
-function warnedIc(w, a) { const t = (a ? shortName(a) + ': ' : '') + (w ? (w.pend ? 'предупреждён об оплате' : 'предупреждён об окончании абонемента') + ' ' + D.ru(w.at) : '');   // нажатие — подсказка внизу (на телефоне title не показывается)
+function warnedIc(w, a) { const t = (a ? shortName(a) + ': ' : '') + (w ? (w.pend ? 'предупреждён об оплате' : w.finished ? 'об окончании сообщено' : 'предупреждён об окончании абонемента') + ' ' + D.ru(w.at) : '');   // нажатие — подсказка внизу (на телефоне title не показывается)
   return w ? `<span class="wn-ic" role="button" tabindex="0" data-act="mark-info" data-txt="${h(t)}" title="${h(t)}" aria-label="${h(t)}">✉</span>` : ''; }
 function resetZoom() {                            // вернуть масштаб 100% (если страницу увеличили щипком или полем ввода)
   const m = document.querySelector('meta[name=viewport]'); if (!m) return; const c0 = 'width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content';
@@ -3424,11 +3543,11 @@ function attentionCalc() {
     } else if (s) {
       const single = (+c.sub.count || 0) <= 1;
       if (s.remaining < 0 && !(c.debtDates || []).length) out.push({ tone: 'bad', a, text: `${nm}: долг ${-s.remaining} ${plural(-s.remaining, 'занятие', 'занятия', 'занятий')} сверх оплаты`, tpl: 'Долг по занятиям' });
-      const ne = notifyState(c.sub, 'end'), warned = !!ne, wtxt = (s.provSick ? ' (' + certHint(s) + ')' : '') + (warned ? ' — предупреждён ' + D.short(ne.at) : '');
+      const ne = notifyState(c.sub, s.remaining === 0 ? 'finished' : 'end'), warned = !!ne, wtxt = (s.provSick ? ' (' + certHint(s) + ')' : '') + (warned ? ' — предупреждён ' + D.short(ne.at) : '');
       if (s.pkg) {                                   // пакет разовых: без дат, только остаток
         const N = subTotal(c.sub);
-        if (s.remaining === 0 && !c.nextSub) out.push({ tone: warned ? 'muted' : 'warn', a, text: `${nm}: пакет разовых использован (${N} из ${N}${s.end ? ', последнее ' + D.ru(s.end) : ''}), новой оплаты нет${wtxt}`, tpl: warned ? null : 'Пакет разовых использован' });
-        else if (s.remaining === 1 && !c.nextSub && !warned) out.push({ tone: warned ? 'muted' : 'warn', a, text: `${nm}: пакет разовых — осталось одно занятие из ${N}${wtxt}`, tpl: 'Пакет разовых заканчивается' });
+        if (s.remaining === 0 && !c.nextSub) out.push({ tone: warned ? 'muted' : 'warn', a, text: `${nm}: пакет разовых использован (${N} из ${N}${s.end ? ', последнее ' + D.ru(s.end) : ''}), новой оплаты нет${wtxt}`, sub: c.sub.id, tpl: warned ? null : 'Пакет разовых использован' });
+        else if (s.remaining === 1 && !c.nextSub && !warned) out.push({ tone: warned ? 'muted' : 'warn', a, text: `${nm}: пакет разовых — осталось одно занятие из ${N}${wtxt}`, sub: c.sub.id, tpl: 'Пакет разовых заканчивается' });
       }
       else if (s.remaining === 0 && !c.nextSub && !single) out.push({ tone: warned ? 'muted' : s.provSick ? 'sick' : 'bad', a, text: `${nm}: абонемент использован${s.end ? ' ' + D.ru(s.end) : ''}, нового нет${wtxt}`, tpl: warned ? null : 'Абонемент закончился', sub: c.sub.id, wait: true, ended: true });
       else if (s.remaining === 1 && !c.nextSub && !single && !warned) out.push({ tone: warned ? 'muted' : s.provSick ? 'sick' : 'bad', a, text: `${nm}: осталось одно занятие${s.end ? ' (' + D.ru(s.end) + ')' : ''}${wtxt}`, tpl: 'Абонемент заканчивается', sub: c.sub.id });
@@ -3499,7 +3618,7 @@ function attentionCalc() {
     { const b = +p.bonus > 0 ? +p.bonus : 0, nq = p.notified && p.notified.period, ca = ix.athCalc.get(a.id) || {};   // 18.11.2026: продлён тренером (например, при возвращении после болезни) — сообщить новый срок
       if (b && p.bonusFrom && r.end && r.end >= t && a.status === 'занимается' && (ca.sub === p || ca.nextSub === p) && p.bonusFrom >= D.add(t, -21) && !(nq && nq.at >= p.bonusFrom && nq.end === r.end)) {
         out.push({ tone: 'warn', a, text: `${shortName(a)}: абонемент продлён на ${b} ${plural(b, 'занятие', 'занятия', 'занятий')}${p.bonusNote ? ' (' + p.bonusNote + ')' : ''} — теперь до ${D.ru(r.end)}, сообщите новый срок`, tpl: 'Абонемент продлён', sub: p.id }); continue; } }
-    if (notifyState(p, 'period') || !r.end || r.end < t || freezeHold(p.id)) continue;
+    if (lastCommunicatedPeriod(p) || !r.end || r.end < t || freezeHold(p.id)) continue;
     const ca = ix.athCalc.get(a.id) || {}; if (ca.sub !== p && ca.nextSub !== p) continue;
     const ev = (r.extDates || []).filter(x => x.d >= D.add(t, -14)); if (!ev.length) continue;   // свежие (за 2 недели) — старые уже не новость
     const n = (r.extDates || []).length;
@@ -3508,15 +3627,15 @@ function attentionCalc() {
   for (const p of db.subs) {                       // активация абонементов (п. 9.2.3, 9.3.7)
     const a = ix.ath.get(p.athleteId), r = ix.subCalc.get(p.id); if (!a || !r || p.pending || a.status === 'ушёл' || r.terminated || (+p.count || 0) <= 1) continue;   // разовые оплаты — без уведомлений об активации
     if (r.notActive && r.autoDate && r.autoNotifyBy && D.add(r.autoNotifyBy, -3) <= t) out.push({ tone: r.autoNotifyBy <= t ? 'bad' : 'warn', a, text: `${shortName(a)}: абонемент не активирован — автоактивация ${D.ru(r.autoDate)}, сообщить до ${D.ru(r.autoNotifyBy)} (п. 9.2.3)`, tpl: 'Автоактивация абонемента', sub: p.id });
-    const q = notifyState(p, 'period'), ca = ix.athCalc.get(a.id) || {};
-    if (r.earlyReturn && r.end && r.end >= r.earlyReturn && (ca.sub === p || ca.nextSub === p) && !(q && q.at >= r.earlyReturn && q.end === r.end)) {
+    const periodSent = notifyState(p, 'period'), q = r.pkg ? null : lastCommunicatedPeriod(p), ca = ix.athCalc.get(a.id) || {};
+    if (r.earlyReturn && r.end && r.end >= r.earlyReturn && (ca.sub === p || ca.nextSub === p) && !(p.notified?.period?.earlyReturn === r.earlyReturn || periodSent && periodSent.at >= r.earlyReturn && periodSent.end === r.end)) {
       const duplicate = out.findIndex(x => x.sub === p.id && x.tpl === 'Абонемент продлён');
       if (duplicate >= 0) out.splice(duplicate, 1);
       out.push({ tone: 'warn', a, sub: p.id, tpl: 'Срок после досрочного возвращения', text: `${shortName(a)}: вернулся раньше, ${D.ru(r.earlyReturn)}. Сообщите пересчитанный срок абонемента — до ${D.ru(r.end)}.` });
       continue;
     }
     if (out.some(x => x.sub === p.id && x.tpl === 'Абонемент продлён')) continue;
-    if (!r.notActive && r.first && r.end && r.end >= t && r.remaining > 1 && (ca.sub === p || ca.nextSub === p) && (q ? q.stale : r.first >= (db.settings.notifyFrom || '9999') && D.max(r.first, p.payDate || '') >= D.add(t, -14))) {   // новый — оплачен или начат за последние 2 недели
+    if (!r.notActive && r.first && r.end && r.end >= t && (r.remaining > 1 || (q && r.remaining === 1)) && (ca.sub === p || ca.nextSub === p) && (q ? q.end !== r.end && !freezeHold(p.id) : r.first >= (db.settings.notifyFrom || '9999') && D.max(r.first, p.payDate || '') >= D.add(t, -14))) {   // новый — оплачен или начат за последние 2 недели
       if (q) out.push({ tone: 'warn', a, text: `${shortName(a)}: срок абонемента изменился${periodWhy(p, r, q)}: было до ${D.ru(q.end)}, теперь ${D.ru(r.first)} — ${D.ru(r.end)}, сообщите новый срок`, tpl: 'Абонемент продлён', sub: p.id });
       else if (r.actKind === 'visit' || r.actKind === 'auto') out.push({ tone: 'bad', a, text: `${shortName(a)}: абонемент активирован ${D.ru(r.first)}${r.actKind === 'auto' ? ' (автоматически)' : ''} — сообщите период ${D.ru(r.first)} — ${D.ru(r.end)} (п. 9.3.7)`, tpl: 'Абонемент активирован', sub: p.id });
       else out.push({ tone: r.first <= t ? 'bad' : 'warn', a, text: `${shortName(a)}: ${p.payDate ? 'оплатил абонемент ' + D.ru(p.payDate) : 'новый абонемент'} — сообщите срок действия ${D.ru(r.first)} — ${D.ru(r.end)}`, tpl: 'Абонемент активирован', sub: p.id });
@@ -4777,7 +4896,12 @@ function personSummary(a, c, freezes) {
       const btns = (ty, tpl) => `<span class="row no-print" style="gap:6px;margin-top:4px"><button class="btn sm" data-act="msg" data-id="${a.id}" data-sub="${sid}" data-tpl="${tpl}">Написать</button><button class="btn sm ghost" data-act="notify-mark" data-sub="${sid}" data-type="${ty}" title="Сообщение отправлено не из программы">Уже отправил</button></span>`;
       if (!s.pkg && (q || s.first >= (db.settings.notifyFrom || '9999'))) L.push(['Срок сообщён', q ? '✓ ' + D.ru(q.at) + (q.stale ? ` <span class="chip warn">срок изменился: теперь до ${D.ru(q.now)}</span><br><span class="small">было до ${D.ru(q.end)}${h(periodWhy(c.sub, s, q))}</span>` + btns('period', 'Абонемент продлён') : '')
         : (s.first >= (db.settings.notifyFrom || '9999') ? '<span class="muted">не отмечено</span>' + btns('period', 'Абонемент активирован') : '<span class="muted">—</span>')]);
-      if (e || (s.remaining <= (s.pkg ? 1 : 2) && !c.nextSub)) L.push(['Об окончании', e ? '✓ предупреждён ' + D.ru(e.at) + (e.stale && !s.pkg ? ` <span class="chip warn">окончание изменилось: теперь ${D.ru(e.now)}</span>` + btns('end', 'Абонемент заканчивается') : '')
+      if (s.remaining === 0 && !c.nextSub) {
+        const final = notifyState(c.sub, 'finished');
+        if (e) L.push(['Предупреждение об окончании', '✓ ' + D.ru(e.at)]);
+        L.push(['Об окончании', final ? '✓ сообщено ' + D.ru(final.at) :
+          'Не сообщено' + btns('finished', s.pkg ? 'Пакет разовых использован' : 'Абонемент закончился')]);
+      } else if (e || (s.remaining <= (s.pkg ? 1 : 2) && !c.nextSub)) L.push(['Об окончании', e ? '✓ предупреждён ' + D.ru(e.at) + (e.stale && !s.pkg ? ` <span class="chip warn">окончание изменилось: теперь ${D.ru(e.now)}</span>` + btns('end', 'Абонемент заканчивается') : '')
         : '<b style="color:var(--bad)">не предупреждён</b>' + btns('end', s.pkg ? (s.remaining === 0 ? 'Пакет разовых использован' : 'Пакет разовых заканчивается') : s.remaining === 0 ? 'Абонемент закончился' : 'Абонемент заканчивается')]);
     }
     if (c.nextSub) { const nr = ix.subCalc.get(c.nextSub.id); L.push(['Следующий', 'оплачен' + (nr && nr.first ? ', с ' + D.ru(nr.first) : '')]); }
@@ -5472,7 +5596,7 @@ function openFreeze(id, athleteId) {
     ${fc.returnBy ? `<dt>Вернуться не позднее (п. 9.5.4 «б»)</dt><dd>${fc.ret ? 'вернулся ' + D.ru(fc.ret) + (fc.retGuess ? ' (по журналу: первое «+» после болезни)' : '') : D.ru(fc.returnBy)}</dd>` : ''}
     ${fc.remindBy ? `<dt>Напомнить клиенту (п. 9.5.6)</dt><dd>не позднее ${D.ru(fc.remindBy)}</dd>` : ''}</dl></div>` : ''}`;
   modal('Заморозка по болезни', body, {
-    extraBtn: f ? `<button type="button" class="btn danger" data-act="freeze-del" data-id="${f.id}">Удалить</button>${!f.certDate ? (f.noCert ? `<button type="button" class="btn" data-act="freeze-nocert-undo" data-id="${f.id}" title="Отметка «справки не будет» от ${D.ru(f.noCert)}">Отменить «справки не будет»</button>` : `<button type="button" class="btn" data-act="freeze-nocert" data-id="${f.id}" title="Человек сказал, что справки не будет: заморозки нет, занятия болезни списываются">Справки не будет</button>`) : ''}<button type="button" class="btn" data-act="freeze-mark" data-id="${f.id}">Проставить «б» в журнале</button><button type="button" class="btn" data-act="msg" data-id="${aid}" data-sub="${f.subId}" data-tpl="Абонемент продлён">Сообщение</button>` : '',
+    extraBtn: f ? `<button type="button" class="btn danger" data-act="freeze-del" data-id="${f.id}">Удалить</button>${!f.certDate ? (f.noCert ? `<button type="button" class="btn" data-act="freeze-nocert-undo" data-id="${f.id}" title="Отметка «справки не будет» от ${D.ru(f.noCert)}">Отменить «справки не будет»</button>` : `<button type="button" class="btn" data-act="freeze-nocert" data-id="${f.id}" title="Человек сказал, что справки не будет: заморозки нет, занятия болезни списываются">Справки не будет</button>`) : ''}<button type="button" class="btn" data-act="freeze-mark" data-id="${f.id}">Проставить «б» в журнале</button><button type="button" class="btn" data-act="msg" data-id="${aid}" data-sub="${f.subId}" data-tpl="${f.certDate || f.noCert ? 'Абонемент продлён' : 'Заморозка оформлена'}">Сообщение</button>` : '',
     async onSubmit(fd) {
       if (!fd.subId || !freezeSub(ix, { subId: fd.subId, athleteId: aid })) { notice('Выберите абонемент: без абонемента заморозки нет.'); return false; }   // №5
       if (db.freezes.some(x => x.subId === fd.subId && x !== f)) {   // 04.11.2026: и при правке (сменили абонемент на тот, где заморозка уже есть)
@@ -5530,21 +5654,26 @@ function openAward(id, athleteId) {
 /* ---------- СООБЩЕНИЯ ---------- */
 let msgAttnKey = '';
 /* какие шаблоны что означают: «end» — предупреждение об окончании, «period» — сообщён срок действия */
-const NOTIFY_TPL = { 'Абонемент активирован': 'period', 'Оплата получена': 'period', 'Абонемент заканчивается': 'end', 'Абонемент закончился': 'end', 'Осталось одно занятие': 'end', 'Осталось одно занятие (официально)': 'end', 'Абонемент использован': 'end',
+const NOTIFY_TPL = { 'Абонемент активирован': 'period', 'Оплата получена': 'period', 'Абонемент заканчивается': 'end', 'Абонемент закончился': 'finished', 'Осталось одно занятие': 'end', 'Осталось одно занятие (официально)': 'end', 'Абонемент использован': 'finished',
   'Оплата с периодом отсутствия': 'period', 'Срок после досрочного возвращения': 'period',
   'Новый абонемент оплачен': 'period', 'Абонемент продлён': 'period', 'Оплата принята': 'period',
-  'Пакет разовых заканчивается': 'end', 'Пакет разовых использован': 'end', 'Новый абонемент — ждём оплату': 'end' };   // пакет разовых: срока нет — только «об окончании»
-const NOTIFY_TXT = { end: 'Отметить в карточке: предупреждён об окончании абонемента', period: 'Отметить в карточке: срок действия абонемента сообщён' };
+  'Пакет разовых заканчивается': 'end', 'Пакет разовых использован': 'finished', 'Новый абонемент — ждём оплату': 'end' };   // пакет разовых: срока нет — только «об окончании»
+const NOTIFY_TXT = { finished: 'Отметить в карточке: об окончании сообщено', end: 'Отметить в карточке: предупреждён об окончании абонемента', period: 'Отметить в карточке: срок действия абонемента сообщён' };
 let msgCtx = null;
 function notifySub(aid, type, subId) {            // к какому абонементу относится сообщение
   const c = ix.athCalc.get(aid); if (!c) return null;
-  if (type === 'end') return (subId && db.subs.find(p => p.id === subId && p.athleteId === aid)) || c.sub || null;
+  if (type === 'end' || type === 'finished') return (subId && db.subs.find(p => p.id === subId && p.athleteId === aid)) || c.sub || null;
   const p = subId ? db.subs.find(x => x.id === subId) : null;
   return p && !p.pending ? p : (c.nextSub || c.sub || null);
 }
 function markNotified(p, type) {
   const r = ix.subCalc.get(p.id);
-  p.notified = Object.assign({}, p.notified || {}, { [type]: { at: ix.today, end: (r && (r.end || r.expectedEnd)) || '', first: (r && r.first) || '' } });
+  const record = { at: ix.today, end: r?.end || r?.expectedEnd || '', first: r?.first || '' };
+  if (type === 'period' && r?.earlyReturn) record.earlyReturn = r.earlyReturn;
+  p.notified = { ...p.notified, [type]: record };
+  if (record.end && !p.pending && !r.pkg) {
+    p.notified.lastPeriod = { ...record, events: (r.extDates || []).map(x => x.k + x.d), bonus: +p.bonus || 0 };
+  }
 }
 function notifyState(p, type) {                   // null — не отмечено; stale — после отметки срок изменился (заморозка, отмена занятия)
   const n = p && p.notified && p.notified[type]; if (!n) return null;
@@ -5569,7 +5698,11 @@ function notifyBadges(p, r) {
   const c = ix.athCalc.get(p.athleteId) || {}, cur = c.sub === p, next = c.nextSub === p, q = notifyState(p, 'period'), e = notifyState(p, 'end'), b = [];
   if (q) b.push(`<span class="chip ${q.stale ? 'warn' : 'ok'}" title="${q.stale ? 'Срок сообщён ' + D.ru(q.at) + ', потом изменился — теперь до ' + D.ru(q.now) + '. Сообщите новый срок' : 'Срок действия сообщён ' + D.ru(q.at)}">📅 ${q.stale ? 'срок изменился' : D.short(q.at)}</span>`);
   else if ((cur || next) && r.first && !r.notActive && !r.pkg && r.first >= (db.settings.notifyFrom || '9999')) b.push('<span class="chip bad" title="Срок действия абонемента ещё не сообщён">📅 не сообщён</span>');   // у пакета срока нет
-  if (e) b.push(`<span class="chip ${e.stale ? 'warn' : 'ok'}" title="${e.stale ? 'Предупреждён об окончании ' + D.ru(e.at) + ', потом окончание изменилось — теперь ' + D.ru(e.now) : 'Предупреждён об окончании ' + D.ru(e.at)}">✉ ${e.stale ? 'окончание изменилось' : D.short(e.at)}</span>`);
+  if (r.remaining === 0 && !c.nextSub && !c.pendingSub && cur) {
+    const final = notifyState(p, 'finished');
+    b.push(final ? '<span class="chip ok">✉ об окончании сообщено ' + D.short(final.at) + '</span>' :
+      '<span class="chip bad">✉ об окончании не сообщено</span>');
+  } else if (e) b.push(`<span class="chip ${e.stale ? 'warn' : 'ok'}" title="${e.stale ? 'Предупреждён об окончании ' + D.ru(e.at) + ', потом окончание изменилось — теперь ' + D.ru(e.now) : 'Предупреждён об окончании ' + D.ru(e.at)}">✉ ${e.stale ? 'окончание изменилось' : D.short(e.at)}</span>`);
   else if (cur && !c.nextSub && !c.pendingSub && r.remaining != null && r.remaining <= (r.pkg ? 1 : 2)) b.push(`<span class="chip bad" title="Осталось ${Math.max(0, r.remaining)} — об окончании не предупреждён">✉ не предупреждён</span>`);
   return b.length ? `<div class="nb">${b.join('')}</div>` : '';
 }
@@ -5890,7 +6023,7 @@ function vSettings() {
   <div class="card"><h2>Контроль новичка</h2><p class="small muted">Пункт «Новичок» в «Требует внимания»: человек пришёл недавно и ходит меньше, чем нужно, чтобы втянуться. Большинство уходящих новичков уходит в первые недели — написать или поговорить лучше сразу.</p>
   <div class="fgrid">${L('Первые дни в клубе, дн.', inp('newbie.days', S.newbie.days, 'number', 'min="7" max="60"'))}${L('…за них посещений не меньше', inp('newbie.minVisits', S.newbie.minVisits, 'number', 'min="1" max="10"'))}${L('Пропусков подряд — сигнал', inp('newbie.missRow', S.newbie.missRow, 'number', 'min="1" max="6"'))}${L('Сколько дней считать новичком', inp('newbie.watch', S.newbie.watch, 'number', 'min="14" max="120"'))}</div></div>
   <div class="card"><h2>Шаблоны сообщений</h2><p class="small muted">Подстановки: {имя}, {фи}, {фио}, {остаток}, {долг}, {занятий}, {дата_начала}, {дата_окончания}, {срок_оплаты}, {группа}, {окончание_нового} — окончание нового абонемента «ждём оплату» (в {дата_окончания} у него — окончание прежнего), {продление} — «Продлён на 1 занятие (соревнования 24.10), прежний срок — до …» (если продления не было — пусто).</p>
-  <p class="small muted">{срок_абонемента} — срок действия с учётом договорённости и фактического возвращения. {период_отсутствия} — пояснение к продлению при согласованном отсутствии. {условия_оплаты} — период, автоактивация или согласованное отсутствие; {период_ожидания} — период нового неоплаченного абонемента, если известен; {даты_долга} — даты неоплаченных посещений. Для переноса занятия используются {дата_занятия}, {прежнее_время}, {новая_дата} и {новое_время}.</p>
+  <p class="small muted">{изменение_срока} — изменение относительно последней сообщённой даты. {справка_о_болезни} — запрос справки при оформленной заморозке. {срок_абонемента} — срок действия с учётом договорённости и фактического возвращения. {период_отсутствия} — пояснение к продлению при согласованном отсутствии. {условия_оплаты} — период, автоактивация или согласованное отсутствие; {период_ожидания} — период нового неоплаченного абонемента, если известен; {даты_долга} — даты неоплаченных посещений. Для переноса занятия используются {дата_занятия}, {прежнее_время}, {новая_дата} и {новое_время}.</p>
   ${S.templates.map((t, i) => `<fieldset><legend>${h(t.title)}</legend><input type="text" data-change="tpl" data-i="${i}" data-k="title" value="${h(t.title)}" style="margin-bottom:6px"><textarea data-change="tpl" data-i="${i}" data-k="text">${h(t.text)}</textarea><button class="btn sm danger" data-act="tpl-del" data-i="${i}" style="margin-top:6px">Удалить шаблон</button></fieldset>`).join('')}
   <button class="btn" data-act="tpl-add">Добавить шаблон</button></div>`;
 }
@@ -7017,7 +7150,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '27.11.2026 (v191)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '27.11.2026 (v193)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -7444,7 +7577,7 @@ function refusePreview(a, date) {
 function refundLines(rows) { return rows.map(x => x.notActive ? `абонемент от ${D.ru(x.pay)} не активирован — ${x.sum.toLocaleString('ru')} ₽` : `${x.left} × ${x.price.toLocaleString('ru')} ₽`).join('; '); }
 function refundExtra(a) {
   const R = a.refund || {};
-  return { 'дата_отказа': D.ru(R.date), 'сумма_возврата': (+R.sum || 0).toLocaleString('ru'), 'срок_возврата': D.ru(R.due), 'расчёт': refundLines(R.lines || []) || 'не списанных занятий нет' };
+  return { 'дата_отказа': D.ru(R.date), 'сумма_возврата': (+R.sum || 0).toLocaleString('ru'), 'срок_возврата': D.ru(R.due), 'расчёт': refundLines(R.lines || []) || 'неиспользованных занятий нет' };
 }
 function refundHow(R) { return R.how === 'другое' ? R.howNote || 'другое' : [R.how, R.howNote].filter(Boolean).join(': '); }   // «сообщение в MAX: …» / при «другое» — примечание
 /* 08.11.2026: способ оплаты — в «Абонементах»: абонемент / разово (с даты) / без абонемента */
@@ -8244,7 +8377,7 @@ const ACT = {
   'mark-info': el => toast(el.dataset.txt),
   'gsearch': () => openSearch(),
   'notify-mark': el => { const p = db.subs.find(x => x.id === el.dataset.sub); if (!p) return; markNotified(p, el.dataset.type);
-    render.keepScroll = true; persist(el.dataset.type === 'end' ? 'Отмечено: предупреждён об окончании' : 'Отмечено: срок действия сообщён'); },
+    render.keepScroll = true; persist(el.dataset.type === 'finished' ? 'Отмечено: об окончании сообщено' : el.dataset.type === 'end' ? 'Отмечено: предупреждён об окончании' : 'Отмечено: срок действия сообщён'); },
   'cancel-undo': async el => { const s = db.sessions.find(x => x.id === el.dataset.id); if (!s) return;
     if (!await ask('Снять отмену занятия? Отметки «о» уберутся у всех, клетки станут пустыми — поставьте «+», «н» или «б».')) return;
     for (const k of Object.keys(s.marks)) if (s.marks[k] === 'о') delete s.marks[k];
