@@ -7189,7 +7189,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '27.11.2026 (v196)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '27.11.2026 (v197)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -7713,15 +7713,26 @@ function openLeave(id) {
 }
 function archList() { return db.athletes.filter(a => a.status === 'ушёл').sort((x, y) => (leftDate(y) || '').localeCompare(leftDate(x) || '') || fullName(x).localeCompare(fullName(y), 'ru')); }
 function vArchive() {
-  const U = ui.arch || (ui.arch = { q: '' }), q = U.q.trim().toLowerCase(), all = archList(), L = all.filter(a => !q || fullName(a).toLowerCase().includes(q));
+  const U = ui.arch || (ui.arch = { q: '', period: 'year' });
+  const [from, to] = U.period === 'custom' ? [U.from, U.to] : subsPresetRange('year');
+  const all = archList(), q = U.q.trim().toLowerCase(), invalid = U.period === 'custom' && from && to && from > to;
+  const L = all.filter(a => {
+    const date = leftDate(a);
+    return !invalid && (U.period === 'all' || (date && (!from || date >= from) && (!to || date <= to))) && fullName(a).toLowerCase().includes(q);
+  });
   const row = a => { const ow = owedAll(a.id), R = a.refund, back = (a.leaves || []).length;
     return `<li class="arch-it"><div class="who click" data-go="#person/${a.id}"><b>${h(fullName(a))}</b><span class="small">${h(a.group || 'без группы')} · ${a.refund ? 'отказ от договора' : a.cand ? 'кандидат — не продолжил после пробного' : 'перестал ходить'} ${leftDate(a) ? D.ru(leftDate(a)) : ''}${a.leaveReason ? ' · ' + h(a.leaveReason) : ''}${a.addedAt ? ' · в клубе с ' + D.ru(a.addedAt) : ''}${back ? ' · возвращался ' + back + ' ' + plural(back, 'раз', 'раза', 'раз') : ''}</span>
       <span class="row" style="gap:6px;margin-top:4px;flex-wrap:wrap">${R && +R.sum > 0 ? `<span class="chip ${R.paidAt ? 'muted' : 'bad'}">возврат ${(+R.sum).toLocaleString('ru')} ₽${R.paidAt ? ' выплачен' : ' — не выплачен'}</span>` : ''}${ow.n ? `<span class="chip ${a.debtOff && a.debtOff.n >= ow.n ? 'muted' : 'bad'}">${a.debtOff && a.debtOff.n >= ow.n ? 'долг ' + ow.n + ' списан' : 'не оплачено ' + ow.n}</span>` : ''}</span></div>
       <button type="button" class="btn sm ab ab-pay" data-act="arch-return" data-id="${a.id}"><span class="ab-i" aria-hidden="true">↺</span>Вернуть</button></li>`; };
   return `<div class="topline"><h1>Архив</h1><div class="row no-print"><a class="btn" href="#people">← Спортсмены</a></div></div>
   <p class="muted" style="margin-top:-6px">Ушедшие и отказавшиеся от договора: ${all.length}. Их нет в группах, журнале и списках; история, абонементы, оплаты и возвраты сохраняются. Пришёл снова — «Вернуть».</p>
-  <div class="card flat"><div style="padding:12px 16px 4px"><input type="search" class="srch-b" placeholder="Поиск по фамилии или имени" value="${h(U.q)}" data-change="arch-q" aria-label="Поиск в архиве" style="width:100%;max-width:420px"></div>
-  ${L.length ? `<ul class="list">${L.map(row).join('')}</ul>` : `<div class="empty">${all.length ? 'Никого не найдено' : 'Архив пуст'}</div>`}</div>`;
+  ${settingsHeading('Спортсмены в архиве')}
+  <div class="row" style="align-items:end;gap:8px;margin-bottom:8px">
+    <label class="f"><span>Период по дате ухода</span><select data-change="arch-period">${[['year','Год'],['custom','Свой период'],['all','За всё время']].map(([v,t]) => opt(v,U.period,t)).join('')}</select></label>
+    ${U.period !== 'all' ? `<label class="f"><span>С</span><input type="date" data-change="arch-from" value="${h(from)}"></label><label class="f"><span>По</span><input type="date" data-change="arch-to" value="${h(to)}"></label>` : ''}
+  </div>
+  <input type="search" class="srch-b" placeholder="Поиск по фамилии или имени" value="${h(U.q)}" data-change="arch-q" aria-label="Поиск в архиве" style="width:100%;max-width:420px">
+  ${invalid ? '<p role="status">Дата начала позже даты окончания.</p>' : L.length ? `<p class="small muted">Найдено: ${L.length}</p><ul class="list">${L.map(row).join('')}</ul>` : `<div class="empty">${all.length ? 'По выбранным условиям спортсменов нет.' : 'Архив пуст'}</div>`}</details>`;
 }
 function archReturn(id) {
   const a = db.athletes.find(x => x.id === id); if (!a || a.status !== 'ушёл') return;
@@ -9633,7 +9644,21 @@ async function onChange(e) {
   const v = el.type === 'checkbox' ? el.checked : el.value;
   const live = e.type === 'input';
   if (k === 'pf') { ui.people[el.dataset.k] = v; if (live && el.type !== 'number' && el.type !== 'search') return; clearTimeout(typingTimer); typingTimer = setTimeout(() => { if (live) liveRefresh(el); else rerender(); }, live ? 250 : 0); return; }
-  if (k === 'arch-q') { (ui.arch || (ui.arch = { q: '' })).q = v; clearTimeout(typingTimer); typingTimer = setTimeout(() => { if (live) liveRefresh(el); else rerender(); }, live ? 250 : 0); return; }   // 14.11.2026: как в остальных поисках — поле не пересоздаётся (на телефоне была ошибка «innerHTML … blur»)
+  if (['arch-period', 'arch-from', 'arch-to'].includes(k)) {
+    if (live) return;
+    ui.settingsOpen.add('Спортсмены в архиве');
+    const U = ui.arch;
+    if (k === 'arch-period') {
+      U.period = v;
+      if (v === 'custom' && U.from == null) [U.from, U.to] = subsPresetRange('year');
+    } else {
+      if (U.period !== 'custom') [U.from, U.to] = subsPresetRange('year');
+      U.period = 'custom';
+      U[k === 'arch-from' ? 'from' : 'to'] = v;
+    }
+    rerender(); return;
+  }
+  if (k === 'arch-q') { ui.settingsOpen.add('Спортсмены в архиве'); (ui.arch || (ui.arch = { q: '' })).q = v; clearTimeout(typingTimer); typingTimer = setTimeout(() => { if (live) liveRefresh(el); else rerender(); }, live ? 250 : 0); return; }   // 14.11.2026: как в остальных поисках — поле не пересоздаётся (на телефоне была ошибка «innerHTML … blur»)
   if (k === 'nf-q') { const q = String(v || '').trim().toLowerCase(), box = el.closest('.nt-fmenu'); let n = 0;
     box.querySelectorAll('.nt-fml .nt-fmi').forEach(b => { const on = !q || b.dataset.nfq.includes(q); b.hidden = !on; n += on; }); box.querySelector('.nt-fmn').hidden = !!n; return; }   // фильтр папок в меню — без перерисовки
   if (k === 'cal-notes') { meta.calNoNotes = !v; writeMeta(); rerender(); return; }
