@@ -2,7 +2,7 @@
 // 18.11.2026: надёжнее без интернета — основное (страница) кэшируется обязательно, значки — по возможности;
 // 18.11.2026: удаляются только свои старые копии (d23-app-), чужие не трогаем.
 // не кэшируются перенаправления и чужие ответы (Wi‑Fi со страницей входа в гостинице, поезде); без сети — сразу из кэша.
-const CACHE = 'd23-app-v199';
+const CACHE = 'd23-app-v201';
 const CORE = ['./', './index.html'], OPT = ['./manifest.webmanifest', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(async c => { await c.addAll(CORE.map(u => new Request(u, { cache: 'reload' }))); await Promise.all(OPT.map(u => c.add(new Request(u, { cache: 'reload' })).catch(() => {}))); }));   // мимо кэша браузера — сразу новая версия

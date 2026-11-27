@@ -3851,8 +3851,9 @@ function vToday() {
   const hiddenToday = db.settings.groups.filter(g => g.todayOff && daysOn(g, t)[dw] && !todaySessions.some(s => s.group === g.name)).map(g => g.name);
   const groupsBtns = [...new Set([...planned.map(g => g.name), ...todaySessions.map(s => s.group)])].map(g => {
     const s = todaySessions.find(x => x.group === g);
-    const n = s ? Object.values(s.marks).filter(m => m === '+').length : 0;
-    return `<button class="btn ${s ? '' : 'primary'}" data-act="open-session" data-date="${t}" data-group="${h(g)}">${s ? h(g || 'без группы') + ' · отмечено ' + n : 'Отметить «' + h(g) + '»'}</button>`;
+    const { total, missing } = sessionProgress(s || { group:g, date:t, marks:{} });
+    const status = missing.length ? 'осталось отметить ' + missing.length : total ? 'все отмечены' : 'нет обязательных отметок';
+    return `<button class="btn ${s ? '' : 'primary'}" data-act="open-session" data-date="${t}" data-group="${h(g)}">${(s ? h(g || 'без группы') : 'Отметить «' + h(g) + '»') + ' · ' + status}</button>`;
   }).join('');
   const all = attention(), doneMap = attnDoneMap(); attnSeenUpd(all);
   const al = all.filter(x => !doneMap[attnKey(x)]), doneAny = all.filter(x => doneMap[attnKey(x)]), done = doneAny.filter(x => doneMap[attnKey(x)] === t);   // 13.11.2026: в «Сделано» — только отмеченное сегодня; отмеченное раньше не показывается и не возвращается
@@ -4488,6 +4489,10 @@ function markRow(s, a, showGroup) {
       const lb = d ? ['д', 'долг'] : tg && tg.kind === 'pkg' ? ['+', tg.n + '/' + tg.N] : tg ? ['р', 'разово'] : fr ? ['+0', 'бесплатно'] : [k, MARK_SHORT[k]];
       return `<button class="mk${m === k ? ' on' : ''}${d ? ' debt' : ''}" data-act="mark" data-sid="${s.id}" data-aid="${a.id}" data-m="${k}" aria-pressed="${m === k}" aria-label="${d ? 'был, не оплачено (долг)' : tg && tg.kind === 'pkg' ? 'был, пакет: ' + tg.n + ' из ' + tg.N : tg ? 'был, оплачено разово' : fr ? 'был, бесплатно (без абонемента)' : MARKS[k].label}"${d ? ' title="Был, посещение не оплачено. После оплаты станет «+»"' : ''}><b>${lb[0]}</b><span>${lb[1]}</span></button>`; }).join('')}</div></li>`;
 }
+function sessionProgress(s, people = sessionMembers(s)) {
+  const eligible = people.filter(a => !perVisitOn(a, s.date) || s.marks[a.id]);
+  return { total: eligible.length, missing: eligible.filter(a => !s.marks[a.id]) };
+}
 function vSession(sid) {
   const s = db.sessions.find(x => x.id === sid);
   if (!s) return '<div class="card"><p>Занятие не найдено.</p><a class="btn" href="#journal">К посещениям</a></div>';
@@ -4496,14 +4501,15 @@ function vSession(sid) {
   const addable = db.athletes.filter(a => !people.includes(a) && !s.marks[a.id] && a.status !== 'ушёл').sort((a, b) => fullName(a).localeCompare(fullName(b), 'ru'));
   const hol = ix.holiday.get(s.date);
   const openExtra = !s.group || ui.openOthers === s.id;
-  const elig = people.filter(a => !perVisitOn(a, s.date) || s.marks[a.id]), none = elig.filter(a => !s.marks[a.id]).length;   // «не отмечено» — только для показа
-  const pct = elig.length ? Math.round((elig.length - none) / elig.length * 100) : 0;
+  const { total, missing } = sessionProgress(s, people), none = missing.length;
+  const onlyMissing = ui.unmarkedSession === s.id && !!s.group;
+  const pct = total ? Math.round((total - none) / total * 100) : 0;
   const cancelled = Object.values(s.marks).some(x => x === 'о');
   return `<div class="topline"><div style="min-width:0;flex:1"><a href="#journal" class="small no-print">← Посещения</a><h1>${D.ru(s.date)}, ${DOW_FULL[D.dow(s.date)]}</h1>
     <select data-change="session-group" data-id="${s.id}" aria-label="Группа занятия" style="width:auto;max-width:100%">${opt('', s.group, '— выберите группу —')}${db.settings.groups.map(g => opt(g.name, s.group)).join('')}</select></div></div>
-  ${s.group ? `<div class="sess-bar no-print"><div class="row" style="gap:6px"><span class="chip ok">был ${c('+')}</span><span class="chip bad">не был ${c('н')}</span><span class="chip sick">болел ${c('б')}</span>${none ? `<span class="chip warn">не отмечено ${none}</span>` : elig.length ? '<span class="chip ok">все отмечены</span>' : ''}</div><div class="progress" aria-hidden="true"><i style="width:${pct}%"></i></div></div>` : ''}
-  <div class="row no-print sess-acts"><button class="btn" data-act="mark-all" data-id="${s.id}" data-m="+">Все были</button><button class="btn" data-act="cand-new" data-group="${h(s.group)}" data-date="${s.date}" title="Новый человек на пробном занятии — кандидат">＋ Пробное</button><button class="btn" data-act="mark-rest" data-id="${s.id}" title="Тем, кто на заморозке, поставится «б»">Остальным «н»</button>
-    <details class="menu"><summary class="btn" aria-label="Другие действия с занятием">Ещё ⋯</summary><div class="menu-pop">${cancelled ? `<button class="btn" data-act="cancel-undo" data-id="${s.id}" title="Убрать отметки «о» у всех">Снять отмену занятия</button>` : `<button class="btn" data-act="mark-all" data-id="${s.id}" data-m="о">Занятие отменено</button>`}<button class="btn" data-act="brief-session" data-id="${s.id}" title="Отметить инструктаж по ТБ тем, кто на занятии">Инструктаж по ТБ</button><button class="btn" data-act="gmsg" data-group="${h(s.group || '')}" data-date="${s.date}">Сообщение группе</button></div></details></div>
+  ${s.group ? `<div class="sess-bar no-print"><div class="row" style="gap:6px"><span class="chip ok">был ${c('+')}</span><span class="chip bad">не был ${c('н')}</span><span class="chip sick">болел ${c('б')}</span>${none ? `<button type="button" class="btn sm" data-act="session-missing" data-id="${s.id}" aria-pressed="${onlyMissing}">Не отмечено · ${none}</button>` : total ? '<span class="chip ok">Все отмечены</span>' : ''}${onlyMissing ? `<button type="button" class="btn sm" data-act="session-full">Показать всю группу</button>` : ''}</div><div class="progress" aria-hidden="true"><i style="width:${pct}%"></i></div></div>` : ''}
+  <div class="row no-print sess-acts" ${onlyMissing ? 'style="display:none"' : ''}><button class="btn" data-act="mark-all" data-id="${s.id}" data-m="+">Все были</button><button class="btn" data-act="cand-new" data-group="${h(s.group)}" data-date="${s.date}" title="Новый человек на пробном занятии — кандидат">＋ Пробное</button><button class="btn" data-act="mark-rest" data-id="${s.id}" title="Тем, кто на заморозке, поставится «б»">Остальным «н»</button>
+    <details class="menu"><summary class="btn" aria-label="Другие действия с занятием">Ещё ⋯</summary><div class="menu-pop">${cancelled ? `<button class="btn" data-act="cancel-undo" data-id="${s.id}" title="Убрать отметки «о» у всех">Снять отмену занятия</button>` : `<button class="btn" data-act="mark-all" data-id="${s.id}" data-m="о">Занятие отменено</button>`}<button class="btn" data-act="brief-session" data-id="${s.id}" title="Отметить инструктаж по ТБ тем, кто на занятии">Инструктаж по ТБ</button></div></details></div>
   ${hol ? `<div class="banner">Этот день отмечен как нерабочий: ${h(hol)}.</div>` : ''}
   ${offSchedule(s) ? `<div class="banner">По расписанию у «${h(s.group)}» нет занятий в ${DOW_FULL[D.dow(s.date)]}. Проверьте, та ли группа выбрана.</div>` : ''}
   ${!s.group ? `<div class="banner">У занятия не выбрана группа. Выберите её в списке выше — тогда появится состав группы.</div>` : ''}
@@ -4516,8 +4522,8 @@ function vSession(sid) {
     return (L.length ? `<p class="small" style="margin:8px 0;line-height:1.9">${L.join('<br>')}</p>` : '')
       + (P.length ? `<details class="small" data-pausebox ${ui.pauseBox ? 'open' : ''} style="margin:8px 0"><summary style="cursor:pointer">На перерыве: ${P.length} ${plural(P.length, 'человек', 'человека', 'человек')}</summary><div style="margin-top:6px;line-height:1.9">${P.join('<br>')}</div></details>` : ''); })()}
   <details class="legend-d no-print"><summary>Что значат отметки</summary><div class="legend"><span><b style="background:var(--ok-fill)">+</b>был</span><span><b style="background:var(--bad-fill)">н</b>не был, списывается</span><span><b style="background:var(--bad-fill)">д</b>был, не оплачено (долг); после оплаты — «+»</span><span><b style="background:var(--ink-3);width:auto;padding:0 4px">+0</b>был, бесплатно (в карточке «Без абонемента»)</span><span><b style="background:var(--sick-fill)">б</b>болел, справки нет</span><span><b style="background:var(--sick-fill)">бс</b>болел, справка внесена — не списывается, в аттестации посещение</span><span><b style="background:var(--cancel-fill)">о</b>отменено клубом</span><span><b style="background:var(--comp-fill)">с</b>соревнования</span><span class="muted">пустая клетка на состоявшемся занятии в расчёте абонемента = «н»</span></div></details>
-  ${s.group ? `<div class="card flat"><ul class="list jlist">${people.map(a => markRow(s, a, false)).join('') || '<li class="empty">В группе нет занимающихся. Добавьте человека ниже или выберите другую группу.</li>'}</ul></div>` : ''}
-  ${extra.length ? `<details class="card flat" ${openExtra ? 'open' : ''}><summary style="padding:12px 16px;cursor:pointer;min-height:44px"><b>${s.group ? 'Из других групп на этом занятии' : 'Отмечены на занятии'}: ${extra.length}</b>${extra.length > 1 ? ` <button class="btn sm no-print" data-act="move-own" data-sid="${s.id}" style="margin-left:8px">Перенести всех в их группы</button>` : ''}</summary>
+  ${s.group ? `<div class="card flat"><ul class="list jlist">${(onlyMissing ? missing : people).map(a => markRow(s, a, false)).join('') || (onlyMissing ? '<li class="empty">Нет спортсменов без отметки.</li>' : '<li class="empty">В группе нет занимающихся. Добавьте человека ниже или выберите другую группу.</li>')}</ul></div>` : ''}
+  ${!onlyMissing && extra.length ? `<details class="card flat" ${openExtra ? 'open' : ''}><summary style="padding:12px 16px;cursor:pointer;min-height:44px"><b>${s.group ? 'Из других групп на этом занятии' : 'Отмечены на занятии'}: ${extra.length}</b>${extra.length > 1 ? ` <button class="btn sm no-print" data-act="move-own" data-sid="${s.id}" style="margin-left:8px">Перенести всех в их группы</button>` : ''}</summary>
   <p class="small muted" style="padding:0 16px">Если отметку поставили не в ту группу, «Перенести» переставит её на занятие группы человека за эту же дату. Если человек действительно приходил в эту группу — ничего не делайте.</p><ul class="list jlist" style="border-top:1px solid var(--line)">${extra.map(a => markRow(s, a, true)).join('')}</ul></details>` : ''}
   <div class="card no-print"><h3>Гость или человек из другой группы</h3><div class="row"><select id="add-to-session" aria-label="Кого добавить на занятие" style="flex:1 1 260px;min-width:0">${opt('', '', 'Выберите спортсмена…')}${addable.map(a => opt(a.id, '', fullName(a) + (a.group ? ' — ' + a.group : ''))).join('')}</select>
   <button class="btn" data-act="session-add" data-id="${s.id}">Добавить</button></div>
@@ -4624,7 +4630,19 @@ function filteredPeople() {
   else list.sort(byName);
   return list;
 }
-function vPeople() {
+function peopleResultRows(list, F) {
+  return `<div class="card flat show-m"><ul class="list sublist">${list.map(a => { const c = ix.athCalc.get(a.id); const ag = ageOf(c, F.ageMode);
+    return `<li class="click" data-go="#person/${a.id}">${beltHTML(c.belt, c.stripes)}<div class="who"><b>${h(shortName(a))}</b><span class="small">${h(a.group || 'без группы')}${ag != null ? ' · ' + ag + ' ' + plural(ag, 'год', 'года', 'лет') : ''}${a.status !== 'занимается' ? ' · ' + h(a.status) : ''}</span>${c.contact ? `<span class="small">${telLink(c.contact)} ${c.contactWho}</span>` : (c.noParentPhone ? '<span class="small"><span class="chip bad">нет телефона</span></span>' : '')}</div>
+    <div class="subside">${chipSub(c)}${chipMed(c.med)}</div></li>`; }).join('') || '<li class="empty">Никого не нашлось. Сбросьте фильтры.</li>'}</ul></div>
+  <div class="card flat scroll hide-m"><table class="t"><thead><tr><th>ФИО</th><th>Пояс</th><th class="r">Возраст</th><th class="hide-m">Дата рожд.</th><th>Группа</th><th class="hide-m">Контакт</th><th class="no-print">Абонемент</th><th class="hide-m">Справка</th></tr></thead><tbody>
+  ${list.map(a => { const c = ix.athCalc.get(a.id); const ag = ageOf(c, F.ageMode);
+    return `<tr class="click${c.noParentPhone ? ' nophone' : ''}" data-go="#person/${a.id}"><td><b>${h(fullName(a))}</b>${a.status !== 'занимается' ? ` <span class="chip muted">${h(a.status)}</span>` : ''}${a.otherTeam ? ' <span class="chip warn">др. команда</span>' : ''}</td>
+    <td>${beltHTML(c.belt, c.stripes)}</td><td class="r num">${ag ?? ''}</td><td class="hide-m num">${D.ru(a.birth)}</td><td>${h(a.group)}${a.group2 ? ' / ' + h(a.group2) : ''}</td>
+    <td class="hide-m">${c.contact ? telLink(c.contact) + ' <span class="small muted">' + c.contactWho + '</span>' : (c.noParentPhone ? '<span class="chip bad">нет телефона</span>' : '')}</td>
+    <td class="no-print">${chipSub(c)}</td><td class="hide-m">${c.med === 'действует' ? '<span class="small muted">до ' + D.ru(a.medUntil) + '</span>' : chipMed(c.med)}</td></tr>`; }).join('') || '<tr><td colspan="8" class="empty">Никого не нашлось. Сбросьте фильтры.</td></tr>'}
+  </tbody></table></div>`;
+}
+function vPeople(forPrint = false) {
   const F = ui.people, S = db.settings, list = filteredPeople();
   const statusChanged = F.statuses?.length !== 1 || F.statuses[0] !== 'занимается';
   const statuses = [...new Set([...S.statuses, 'кандидат', ...db.athletes.map(a => a.status || '')])];
@@ -4653,17 +4671,7 @@ function vPeople() {
   ${F.ageMode !== 'сейчас' && S.competition.date ? `<div class="small muted">Соревнования: ${h(S.competition.name)}, ${D.ru(S.competition.date)}</div>` : ''}</div>
   <div class="print-only"><b>${h(S.club)}</b> — список спортсменов (${list.length}), ${D.ru(ix.today)}</div>
   <button type="button" class="btn result-list-toggle no-print" data-act="result-list-toggle" aria-controls="people-results" aria-expanded="${!!ui.peopleListOpen}"><span aria-hidden="true">${ui.peopleListOpen ? '▾' : '▸'}</span> Список спортсменов · ${list.length}</button>
-  <div id="people-results">
-  <div class="card flat show-m"><ul class="list sublist">${list.map(a => { const c = ix.athCalc.get(a.id); const ag = ageOf(c, F.ageMode);
-    return `<li class="click" data-go="#person/${a.id}">${beltHTML(c.belt, c.stripes)}<div class="who"><b>${h(shortName(a))}</b><span class="small">${h(a.group || 'без группы')}${ag != null ? ' · ' + ag + ' ' + plural(ag, 'год', 'года', 'лет') : ''}${a.status !== 'занимается' ? ' · ' + h(a.status) : ''}</span>${c.contact ? `<span class="small">${telLink(c.contact)} ${c.contactWho}</span>` : (c.noParentPhone ? '<span class="small"><span class="chip bad">нет телефона</span></span>' : '')}</div>
-    <div class="subside">${chipSub(c)}${chipMed(c.med)}</div></li>`; }).join('') || '<li class="empty">Никого не нашлось. Сбросьте фильтры.</li>'}</ul></div>
-  <div class="card flat scroll hide-m"><table class="t"><thead><tr><th>ФИО</th><th>Пояс</th><th class="r">Возраст</th><th class="hide-m">Дата рожд.</th><th>Группа</th><th class="hide-m">Контакт</th><th class="no-print">Абонемент</th><th class="hide-m">Справка</th></tr></thead><tbody>
-  ${list.map(a => { const c = ix.athCalc.get(a.id); const ag = ageOf(c, F.ageMode);
-    return `<tr class="click${c.noParentPhone ? ' nophone' : ''}" data-go="#person/${a.id}"><td><b>${h(fullName(a))}</b>${a.status !== 'занимается' ? ` <span class="chip muted">${h(a.status)}</span>` : ''}${a.otherTeam ? ' <span class="chip warn">др. команда</span>' : ''}</td>
-    <td>${beltHTML(c.belt, c.stripes)}</td><td class="r num">${ag ?? ''}</td><td class="hide-m num">${D.ru(a.birth)}</td><td>${h(a.group)}${a.group2 ? ' / ' + h(a.group2) : ''}</td>
-    <td class="hide-m">${c.contact ? telLink(c.contact) + ' <span class="small muted">' + c.contactWho + '</span>' : (c.noParentPhone ? '<span class="chip bad">нет телефона</span>' : '')}</td>
-    <td class="no-print">${chipSub(c)}</td><td class="hide-m">${c.med === 'действует' ? '<span class="small muted">до ' + D.ru(a.medUntil) + '</span>' : chipMed(c.med)}</td></tr>`; }).join('') || '<tr><td colspan="8" class="empty">Никого не нашлось. Сбросьте фильтры.</td></tr>'}
-  </tbody></table></div></div>`;
+  <div id="people-results">${ui.peopleListOpen || forPrint === true ? peopleResultRows(list, F) : ''}</div>`;
 }
 
 /* ---------- КАРТОЧКА ---------- */
@@ -5384,7 +5392,23 @@ function subsPresetRange(k) { const t = ix.today;
   if (k === 'year') return [t.slice(0, 4) + '-01-01', t];
   return null; }
 function subsPreset(U) { if (U.pAll) return 'all'; for (const k of ['month', 'prev', 'year']) { const r = subsPresetRange(k); if (U.pFrom === r[0] && U.pTo === r[1]) return k; } return ''; }
-function vSubs() {
+function subsResultRows(rows, U, subHl, th) {
+  return `${(U.filter === 'debt' || U.filter === 'all') && unpaidList().length ? `<div class="card flat"><div style="padding:12px 16px 2px"><h3 style="margin:0">Не оплачено</h3></div><ul class="list sublist">${unpaidList().map(({ a, c }) => { const cd = a.status === 'кандидат' || a.cand, tr = new Set(cd ? (ix.marks.get(a.id) || []).filter(m => m.trial).map(m => m.date) : []);   // 20.11.2026: компактно; у кандидата — «кандидат, пробное ДД.ММ.ГГГГ»
+    const what = c.unpaid.map(d => (tr.has(d) ? 'пробное ' : '') + D.ru(d)).join(', ');
+    return `<li class="click" data-act="sub-new" data-id="${a.id}" title="Внести оплату"><div class="who"><b class="nm">${h(shortName(a))}</b><span class="small">${h(a.group || '')} · ${cd ? 'кандидат, ' + (tr.size ? '' : 'посещение ') + what : 'без абонемента: ' + what}</span></div><div class="subside"><span class="chip bad">не оплачено ${c.unpaid.length}</span></div></li>`; }).join('')}</ul></div>` : ''}
+  <div class="card flat show-m"><ul class="list sublist">${rows.map(({ p, r, a }) => { const hl = subHl(p, r, a);
+    return `<li class="click${hl}" data-act="sub-edit" data-id="${p.id}"><div class="who"><b class="nm">${h(shortName(a))}</b>
+      <span class="small">${h(p.onlyGroup || a.group || '')} · ${p.count} зан.${p.payDate && !p.pending ? ' · опл. ' + D.short(p.payDate) : ''}${refundBySub().get(p.id) ? ' · ' + subNet(p).toLocaleString('ru') + ' ₽ с учётом возврата' : ''} · ${r.first ? 'с ' + D.short(r.first) : (p.pending ? 'с 1-го посещения' : 'не активирован' + (r.autoDate ? ', до ' + D.short(r.autoDate) : ''))}</span>
+      <span class="small">${r.end ? (r.endKind === 'fact' ? 'последнее ' : r.endKind === 'terminated' ? 'прекращён ' : 'окончание ') + D.ru(r.end) + (r.baseEnd ? `<br><span style="font-weight:700">+${r.extDates.length} продлён</span>, было до ${D.short(r.baseEnd)}` : '') : (r.endKind === 'nosched' ? 'нет расписания' : r.endKind === 'pkg' ? 'пакет разовых, без срока' : '')}</span>${notifyBadges(p, r)}</div>
+      <div class="subside"><b class="num">${r.remaining}</b><span class="chip ${r.tone}">${h(r.status)}</span></div></li>`; }).join('') || '<li class="empty">Нет абонементов в этом списке</li>'}</ul></div>
+  <div class="card flat scroll hide-m"><table class="t"><thead><tr>${th('name', 'ФИО')}${th('pay', 'Оплата', 'hide-m')}${th('start', 'С')}<th class="r">Занятий</th><th class="r hide-m">Сумма</th><th class="r hide-m">Был</th><th class="r hide-m">Не был</th><th class="r hide-m">Болел</th>${th('rem', 'Остаток', 'r')}${th('end', 'Окончание')}<th>Статус</th></tr></thead><tbody>
+  ${rows.map(({ p, r, a }) => { const hl = subHl(p, r, a);
+  return `<tr class="click${hl}" data-act="sub-edit" data-id="${p.id}"><td><b class="nm">${h(shortName(a))}</b><div class="small muted">${h(p.onlyGroup || a.group)}</div></td><td class="hide-m num">${D.ru(p.payDate)}</td><td class="num">${startLabel(p, r, true)}</td>
+  <td class="r num">${p.count}</td><td class="r num hide-m">${amountCell(p)}</td><td class="r num hide-m">${r.was}</td><td class="r num hide-m">${r.missed}</td><td class="r num hide-m">${r.sick}</td>
+  <td class="r num"><b>${r.remaining}</b></td><td class="num">${r.end ? D.ru(r.end) + (r.baseEnd ? `<div class="small muted" title="${h('Срок ' + extNote(r))}">было ${D.short(r.baseEnd)}, +${r.extDates.length}</div>` : '') : (r.endKind === 'nosched' ? '<span class="small muted">нет расписания</span>' : r.endKind === 'pkg' ? '<span class="small muted">пакет, без срока</span>' : '')}</td><td><span class="chip ${r.tone}">${h(r.status)}</span>${notifyBadges(p, r)}</td></tr>`; }).join('') || '<tr><td colspan="11" class="empty">Нет абонементов в этом списке</td></tr>'}</tbody></table></div>
+  <p class="small muted">Списывается «был» и «не был» (п. 9.4). «Болел» не списывается, пока заморозка не прекращена (п. 9.5). Окончание — прогноз по расписанию группы и нерабочим дням (п. 9.3).</p>`;
+}
+function vSubs(forPrint = false) {
   const U = ui.subs, q = U.q.trim().toLowerCase();
   let rows = db.subs.map(p => ({ p, r: ix.subCalc.get(p.id), a: ix.ath.get(p.athleteId) })).filter(x => x.a);
   const latestIds = new Set(db.athletes.map(a => { const c = ix.athCalc.get(a.id); return c.sub && c.sub.id; }).filter(Boolean));
@@ -5447,21 +5471,7 @@ function vSubs() {
   <button class="btn" data-act="subs-dir" title="Обратный порядок" aria-label="${U.dir > 0 ? 'По возрастанию' : 'По убыванию'}">${U.dir > 0 ? '▲<span class="hide-m"> по возрастанию</span>' : '▼<span class="hide-m"> по убыванию</span>'}</button></div>
   <div class="legend" style="margin-top:10px"><span><i class="lg-rem1"></i>осталось 1 занятие</span><span><i class="lg-rem2"></i>осталось 2 занятия</span><span class="small opt-m">(если следующий ещё не оплачен)</span><span><i class="lg-pend"></i>ждём оплату</span></div></div>
   <button type="button" class="btn result-list-toggle no-print" data-act="result-list-toggle" aria-controls="subs-results" aria-expanded="${!!ui.subsListOpen}"><span aria-hidden="true">${ui.subsListOpen ? '▾' : '▸'}</span> Список абонементов · ${rows.length}</button>
-  <div id="subs-results">
-  ${(U.filter === 'debt' || U.filter === 'all') && unpaidList().length ? `<div class="card flat"><div style="padding:12px 16px 2px"><h3 style="margin:0">Не оплачено</h3></div><ul class="list sublist">${unpaidList().map(({ a, c }) => { const cd = a.status === 'кандидат' || a.cand, tr = new Set(cd ? (ix.marks.get(a.id) || []).filter(m => m.trial).map(m => m.date) : []);   // 20.11.2026: компактно; у кандидата — «кандидат, пробное ДД.ММ.ГГГГ»
-    const what = c.unpaid.map(d => (tr.has(d) ? 'пробное ' : '') + D.ru(d)).join(', ');
-    return `<li class="click" data-act="sub-new" data-id="${a.id}" title="Внести оплату"><div class="who"><b class="nm">${h(shortName(a))}</b><span class="small">${h(a.group || '')} · ${cd ? 'кандидат, ' + (tr.size ? '' : 'посещение ') + what : 'без абонемента: ' + what}</span></div><div class="subside"><span class="chip bad">не оплачено ${c.unpaid.length}</span></div></li>`; }).join('')}</ul></div>` : ''}
-  <div class="card flat show-m"><ul class="list sublist">${rows.map(({ p, r, a }) => { const hl = subHl(p, r, a);
-    return `<li class="click${hl}" data-act="sub-edit" data-id="${p.id}"><div class="who"><b class="nm">${h(shortName(a))}</b>
-      <span class="small">${h(p.onlyGroup || a.group || '')} · ${p.count} зан.${p.payDate && !p.pending ? ' · опл. ' + D.short(p.payDate) : ''}${refundBySub().get(p.id) ? ' · ' + subNet(p).toLocaleString('ru') + ' ₽ с учётом возврата' : ''} · ${r.first ? 'с ' + D.short(r.first) : (p.pending ? 'с 1-го посещения' : 'не активирован' + (r.autoDate ? ', до ' + D.short(r.autoDate) : ''))}</span>
-      <span class="small">${r.end ? (r.endKind === 'fact' ? 'последнее ' : r.endKind === 'terminated' ? 'прекращён ' : 'окончание ') + D.ru(r.end) + (r.baseEnd ? `<br><span style="font-weight:700">+${r.extDates.length} продлён</span>, было до ${D.short(r.baseEnd)}` : '') : (r.endKind === 'nosched' ? 'нет расписания' : r.endKind === 'pkg' ? 'пакет разовых, без срока' : '')}</span>${notifyBadges(p, r)}</div>
-      <div class="subside"><b class="num">${r.remaining}</b><span class="chip ${r.tone}">${h(r.status)}</span></div></li>`; }).join('') || '<li class="empty">Нет абонементов в этом списке</li>'}</ul></div>
-  <div class="card flat scroll hide-m"><table class="t"><thead><tr>${th('name', 'ФИО')}${th('pay', 'Оплата', 'hide-m')}${th('start', 'С')}<th class="r">Занятий</th><th class="r hide-m">Сумма</th><th class="r hide-m">Был</th><th class="r hide-m">Не был</th><th class="r hide-m">Болел</th>${th('rem', 'Остаток', 'r')}${th('end', 'Окончание')}<th>Статус</th></tr></thead><tbody>
-  ${rows.map(({ p, r, a }) => { const hl = subHl(p, r, a);
-  return `<tr class="click${hl}" data-act="sub-edit" data-id="${p.id}"><td><b class="nm">${h(shortName(a))}</b><div class="small muted">${h(p.onlyGroup || a.group)}</div></td><td class="hide-m num">${D.ru(p.payDate)}</td><td class="num">${startLabel(p, r, true)}</td>
-  <td class="r num">${p.count}</td><td class="r num hide-m">${amountCell(p)}</td><td class="r num hide-m">${r.was}</td><td class="r num hide-m">${r.missed}</td><td class="r num hide-m">${r.sick}</td>
-  <td class="r num"><b>${r.remaining}</b></td><td class="num">${r.end ? D.ru(r.end) + (r.baseEnd ? `<div class="small muted" title="${h('Срок ' + extNote(r))}">было ${D.short(r.baseEnd)}, +${r.extDates.length}</div>` : '') : (r.endKind === 'nosched' ? '<span class="small muted">нет расписания</span>' : r.endKind === 'pkg' ? '<span class="small muted">пакет, без срока</span>' : '')}</td><td><span class="chip ${r.tone}">${h(r.status)}</span>${notifyBadges(p, r)}</td></tr>`; }).join('') || '<tr><td colspan="11" class="empty">Нет абонементов в этом списке</td></tr>'}</tbody></table></div>
-  <p class="small muted">Списывается «был» и «не был» (п. 9.4). «Болел» не списывается, пока заморозка не прекращена (п. 9.5). Окончание — прогноз по расписанию группы и нерабочим дням (п. 9.3).</p></div>`;
+  <div id="subs-results">${ui.subsListOpen || forPrint === true ? subsResultRows(rows, U, subHl, th) : ''}</div>`;
 }
 function openSub(id, athleteId) {
   const p = id ? db.subs.find(x => x.id === id) : null;
@@ -5771,14 +5781,15 @@ function openMsg(aid, tplTitle, extra = {}, subId = null, attnK = '') {
   <label class="f" style="margin-top:10px"><span>Текст</span><textarea id="msg-text" style="min-height:150px">${h(fill(idx))}</textarea></label>
   <p id="msg-problem" class="small muted" aria-live="polite"></p><div class="row msg-send" style="gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center"><span class="small muted">Отправить:</span>${mobileUA() ? '<a class="btn primary" id="msg-max" target="_blank" rel="noopener" title="Откроется MAX: выберите чат родителя — текст уже вставлен">MAX</a>' : ''}${phone ? '<a class="btn" id="msg-sms">SMS</a>' : ''}</div>
   ${mobileUA() ? '' : '<p class="small muted" style="margin:6px 0 0">MAX на компьютере не принимает готовый текст — нажмите «Скопировать» и вставьте в чат MAX.</p>'}
+  <div class="row" style="gap:8px;flex-wrap:wrap;margin:10px 0"><button type="button" class="btn${mobileUA() ? '' : ' primary'}" data-act="msg-copy">Скопировать</button><button type="button" class="btn" data-act="msg-confirm">Отправлено</button>${navigator.share ? '<button type="button" class="btn" data-act="msg-share">Поделиться…</button>' : ''}</div>
   <label class="row small" id="msg-rec-l" style="gap:8px;margin-top:8px"><input type="checkbox" id="msg-rec" checked style="width:20px;height:20px"> <span id="msg-rec-t"></span></label>
   ${attnK ? '<label class="row small" style="gap:8px;margin-top:8px"><input type="checkbox" id="msg-done" checked style="width:20px;height:20px"> После отправки отметить в «Требует внимания» как сделанное</label>' : ''}
   <p class="small muted">Переписку сохраняйте — она подтверждает, что клиент уведомлён. Шаблоны меняются в настройках.</p>`;
-  modal('Сообщение', body, { extraBtn: `<button type="button" class="btn${mobileUA() ? '' : ' primary'}" data-act="msg-copy">Скопировать</button>${navigator.share ? '<button type="button" class="btn" data-act="msg-share">Поделиться…</button>' : ''}` });
+  modal('Сообщение', body);
   const upd = () => { const t = $('#msg-text').value, e = encodeURIComponent(t), set = (id, u) => { const x = $(id); if (x) { if (messageProblem(t)) x.removeAttribute('href'); else x.href = u; } };   // 28.10.2026: MAX, Telegram, WhatsApp — текст уже вставлен
     $('#msg-problem').textContent = messageProblem(t);
     set('#msg-sms', 'sms:+7' + phone + '?body=' + e); set('#msg-max', 'https://max.ru/:share?text=' + e); };   // Telegram и WhatsApp — нет: серверы за рубежом, а Политика (п. 7.4) трансграничную передачу исключает
-  const recUpd = () => { const tt = T[+$('#msg-tpl').value], ty = tt && messageMarkType(tt.title); $('#msg-rec-l').style.display = ty ? '' : 'none'; if (ty) $('#msg-rec-t').textContent = (tt.title === 'Новый абонемент — ждём оплату' ? 'Отметить в карточке: сообщение о новом сроке и об оплате отправлено' : NOTIFY_TXT[ty]) + ' (после отправки или «Скопировать»)'; };
+  const recUpd = () => { const tt = T[+$('#msg-tpl').value], ty = tt && messageMarkType(tt.title); $('#msg-rec-l').style.display = ty ? '' : 'none'; if (ty) $('#msg-rec-t').textContent = (tt.title === 'Новый абонемент — ждём оплату' ? 'Отметить в карточке: сообщение о новом сроке и об оплате отправлено' : NOTIFY_TXT[ty]) + ''; };
   $('#msg-tpl').onchange = e => { $('#msg-text').value = fill(+e.target.value); upd(); recUpd(); }; recUpd();
   $('#msg-text').oninput = upd; upd();
   for (const id of ['#msg-sms', '#msg-max']) { const x = $(id); if (x) x.addEventListener('click', e => { if (!readyMessage($('#msg-text').value)) { e.preventDefault(); return; } extMark(); msgSent(); }); }
@@ -7197,7 +7208,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '27.11.2026 (v199)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '28.11.2026 (v201)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -7314,10 +7325,27 @@ function csv(rows) { return '\ufeff' + rows.map(r => r.map(v => { const num = ty
    а отступ 12 мм дают повторяющиеся на каждом листе пустые шапка и подвал таблицы-обёртки. */
 const PRINT_NOHF = '@page{size:A4;margin:0}html,body{margin:0!important}body{padding:0 12mm!important}table.pp-wrap{width:100%;border-collapse:collapse;border:0}table.pp-wrap>thead>tr>td,table.pp-wrap>tfoot>tr>td{height:12mm;border:0!important;padding:0!important;background:none!important}table.pp-wrap>tbody>tr>td{border:0!important;padding:0!important;text-align:left!important;vertical-align:top}table.pp-wrap>tbody>tr{page-break-inside:auto!important;break-inside:auto!important}';
 const ppWrap = html => `<table class="pp-wrap"><thead><tr><td></td></tr></thead><tbody><tr><td>${html}</td></tr></tbody><tfoot><tr><td></td></tr></tfoot></table>`;
+function collapsedListPrintHTML() {
+  if (document.querySelector('#people-results') && !ui.peopleListOpen) return vPeople(true);
+  if (document.querySelector('#subs-results') && !ui.subsListOpen) return vSubs(true);
+  return '';
+}
+window.addEventListener('beforeprint', () => {
+  const html = collapsedListPrintHTML();
+  if (!html) return;
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  const rows = template.content.querySelector('#people-results, #subs-results');
+  document.getElementById(rows.id).replaceChildren(...rows.children);
+});
+window.addEventListener('afterprint', () => {
+  if (!ui.peopleListOpen) document.getElementById('people-results')?.replaceChildren();
+  if (!ui.subsListOpen) document.getElementById('subs-results')?.replaceChildren();
+});
 function printMain(title) {                               // печать текущего экрана без колонтитулов: то же содержимое и стили печати программы
   const css = [...document.querySelectorAll('head style')].map(x => x.textContent).join('\n').replace(/@page\{margin:12mm\}/g, '');
   const m = document.querySelector('main'); if (!m) return;
-  openPrint(title || document.title, m.innerHTML, css + 'body{font-size:11pt;background:#fff}', { app: true });
+  openPrint(title || document.title, collapsedListPrintHTML() || m.innerHTML, css + 'body{font-size:11pt;background:#fff}', { app: true });
 }
 /* 26.10.2026: список родителей с телефонами — для печати, Word, Excel */
 function parentsHTML(who, byGroup) {
@@ -8491,6 +8519,8 @@ const ACT = {
   },
   'jtab': el => { ui.journal.tab = el.dataset.tab; rerender(); },
   'jmonth': el => { ui.journal.month = el.dataset.m; render.forceFocus = true; rerender(); },
+  'session-missing': el => { ui.unmarkedSession = ui.unmarkedSession === el.dataset.id ? null : el.dataset.id; rerender(); },
+  'session-full': () => { ui.unmarkedSession = null; rerender(); },
   'mark': el => { const s = db.sessions.find(x => x.id === el.dataset.sid); const cur = s.marks[el.dataset.aid];
     if (cur === el.dataset.m) delete s.marks[el.dataset.aid]; else s.marks[el.dataset.aid] = el.dataset.m;
     const cA = ix.ath.get(el.dataset.aid), isC = cA && cA.status === 'кандидат';   // 19.11.2026: кандидат — «был» = пробное
@@ -8573,8 +8603,9 @@ const ACT = {
   'result-list-toggle': button => {
     const key = button.getAttribute('aria-controls') === 'subs-results' ? 'subsListOpen' : 'peopleListOpen';
     ui[key] = !ui[key];
-    button.setAttribute('aria-expanded', String(ui[key]));
-    button.querySelector('span').textContent = ui[key] ? '▾' : '▸';
+    const id = button.getAttribute('aria-controls');
+    rerender();
+    document.querySelector('[aria-controls="' + id + '"]')?.focus({ preventScroll: true });
   },
   'people-filters-toggle': button => {
     const panel = $('#people-filters');
@@ -8599,7 +8630,11 @@ const ACT = {
   'award-del': async el => { if (!await ask('Удалить запись о присвоении?')) return; db.awards = db.awards.filter(w => w.id !== el.dataset.id); closeModal(); persist('Удалено'); },
   'msg': el => openMsg(el.dataset.id, el.dataset.tpl, el.dataset.extra ? JSON.parse(el.dataset.extra) : {}, el.dataset.sub || null, el.dataset.key || ''),
   'msg-share': () => { if (!readyMessage($('#msg-text').value)) return; extMark(); navigator.share({ text: $('#msg-text').value }).then(msgSent).catch(() => {}); },
-  'msg-copy': () => { const t = $('#msg-text'); if (!readyMessage(t.value)) return; t.select(); (navigator.clipboard ? navigator.clipboard.writeText(t.value) : Promise.reject()).then(() => { toast('Скопировано'); msgSent(); }).catch(() => { if (document.execCommand('copy')) { toast('Скопировано'); msgSent(); } }); },
+  'msg-confirm': () => {
+    if (!readyMessage($('#msg-text').value)) return;
+    msgSent(); closeModal(); toast('Отправка подтверждена');
+  },
+  'msg-copy': () => { const t = $('#msg-text'); if (!readyMessage(t.value)) return; t.select(); (navigator.clipboard ? navigator.clipboard.writeText(t.value) : Promise.reject()).then(() => { toast('Скопировано. После отправки нажмите «Отправлено».'); }).catch(() => { if (document.execCommand('copy')) { toast('Скопировано. После отправки нажмите «Отправлено».'); } }); },
   'attn-done': el => attnMark(el.dataset.key, true),
   'plan-done': el => { const K = el.dataset.key.split('\n'), dm = attnDoneMap(), on = !K.every(k => dm[k] === ix.today); K.forEach(k => attnMark(k, on)); },
   'plan-print': () => openPrint('План на ' + D.ru(ix.today), planDoc(), 'h3{margin:12pt 0 3pt}table{border-collapse:collapse;width:100%}td{border:1px solid #000;padding:3pt 5pt;vertical-align:top}'),
@@ -8678,14 +8713,7 @@ document.addEventListener('click', e => { const cm = e.target.closest && e.targe
 document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('nt-card') && e.target === document.activeElement) { e.preventDefault(); noteView(e.target.dataset.id); } });   // 15.11.2026: карточка заметки с клавиатуры
 document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('it-cm')) { e.preventDefault(); itToggle(e.target); } });
 document.addEventListener('toggle', e => {
-  if (e.target.matches('details[data-settings-section]')) {
-    const title = e.target.dataset.settingsSection;
-    if (e.target.open) ui.settingsOpen.add(title); else ui.settingsOpen.delete(title);
-  }
-  if (e.target.matches('details[data-hol-year]')) {
-    const year = e.target.dataset.holYear;
-    if (e.target.open) ui.holidayYears.add(year); else ui.holidayYears.delete(year);
-  }        // №29: меню «Ещё» целиком на экране (кнопка у левого края — меню не уходит влево)
+        // №29: меню «Ещё» целиком на экране (кнопка у левого края — меню не уходит влево)
   const d = e.target; if (!(d instanceof HTMLDetailsElement) || !d.classList.contains('menu') || !d.open) return;
   const pop = d.querySelector('.menu-pop'); if (!pop) return;
   pop.style.left = ''; pop.style.right = '';
@@ -9618,14 +9646,7 @@ const CAL_ACT = {
 };
 Object.assign(ACT, CAL_ACT, PA_ACT);
 document.addEventListener('toggle', e => {
-  if (e.target.matches('details[data-settings-section]')) {
-    const title = e.target.dataset.settingsSection;
-    if (e.target.open) ui.settingsOpen.add(title); else ui.settingsOpen.delete(title);
-  }
-  if (e.target.matches('details[data-hol-year]')) {
-    const year = e.target.dataset.holYear;
-    if (e.target.open) ui.holidayYears.add(year); else ui.holidayYears.delete(year);
-  } if (!(e.target.matches && e.target.matches('details[data-catmenu]'))) return; const was = ui.money && ui.money.catOpen; if (ui.money) ui.money.catOpen = e.target.open;
+ if (!(e.target.matches && e.target.matches('details[data-catmenu]'))) return; const was = ui.money && ui.money.catOpen; if (ui.money) ui.money.catOpen = e.target.open;
   if (e.target.open) catFit(e.target); }, true);
 function catFit(d) {                                  // список статей — по высоте свободного места на экране (страница не прокручивается)
   const body = d && d.querySelector('.cat-body'), p = d && d.querySelector('.menu-pop'); if (!body || !p) return;
@@ -9634,14 +9655,7 @@ function catFit(d) {                                  // список стате
   body.style.maxHeight = Math.max(180, Math.min(480, lim - top - extra)) + 'px';
 }   // 13.11.2026: меню статей остаётся открытым при отметках и целиком на экране   // 13.11.2026: меню статей остаётся открытым при отметках
 document.addEventListener('toggle', e => {
-  if (e.target.matches('details[data-settings-section]')) {
-    const title = e.target.dataset.settingsSection;
-    if (e.target.open) ui.settingsOpen.add(title); else ui.settingsOpen.delete(title);
-  }
-  if (e.target.matches('details[data-hol-year]')) {
-    const year = e.target.dataset.holYear;
-    if (e.target.open) ui.holidayYears.add(year); else ui.holidayYears.delete(year);
-  } if (e.target.matches && e.target.matches('details[data-calside]') && PHONE_MQ.matches && ui.cal) ui.cal.side = e.target.open; }, true);
+ if (e.target.matches && e.target.matches('details[data-calside]') && PHONE_MQ.matches && ui.cal) ui.cal.side = e.target.open; }, true);
 document.addEventListener('click', e => {
   const act = e.target.closest('[data-act]');
   if (act && !(act.tagName === 'INPUT' || act.tagName === 'SELECT')) {
