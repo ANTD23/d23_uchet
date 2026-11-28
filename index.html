@@ -1204,21 +1204,26 @@ function trialIsFree(S, v, date) {
   const P = S && S.trialFree; return !!(P && P.on && (!P.from || date >= P.from));
 }
 function computeSubs(ix) {
-  ix.subCalc = new Map(); ix.subFirst = new Map(); ix.unpaid = new Map();
+  ix.subCalc = new Map(); ix.subFirst = new Map(); ix.unpaid = new Map(); ix.unpaidSessions = new Map();
   const cutoff = ix.db.settings.sickCheckFrom || '';           // посещения до переноса из Excel не проверяем
   for (const a of ix.db.athletes) {                            // посещения у тех, у кого абонементов нет вовсе
     if (ix.subsByAth.has(a.id)) continue;
-    const l = (ix.marks.get(a.id) || []).filter(m => m.mark === '+' && m.date >= cutoff && !(m.trial && trialIsFree(ix.db.settings, m.trialV, m.date))).map(m => m.date);
-    if (l.length) ix.unpaid.set(a.id, l);
+    const l = (ix.marks.get(a.id) || []).filter(m => m.mark === '+' && m.date >= cutoff && !(m.trial && trialIsFree(ix.db.settings, m.trialV, m.date)));
+    if (l.length) { ix.unpaid.set(a.id, l.map(m => m.date)); ix.unpaidSessions.set(a.id, l.map(m => m.sid)); }
   }
   for (const [aid, all] of ix.subsByAth) {
     const chains = new Map();
     for (const p of all) { const k = p.onlyGroup || ''; if (!chains.has(k)) chains.set(k, []); chains.get(k).push(p); }
     const shared = withBlankCells(ix, aid, (ix.marks.get(aid) || []).map(m => ({ ...m, used: !!(m.trial && trialIsFree(ix.db.settings, m.trialV, m.date)) })));   // №38: бесплатное пробное — не списывается и не долг   // одна отметка — одно списание на все цепочки
-    const hasMain = chains.has('');
+
     const order = [...chains.keys()].sort((a, b) => (a === '') - (b === ''));       // сначала «только на группу», основной последним
-    const calculate = () => order.map(group => calcChain(ix, aid, group, chains.get(group), shared, hasMain));
-    let fin = calculate();
+    const paidState = new Map();
+    const calculate = paidOnly => order.map(group => {
+      const list = chains.get(group);
+      return calcChain(ix, aid, group, paidOnly ? list.filter(p => !p.pending) : list, shared, hasPending ? paidState : null, paidOnly);
+    });
+    const hasPending = all.some(p => p.pending);
+    let fin = calculate(hasPending);
     // Сначала сохраняем обычное распределение: оплата занятия в его группе или общий абонемент.
     // Для непокрытого «+» разрешаем списание по расписанию другой оплаченной группы.
     const passes = all.filter(p => p.onlyGroup && !p.pending && +p.count > 1);
@@ -1240,7 +1245,7 @@ function computeSubs(ix) {
         const limit = p.bonusFrom && m.date < p.bonusFrom ? +p.count : subTotal(p);
         return charged + carry + (guestCounts.get(p.id) || 0) < limit;
       });
-      const pool = available.length ? available : candidates;
+      const pool = available.length || hasPending ? available : candidates;
       const pass = pool.find(p => p.onlyGroup === home) || pool[0];
       if (pass) {
         m.guestGroup = pass.onlyGroup;
@@ -1249,9 +1254,18 @@ function computeSubs(ix) {
     }
     if (guestCounts.size) {
       for (const m of shared) m.used = !!(m.trial && trialIsFree(ix.db.settings, m.trialV, m.date));
-      fin = calculate();
+      fin = calculate(hasPending);
+    }
+    if (hasPending) {
+      for (const m of shared) if (m.guestGroup && !m.used) delete m.guestGroup;
+      fin = calculate(false);
     }
     for (const f of fin) f();
+    const unpaid = shared.filter(m => !m.used && m.mark === '+' && m.date >= cutoff);
+    if (unpaid.length) {
+      ix.unpaid.set(aid, unpaid.map(m => m.date));
+      ix.unpaidSessions.set(aid, unpaid.map(m => m.sid));
+    }
   }
 }
 /* ---------- заморозка: к чему привязана и какие дни покрывает (№5, №11, №16) ---------- */
@@ -1307,7 +1321,7 @@ function setSubStatus(ix, p, r) {
   if (!(+p.count > 0)) { r.status = 'не указано занятий'; r.tone = 'bad'; }
   if (p.pending) { r.pending = true; r.status = 'ждём оплату'; r.tone = 'bad'; }
 }
-function calcChain(ix, aid, og, list, shared, hasMain) {
+function calcChain(ix, aid, og, list, shared, paidState, paidOnly) {
   const chainMarks = shared.filter(m => m.guestGroup ? m.guestGroup === og : !og || m.group === og);                     // те же объекты: флаг used общий
   let cursor = '', blocked = false, cursorForecast = false;
   const A0 = ix.ath.get(aid), leftAt = A0 && A0.status === 'ушёл' ? (A0.endedAt || '') : '';   // п. 10.3
@@ -1316,6 +1330,11 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
   const done = [];
   for (let i = 0; i < list.length; i++) {
     const p = list[i];
+    if (paidState && !paidOnly && !p.pending) {
+      ({ cursor, blocked, cursorForecast } = paidState.get(p.id));
+      done.push([p, ix.subCalc.get(p.id)]);
+      continue;
+    }
     const marks = p.pending || +p.count <= 1 ? chainMarks.filter(m => !m.guestGroup) : chainMarks;
     const r = { was: 0, missed: 0, sick: 0, sickCharged: 0, comp: 0, cancel: 0, next: null, end: '', endKind: '', remaining: null, status: '', tone: '', lastCharged: '', charged: 0 };
     const groups = subGroups(ix, p), pkg = isPkg(ix, p); if (pkg) r.pkg = true;
@@ -1340,6 +1359,7 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
       }
       blocked = !stopFor(p); r.notActive = true; r.actKind = 'none'; r.remaining = subTotal(p);   // возвращённый (закрытый) абонемент следующие не задерживает
       if (r.autoDate) r.autoNotifyBy = D.add(r.autoDate, -3);                      // п. 9.2.3
+      if (paidOnly) paidState.set(p.id, { cursor, blocked, cursorForecast });
       setSubStatus(ix, p, r); ix.subFirst.set(p.id, null); ix.subCalc.set(p.id, r); done.push([p, r]); continue;
     }
     ix.subFirst.set(p.id, r.first);
@@ -1381,7 +1401,7 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
       if (used >= cap) break;
       m.used = true; used++; if (m.auto) r.blank = (r.blank || 0) + 1; (r.chargedDates = r.chargedDates || []).push(m.date);   // 23.10.2026: «отработано» — по датам списанных занятий
       if (mk === '+') r.was++; else if (mk === 'н' || mk === 'с') r.missed++; else { r.sick++; r.sickCharged++; (r.sickDates = r.sickDates || []).push(m.date); if (prov) { r.provSick = (r.provSick || 0) + 1; (r.provDates = r.provDates || []).push(m.date); } }
-      if (mk === '+' && m.mark === '+' && p.pending) (r.owedPlus = r.owedPlus || []).push(m.date);
+      if (mk === '+' && m.mark === '+' && p.pending) { (r.owedPlus ||= []).push(m.date); (r.owedSessions ||= []).push(m.sid); }
       if (m.mark === '+' && m.group && (og ? m.group !== og : A0 && !inGroupOn(A0, m.group, m.date))) {
         (r.extraVisits ||= []).push({ id: m.sid, date: m.date, group: m.group });
       }
@@ -1414,6 +1434,7 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
       r.certEnd = nthTrainDay(ix, D.add(D.max(r.end, D.add(ix.today, -1)), 1), r.provSick, groups) || '';
     { const stp = stopFor(p);                                                         // договор прекращён: неиспользованное больше не идёт, следующий может начаться
       if (stp && r.remaining > 0) { r.end = stp; r.endKind = 'terminated'; cursor = stp; cursorForecast = false; } }
+    if (paidOnly) paidState.set(p.id, { cursor, blocked, cursorForecast });
     ix.subCalc.set(p.id, r); done.push([p, r]);
   }
   return () => {
@@ -1422,8 +1443,8 @@ function calcChain(ix, aid, og, list, shared, hasMain) {
     if (m.used || m.mark !== '+') continue;
     let t = null;
     for (const [p, r] of done) if ((!m.guestGroup || (!p.pending && +p.count > 1)) && r.first && r.first <= m.date && !(r.next && m.date >= r.next) && !(stopFor(p) && m.date >= stopFor(p))) t = r;
-    if (!t && (!og || !hasMain) && m.date >= (ix.db.settings.sickCheckFrom || '')) { if (!ix.unpaid.has(aid)) ix.unpaid.set(aid, []); ix.unpaid.get(aid).push(m.date); }
-    if (t) { m.used = true; t.was++; t.charged++; t.remaining--; t.debtVisits = (t.debtVisits || 0) + 1; (t.debtDates = t.debtDates || []).push(m.date); if (m.date > t.lastCharged) t.lastCharged = m.date; if (t.remaining <= 0 && t.endKind !== 'fact') { t.end = t.lastPaid || t.end; t.endKind = 'fact'; } }   // 21.10.2026: занятия в долг не сдвигают окончание — абонемент кончился на последнем оплаченном
+
+    if (t) { (t.debtSessions ||= []).push(m.sid); m.used = true; t.was++; t.charged++; t.remaining--; t.debtVisits = (t.debtVisits || 0) + 1; (t.debtDates = t.debtDates || []).push(m.date); if (m.date > t.lastCharged) t.lastCharged = m.date; if (t.remaining <= 0 && t.endKind !== 'fact') { t.end = t.lastPaid || t.end; t.endKind = 'fact'; } }   // 21.10.2026: занятия в долг не сдвигают окончание — абонемент кончился на последнем оплаченном
   }
   for (const [p, r] of done) {
     setSubStatus(ix, p, r);
@@ -1578,7 +1599,10 @@ function calcAthlete(ix, a) {
   r.pendingSub = pendingSub(ix, a.id);
   r.pendingCalc = r.pendingSub ? ix.subCalc.get(r.pendingSub.id) : null;
   // все неоплаченные посещения — по ВСЕМ оплатам человека (31.10.2026: долг мог лечь на разовую «только на группу», а не на последнюю оплату — Плешков)
-  r.debtDates = [...new Set([...(ix.subsByAth.get(a.id) || []).flatMap(p => { const q = ix.subCalc.get(p.id); return q && !q.terminated && q.remaining < 0 && q.debtDates ? q.debtDates : []; }), ...r.unpaid])].sort();
+  const overdrawn = (ix.subsByAth.get(a.id) || []).map(p => ix.subCalc.get(p.id)).filter(q => q && !q.terminated && q.remaining < 0);
+  r.debtDates = [...overdrawn.flatMap(q => q.debtDates || []), ...r.unpaid].sort();
+  r.debtSessions = new Set([...overdrawn.flatMap(q => q.debtSessions || []), ...(a.noSub ? [] : ix.unpaidSessions.get(a.id) || []),
+    ...(ix.subsByAth.get(a.id) || []).flatMap(p => ix.subCalc.get(p.id)?.owedSessions || [])]);
   return r;
 }
 
@@ -2951,6 +2975,7 @@ function bigSet(k, v, strict) {                  // strict: ошибку вер�
 function bigDel(k) { try { localStorage.removeItem(k); } catch (e) {} if (!big.db) return Promise.resolve(); big.cache.set(k, null);
   big.pending++; const p = big.chain.then(() => bigReq('readwrite', st => st.delete(k))); big.chain = p.catch(() => {}).finally(() => { big.pending--; }); return p; }
 window.addEventListener('beforeunload', e => {   // страницу закрывают, а запись в IndexedDB ещё идёт: база — сразу в localStorage (при следующем запуске перенесётся); не помещается — браузер спросит, закрывать ли
+  if (saveFailed || savesPending) { e.preventDefault(); e.returnValue = ''; return; }
   if (!big.db || !big.pending) return;
   try { const v = big.cache.get(LS_DB); if (v != null) localStorage.setItem(LS_DB, v); } catch (_) { e.preventDefault(); e.returnValue = ''; }
 });
@@ -2972,7 +2997,7 @@ let loadError = null;                            // текст базы, кот�
 const LS_REV = 'd23crm.rev', TAB_ID = uid('t');
 let revMark = null, staleTab = false;
 function readRev() { try { return localStorage.getItem(LS_REV); } catch (e) { return null; } }
-function writeRev() { const v = (db && db.rev || 0) + ':' + TAB_ID; try { localStorage.setItem(LS_REV, v); revMark = v; } catch (e) {} }
+function writeRev(revision = db && db.rev || 0) { const v = revision + ':' + TAB_ID; try { localStorage.setItem(LS_REV, v); revMark = v; } catch (e) {} }
 function markStale() {
   staleTab = true; if (document.getElementById('stale-bar')) return;
   const d = document.createElement('div'); d.id = 'stale-bar'; d.className = 'no-print'; d.setAttribute('role', 'alert');
@@ -3017,23 +3042,50 @@ async function decText(s, key = cryptoKey) {
 }
 async function checkPin(pin) { const k = await deriveKey(pin, meta.pinSalt); await decText(meta.pinCheck, k); return k; }   // неверный PIN — исключение
 function queue(fn) { writeChain = writeChain.then(fn).catch(showError); return writeChain; }
-function storeDb(json) {                         // запись базы; при включённом PIN — шифротекст (в очереди, по порядку)
-  if (!pinOn()) return writeDbRaw(json);
-  if (!cryptoKey) return '';
-  queue(async () => { const w = writeDbRaw(await encText(json)); if (w) toast(w); });
-  return '';
+let saveFailed = false, savesPending = 0, saveRequest = 0;
+function saveStatus(failed) {
+  saveFailed = failed;
+  const existing = document.getElementById('save-error');
+  if (!failed) { existing?.remove(); return; }
+  if (existing) return;
+  const bar = document.createElement('div');
+  bar.id = 'save-error'; bar.className = 'banner no-print'; bar.setAttribute('role', 'alert');
+  bar.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:2100;flex-wrap:wrap;background:var(--card,#fff)';
+  bar.innerHTML = '<strong>Есть несохранённые изменения. Браузер не принял запись.</strong><button class="btn" data-act="save-retry">Повторить</button><button class="btn" data-act="export">Сохранить копию</button>';
+  document.body.appendChild(bar);
 }
-function writeDbRaw(payload) {                   // №9: при нехватке места — освобождаем за счёт старых прежних версий
-  let saved = false;
-  try { bigSet(LS_DB, payload); return ''; } catch (e) {
-    try {
-      const l = JSON.parse(bigGet(LS_SNAP) || '[]');
-      while (!saved && l.length) { l.pop(); bigSet(LS_SNAP, JSON.stringify(l)); try { bigSet(LS_DB, payload); saved = true; } catch (_) {} }
-    } catch (_) {}
-    if (saved) return 'Мало места в браузере: удалены старые «Прежние версии». Сохраните копию в файл.';
-    notice('Не удалось сохранить: в браузере закончилось место. Последнее изменение НЕ сохранено. Сразу сохраните копию в файл (раздел «Данные»).');
-    return '';
-  }
+function storeDb(json, committed, allowStale = false) {
+  const key = cryptoKey, encrypted = pinOn(), importRevision = readRev();
+  savesPending++;
+  const write = async () => {
+    if (allowStale ? readRev() !== importRevision : staleTab || readRev() !== revMark) { markStale(); throw new Error('Изменилась версия базы'); }
+    const payload = encrypted ? await encText(json, key) : json;
+    try { await bigSet(LS_DB, payload, true); }
+    catch (error) {
+      if (big.db) {
+        localStorage.setItem(LS_DB, payload);
+        big.cache.set(LS_DB, payload);
+      } else {
+        if (error.name !== 'QuotaExceededError') throw error;
+        const original = localStorage.getItem(LS_SNAP);
+        const list = JSON.parse(original || '[]');
+        let saved = false;
+        while (list.length && !saved) {
+          list.pop(); localStorage.setItem(LS_SNAP, JSON.stringify(list));
+          try { localStorage.setItem(LS_DB, payload); saved = true; } catch (_) {}
+        }
+        if (!saved) { if (original) localStorage.setItem(LS_SNAP, original); throw error; }
+        notice('Изменения сохранены. Для освобождения места удалены старые прежние версии. Сохраните копию в файл.');
+      }
+    }
+    if (committed) committed();
+  };
+  const task = writeChain.then(() => navigator.locks ? navigator.locks.request('d23crm-write', write) : write()).finally(() => { savesPending--; });
+  writeChain = task.catch(() => {});
+  return task;
+}
+function saveServiceData() {
+  if (!saveFailed && !savesPending && db) storeDb(JSON.stringify(db)).catch(() => saveStatus(true));
 }
 async function snapText(s) { return isEnc(s.data) ? decText(s.data) : s.data; }
 function rewriteSnaps(fn) {                      // изменить все прежние версии (расшифровать → fn → зашифровать)
@@ -3051,7 +3103,7 @@ async function exportPayload(pretty = true) {    // содержимое фай�
 }
 function lock() {
   if (!pinOn() || locked) return;
-  queue(() => { closeModal(); db = null; ix = null; cryptoKey = null; locked = true; stopLockTimer(); location.hash = '#today'; render(); });
+  queue(async () => { if (saveFailed && db) { lock.unwritten = await encText(JSON.stringify(db)); document.getElementById('save-error')?.remove(); } closeModal(); db = null; ix = null; cryptoKey = null; locked = true; stopLockTimer(); location.hash = '#today'; render(); });
 }
 function lockMin() { return +meta.lockMin || 5; }
 function awayMin() { return meta.awayMin == null || meta.awayMin === '' ? 5 : +meta.awayMin; }   // 09.11.2026: ушли из программы — блокировать через N мин. (0 — сразу)
@@ -3072,11 +3124,11 @@ document.addEventListener('visibilitychange', () => {
 async function unlock(pin) {
   let key; try { key = await checkPin(pin); } catch (e) { return false; }
   cryptoKey = key; locked = false; pinFails = 0; pinWaitUntil = 0; savePinWait();
-  const raw = bigGet(LS_DB);
+  const raw = lock.unwritten || bigGet(LS_DB); delete lock.unwritten;
   if (!raw) db = null;
-  else { try { db = normalize(JSON.parse(isEnc(raw) ? await decText(raw) : raw)); if (!isEnc(raw)) storeDb(JSON.stringify(db)); } catch (e) { db = null; loadError = raw; } }
+  else { try { db = normalize(JSON.parse(isEnc(raw) ? await decText(raw) : raw)); if (!isEnc(raw)) saveServiceData(); } catch (e) { db = null; loadError = raw; } }
   revMark = readRev(); hideStale();                                          // №2: после PIN данные прочитаны заново — они актуальны
-  startLockTimer(); purgeEmptySessions(); render(); return true;
+  startLockTimer(); purgeEmptySessions(); render(); if (saveFailed) saveStatus(true); return true;
 }
 async function pinEnable(pin) {                  // включить или сменить PIN: перешифровать базу и прежние версии
   const salt = b64(crypto.getRandomValues(new Uint8Array(16))), key = await deriveKey(pin, salt);
@@ -3104,7 +3156,7 @@ async function pinDisable() {
   let list = []; try { list = JSON.parse(bigGet(LS_SNAP) || '[]'); } catch (e) {}
   const snaps = [];
   for (const s of list) { try { snaps.push({ ...s, data: await snapText(s) }); } catch (e) {} }
-  bigSet(LS_DB, JSON.stringify(db));
+  await bigSet(LS_DB, JSON.stringify(db), true);
   try { bigSet(LS_SNAP, JSON.stringify(snaps)); } catch (e) { bigDel(LS_SNAP); }
   delete meta.pinSalt; delete meta.pinCheck; writeMeta(); cryptoKey = null; stopLockTimer();
 }
@@ -3287,14 +3339,22 @@ function persist(msg) {
   logChanges();
   const today = D.today();
   if (meta.snapDay !== today) { snapshot('начало дня'); meta.snapDay = today; }
-  db.rev = (db.rev || 0) + 1; db.updatedAt = new Date().toISOString();
-  const json = JSON.stringify(db);
-  const warn = storeDb(json); writeRev();                                // №2
-  writeMeta(); logSetBase(); undoJson = json; undoFor = db;
+  const owner = db, request = ++saveRequest;
+  const revision = Math.max(db.rev || 0, persist.owner === db ? persist.lastRevision : 0) + 1;
+  persist.owner = db; persist.lastRevision = revision;
+  const updatedAt = new Date().toISOString();
+  const json = JSON.stringify({ ...db, rev: revision, updatedAt });
+  logSetBase(); undoJson = json; undoFor = db;
+  render.ixKey = null;
+  const result = storeDb(json, () => {
+    owner.rev = revision; owner.updatedAt = updatedAt; writeRev(revision); writeMeta();
+    if (db !== owner || request !== saveRequest) return;
+    saveStatus(false); render();
+    if (msg && prev && !skipUndo && msg !== 'Изменение отменено') undoToast(msg, () => undoTo(prev));
+    else if (msg) toast(msg);
+  }).catch(() => { if (db === owner && request === saveRequest) saveStatus(true); });
   render();
-  if (warn) toast(warn);
-  else if (msg && prev && !skipUndo && msg !== 'Изменение отменено') undoToast(msg, () => undoTo(prev));
-  else if (msg) toast(msg);
+  return result;
 }
 function undoToast(msg, fn) {                    // сообщение с кнопкой «Отменить» (6 с)
   document.querySelectorAll('.toast').forEach(x => x.remove());
@@ -3512,7 +3572,7 @@ function purgeEmptySessions() {          // открытые по ошибке �
   const before = db.sessions.length;
   db.sessions = db.sessions.filter(s => s.id === cur || Object.values(s.marks || {}).some(Boolean));
   // техническая чистка: метку времени и номер версии не трогаем, иначе старые данные выглядят «свежими» (№1)
-  if (db.sessions.length !== before) storeDb(JSON.stringify(db));
+  if (db.sessions.length !== before) saveServiceData();
 }
 window.addEventListener('hashchange', () => { const d = document.getElementById('dlg'); if (d && d.open) d.close(); purgeEmptySessions(); render(); });
 
@@ -3861,7 +3921,7 @@ function attnSeenUpd(all) {
 }
 function quietSave() {                               // записать служебное (без новой версии данных и без «есть изменения после копии»)
   if (staleTab || readRev() !== revMark) return;
-  try { const json = JSON.stringify(db); storeDb(json); if (undoFor === db) undoJson = json; } catch (e) { console.warn(e); }
+  if (!savesPending && !saveFailed) { saveServiceData(); if (undoFor === db) undoJson = JSON.stringify(db); }
 }
 function mergeSeen(a, b) { const o = { ...(a || {}) }; for (const [k, d] of Object.entries(b || {})) if (!o[k] || d < o[k]) o[k] = d; return o; }
 function attnFresh(x) { if (/ — предупреждён \d/.test(x.text)) return false;   // уже написали клиенту — не «новое»
@@ -4382,7 +4442,7 @@ function owedAll(aid) { const c = ix.athCalc.get(aid); if (!c) return { dates: [
   const dd = [...new Set([...(c.debtDates || []), ...owedPlus(c), ...(ix.unpaid.get(aid) || [])])].sort();
   const over = !dd.length && c.subCalc && c.subCalc.remaining < 0 && !c.subCalc.terminated ? -c.subCalc.remaining : 0;
   const ch = c.pendingSub && c.pendingCalc ? +c.pendingCalc.charged || 0 : 0;   // «ждём оплату»: в долг идут и списанные пропуски
-  return { dates: dd, n: Math.max(dd.length || over, ch), pend: !!c.pendingSub }; }
+  return { dates: dd, n: Math.max(c.debtSessions.size || over, ch), pend: !!c.pendingSub }; }
 function owedTxt(aid) { const o = owedAll(aid); return o.n ? `не оплачено ${o.n} ${plural(o.n, 'занятие', 'занятия', 'занятий')}${o.dates.length ? ' (' + (o.dates.length < o.n ? 'посещения ' : '') + o.dates.map(d => D.short(d)).join(', ') + ')' : ''}${o.pend ? ' — в счёт «ждём оплату»' : ''}` : ''; }
 function owedBox(aid, verb) { const t = owedTxt(aid); return t ? `<div class="owed-box"><b>Долг: ${h(t)}.</b> ${verb}</div>` : ''; }
 /* 12.11.2026: «Как будет платить?» — при возвращении с перерыва или после ухода и при переводе из «Разово» в группу, если абонемента нет или он закончился */
@@ -4495,8 +4555,8 @@ function pauseIc(a, from, to) {
 function stIc(a, from, to) { return refIc(a, from, to) + leftIc(a, from, to) + pauseIc(a, from, to); }
 function sickOpen(aid, date) { return db.freezes.some(f => f.athleteId === aid && f.from && f.from <= date && !f.to && !f.returned && !f.noCert); }   // 28.10.2026: болеет сейчас, конец болезни не известен
 function sickSpent(aid, date) { const c = ix.athCalc.get(aid), r = c && c.subCalc; return !!(r && r.remaining <= 0 && r.end && r.end < date && !c.nextSub && !c.pendingSub); }   // занятие после окончания абонемента, нового нет
-function debtOn(aid, date) { const c = ix.athCalc.get(aid); return !!(c && ((c.debtDates || []).includes(date) || owedPlus(c).includes(date))); }
-function hasDebt(aid) { const c = ix.athCalc.get(aid); return !!(c && ((c.debtDates || []).length || owedPlus(c).length)); }
+function debtOn(aid, sessionId) { return !!ix.athCalc.get(aid)?.debtSessions.has(sessionId); }
+function hasDebt(aid) { return !!ix.athCalc.get(aid)?.debtSessions.size; }
 /* 23.10.2026: заморозка без справки (предварительная) — болеет, ждём возвращения или справку; пересекается с периодом from..to */
 function provFreeze(aid, from, to) {
   for (const f of ix.freezesByAth.get(aid) || []) {
@@ -4529,7 +4589,7 @@ function remBig(c) {                              // крупный остато
 }
 const MARK_SHORT = { '+': 'был', 'н': 'не был', 'б': 'болел', 'о': 'отменено', 'с': 'соревн.' };
 function markRow(s, a, showGroup) {
-  const m = s.marks[a.id] || '', ac = ix.athCalc.get(a.id), dbt = m === '+' && debtOn(a.id, s.date);
+  const m = s.marks[a.id] || '', ac = ix.athCalc.get(a.id), dbt = m === '+' && debtOn(a.id, s.id);
   const trial = !!(s.trial && s.trial[a.id]), nd = m === '+' || !m ? briefNeed(a, s.date) : null, rb = remBig(ac);
   const keys = perVisitOn(a, s.date) ? (m && m !== '+' ? ['+', m] : ['+']) : m === 'о' ? ['+', 'н', 'б', 'о', 'с'] : ['+', 'н', 'б', 'с'];   // №13: разовику — только «+» (чужую отметку можно снять)
   const chips = [rb ? '' : chipSub(ac), chipMed(ac.med),
@@ -4648,7 +4708,7 @@ function monthView(tabs, groups) {
     const off = sess.map(s => !showGroup && !inGroupOn(a, J.mgroup, s.date)); const per = showGroup ? '' : period(a); const ng = noSubGap(a), nsub = d => !!(ng && ng.ack && d > ng.end && d <= ix.today) || (d <= ix.today && waitFirst(a.id, d));   // №34; 29.10.2026: новый оплачен, ещё не начался
     const W = warnedOf(a);
     const dn = hasDebt(a.id), tdc = [W ? 'wn' : '', dn ? 'debt-nm' : ''].filter(Boolean).join(' ');
-    return `<tr><td${tdc ? ` class="${tdc}"` : ''}${dn ? ' title="Есть неоплаченные посещения"' : ''}><span class="nm-f">${h(shortName(a))}</span><span class="nm-s">${h((a.last || '') + (a.first ? ' ' + a.first[0] + '.' : ''))}</span>${(() => { const x = pvIc(a, ymBounds(J.month)[1] < ix.today ? ymBounds(J.month)[1] : ix.today, J.mgroup); if (x) anyPv = true; return x; })()}${warnedIc(W, a)}${(() => { const x = stIc(a, J.month + '-01', ymBounds(J.month)[1]); if (x) anyRef = true; return x; })()}${(() => { const pi = provIc(a, J.month + '-01', ymBounds(J.month)[1]); if (pi) anyProv = true; return pi; })()}${showGroup ? ' <span class="small muted">' + h(a.group || '') + '</span>' : ''}${per ? ' <span class="small muted mper">' + per + '</span>' : ''}</td>${ms.map((x, i) => { const lc = lastCell(a, L, sess[i]) || nextCell(a, L, sess[i]), mc = sess[i].missing && !off[i] ? ' miss-col' : ''; return `<td${off[i] || lc || mc ? ` class="${off[i] ? 'off' : ''}${mc}${lc}"` : ''}>${x === '+' && debtOn(a.id, sess[i].date) ? '<span class="cell-m m-debt" title="Был, посещение не оплачено — после оплаты станет «+»">д</span>' : x === '+' && payMarks(a.id).tag.get(sess[i].date + '|' + sess[i].group) ? (tg => tg.kind === 'pkg' ? `<span class="cell-m m-plus m-pkg" title="Пакет разовых: ${tg.n}-е из ${tg.N}">${tg.n}/${tg.N}</span>` : '<span class="cell-m m-plus" title="Оплачено разово">р</span>')(payMarks(a.id).tag.get(sess[i].date + '|' + sess[i].group)) : x === '+' && freeOn(a, sess[i].date, sess[i].group) ? '<span class="cell-m m-free" title="Был, бесплатно (без абонемента)">+0</span>' : x ? `<span class="cell-m ${cls[x] || ''}">${h(x === 'б' && isBS(ix, a.id, sess[i].date) ? 'бс' : x)}</span>` : lc ? '<span class="cell-m m-none"></span>' : nsub(sess[i].date) && !off[i] ? `<span class="cell-m m-nosub" title="${waitFirst(a.id, sess[i].date) ? 'Абонемент закончился, новый оплачен — начнётся с первого посещения' : 'Абонемент закончился, новый не оплачен'}">—</span>` : ''}</td>`; }).join('')}<td class="num">${cnt('+')}</td><td class="num">${cnt('н')}</td><td class="num">${cnt('б')}</td></tr>`; }).join('');
+    return `<tr><td${tdc ? ` class="${tdc}"` : ''}${dn ? ' title="Есть неоплаченные посещения"' : ''}><span class="nm-f">${h(shortName(a))}</span><span class="nm-s">${h((a.last || '') + (a.first ? ' ' + a.first[0] + '.' : ''))}</span>${(() => { const x = pvIc(a, ymBounds(J.month)[1] < ix.today ? ymBounds(J.month)[1] : ix.today, J.mgroup); if (x) anyPv = true; return x; })()}${warnedIc(W, a)}${(() => { const x = stIc(a, J.month + '-01', ymBounds(J.month)[1]); if (x) anyRef = true; return x; })()}${(() => { const pi = provIc(a, J.month + '-01', ymBounds(J.month)[1]); if (pi) anyProv = true; return pi; })()}${showGroup ? ' <span class="small muted">' + h(a.group || '') + '</span>' : ''}${per ? ' <span class="small muted mper">' + per + '</span>' : ''}</td>${ms.map((x, i) => { const lc = lastCell(a, L, sess[i]) || nextCell(a, L, sess[i]), mc = sess[i].missing && !off[i] ? ' miss-col' : ''; return `<td${off[i] || lc || mc ? ` class="${off[i] ? 'off' : ''}${mc}${lc}"` : ''}>${x === '+' && debtOn(a.id, sess[i].id) ? '<span class="cell-m m-debt" title="Был, посещение не оплачено — после оплаты станет «+»">д</span>' : x === '+' && payMarks(a.id).tag.get(sess[i].date + '|' + sess[i].group) ? (tg => tg.kind === 'pkg' ? `<span class="cell-m m-plus m-pkg" title="Пакет разовых: ${tg.n}-е из ${tg.N}">${tg.n}/${tg.N}</span>` : '<span class="cell-m m-plus" title="Оплачено разово">р</span>')(payMarks(a.id).tag.get(sess[i].date + '|' + sess[i].group)) : x === '+' && freeOn(a, sess[i].date, sess[i].group) ? '<span class="cell-m m-free" title="Был, бесплатно (без абонемента)">+0</span>' : x ? `<span class="cell-m ${cls[x] || ''}">${h(x === 'б' && isBS(ix, a.id, sess[i].date) ? 'бс' : x)}</span>` : lc ? '<span class="cell-m m-none"></span>' : nsub(sess[i].date) && !off[i] ? `<span class="cell-m m-nosub" title="${waitFirst(a.id, sess[i].date) ? 'Абонемент закончился, новый оплачен — начнётся с первого посещения' : 'Абонемент закончился, новый не оплачен'}">—</span>` : ''}</td>`; }).join('')}<td class="num">${cnt('+')}</td><td class="num">${cnt('н')}</td><td class="num">${cnt('б')}</td></tr>`; }).join('');
   { const li = sess.map(s => s.date).filter(d => d <= ix.today).length - 1; render.monthFocus = li >= 0 ? li : 0; }   // прокрутка к сегодняшнему (последнему прошедшему) занятию
   return `<div class="jfs-bar no-print"><button class="btn" data-act="jmonth" data-m="${prev}" aria-label="Предыдущий месяц">←</button><b>${MONTHS[m - 1][0].toUpperCase() + MONTHS[m - 1].slice(1)} ${y}</b><button class="btn" data-act="jmonth" data-m="${next}" aria-label="Следующий месяц">→</button><select data-change="jmgroup" aria-label="Группа">${groups.map(g => opt(g, J.mgroup)).join('')}</select><span class="spacer"></span><button class="btn" data-act="jfs" aria-label="Выйти из полноэкранного режима">✕</button></div>
   <div class="topline jm-top"><h1>Посещения — ${MONTHS[m - 1]} ${y}</h1><div class="row jm-tabs">${tabs}<button class="btn show-m" data-act="jfs" title="Во весь экран" aria-label="Во весь экран">⛶</button><details class="menu show-m"><summary class="btn" aria-label="Другие действия">⋯</summary><div class="menu-pop"><button class="btn" data-act="print-blank">Бланк для печати</button></div></details></div></div>
@@ -5843,7 +5903,7 @@ function openMsg(aid, tplTitle, extra = {}, subId = null, attnK = '') {
   ${mobileUA() ? '' : '<p class="small muted" style="margin:6px 0 0">MAX на компьютере не принимает готовый текст — нажмите «Скопировать» и вставьте в чат MAX.</p>'}
   <div class="row" style="gap:8px;flex-wrap:wrap;margin:10px 0"><button type="button" class="btn${mobileUA() ? '' : ' primary'}" data-act="msg-copy">Скопировать</button><button type="button" class="btn" data-act="msg-confirm">Отправлено</button>${navigator.share ? '<button type="button" class="btn" data-act="msg-share">Поделиться…</button>' : ''}</div>
   <label class="row small" id="msg-rec-l" style="gap:8px;margin-top:8px"><input type="checkbox" id="msg-rec" checked style="width:20px;height:20px"> <span id="msg-rec-t"></span></label>
-  ${attnK ? '<label class="row small" style="gap:8px;margin-top:8px"><input type="checkbox" id="msg-done" checked style="width:20px;height:20px"> После отправки отметить в «Требует внимания» как сделанное</label>' : ''}
+  ${attnK ? '<label class="row small" style="gap:8px;margin-top:8px"><input type="checkbox" id="msg-done" checked style="width:20px;height:20px"> При нажатии «Отправлено» закрыть задачу в «Требует внимания»</label>' : ''}
   <p class="small muted">Переписку сохраняйте — она подтверждает, что клиент уведомлён. Шаблоны меняются в настройках.</p>`;
   modal('Сообщение', body);
   const upd = () => { const t = $('#msg-text').value, e = encodeURIComponent(t), set = (id, u) => { const x = $(id); if (x) { if (messageProblem(t)) x.removeAttribute('href'); else x.href = u; } };   // 28.10.2026: MAX, Telegram, WhatsApp — текст уже вставлен
@@ -5852,7 +5912,7 @@ function openMsg(aid, tplTitle, extra = {}, subId = null, attnK = '') {
   const recUpd = () => { const tt = T[+$('#msg-tpl').value], ty = tt && messageMarkType(tt.title); $('#msg-rec-l').style.display = ty ? '' : 'none'; if (ty) $('#msg-rec-t').textContent = (tt.title === 'Новый абонемент — ждём оплату' ? 'Отметить в карточке: сообщение о новом сроке и об оплате отправлено' : NOTIFY_TXT[ty]) + ''; };
   $('#msg-tpl').onchange = e => { $('#msg-text').value = fill(+e.target.value); upd(); recUpd(); }; recUpd();
   $('#msg-text').oninput = upd; upd();
-  for (const id of ['#msg-sms', '#msg-max']) { const x = $(id); if (x) x.addEventListener('click', e => { if (!readyMessage($('#msg-text').value)) { e.preventDefault(); return; } extMark(); msgSent(); }); }
+  for (const id of ['#msg-sms', '#msg-max']) { const x = $(id); if (x) x.addEventListener('click', e => { if (!readyMessage($('#msg-text').value)) { e.preventDefault(); return; } extMark(); }); }
 }
 
 /* ---------- ПЕРЕВОД В ДРУГУЮ ГРУППУ ---------- */
@@ -7211,7 +7271,7 @@ function vData() {
   ${snaps.length ? `<ul class="list">${snaps.map((s, i) => `<li><div class="who"><b>${new Date(s.at).toLocaleString('ru')}</b><span class="small">${h(s.reason)}</span></div><button class="btn sm" data-act="snap-restore" data-i="${i}">Вернуть эту версию</button></li>`).join('')}</ul>` : '<p class="muted">Пока нет.</p>'}</details>
   ${settingsHeading('Выгрузка таблиц')}<div class="row"><button class="btn" data-act="people-csv" data-fmt="xlsx">Спортсмены (Excel)</button><button class="btn" data-act="subs-csv" data-fmt="xlsx">Абонементы (Excel)</button><button class="btn" data-act="visits-csv" data-fmt="xlsx">Посещения (Excel)</button></div><div class="row" style="margin-top:6px"><button class="btn sm" data-act="people-csv">Спортсмены (CSV)</button><button class="btn sm" data-act="subs-csv">Абонементы (CSV)</button><button class="btn sm" data-act="visits-csv">Посещения (CSV)</button></div>
   <p class="small muted">CSV открывается в Excel. Файлы содержат персональные данные: храните на устройстве с паролем, организаторам соревнований передавайте только объём заявки.</p></details>
-  ${settingsHeading('Обезличенная копия')}<p>Для проверки расчётов посторонним (разработчику, юристу, ИИ): вместо ФИО — «Спортсмен 1, 2…», без телефонов, родителей, примечаний, медсправок; от даты рождения остаётся только год. Посещения, абонементы, заморозки и суммы — как есть.</p>
+  ${settingsHeading('Обезличенная копия')}<p>Для проверки расчётов посторонним (разработчику, юристу, ИИ): вместо ФИО — «Спортсмен 1, 2…», без телефонов, родителей, примечаний, медсправок; от даты рождения остаётся только год. Копия содержит данные для проверки посещений, абонементов, заморозок и сумм. Названия групп заменены условными. Переписка, шаблоны, календарь и личные заметки исключены.</p>
   <button class="btn" data-act="export-anon">Скачать обезличенную копию</button><p class="small muted keep" style="margin-top:6px">Такую копию не загружайте обратно вместо своих данных — программа предупредит.</p></details>
   ${(() => { const R = retention(), li = l => l.map(a => `<li class="click" data-go="#person/${a.id}"><div class="who"><b>${h(fullName(a))}</b><span class="small">${a.endedAt ? 'договор прекращён ' + D.ru(a.endedAt) + ', хранить до ' + D.ru(keepUntil(a.endedAt)) : 'дата прекращения договора не указана'}</span></div></li>`).join('');
     return `${settingsHeading('Срок хранения персональных данных')}<p class="small muted keep">По п. 12.3.1 оферты данные хранятся 3 года после прекращения договора. Дата прекращения ставится сама, когда статус меняется на «ушёл».</p>
@@ -7268,7 +7328,7 @@ async function exportData(newDir) {
 }
 /* 24.10.2026: «Поделиться копией» — системное меню телефона (Яндекс Диск, Telegram, почта…). Android отправляет только «простые» типы файлов,
    поэтому там копия уходит как «…json.txt» — внутри тот же JSON, программа её загружает так же */
-const APP_VER = '28.11.2026 (v206)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
+const APP_VER = '28.11.2026 (v207)';   // показывается в «Данные» и на экране PIN — чтобы видеть, обновилась ли программа
 function canShareFiles() { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['{}'], 'x.txt', { type: 'text/plain' })] })); } catch (e) { return false; } }
 async function shareCopy() {
   const json = await exportPayload(), name = copyName(false), android = /Android/i.test(navigator.userAgent);
@@ -7324,10 +7384,25 @@ function importData() {
 }
 const DATA_VERSION = 1;                          // версия формата данных; повышать при изменении структуры
 function validateDb(d) {                         // минимальная проверка файла перед заменой базы
+  if (!d || typeof d !== 'object') return 'нет базы данных';
   const iso = /^\d{4}-\d{2}-\d{2}$/;
   for (const k of ['athletes', 'sessions', 'subs']) if (!Array.isArray(d[k])) return 'нет раздела ' + k;
   if (d.athletes.some(a => !a || !a.id)) return 'спортсмен без идентификатора';
-  if (new Set(d.athletes.map(a => a.id)).size !== d.athletes.length) return 'повторяющиеся идентификаторы';
+  const athletes = new Set(d.athletes.map(a => a.id));
+  for (const [label, records] of [['спортсмен', d.athletes], ['занятие', d.sessions], ['абонемент', d.subs]]) {
+    const ids = new Set();
+    for (const [i, record] of records.entries()) {
+      if (!record?.id) return label + ' № ' + (i + 1) + ' без идентификатора';
+      if (ids.has(record.id)) return label + ' № ' + (i + 1) + ': повторяется идентификатор ' + record.id;
+      ids.add(record.id);
+    }
+  }
+  for (const p of d.subs) if (!athletes.has(p.athleteId)) return 'абонемент ' + p.id + ': неизвестный спортсмен ' + p.athleteId;
+  for (const s of d.sessions) {
+    for (const id of [...Object.keys(s.marks || {}), ...Object.keys(s.trial || {})]) {
+      if (!athletes.has(id)) return 'занятие ' + s.id + ' (' + s.date + '): неизвестный спортсмен ' + id;
+    }
+  }
   if (d.sessions.some(s => !s || !iso.test(s.date || '') || !s.marks || typeof s.marks !== 'object')) return 'занятие с неверной датой или без отметок';
   if (d.subs.some(p => !p || !p.athleteId || (p.payDate && !iso.test(p.payDate)) || (p.start && !iso.test(p.start)) || (p.absence && (!iso.test(p.absence.from) || !iso.test(p.absence.to) || p.absence.from > p.absence.to)))) return 'абонемент с неверными данными';
   if (d.leads != null && (!Array.isArray(d.leads) || d.leads.some(L => !L || !L.id))) return 'заявка с неверными данными';
@@ -7342,7 +7417,7 @@ function validateDb(d) {                         // минимальная пр�
 }
 async function applyImport(text, fname) {
   let d; try { d = JSON.parse(text); } catch (e) { notice('Файл не читается: это не копия данных D23.'); return; }
-  if (d.app !== 'D23CRM') { notice('Это не копия данных D23. Выберите файл, сохранённый этой программой.'); return; }
+  if (d?.app !== 'D23CRM') { notice('Это не копия данных D23. Выберите файл, сохранённый этой программой.'); return; }
   if (d.encSalt && d.data) return importEncrypted(d, fname);
   if ((+d.version || 1) > DATA_VERSION) { notice('Файл сохранён более новой версией программы. Обновите страницу (с интернетом) и загрузите файл снова.'); return; }
   const bad = validateDb(d); if (bad) { notice('Файл повреждён или неполный (' + bad + '). Данные не загружены.'); return; }
@@ -7371,8 +7446,9 @@ async function applyImport(text, fname) {
   }
   keepBroken();
   if (db && (db.attnSeen || d.attnSeen)) d.attnSeen = mergeSeen(d.attnSeen, db.attnSeen);   // 31.10.2026: «новое» — общее для устройств
-  db = normalize(d);
-  { const w = storeDb(JSON.stringify(db)); writeRev(); hideStale(); if (w) setTimeout(() => toast(w), 3000); }   // №2: загруженная копия — новая версия для других вкладок
+  const incoming = normalize(d);
+  try { await storeDb(JSON.stringify(incoming), () => { db = incoming; writeRev(); hideStale(); saveStatus(false); }, true); }
+  catch (_) { notice('Копия не загружена: браузер не сохранил данные. Освободите место и повторите загрузку.'); return; }   // №2: загруженная копия — новая версия для других вкладок
   meta.exportedRev = db.rev; meta.lastExport = meta.lastExport || new Date().toISOString(); meta.lastImportName = fname; meta.lastImportAt = new Date().toISOString(); writeMeta();
   location.hash = '#today'; render(); toast('Загружено: ' + fname);
 }
@@ -7460,8 +7536,13 @@ function openPrint(title, html, css = '', opt = {}) {
   w.document.close();
 }
 /* ---------- бланк для печати (как в книге учёта посещений) ---------- */
-function blankPeople(g, first, last) {            // в печатный бланк — только «занимается» («приостановил» вписывается вручную)
-  return db.athletes.filter(a => a.status === 'занимается' && (inGroupOn(a, g, first) || inGroupOn(a, g, last)))
+function blankPeople(g, first, last, filled) {            // в печатный бланк — только «занимается» («приостановил» вписывается вручную)
+  const marked = new Set();
+  if (filled) for (const session of db.sessions) {
+    if (session.group !== g || session.date < first || session.date > last) continue;
+    for (const [id, mark] of Object.entries(session.marks || {})) if (mark) marked.add(id);
+  }
+  return db.athletes.filter(a => marked.has(a.id) || (a.status === 'занимается' && (inGroupOn(a, g, first) || inGroupOn(a, g, last))))
     .sort((a, b) => fullName(a).localeCompare(fullName(b), 'ru'));
 }
 function monthBounds(ym) { const [y, m] = ym.split('-').map(Number); return [ym + '-01', D.add(m === 12 ? (y + 1) + '-01-01' : y + '-' + pad(m + 1) + '-01', -1)]; }
@@ -7484,7 +7565,7 @@ function openBlank() {
     printBlank(fd.group, fd.year + '-' + pad(+fd.month), Math.max(1, +fd.from || 1), pp, !!fd.filled, rp, lay, rh);
   } });
   const info = () => { const f = $('#dlg-form'); const g = f.group.value, ym = f.year.value + '-' + pad(+f.month.value); const [a, b] = monthBounds(ym);
-    const rh = Math.min(20, Math.max(5, +String(f.rowH.value).replace(',', '.') || 7)), mx = blankMaxRows(rh), pp = Math.min(mx, Math.max(1, +f.perPage.value || 22)), from = Math.max(1, +f.from.value || 1), n = blankPeople(g, a, b).length;
+    const rh = Math.min(20, Math.max(5, +String(f.rowH.value).replace(',', '.') || 7)), mx = blankMaxRows(rh), pp = Math.min(mx, Math.max(1, +f.perPage.value || 22)), from = Math.max(1, +f.from.value || 1), n = blankPeople(g, a, b, f.filled.checked).length;
     const capped = (+f.perPage.value || 22) > mx;
     const left = Math.max(0, n - from + 1);
     $('#blank-info').textContent = `В группе ${n} чел. С № ${from} печатается ${left} ${plural(left, 'человек', 'человека', 'человек')}: ${Math.max(1, Math.ceil(left / pp))} ${plural(Math.max(1, Math.ceil(left / pp)), 'лист', 'листа', 'листов')} по ${pp} ${plural(pp, 'строке', 'строки', 'строк')} высотой ${String(rh).replace('.', ',')} мм.${capped ? ` При такой высоте на лист помещается не больше ${mx} строк.` : ''} На каждом листе — шапка с группой, месяцем и годом.`; };
@@ -7498,11 +7579,12 @@ function printBlank(g, ym, fromNo, perPage, filled, rightPad = 4, layout = 'sub'
   sess.forEach(s => dates.add(s.date));
   const cols = [...dates].sort();
   if (!cols.length) { notice(`У группы «${g}» в ${MONTHS[m - 1]} нет дней занятий: задайте расписание группы в Настройках.`); return; }
-  const people = blankPeople(g, first, last).map((a, i) => ({ a, no: i + 1 })).filter(x => x.no >= fromNo);
-  const rawOf = (a, d) => { if (!filled) return ''; const s = sess.filter(x => x.date === d).find(x => x.marks[a.id]); return s ? s.marks[a.id] : ''; };
+  const people = blankPeople(g, first, last, filled).map((a, i) => ({ a, no: i + 1 })).filter(x => x.no >= fromNo);
+  const markedSession = (a, date) => sess.find(s => s.date === date && s.marks[a.id]);
+  const rawOf = (a, d) => filled ? markedSession(a, d)?.marks[a.id] || '' : '';
   /* 20.10.2026: «д» — не оплачено; «р» — оплачено разово; «3/10» — пакет разовых; «[» — первое занятие абонемента, «]» — последнее (в пустой будущей клетке — по прогнозу) */
   const markOf = (a, d) => { const v = rawOf(a, d); if (!filled) return ''; const P = payMarks(a.id), tg = P.tag.get(d + '|' + g);
-    let t = v === 'б' && isBS(ix, a.id, d) ? 'бс' : v === '+' && debtOn(a.id, d) ? 'д' : v === '+' && tg ? (tg.kind === 'pkg' ? tg.n + '/' + tg.N : 'р') : v === '+' && freeOn(a, d, g) ? '+0' : v;
+    let t = v === 'б' && isBS(ix, a.id, d) ? 'бс' : v === '+' && debtOn(a.id, markedSession(a, d)?.id) ? 'д' : v === '+' && tg ? (tg.kind === 'pkg' ? tg.n + '/' + tg.N : 'р') : v === '+' && freeOn(a, d, g) ? '+0' : v;
     if (tg && tg.kind === 'pkg') return t;
     const fg = P.first.get(d), lg = P.last.get(d), mine = x => x === g || (!x && inGroupOn(a, g, d));
     if (fg !== undefined && mine(fg)) t = '[' + t;
@@ -8247,22 +8329,45 @@ function openPrize() {
 
 /* ---------- обезличенная копия (для проверки расчётов, без ФИО и контактов) ---------- */
 function anonDb() {
-  const d = JSON.parse(JSON.stringify(db));
-  d.athletes.forEach((a, i) => {
-    Object.assign(a, { last: 'Спортсмен', first: String(i + 1), middle: '', phone: '', motherName: '', motherPhone: '', fatherName: '', fatherPhone: '', note: '', teamName: a.teamName ? 'другая команда' : '', medUntil: '' });
-    if (a.birth) a.birth = a.birth.slice(0, 4) + '-07-01';
-    if (a.refund) { a.refund.how = ''; delete a.refund.howNote; }
-  });
-  d.subs.forEach(p => { p.note = ''; }); d.freezes.forEach(f => { f.note = ''; }); (d.ops || []).forEach(o => { o.note = ''; }); ((d.settings.fin || {}).coaches || []).forEach((c, i) => { c.name = 'Тренер ' + (i + 1); });
-  d.tests.forEach(t => { t.note = ''; });
-  d.log = []; d.destroyLog = []; d.attnDone = {}; d.attnSeen = {}; d.planLog = {};   // №3: в плане на день — имена и тексты пунктов
-  d.settings.operatorName = ''; d.settings.operatorAddress = '';
-  (d.leads || []).forEach(L => { for (const k of ['name', 'contactName', 'phone', 'note', 'lostReason']) delete L[k]; });
-  { const pers = new Set((d.cals || []).filter(c => c.personal).map(c => c.id)), blank = (o, tk) => o && !o.del ? { ...o, title: tk ? 'Задача' : 'Событие', place: '', note: '' } : o;   // 09.11.2026: личные календари — не передаются; в клубных — без названий и заметок
-    d.cals = (d.cals || []).filter(c => !pers.has(c.id)).map((c, i) => ({ ...c, name: 'Календарь ' + (i + 1) }));
-    d.notes = (d.notes || []).filter(n => !pers.has(n.cal)).map(n => ({ ...n, title: 'Заметка', text: '', items: [] }));   // 15.11.2026: заметки — без текста и пунктов, личные — не попадают
-    d.events = (d.events || []).filter(e => !pers.has(e.cal)).map(e => ({ ...e, title: e.task ? 'Задача' : 'Событие', place: '', note: '', ex: Object.fromEntries(Object.entries(e.ex || {}).map(([k, o]) => [k, blank(o, e.task)])) })); }
-  d.anon = true;
+  // Диагностический файл содержит только поля для расчёта посещений, абонементов и сумм.
+  const pick = (record, fields) => Object.fromEntries(fields.split(' ').filter(k => record?.[k] != null).map(k => [k, record[k]]));
+  const rows = (list, fields) => (list || []).map(x => pick(x, fields));
+  const groups = new Map();
+  const group = name => {
+    if (!name) return '';
+    if (!groups.has(name)) groups.set(name, 'Группа ' + (groups.size + 1));
+    return groups.get(name);
+  };
+  const refund = r => ({ ...pick(r, 'date sum calcSum due paidAt checkAt acc'), lines: rows(r.lines, 'sub pay amount count price remaining sum notActive pkg') });
+  const S = db.settings;
+  const d = { ...pick(db, 'app version rev updatedAt'), anon: true, settings: pick(S, 'sickCheckFrom programStart defaultCount bySchedInit statsFrom') };
+  d.settings.groups = S.groups.map(g => ({ ...pick(g, 'days bySchedule guest'), name: group(g.name),
+    schedHistory: rows(g.schedHistory, 'from days') }));
+  d.settings.holidays = (S.holidays || []).map(x => ({ date: x.date, reason: 'Нерабочий день' }));
+  d.settings.trips = rows(S.trips, 'from to announced ext');
+  d.settings.prices = pick(S.prices, 'single sub subKid count kidUnder from');
+  d.settings.trialFree = pick(S.trialFree, 'on from');
+  d.athletes = db.athletes.map((a, i) => ({
+    ...pick(a, 'id sex status addedAt endedAt closedAt noSub guest payPerVisit payPerVisitFrom pauseFrom cand candFrom candTo candPay'),
+    last: 'Спортсмен', first: String(i + 1), birth: a.birth ? a.birth.slice(0, 4) + '-07-01' : '',
+    group: group(a.group), group2: group(a.group2),
+    transfers: (a.transfers || []).map(t => ({ date: t.date, from: group(t.from), to: group(t.to) })),
+    pauses: rows(a.pauses, 'from to'), leaves: rows(a.leaves, 'date back refund'),
+    ...(a.refund ? { refund: refund(a.refund) } : {}), refundsPast: (a.refundsPast || []).map(refund)
+  }));
+  d.sessions = db.sessions.map(s => ({ ...pick(s, 'id date marks trial'), group: group(s.group) }));
+  d.subs = db.subs.map(p => ({ ...pick(p, 'id athleteId payDate start waitFrom count amount pending pkg bonus bonusFrom carryWas carryMissed refundPrice acc check payer'),
+    onlyGroup: group(p.onlyGroup), ...(p.absence ? { absence: pick(p.absence, 'from to') } : {}) }));
+  d.freezes = rows(db.freezes, 'id athleteId subId from to returned certDate noCert');
+  d.ops = (db.ops || []).map(o => ({ ...pick(o, 'id aid kind cat amount date acc check coach period to anon refund refundAt refundAcc payer'), group: group(o.group) }));
+  const F = S.fin || {};
+  const fin = d.settings.fin = pick(F, 'start defAcc checks orgs rate rateOrg deduct limit coachInit perMig aheadMig');
+  fin.before = pick(F.before, 'year amount');
+  fin.accounts = (F.accounts || []).map((x, i) => ({ ...pick(x, 'id cash'), name: 'Счёт ' + (i + 1) }));
+  fin.open = Object.fromEntries(fin.accounts.map(x => [x.id, Number(F.open?.[x.id]) || 0]));
+  for (const k of ['inCats', 'outCats']) fin[k] = (F[k] || []).map((x, i) => ({ ...pick(x, 'id tax sys nonop'), name: 'Статья ' + (i + 1) }));
+  fin.coaches = (F.coaches || []).map((x, i) => ({ ...pick(x, 'id fixed perSession pct from to'), groups: (x.groups || []).map(group), name: 'Тренер ' + (i + 1) }));
+  fin.recur = rows(F.recur, 'id cat amount day acc from to ahead');
   return d;
 }
 
@@ -8569,6 +8674,7 @@ const ACT = {
   'tourn-del': async el => { const T = (db.tourneys || []).find(x => x.id === el.dataset.id); if (!T) return;
     const n = Object.keys(T.res || {}).length; if (!await ask(`Удалить турнир «${T.name}»${n ? ' и отметки участия (' + n + ')' : ''}? Участие перестанет учитываться в допуске к аттестации.`)) return;
     db.tourneys = db.tourneys.filter(x => x !== T); closeModal(); render.keepScroll = true; persist('Турнир удалён'); },
+  'save-retry': () => persist('Изменения сохранены'),
   'export-anon': () => download(`D23_обезличенная_копия_${ix.today}.json`, JSON.stringify(anonDb(), null, 1), 'application/json'),
   'open-session': el => { const s = findOrCreateSession(el.dataset.date, el.dataset.group); location.hash = '#session/' + s.id; },
   'open-session-pick': () => { ui.journal.tab = 'session'; location.hash = '#journal'; },
@@ -8689,7 +8795,7 @@ const ACT = {
   'award-new': el => openAward(null, el.dataset.id), 'award-edit': el => openAward(el.dataset.id),
   'award-del': async el => { if (!await ask('Удалить запись о присвоении?')) return; db.awards = db.awards.filter(w => w.id !== el.dataset.id); closeModal(); persist('Удалено'); },
   'msg': el => openMsg(el.dataset.id, el.dataset.tpl, el.dataset.extra ? JSON.parse(el.dataset.extra) : {}, el.dataset.sub || null, el.dataset.key || ''),
-  'msg-share': () => { if (!readyMessage($('#msg-text').value)) return; extMark(); navigator.share({ text: $('#msg-text').value }).then(msgSent).catch(() => {}); },
+  'msg-share': () => { if (!readyMessage($('#msg-text').value)) return; extMark(); navigator.share({ text: $('#msg-text').value }).catch(() => {}); },
   'msg-confirm': () => {
     if (!readyMessage($('#msg-text').value)) return;
     msgSent(); closeModal(); toast('Отправка подтверждена');
@@ -8745,10 +8851,12 @@ const ACT = {
     saveRows('D23_посещения_' + ix.today, rows, el, 'Посещения'); },
   'snap-restore': async el => { const snaps = JSON.parse(bigGet(LS_SNAP) || '[]'); const s = snaps[+el.dataset.i];
     if (!s || !await ask('Вернуть версию от ' + new Date(s.at).toLocaleString('ru') + '? Текущие данные сохранятся как прежняя версия.')) return;
-    snapText(s).then(t => normalize(JSON.parse(t))).then(nd => { snapshot('перед возвратом версии'); keepBroken(); db = nd; persist('Версия восстановлена'); },
+    snapText(s).then(t => JSON.parse(t)).then(data => {
+      const bad = validateDb(data); if (bad) { notice('Эта версия повреждена (' + bad + '). Выберите другую копию.'); return; }
+      const nd = normalize(data); snapshot('перед возвратом версии'); keepBroken(); db = nd; persist('Версия восстановлена'); },
       () => notice('Эта версия тоже не читается — выберите другую или загрузите копию из файла.')); },
   'wipe': async () => { if (!await ask('Удалить все данные из этого браузера? Сначала сохраните копию в файл.')) return; if (!await ask('Это удалит все данные программы из этого браузера. Отменить будет нельзя.', { type: 'УДАЛИТЬ', ok: 'Удалить всё', danger: true })) return;
-    bigDel(LS_DB); bigDel(LS_SNAP); localStorage.removeItem(LS_META); try { const v = 'wipe:' + TAB_ID; localStorage.setItem(LS_REV, v); revMark = v; } catch (e) {} /* №6/№2: другие вкладки узнают об удалении */ pinFails = 0; pinWaitUntil = 0; savePinWait(); db = null; loadError = null; cryptoKey = null; locked = false; stopLockTimer(); meta = { lastExport: null, exportedRev: 0 }; render(); },
+    await writeChain; await bigDel(LS_DB); await bigDel(LS_SNAP); saveStatus(false); localStorage.removeItem(LS_META); try { const v = 'wipe:' + TAB_ID; localStorage.setItem(LS_REV, v); revMark = v; } catch (e) {} /* №6/№2: другие вкладки узнают об удалении */ pinFails = 0; pinWaitUntil = 0; savePinWait(); db = null; loadError = null; cryptoKey = null; locked = false; stopLockTimer(); meta = { lastExport: null, exportedRev: 0 }; render(); },
   'pin-lock': () => lock(),
   'pin-on': async () => {
     const a = ($('#pin-new') || {}).value || '', b = ($('#pin-new2') || {}).value || '', old = ($('#pin-old') || {}).value || '';
